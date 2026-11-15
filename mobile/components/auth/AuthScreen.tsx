@@ -5,15 +5,16 @@ import { useState, type ReactNode } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type TextInputProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { backyrdTheme as theme } from "../../theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme } from "../../theme/backyrd";
 import { AppText, ProductTextInput } from "../foundation/AppText";
 
 export function AuthScreen({ eyebrow, title, description, children, backTo = "/gate" }: { eyebrow: string; title: string; description: string; children: ReactNode; backTo?: "/gate" | "/auth/login" }) {
+  const { color } = useBackyrdTheme();
   const router = useRouter();
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.root}>
-      <LinearGradient colors={["#050505", "#050505", "#160B12"]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[color.background, color.background, color.surface]} style={StyleSheet.absoluteFill} />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <Pressable accessibilityLabel="Zurück" accessibilityRole="button" hitSlop={8} onPress={() => router.replace(backTo as never)} style={({ pressed }) => [styles.back, pressed && styles.pressed]}>
@@ -46,7 +47,7 @@ export function AuthField({ label, secureTextEntry, style, ...props }: TextInput
 export function AuthSubmit({ label, loading, disabled, onPress }: { label: string; loading: boolean; disabled: boolean; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" accessibilityState={{ busy: loading, disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.submit, disabled && styles.disabled, pressed && !disabled && styles.pressed]}>
-      {loading ? <ActivityIndicator color={theme.color.background} /> : <AppText role="bodyStrong" style={styles.submitText}>{label}</AppText>}
+      {loading ? <ActivityIndicator color={theme.color.onAccent} /> : <AppText role="bodyStrong" style={styles.submitText}>{label}</AppText>}
     </Pressable>
   );
 }
@@ -97,7 +98,7 @@ const styles = StyleSheet.create({
   fieldLabel: { marginBottom: 8 },
   input: { minHeight: 54, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.color.border, backgroundColor: theme.color.surfaceElevated, color: theme.color.textPrimary, fontSize: 16, paddingHorizontal: 16, paddingVertical: 14 },
   submit: { minHeight: 56, borderRadius: theme.radius.pill, backgroundColor: theme.color.pink, alignItems: "center", justifyContent: "center", marginTop: 12 },
-  submitText: { color: theme.color.background },
+  submitText: { color: theme.color.onAccent },
   dividerRow: { flexDirection: "row", alignItems: "center", gap: 16, marginVertical: 26 },
   divider: { flex: 1, height: 1, backgroundColor: theme.color.border },
   providerButton: { minHeight: 54, borderRadius: theme.radius.pill, flexDirection: "row", gap: 11, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },

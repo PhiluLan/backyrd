@@ -8,11 +8,12 @@ import type { EventDiscoveryDTO } from "../../../packages/shared/src/dto/event";
 import { groupSeasonalEvents } from "../../../packages/shared/src/seasonal-events";
 import { loadEvents } from "../../lib/events-v1";
 import { HOME_RAIL, homeRailCardWidth } from "../../lib/home-rail";
-import { backyrdTheme as theme } from "../../theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme } from "../../theme/backyrd";
 import { EventCard } from "./EventCard";
 import { HomeDisplayHeading } from "../HomeDisplayHeading";
 
 export function HomeEventsSection() {
+  const { color } = useBackyrdTheme();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const [events, setEvents] = useState<EventDiscoveryDTO[]>([]);
@@ -50,26 +51,26 @@ export function HomeEventsSection() {
       <View style={styles.heading}>
         <HomeDisplayHeading title="Was läuft" accent="," />
         <Pressable accessibilityRole="button" onPress={() => router.push("/events" as never)} hitSlop={10} style={styles.allEventsAction}>
-          <Text style={styles.allEventsText}>Alle ansehen</Text>
+          <Text style={[styles.allEventsText, { color: color.pink }]}>Alle ansehen</Text>
         </Pressable>
       </View>
       {state === "loading" ? (
-        <View accessibilityLabel="Events werden geladen" style={styles.state}>
-          <ActivityIndicator color={theme.color.pink} />
-          <Text style={styles.stateText}>Events werden geladen …</Text>
+        <View accessibilityLabel="Events werden geladen" style={[styles.state, { borderColor: color.border, backgroundColor: color.surface }]}>
+          <ActivityIndicator color={color.pink} />
+          <Text style={[styles.stateText, { color: color.textSecondary }]}>Events werden geladen …</Text>
         </View>
       ) : state === "error" ? (
-        <Pressable accessibilityRole="button" onPress={() => void load()} style={styles.state}>
-          <Ionicons color={theme.color.textSecondary} name="cloud-offline-outline" size={24} />
+        <Pressable accessibilityRole="button" onPress={() => void load()} style={[styles.state, { borderColor: color.border, backgroundColor: color.surface }]}>
+          <Ionicons color={color.textSecondary} name="cloud-offline-outline" size={24} />
           <View style={styles.stateCopy}>
-            <Text style={styles.stateTitle}>Events gerade nicht erreichbar</Text>
-            <Text style={styles.stateText}>Tippe, um es nochmals zu versuchen.</Text>
+            <Text style={[styles.stateTitle, { color: color.textPrimary }]}>Events gerade nicht erreichbar</Text>
+            <Text style={[styles.stateText, { color: color.textSecondary }]}>Tippe, um es nochmals zu versuchen.</Text>
           </View>
         </Pressable>
       ) : events.length === 0 ? (
-        <View style={styles.state}>
-          <Ionicons color={theme.color.textSecondary} name="calendar-outline" size={24} />
-          <Text style={styles.stateText}>Aktuell sind noch keine Events bestätigt.</Text>
+        <View style={[styles.state, { borderColor: color.border, backgroundColor: color.surface }]}>
+          <Ionicons color={color.textSecondary} name="calendar-outline" size={24} />
+          <Text style={[styles.stateText, { color: color.textSecondary }]}>Aktuell sind noch keine Events bestätigt.</Text>
         </View>
       ) : events.length === 1 ? (
         <EventCard event={events[0]} style={styles.singleCard} />

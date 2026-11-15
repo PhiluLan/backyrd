@@ -4,7 +4,7 @@ import { seasonalPlaceRows } from "../../../packages/shared/src/seasonal-events"
 // backyrd/mobile/app/map.tsx
 
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
-import { View, Alert, RefreshControl, Platform, Pressable, ScrollView, StyleSheet, FlatList, Modal, useWindowDimensions, type ViewToken } from "react-native";
+import { View, Alert, RefreshControl, Platform, Pressable, ScrollView, StyleSheet, FlatList, Modal, useColorScheme, useWindowDimensions, type ViewToken } from "react-native";
 import { AppText, HomeTypographyProvider, ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import { HomeDisplayHeading } from "../../components/HomeDisplayHeading";
 
@@ -30,7 +30,7 @@ import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { Button, IconButton } from "../../components/foundation/Button";
 import { Chip } from "../../components/foundation/Chip";
 import { StateView } from "../../components/foundation/StateView";
-import { backyrdTheme as theme } from "../../theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme } from "../../theme/backyrd";
 import { groupMapSpotsByCoordinate, mapDistanceMeters, paddedMapPinRegion, retainMapPinRegion, selectMapDiscoverySpots, selectRetainedMapDiscoverySpots, shouldRefreshMapPinRegion, type MapCoordinates } from "../../lib/mapDiscoveryPolicy";
 import { spotMatchesSearch } from "../../lib/spot-search";
 
@@ -108,6 +108,8 @@ type Spot = {
 };
 
 export default function MapScreen() {
+  const { color } = useBackyrdTheme();
+  const isLight = useColorScheme() === "light";
   const { fontScale } = useWindowDimensions();
   const { spots: globalSpots, refresh, loading, error: spotsError } = useSpotsStore();
   const { user } = useAuth();
@@ -633,17 +635,17 @@ export default function MapScreen() {
               style={({ pressed }) => [styles.headerButton, activeFilters.length > 0 && styles.headerButtonActive, pressed && styles.pressed]}
               onPress={() => setFiltersOpen(true)}
             >
-              <Ionicons name="options-outline" size={20} color={activeFilters.length ? theme.color.background : theme.color.textPrimary} />
+              <Ionicons name="options-outline" size={20} color={activeFilters.length ? color.onAccent : color.textPrimary} />
             </Pressable>
 
             <View accessibilityRole="tablist" style={styles.perspectiveSwitch}>
               <Pressable accessibilityRole="tab" accessibilityState={{ selected: viewMode === "list" }} accessibilityLabel="Listenansicht" style={({ pressed }) => [styles.perspectiveOption, viewMode === "list" && styles.perspectiveOptionActive, pressed && styles.pressed]} onPress={() => changeViewMode("list")}>
-                <Ionicons name="list-outline" size={18} color={viewMode === "list" ? theme.color.background : theme.color.textPrimary} />
-                <AppText role="caption" style={{ color: viewMode === "list" ? theme.color.background : theme.color.textPrimary }}>Liste</AppText>
+                <Ionicons name="list-outline" size={18} color={viewMode === "list" ? color.onAccent : color.textPrimary} />
+                <AppText role="caption" style={{ color: viewMode === "list" ? color.onAccent : color.textPrimary }}>Liste</AppText>
               </Pressable>
               <Pressable accessibilityRole="tab" accessibilityState={{ selected: viewMode === "map" }} accessibilityLabel="Kartenansicht" style={({ pressed }) => [styles.perspectiveOption, viewMode === "map" && styles.perspectiveOptionActive, pressed && styles.pressed]} onPress={() => changeViewMode("map")}>
-                <Ionicons name="map-outline" size={18} color={viewMode === "map" ? theme.color.background : theme.color.textPrimary} />
-                <AppText role="caption" style={{ color: viewMode === "map" ? theme.color.background : theme.color.textPrimary }}>Karte</AppText>
+                <Ionicons name="map-outline" size={18} color={viewMode === "map" ? color.onAccent : color.textPrimary} />
+                <AppText role="caption" style={{ color: viewMode === "map" ? color.onAccent : color.textPrimary }}>Karte</AppText>
               </Pressable>
             </View>
           </View>
@@ -726,12 +728,12 @@ export default function MapScreen() {
           ref={mapRef}
           provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
           mapType={Platform.OS === "ios" ? "mutedStandard" : "standard"}
-          userInterfaceStyle="dark"
+          userInterfaceStyle={isLight ? "light" : "dark"}
           style={{ flex: 1 }}
           initialRegion={region}
           showsUserLocation={locationConsentGranted}
           showsPointsOfInterest={false}
-          customMapStyle={DARK_MAP_STYLE}
+          customMapStyle={isLight ? LIGHT_MAP_STYLE : DARK_MAP_STYLE}
           onPress={() => { setSelectedSpot(null); setSelectedGroupKey(null); }}
           onRegionChange={handleRegionChange}
           onRegionChangeComplete={handleRegionChangeComplete}
@@ -883,10 +885,10 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8, transform: [{ scale: theme.motion.pressScale }] },
   activeFilters: { gap: theme.spacing.xs, paddingTop: theme.spacing.sm, paddingRight: theme.spacing.xs },
   mapStage: { flex: 1 },
-  locationLoading: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl, backgroundColor: "rgba(15,15,17,0.94)", borderRadius: theme.radius.lg },
+  locationLoading: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl, backgroundColor: theme.color.surface, borderRadius: theme.radius.lg },
   emptyOverlay: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl },
   railWrap: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, bottom: theme.control.tabBar + theme.spacing.sm, zIndex: 2, alignItems: "center" },
-  groupCard: { width: "100%", maxWidth: 350, backgroundColor: "rgba(15,15,17,0.98)", borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.pink, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 },
+  groupCard: { width: "100%", maxWidth: 350, backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.pink, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 },
   groupTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 17, marginBottom: theme.spacing.xs },
   groupSpotList: { maxHeight: 250 },
   groupSpotRow: { flexDirection: "row", alignItems: "center", minHeight: 58, gap: theme.spacing.sm, borderTopWidth: 1, borderTopColor: theme.color.border },
@@ -894,19 +896,19 @@ const styles = StyleSheet.create({
   groupSpotCopy: { flex: 1 },
   groupSpotName: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 15 },
   groupSpotCategory: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 12 },
-  railCard: { width: "100%", maxWidth: 350, minHeight: 225, backgroundColor: "rgba(15,15,17,0.98)", borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.borderStrong, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 },
+  railCard: { width: "100%", maxWidth: 350, minHeight: 225, backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.borderStrong, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 },
   railCardSelected: { borderColor: theme.color.pink },
   railMedia: { position: "relative", height: 132 },
   railImage: { width: "100%", height: 132 },
   railImageShade: { position: "absolute", left: 0, right: 0, bottom: 0, minHeight: 100, justifyContent: "flex-end", paddingHorizontal: theme.spacing.md, paddingBottom: theme.spacing.xs },
-  railCardTitle: { color: theme.color.textPrimary, fontSize: 29, lineHeight: 31, letterSpacing: -1.5 },
+  railCardTitle: { color: "#FFFFFF", fontSize: 29, lineHeight: 31, letterSpacing: -1.5 },
   railCardBody: { minHeight: 91, paddingHorizontal: theme.spacing.md, paddingTop: theme.spacing.xs, paddingBottom: theme.spacing.sm, gap: 3 },
   railMetaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.sm },
   railCategory: { flexShrink: 1, color: theme.color.pink, fontFamily: theme.type.bodyBold, fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase" },
   railDistance: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 12 },
   railAddress: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19 },
   railMoods: { color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 13, lineHeight: 18 },
-  areaEmpty: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl, backgroundColor: "rgba(15,15,17,0.94)", borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, padding: theme.spacing.md, gap: theme.spacing.xs },
+  areaEmpty: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl, backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, padding: theme.spacing.md, gap: theme.spacing.xs },
   areaEmptyTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 17 },
   areaEmptyBody: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14 },
   marker: { width: 44, height: 44, alignItems: "center", justifyContent: "flex-end", paddingBottom: 2, shadowColor: "#000", shadowOpacity: 0.8, shadowRadius: 4, elevation: 5 },
@@ -926,7 +928,7 @@ const styles = StyleSheet.create({
   listCardMoods: { flexDirection: "row", flexWrap: "wrap", columnGap: theme.spacing.sm, rowGap: 1, marginTop: theme.spacing.xxs },
   listCardMood: { fontSize: 18, lineHeight: 23, letterSpacing: -0.65 },
   listCardContext: { color: theme.color.pink, fontFamily: theme.type.bodyBold, fontSize: 12, lineHeight: 16, textTransform: "uppercase", letterSpacing: 0.4, marginTop: theme.spacing.sm },
-  recenterBtn: { position: "absolute", bottom: theme.control.tabBar + theme.spacing.md, right: theme.spacing.xl, width: theme.control.standard, height: theme.control.standard, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(5,5,6,0.9)", borderWidth: 1, borderColor: theme.color.borderStrong, borderRadius: theme.radius.pill },
+  recenterBtn: { position: "absolute", bottom: theme.control.tabBar + theme.spacing.md, right: theme.spacing.xl, width: theme.control.standard, height: theme.control.standard, alignItems: "center", justifyContent: "center", backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.borderStrong, borderRadius: theme.radius.pill },
   recenterAboveRail: { bottom: theme.control.tabBar + 310 },
   recenterAboveGroup: { bottom: theme.control.tabBar + 250 },
   sheetHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 3, backgroundColor: "rgba(247,243,233,0.3)", marginTop: theme.spacing.sm, marginBottom: theme.spacing.sm },
@@ -948,4 +950,14 @@ const DARK_MAP_STYLE = [
   { featureType: "poi", stylers: [{ visibility: "off" }] },
   { featureType: "road", elementType: "geometry", stylers: [{ color: "#2C2C2E" }] },
   { featureType: "water", elementType: "geometry", stylers: [{ color: "#000" }] },
+];
+
+const LIGHT_MAP_STYLE = [
+  { elementType: "geometry", stylers: [{ color: "#EDEBE8" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#69686B" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#F7F7F5" }] },
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#FFFFFF" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#C8DBE3" }] },
 ];

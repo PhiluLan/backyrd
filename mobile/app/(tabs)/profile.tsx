@@ -13,6 +13,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  useColorScheme,
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -33,7 +34,7 @@ import { selectSpotImageUrl } from "@/lib/spot-images";
 import Avatar from "@/components/Avatar";
 import { StateView } from "@/components/foundation/StateView";
 import { ProductText as Text, ProductTextInput as TextInput } from "@/components/foundation/AppText";
-import { backyrdTheme as theme } from "@/theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme } from "@/theme/backyrd";
 import type { User } from "@supabase/supabase-js";
 import { isMissingAuthSession } from "../../../packages/shared/src/auth-errors";
 import { isAccountUsername, profilePhotoObjectKey } from "../../../packages/shared/src/account-entry";
@@ -226,6 +227,8 @@ function getSpotPhoto(item: FavoriteRow) {
 
 
 export default function ProfileScreen() {
+  const { color } = useBackyrdTheme();
+  const isLight = useColorScheme() === "light";
   const router = useRouter();
 
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -603,7 +606,7 @@ export default function ProfileScreen() {
       <Animated.View style={[styles.headerBackdrop, { height: headerHeight }]} pointerEvents="none">
         {headerImage ? <Image source={{ uri: headerImage }} style={styles.headerImage} blurRadius={12} /> : null}
         <LinearGradient
-          colors={headerImage ? ["rgba(5,5,5,0.22)", "rgba(5,5,5,0.72)", theme.color.background] : ["#18131A", "#0D0B0E", theme.color.background]}
+          colors={isLight ? ["rgba(247,247,245,0.74)", "rgba(247,247,245,0.95)", color.background] : headerImage ? ["rgba(5,5,5,0.22)", "rgba(5,5,5,0.72)", color.background] : ["#18131A", "#0D0B0E", color.background]}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
@@ -624,7 +627,7 @@ export default function ProfileScreen() {
             style={styles.circleButton}
             onPress={() => router.push("/settings")}
           >
-            <Ionicons accessibilityElementsHidden name="settings-outline" size={22} color="#FFFFFF" />
+            <Ionicons accessibilityElementsHidden name="settings-outline" size={22} color={color.textPrimary} />
           </Pressable>
         </View>
 
@@ -658,21 +661,21 @@ export default function ProfileScreen() {
           <View style={styles.profileChips}>
             {sinceLabel && (
               <View style={styles.softChip}>
-                <Ionicons accessibilityElementsHidden name="location-outline" size={15} color="#DADAE0" />
+                <Ionicons accessibilityElementsHidden name="location-outline" size={15} color={color.textSecondary} />
                 <Text style={styles.softChipText}>{sinceLabel}</Text>
               </View>
             )}
 
             {profile?.instagram && (
               <View style={styles.softChip}>
-                <Ionicons accessibilityElementsHidden name="logo-instagram" size={15} color="#DADAE0" />
+                <Ionicons accessibilityElementsHidden name="logo-instagram" size={15} color={color.textSecondary} />
                 <Text style={styles.softChipText}>@{profile.instagram}</Text>
               </View>
             )}
 
             {profile?.website && (
               <View style={styles.softChip}>
-                <Ionicons accessibilityElementsHidden name="globe-outline" size={15} color="#DADAE0" />
+                <Ionicons accessibilityElementsHidden name="globe-outline" size={15} color={color.textSecondary} />
                 <Text style={styles.softChipText}>{profile.website}</Text>
               </View>
             )}
@@ -1002,7 +1005,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   mutedText: {
-    color: "#8F8F98",
+    color: theme.color.textSecondary,
     fontSize: 15,
     fontWeight: "600",
   },
@@ -1039,7 +1042,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(5,5,5,0.58)",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
     borderColor: theme.color.border,
     alignItems: "center",
@@ -1070,7 +1073,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: 45,
-    backgroundColor: "#181820",
+    backgroundColor: theme.color.surfaceElevated,
   },
   identityBlock: {
     flex: 1,
@@ -1155,7 +1158,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: "rgba(255,79,145,0.48)",
-    backgroundColor: "rgba(5,5,5,0.28)",
+    backgroundColor: theme.color.surface,
     paddingHorizontal: 18,
     alignItems: "center",
     justifyContent: "center",
@@ -1172,9 +1175,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     minHeight: 64,
     borderRadius: 26,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "#1B1B20",
+    borderColor: theme.color.border,
     paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
@@ -1186,7 +1189,7 @@ const styles = StyleSheet.create({
     gap: 13,
   },
   historyText: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
     fontSize: 19,
     fontWeight: "800",
   },
@@ -1205,9 +1208,9 @@ const styles = StyleSheet.create({
   safetyCenterButton: {
     minHeight: 82,
     borderRadius: 26,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "#1B1B20",
+    borderColor: theme.color.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: "row",
@@ -1233,14 +1236,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   safetyCenterTitle: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
     fontSize: 17,
     lineHeight: 22,
     fontWeight: "800",
   },
   safetyCenterSubtitle: {
     marginTop: 4,
-    color: "#8F8F98",
+    color: theme.color.textSecondary,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: "600",
@@ -1315,7 +1318,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     position: "absolute",
-    backgroundColor: "#181820",
+    backgroundColor: theme.color.surfaceElevated,
   },
   favoriteContent: {
     position: "absolute",
@@ -1324,7 +1327,7 @@ const styles = StyleSheet.create({
     bottom: 18,
   },
   favoriteTitle: {
-    color: theme.color.textPrimary,
+    color: "#FFFFFF",
     fontFamily: theme.type.display,
     fontSize: 24,
     fontWeight: "900",
@@ -1332,7 +1335,7 @@ const styles = StyleSheet.create({
   },
   favoriteMeta: {
     marginTop: 4,
-    color: theme.color.textSecondary,
+    color: "#E7E7E9",
     fontFamily: theme.type.bodyMedium,
     fontSize: 15,
     fontWeight: "700",
@@ -1429,9 +1432,9 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: "#191920",
+    backgroundColor: theme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.22)",
+    borderColor: theme.color.borderStrong,
   },
   editAvatarIcon: {
     position: "absolute",
@@ -1440,9 +1443,9 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#202028",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
+    borderColor: theme.color.border,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1487,7 +1490,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   saveButtonText: {
-    color: theme.color.background,
+    color: theme.color.onAccent,
     fontFamily: theme.type.bodyBold,
     fontSize: 17,
     fontWeight: "900",

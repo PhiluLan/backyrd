@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../../theme/backyrd";
 import { withRequestDeadline } from "../../lib/requestDeadline";
 import { openExternalUrl } from "../../lib/links";
 import { Ionicons } from "@expo/vector-icons";
@@ -169,7 +170,7 @@ export default function EventDetailScreen() {
             </View>
             <View style={styles.divider} />
             <View style={styles.factRow}>
-              <Ionicons name="location-outline" size={21} color="#BBC7A0" />
+              <Ionicons name="location-outline" size={21} color={backyrdTheme.color.openGreen} />
               <View style={styles.factCopy}><Text style={styles.factLabel}>Wo</Text><Text style={styles.factValue}>{event.venue_name || "Ort noch nicht bestätigt"}</Text>{address ? <Text style={styles.factSecondary}>{address}</Text> : null}</View>
             </View>
             {event.is_free === true || event.price_min !== null ? <><View style={styles.divider} /><View style={styles.factRow}><Ionicons name="ticket-outline" size={21} color="#FF4F91" /><View style={styles.factCopy}><Text style={styles.factLabel}>Eintritt</Text><Text style={styles.factValue}>{event.is_free === true ? "Kostenlos" : `ab ${event.price_currency} ${event.price_min?.toFixed(2)}`}</Text></View></View></> : null}
@@ -195,11 +196,11 @@ export default function EventDetailScreen() {
             <View style={styles.unmatchedNote}><Ionicons name="information-circle-outline" size={18} color="#8E8D8A" /><Text style={styles.unmatchedText}>Dieser Veranstaltungsort ist noch keinem Backyrd-Ort zugeordnet.</Text></View>
           )}
 
-          {routeDestination ? <Pressable accessibilityRole="button" accessibilityLabel="Route zum Event" onPress={() => void openExternalUrl(routeUrl, "Die Karten-App konnte nicht geöffnet werden.")} style={styles.routeButton}><Ionicons name="navigate-outline" size={18} color="#F4EFE4" /><Text style={styles.routeButtonText}>Route</Text></Pressable> : null}
+          {routeDestination ? <Pressable accessibilityRole="button" accessibilityLabel="Route zum Event" onPress={() => void openExternalUrl(routeUrl, "Die Karten-App konnte nicht geöffnet werden.")} style={styles.routeButton}><Ionicons name="navigate-outline" size={18} color={backyrdTheme.color.textPrimary} /><Text style={styles.routeButtonText}>Route</Text></Pressable> : null}
           {sourceUrl ? (
             <Pressable accessibilityRole="link" accessibilityLabel={cancelled ? "Infos zur Absage" : ticketUrl ? "Tickets ansehen" : "Mehr erfahren"} onPress={() => void openExternalUrl(sourceUrl)} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>{cancelled ? "Infos zur Absage" : ticketUrl ? "Tickets ansehen" : "Mehr erfahren"}</Text>
-              <Ionicons name="open-outline" size={18} color="#171719" />
+              <Ionicons name="open-outline" size={18} color={backyrdTheme.color.onAccent} />
             </Pressable>
           ) : null}
           <Text style={styles.sourceNote}>{eventSourceDisclaimer(event.source)}</Text>
@@ -251,59 +252,59 @@ export default function EventDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#080808" },
+  screen: { flex: 1, backgroundColor: backyrdTheme.color.background },
   content: { paddingBottom: 46 },
-  center: { flex: 1, backgroundColor: "#080808", alignItems: "center", justifyContent: "center", padding: 28, gap: 12 },
-  stateTitle: { color: "#F4EFE4", fontSize: 23, fontWeight: "900" },
-  stateText: { color: "#A9A5A0", fontSize: 14, lineHeight: 21, textAlign: "center" },
-  backLink: { color: "#FF9ABA", fontSize: 14, fontWeight: "800", marginTop: 5 },
+  center: { flex: 1, backgroundColor: backyrdTheme.color.background, alignItems: "center", justifyContent: "center", padding: 28, gap: 12 },
+  stateTitle: { color: backyrdTheme.color.textPrimary, fontSize: 23, fontWeight: "900" },
+  stateText: { color: backyrdTheme.color.textSecondary, fontSize: 14, lineHeight: 21, textAlign: "center" },
+  backLink: { color: backyrdTheme.color.pink, fontSize: 14, fontWeight: "800", marginTop: 5 },
   hero: { height: 332, overflow: "hidden", justifyContent: "center", alignItems: "center" },
   heroSafe: { flexDirection: "row", justifyContent: "space-between", position: "absolute", top: 0, left: 20, right: 20, alignItems: "flex-start", zIndex: 3 },
   iconButton: { width: 44, height: 44, marginTop: 10, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(8,8,8,0.48)", borderWidth: 1, borderColor: "rgba(255,255,255,0.10)" },
   heroGlow: { position: "absolute", width: 260, height: 260, top: -120, right: -80, borderRadius: 130, backgroundColor: "rgba(255,125,167,0.16)" },
-  calendarGlyph: { width: 142, height: 142, borderRadius: 42, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.055)", borderWidth: 1, borderColor: "rgba(255,255,255,0.11)" },
+  calendarGlyph: { width: 142, height: 142, borderRadius: 42, alignItems: "center", justifyContent: "center", backgroundColor: backyrdTheme.color.surfaceElevated, borderWidth: 1, borderColor: "rgba(255,255,255,0.11)" },
   day: { color: "#F4EFE4", fontSize: 55, lineHeight: 59, fontWeight: "900" },
-  month: { color: "#FF9ABA", fontSize: 15, fontWeight: "800", textTransform: "uppercase" },
+  month: { color: backyrdTheme.color.pink, fontSize: 15, fontWeight: "800", textTransform: "uppercase" },
   imagePolicy: { position: "absolute", bottom: 18, color: "rgba(244,239,228,0.42)", fontSize: 10, fontWeight: "700" },
   body: { paddingHorizontal: 20, paddingTop: 25, gap: 22 },
   kickerRow: { flexDirection: "row", alignItems: "center", gap: 9 },
-  kicker: { color: "#FF9ABA", fontSize: 11, fontWeight: "900", letterSpacing: 1.8 },
+  kicker: { color: backyrdTheme.color.pink, fontSize: 11, fontWeight: "900", letterSpacing: 1.8 },
   badges:{flexDirection:"row",flexWrap:"wrap",gap:7},category:{color:"#FFAAC4",backgroundColor:"rgba(255,125,167,.1)",paddingHorizontal:9,paddingVertical:6,borderRadius:99,fontSize:10,fontWeight:"900"},
   spotImage:{width:58,height:58,borderRadius:14},
   cancelled: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(248,113,113,0.13)" },
   cancelledText: { color: "#FCA5A5", fontSize: 10, fontWeight: "900" },
   postponed: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(201,177,244,0.13)" },
   postponedText: { color: "#FF4F91", fontSize: 10, fontWeight: "900" },
-  title: { color: "#F4EFE4", fontSize: 36, lineHeight: 41, fontWeight: "700", letterSpacing: -0.7 },
-  factCard: { padding: 18, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.052)", borderWidth: 1, borderColor: "rgba(255,255,255,0.075)" },
+  title: { color: backyrdTheme.color.textPrimary, fontSize: 36, lineHeight: 41, fontWeight: "700", letterSpacing: -0.7 },
+  factCard: { padding: 18, borderRadius: 24, backgroundColor: backyrdTheme.color.surface, borderWidth: 1, borderColor: backyrdTheme.color.border },
   factRow: { flexDirection: "row", gap: 13, alignItems: "flex-start" },
   factCopy: { flex: 1 },
-  factLabel: { color: "#8E8D8A", fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.9 },
-  factValue: { color: "#F4EFE4", fontSize: 16, lineHeight: 22, fontWeight: "800", marginTop: 3 },
-  factSecondary: { color: "#A9A5A0", fontSize: 13, lineHeight: 19, marginTop: 3 },
-  divider: { height: 1, backgroundColor: "rgba(255,255,255,0.07)", marginVertical: 16 },
+  factLabel: { color: backyrdTheme.color.textMuted, fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.9 },
+  factValue: { color: backyrdTheme.color.textPrimary, fontSize: 16, lineHeight: 22, fontWeight: "800", marginTop: 3 },
+  factSecondary: { color: backyrdTheme.color.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 3 },
+  divider: { height: 1, backgroundColor: backyrdTheme.color.border, marginVertical: 16 },
   section: { gap: 9 },
-  sectionTitle: { color: "#F4EFE4", fontSize: 22, lineHeight: 28, fontWeight: "700" },
-  description: { color: "#B8B4B8", fontSize: 15, lineHeight: 23 },
+  sectionTitle: { color: backyrdTheme.color.textPrimary, fontSize: 22, lineHeight: 28, fontWeight: "700" },
+  description: { color: backyrdTheme.color.textSecondary, fontSize: 15, lineHeight: 23 },
   recurrence: { flexDirection: "row", alignItems: "center", gap: 9 },
-  recurrenceText: { color: "#D6D0C7", fontSize: 14, lineHeight: 20, fontWeight: "800" },
+  recurrenceText: { color: backyrdTheme.color.textSecondary, fontSize: 14, lineHeight: 20, fontWeight: "800" },
   properties: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  property: { paddingHorizontal: 11, paddingVertical: 8, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.055)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
-  propertyText: { color: "#D6D0C7", fontSize: 12, fontWeight: "800" },
+  property: { paddingHorizontal: 11, paddingVertical: 8, borderRadius: 999, backgroundColor: backyrdTheme.color.surfaceElevated, borderWidth: 1, borderColor: backyrdTheme.color.border },
+  propertyText: { color: backyrdTheme.color.textSecondary, fontSize: 12, fontWeight: "800" },
   occurrences: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   occurrence: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 999, backgroundColor: "rgba(255,125,167,0.10)", borderWidth: 1, borderColor: "rgba(255,125,167,0.22)" },
-  occurrenceText: { color: "#FFAAC4", fontSize: 13, fontWeight: "900" },
-  allOccurrences: { color: "#FF9ABA", fontSize: 13, fontWeight: "800", paddingVertical: 5 },
-  venueEvent: { padding: 15, borderRadius: 18, flexDirection: "row", gap: 10, alignItems: "center", backgroundColor: "rgba(255,255,255,0.035)" },
+  occurrenceText: { color: backyrdTheme.color.pink, fontSize: 13, fontWeight: "900" },
+  allOccurrences: { color: backyrdTheme.color.pink, fontSize: 13, fontWeight: "800", paddingVertical: 5 },
+  venueEvent: { padding: 15, borderRadius: 18, flexDirection: "row", gap: 10, alignItems: "center", backgroundColor: backyrdTheme.color.surface },
   spotButton: { minHeight: 76, paddingHorizontal: 18, paddingVertical: 15, borderRadius: 22, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(187,199,160,0.09)", borderWidth: 1, borderColor: "rgba(187,199,160,0.18)" },
   venueActions: { gap: 9 },
-  routeButton: { minHeight: 46, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
-  routeButtonText: { color: "#F4EFE4", fontSize: 14, fontWeight: "800" },
-  spotKicker: { color: "#BBC7A0", fontSize: 10, fontWeight: "900", letterSpacing: 1.2 },
-  spotButtonText: { color: "#F4EFE4", fontSize: 17, fontWeight: "900", marginTop: 3 },
-  unmatchedNote: { padding: 15, borderRadius: 18, flexDirection: "row", gap: 10, alignItems: "center", backgroundColor: "rgba(255,255,255,0.035)" },
-  unmatchedText: { color: "#8E8D8A", fontSize: 13, lineHeight: 19, flex: 1 },
-  primaryButton: { minHeight: 56, borderRadius: 18, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, backgroundColor: "#F4EFE4" },
-  primaryButtonText: { color: "#171719", fontSize: 15, fontWeight: "900" },
+  routeButton: { minHeight: 46, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: backyrdTheme.color.border },
+  routeButtonText: { color: backyrdTheme.color.textPrimary, fontSize: 14, fontWeight: "800" },
+  spotKicker: { color: backyrdTheme.color.openGreen, fontSize: 10, fontWeight: "900", letterSpacing: 1.2 },
+  spotButtonText: { color: backyrdTheme.color.textPrimary, fontSize: 17, fontWeight: "900", marginTop: 3 },
+  unmatchedNote: { padding: 15, borderRadius: 18, flexDirection: "row", gap: 10, alignItems: "center", backgroundColor: backyrdTheme.color.surface },
+  unmatchedText: { color: backyrdTheme.color.textMuted, fontSize: 13, lineHeight: 19, flex: 1 },
+  primaryButton: { minHeight: 56, borderRadius: 18, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, backgroundColor: backyrdTheme.color.pink },
+  primaryButtonText: { color: backyrdTheme.color.onAccent, fontSize: 15, fontWeight: "900" },
   sourceNote: { color: "#6F6C70", fontSize: 11, lineHeight: 17, textAlign: "center", paddingHorizontal: 10 },
 });

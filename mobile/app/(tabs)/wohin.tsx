@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { readRecentDecisionSearch, rememberRecentDecisionSearch } from "@/lib/decision/recentDecisionSearch";
 import { clearJourneySelection, rememberJourneySelection, canCarryPlaceRecommendation } from "@/lib/discovery-journey";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Keyboard, Linking, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, FlatList, Keyboard, Linking, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, useColorScheme, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -31,14 +31,24 @@ type SearchConversation = {
   turns: { question: string | null; answer: string }[];
 };
 
-const color = {
-  background: backyrdTheme.color.background,
-  card: "#1D171A",
-  text: backyrdTheme.color.textPrimary,
-  muted: "#B6A5AC",
-  border: "#47323C",
-  pink: backyrdTheme.color.pink,
-  warning: "#FFC878",
+const darkColors = {
+  background: "#050505", card: "#1D171A", text: "#F6F0E8", muted: "#B6A5AC",
+  border: "#47323C", pink: "#FF4F91", warning: "#FFC878", onAccent: "#170A11",
+  gradient: ["#422034", "#1E101B", "#050505"] as readonly [string, string, string],
+  panel: "#2B1B26", tint: "#472737", dock: "#33202B", dockBorder: "#785367",
+  icon: "#583346", disabled: "#252528", message: "#291C24", prompt: "#1F161C",
+  focusBorder: "#63344C", subButton: "#372333", question: "#492938", artwork: "#3C2934",
+  detailText: "#E2D3D6", chat: "#160E15", brief: "#342233",
+};
+
+const lightColors: typeof darkColors = {
+  background: "#FAF5F0", card: "#FFFCF9", text: "#321E26", muted: "#725862",
+  border: "#DBC5C9", pink: "#9E2153", warning: "#8A4C1D", onAccent: "#FFFFFF",
+  gradient: ["#F4DEE6", "#FAF0F0", "#FAF5F0"],
+  panel: "#FFF9F6", tint: "#F4DFE5", dock: "#FFF8F6", dockBorder: "#CEAAB8",
+  icon: "#F1D9E2", disabled: "#EDE0E4", message: "#F5E3E9", prompt: "#F9ECEF",
+  focusBorder: "#D6A6BE", subButton: "#F1E3E9", question: "#F1DDE6", artwork: "#EEDFE3",
+  detailText: "#543744", chat: "#FCF6F4", brief: "#F2E2E9",
 };
 
 async function withinIdentityDeadline<T>(operation: PromiseLike<T>): Promise<T> {
@@ -55,17 +65,17 @@ async function withinIdentityDeadline<T>(operation: PromiseLike<T>): Promise<T> 
   }
 }
 
-function availabilityLabel(candidate: DecisionProductCandidate): { text: string; color: string } {
+function availabilityText(candidate: DecisionProductCandidate): string {
   const requestedDay = candidate.reasons.find((reason) => ["requested-day-opening-hours", "requested-day-closed", "requested-day-opening-unknown"].includes(reason.code));
-  if (requestedDay?.code === "requested-day-opening-hours") return { text: requestedDay.statement, color: backyrdTheme.color.openGreen };
-  if (requestedDay?.code === "requested-day-closed") return { text: "Am gewünschten Tag geschlossen", color: backyrdTheme.color.warning };
-  if (requestedDay?.code === "requested-day-opening-unknown") return { text: "Für deinen geplanten Tag fehlen uns noch die Öffnungszeiten", color: color.muted };
-  if (candidate.reasons.some(reason => reason.code === "librarian-visit-time-unconfirmed")) return { text: "Ob du zur gewünschten Zeit vorbeikommen und das Angebot nutzen kannst, ist noch offen.", color: color.muted };
+  if (requestedDay?.code === "requested-day-opening-hours") return requestedDay.statement;
+  if (requestedDay?.code === "requested-day-closed") return "Am gewünschten Tag geschlossen";
+  if (requestedDay?.code === "requested-day-opening-unknown") return "Für deinen geplanten Tag fehlen uns noch die Öffnungszeiten";
+  if (candidate.reasons.some(reason => reason.code === "librarian-visit-time-unconfirmed")) return "Ob du zur gewünschten Zeit vorbeikommen und das Angebot nutzen kannst, ist noch offen.";
   const value = candidate.actualAvailability;
-  if (value === "open") return { text: "Laut Angaben geöffnet", color: backyrdTheme.color.openGreen };
-  if (value === "closed") return { text: "Laut Angaben geschlossen", color: backyrdTheme.color.warning };
-  if (value === "not_requested") return { text: "Öffnungszeiten vor Besuch prüfen", color: color.muted };
-  return { text: "Die Öffnungszeiten kennen wir noch nicht", color: color.muted };
+  if (value === "open") return "Laut Angaben geöffnet";
+  if (value === "closed") return "Laut Angaben geschlossen";
+  if (value === "not_requested") return "Öffnungszeiten vor Besuch prüfen";
+  return "Die Öffnungszeiten kennen wir noch nicht";
 }
 
 function DecisionResultCard({ candidate, recommendation, imageUrl, onOpen, onDetails }: {
@@ -75,6 +85,7 @@ function DecisionResultCard({ candidate, recommendation, imageUrl, onOpen, onDet
   onOpen: () => void;
   onDetails: () => void;
 }) {
+  const { styles, color } = useWohinPresentation();
   const meta = wohinPlaceMeta(candidate);
   const openLabel = candidate.presentation.event ? "Event entdecken" : "Ort entdecken";
 
@@ -109,6 +120,7 @@ function DecisionResultCard({ candidate, recommendation, imageUrl, onOpen, onDet
 }
 
 export default function WohinScreen() {
+  const { styles, color } = useWohinPresentation();
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -359,7 +371,7 @@ export default function WohinScreen() {
     }
     if (response && user && user.id === verifiedActorId && canCarryPlaceRecommendation(candidate)) {
       rememberJourneySelection({ actorId: user.id, decisionId: response.decisionId, spotId: candidate.spotId,
-        wish: submittedQuery, recommendation: wohinRecommendation(candidate, response.interpretation), notes: [availabilityLabel(candidate).text, ...wohinConsiderations(candidate, response.personalization.state === "ACTIVE")], selectedAt: Date.now() });
+        wish: submittedQuery, recommendation: wohinRecommendation(candidate, response.interpretation), notes: [availabilityText(candidate), ...wohinConsiderations(candidate, response.personalization.state === "ACTIVE")], selectedAt: Date.now() });
     }
     const event=candidate.presentation.event;
     router.push((event ? `/events/${event.eventId}?occurrenceId=${event.occurrenceId}` : `/spot/${candidate.spotId}?entrySource=decision`) as never);
@@ -410,7 +422,7 @@ export default function WohinScreen() {
       <Pressable accessibilityRole="button" accessibilityLabel={replyLabel}
         disabled={!replyEnabled} accessibilityState={{ disabled: !replyEnabled }}
         onPress={submitReply} style={({ pressed }) => [styles.sendButton, !replyEnabled && styles.primaryDisabled, pressed && styles.pressed]}>
-        <Ionicons name="arrow-up" size={21} color={replyEnabled ? color.background : color.muted} />
+        <Ionicons name="arrow-up" size={21} color={replyEnabled ? color.onAccent : color.muted} />
       </Pressable>
     </View>
   ) : <AppText role="body" tone="secondary">Dein Suchwunsch ist schon sehr lang. Passe deine ursprüngliche Anfrage an, um die Antwort zu ergänzen.</AppText>;
@@ -585,7 +597,7 @@ export default function WohinScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
       <Stack.Screen options={{ title: "Wohin", headerShown: false }} />
-      <LinearGradient pointerEvents="none" colors={["#422034", "#1E101B", color.background]} style={styles.ambient} />
+      <LinearGradient pointerEvents="none" colors={color.gradient} style={styles.ambient} />
       {showingResults ? <View style={styles.screenBody}>
         <FlatList
           key={response!.decisionId}
@@ -735,7 +747,7 @@ export default function WohinScreen() {
             <Pressable accessibilityRole="button" accessibilityLabel="Orte finden"
               accessibilityState={{ disabled: !canSearch }} disabled={!canSearch} onPress={submitWish}
               style={({ pressed }) => [styles.sendButton, !canSearch && styles.primaryDisabled, pressed && styles.pressed]}>
-              <Ionicons name="arrow-up" size={21} color={canSearch ? color.background : color.muted} />
+              <Ionicons name="arrow-up" size={21} color={canSearch ? color.onAccent : color.muted} />
             </Pressable>
           </View>
         </View> : null}
@@ -809,7 +821,7 @@ export default function WohinScreen() {
                 <AppText role="screenTitle">{selectedDetails.presentation.name}</AppText>
                 <AppText role="meta" tone="secondary">{wohinPlaceMeta(selectedDetails)}</AppText>
                 <AppText role="body" style={styles.recommendation}>{wohinRecommendation(selectedDetails, response?.interpretation)}</AppText>
-                {selectedDetails.actualAvailability !== "not_requested" ? <AppText role="body" tone="secondary">{availabilityLabel(selectedDetails).text}</AppText> : null}
+                {selectedDetails.actualAvailability !== "not_requested" ? <AppText role="body" tone="secondary">{availabilityText(selectedDetails)}</AppText> : null}
                 {wohinConsiderations(selectedDetails, personal).map(note => <AppText key={note} role="body" tone="secondary">{note}</AppText>)}
               </> : null}
               <AppText role="caption" tone="muted">{personal ? "Nach deinen Vorlieben ausgewählt" : "Auswahl ohne persönliche Vorlieben"}</AppText>
@@ -821,7 +833,7 @@ export default function WohinScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (color: typeof darkColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.background },
   ambient: { position: "absolute", left: 0, right: 0, top: 0, height: 560 },
   screenBody: { flex: 1 },
@@ -832,55 +844,55 @@ const styles = StyleSheet.create({
   welcomeTitle: { color: "#412035", fontSize: 31, lineHeight: 35 },
   welcomeText: { color: "#634053", marginTop: 8 },
   ideas: { marginTop: 22, gap: 9 },
-  idea: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 13, paddingVertical: 10, minHeight: 64, borderRadius: 18, backgroundColor: "#2B1B26", borderWidth: StyleSheet.hairlineWidth, borderColor: color.border },
-  ideaIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: "#472737" },
+  idea: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 13, paddingVertical: 10, minHeight: 64, borderRadius: 18, backgroundColor: color.panel, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border },
+  ideaIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: color.tint },
   offTopic: { marginTop: 16 },
   dock: { paddingHorizontal: 18, paddingTop: 9, backgroundColor: color.background, borderTopWidth: StyleSheet.hairlineWidth, borderColor: color.border },
-  chatDock: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: "#785367", backgroundColor: "#33202B", borderRadius: 27, paddingHorizontal: 13, paddingVertical: 5 },
-  dockAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "#583346" },
+  chatDock: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: color.dockBorder, backgroundColor: color.dock, borderRadius: 27, paddingHorizontal: 13, paddingVertical: 5 },
+  dockAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: color.icon },
   searchInput: { flex: 1, color: color.text, fontSize: 16, lineHeight: 23, minHeight: 44, maxHeight: 112, paddingHorizontal: 3, paddingVertical: 10, textAlignVertical: "top" },
   sendButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: color.pink, alignItems: "center", justifyContent: "center" },
   primaryButton: { minHeight: 52, paddingVertical: 12, paddingHorizontal: 18, borderRadius: 999, backgroundColor: color.pink, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center" },
-  primaryLabel: { color: color.background, flexShrink: 1 },
-  primaryDisabled: { backgroundColor: "#252528" },
+  primaryLabel: { color: color.onAccent, flexShrink: 1 },
+  primaryDisabled: { backgroundColor: color.disabled },
   pressed: { opacity: 0.75 },
   privacy: { marginTop: 16, paddingHorizontal: 4 },
   searchFlow: { gap: 18 },
   history: { gap: 12 },
-  userMessage: { maxWidth: "92%", alignSelf: "flex-end", gap: 5, backgroundColor: "#291C24", borderRadius: 18, borderBottomRightRadius: 6, padding: 14 },
+  userMessage: { maxWidth: "92%", alignSelf: "flex-end", gap: 5, backgroundColor: color.message, borderRadius: 18, borderBottomRightRadius: 6, padding: 14 },
   assistantMessage: { gap: 5, backgroundColor: backyrdTheme.color.surfaceElevated, borderRadius: 18, borderBottomLeftRadius: 6, padding: 14 },
   searchProgress: { gap: 8, padding: 16, borderRadius: 22, borderBottomLeftRadius: 6, borderWidth: 1, borderColor: color.border, backgroundColor: backyrdTheme.color.surfaceElevated },
   progressHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 2 },
-  progressAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "#291C24" },
-  questionCard: { padding: 16, gap: 12, borderWidth: 1, borderColor: "#63344C", borderRadius: 22, backgroundColor: "#1F161C" },
+  progressAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: color.message },
+  questionCard: { padding: 16, gap: 12, borderWidth: 1, borderColor: color.focusBorder, borderRadius: 22, backgroundColor: color.prompt },
   searchActions: { flexDirection: "row", flexWrap: "wrap", gap: 16, marginTop: 10 },
   results: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 16, gap: 12 },
   resultHeader: { gap: 12, paddingBottom: 6 },
   resultHeading: { flexDirection: "row", alignItems: "center", gap: 12 },
   querySummary: { flex: 1, gap: 2 },
-  iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "#372333" },
+  iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: color.subButton },
   editSearch: { flexDirection: "row", gap: 6, alignItems: "center", minHeight: 44, paddingHorizontal: 10, borderRadius: 22, backgroundColor: color.card },
-  conversationLink: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: "#492938" },
-  resultCard: { gap: 10, paddingHorizontal: 13, paddingTop: 13, paddingBottom: 3, borderRadius: 22, backgroundColor: "#2B1B26", borderWidth: StyleSheet.hairlineWidth, borderColor: color.border },
+  conversationLink: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: color.question },
+  resultCard: { gap: 10, paddingHorizontal: 13, paddingTop: 13, paddingBottom: 3, borderRadius: 22, backgroundColor: color.panel, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border },
   cardMain: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  cardArtwork: { width: 78, height: 88, flexShrink: 0, borderRadius: 13, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: "#3C2934" },
+  cardArtwork: { width: 78, height: 88, flexShrink: 0, borderRadius: 13, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: color.artwork },
   cardBody: { flex: 1, gap: 3 },
-  cardReason: { marginTop: 3, color: "#E2D3D6" },
+  cardReason: { marginTop: 3, color: color.detailText },
   resultMeta: { color: color.muted },
   provisional: { color: color.warning },
   cardActions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", columnGap: 12, borderTopWidth: StyleSheet.hairlineWidth, borderColor: color.border },
   cardAction: { flexDirection: "row", alignItems: "center", gap: 5, minHeight: 44 },
-  detailsText: { color: "#E2D3D6", flexShrink: 1 },
-  recommendation: { fontSize: 22, lineHeight: 31, color: "#F7F2F5" },
+  detailsText: { color: color.detailText, flexShrink: 1 },
+  recommendation: { fontSize: 22, lineHeight: 31, color: color.text },
   pagerButton: { minWidth: 44, minHeight: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: color.card },
   backToResults: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 },
   discoverySpot: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, minHeight: 52, borderRadius: 16, backgroundColor: color.card },
   emptyState: { marginTop: 28, gap: 12 },
   followUpButton: { minHeight: 44, justifyContent: "center", alignSelf: "flex-start" },
-  conversationScreen: { flex: 1, backgroundColor: "#160E15" },
+  conversationScreen: { flex: 1, backgroundColor: color.chat },
   conversationHeader: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 18, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: color.border },
   conversationBody: { flexGrow: 1, padding: 22, gap: 18 },
-  chatBrief: { padding: 20, borderRadius: 18, backgroundColor: "#342233", gap: 9 },
+  chatBrief: { padding: 20, borderRadius: 18, backgroundColor: color.brief, gap: 9 },
   chatTurn: { paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: color.border, gap: 6 },
   chatQuestion: { paddingVertical: 10, paddingLeft: 15, borderLeftWidth: 2, borderColor: color.pink, gap: 6 },
   conversationComposer: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 8, borderTopWidth: StyleSheet.hairlineWidth, borderColor: color.border },
@@ -889,3 +901,10 @@ const styles = StyleSheet.create({
   sheetHeader: { flexDirection: "row", alignItems: "center", gap: 16 },
   sheetContent: { gap: 16, paddingTop: 18, paddingBottom: 24 },
 });
+
+const darkPresentation = { color: darkColors, styles: createStyles(darkColors) };
+const lightPresentation = { color: lightColors, styles: createStyles(lightColors) };
+
+function useWohinPresentation() {
+  return useColorScheme() === "light" ? lightPresentation : darkPresentation;
+}

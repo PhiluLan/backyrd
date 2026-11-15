@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.1.1";
 const IOS_PRODUCTION_BUNDLE_IDENTIFIER = "com.philipplanger.backyrd";
 const IOS_DEVELOPMENT_BUNDLE_IDENTIFIER = `${IOS_PRODUCTION_BUNDLE_IDENTIFIER}.dev`;
 const PRODUCTION_SUPABASE_PROJECT_REF = "hjgcrrzfjchzqoegcywn";
@@ -61,6 +61,7 @@ export default (context = { config: {} }) => {
     },
 
     icon: "./assets/icon.png",
+    userInterfaceStyle: "automatic",
 
     splash: {
       image: "./assets/icon.png",
@@ -119,6 +120,7 @@ export default (context = { config: {} }) => {
       "expo-secure-store",
       "expo-web-browser",
       "expo-font",
+      "./plugins/with-appearance-colors",
       "./plugins/with-ios-link-handoff",
     ],
 

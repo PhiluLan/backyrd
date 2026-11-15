@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../theme/backyrd";
 // mobile/app/privacy-data-rights.tsx
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -350,7 +351,7 @@ export default function PrivacyDataRightsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#050506" },
+  safe: { flex: 1, backgroundColor: backyrdTheme.color.background },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -365,11 +366,11 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     marginRight: 13,
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 22,
     fontWeight: "900",
     flex: 1,
@@ -379,22 +380,22 @@ const styles = StyleSheet.create({
   intro: {
     padding: 21,
     borderRadius: 24,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
     borderColor: "rgba(255,125,167,0.23)",
     marginBottom: 15,
   },
   introTitle: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 23,
     fontWeight: "900",
     marginTop: 14,
   },
-  introText: { color: "#AFAFB7", lineHeight: 21, marginTop: 8 },
+  introText: { color: backyrdTheme.color.textSecondary, lineHeight: 21, marginTop: 8 },
   card: {
     padding: 18,
     borderRadius: 22,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
     marginBottom: 13,
@@ -412,17 +413,17 @@ const styles = StyleSheet.create({
   },
   dangerIcon: { backgroundColor: "rgba(255,125,135,0.10)" },
   cardCopy: { flex: 1 },
-  cardTitle: { color: "#FFFFFF", fontSize: 18, fontWeight: "900" },
-  cardText: { color: "#A7A7B0", fontSize: 13, lineHeight: 19, marginTop: 5 },
+  cardTitle: { color: backyrdTheme.color.textPrimary, fontSize: 18, fontWeight: "900" },
+  cardText: { color: backyrdTheme.color.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 5 },
   statusBox: {
     padding: 13,
     borderRadius: 15,
-    backgroundColor: "rgba(255,255,255,0.045)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     marginTop: 16,
   },
   dangerStatus: { backgroundColor: "rgba(255,125,135,0.07)" },
-  statusLabel: { color: "#FFFFFF", fontWeight: "900" },
-  statusMeta: { color: "#85858F", fontSize: 12, lineHeight: 17, marginTop: 5 },
+  statusLabel: { color: backyrdTheme.color.textPrimary, fontWeight: "900" },
+  statusMeta: { color: backyrdTheme.color.textMuted, fontSize: 12, lineHeight: 17, marginTop: 5 },
   errorText: { color: "#FF7D87", fontSize: 12, marginTop: 7 },
   primaryButton: {
     minHeight: 52,
@@ -434,7 +435,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 16,
   },
-  primaryButtonText: { color: "#050506", fontWeight: "900", fontSize: 15 },
+  primaryButtonText: { color: backyrdTheme.color.onAccent, fontWeight: "900", fontSize: 15 },
   deleteButton: {
     minHeight: 52,
     borderRadius: 17,
@@ -443,21 +444,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 16,
   },
-  deleteButtonText: { color: "#FFFFFF", fontWeight: "900", fontSize: 15 },
+  deleteButtonText: { color: backyrdTheme.color.textPrimary, fontWeight: "900", fontSize: 15 },
   cancelButton: {
     minHeight: 52,
     borderRadius: 17,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.12)",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 12,
   },
-  cancelButtonText: { color: "#FFFFFF", fontWeight: "900", fontSize: 15 },
+  cancelButtonText: { color: backyrdTheme.color.textPrimary, fontWeight: "900", fontSize: 15 },
   disabled: { opacity: 0.55 },
   footer: {
-    color: "#777782",
+    color: backyrdTheme.color.textMuted,
     textAlign: "center",
     fontSize: 12,
     lineHeight: 18,
