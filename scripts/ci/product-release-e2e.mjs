@@ -95,6 +95,16 @@ try {
   let chatLoadFail = true;
   let weatherUnavailable = true;
   let finishChatRequest;
+  const pendingDecisionResponses = new Map();
+  const holdDecisionResponse = (wish) => {
+    let release;
+    const pending = new Promise(resolve => { release = resolve; });
+    pendingDecisionResponses.set(wish, pending);
+    return () => {
+      pendingDecisionResponses.delete(wish);
+      release();
+    };
+  };
   const remoteFixture = async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -202,6 +212,7 @@ try {
       }
       const productRequest = validateDecisionProductRequest(body);
       state.decisions.push(productRequest);
+      await pendingDecisionResponses.get(productRequest.naturalLanguage);
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(responseFor(productRequest)) });
     }
     if (path.startsWith("/rest/v1/")) return route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
@@ -279,9 +290,20 @@ try {
   await page.getByRole("textbox",{name:"Was willst du machen?",exact:true}).waitFor();
   await page.getByText("Wohin", { exact: true }).last().click();
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).waitFor({ timeout: 30000 });
-  await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).fill("Sonntag gemütlich Kaffee trinken");
+  await page.getByRole("link", { name: "Datenschutz zur KI-Suche öffnen", exact: true }).waitFor();
+  assert.equal(await page.getByText(/Suchangaben an OpenAI/).count(), 0);
+  const firstWish = "Sonntag gemütlich Kaffee trinken";
+  await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).fill(firstWish);
   await page.getByText("Bern", { exact: true }).filter({visible:true}).last().waitFor();
-  await page.getByText("Orte finden", { exact: true }).click();
+  const releaseFirstDecision = holdDecisionResponse(firstWish);
+  try {
+    await page.getByText("Orte finden", { exact: true }).click();
+    await page.getByText("Ich schau mal, was zu deinem Wunsch passt.", { exact: true }).waitFor();
+    await page.getByText(`«${firstWish}»`, { exact: true }).waitFor();
+    if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-search-progress-390.png`});
+  } finally {
+    releaseFirstDecision();
+  }
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).first().waitFor();
   await page.getByText("1 / 5", { exact: true }).waitFor();
   for (let attempt=0; attempt<40 && !state.interactions.some(row=>row.eventType === "candidate_impression"); attempt++) await page.waitForTimeout(100);
@@ -370,7 +392,14 @@ try {
   const refinedWish = "ruhiges Café nach Reload Ergänzung: Lieber mit Terrasse";
   const refinedResponse = page.waitForResponse(result => result.url().endsWith("/functions/v1/decision-v13")
     && result.request().method() === "POST" && result.request().postDataJSON()?.naturalLanguage === refinedWish);
-  await page.getByRole("button", {name:"Nachricht senden",exact:true}).click();
+  const releaseRefinedDecision = holdDecisionResponse(refinedWish);
+  try {
+    await page.getByRole("button", {name:"Nachricht senden",exact:true}).click();
+    await page.getByText("Ich nehme das mit und schau noch mal.", {exact:true}).waitFor();
+    await page.getByText("«Lieber mit Terrasse»", {exact:true}).waitFor();
+  } finally {
+    releaseRefinedDecision();
+  }
   assert.equal((await refinedResponse).status(), 200);
   await page.getByRole("heading", {name:"Dein Gespräch mit NukNuk",exact:true}).waitFor({state:"hidden"});
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
@@ -424,9 +453,19 @@ try {
   await page.getByRole("button", {name:"Asiatisch essen",exact:true}).waitFor();
   assert.equal(await page.getByText("Zoo mit Club im Namen",{exact:true}).count(), 0);
   await page.getByRole("button", {name:"Anfrage ändern",exact:true}).click();
+  state.unavailable = false;
   await page.getByRole("textbox", {name:"Dein Suchwunsch",exact:true}).fill("XYZ");
+  const placeholderRequests = [];
+  const recordPlaceholderRequest = request => {
+    if (request.method() === "POST" && request.url().endsWith("/functions/v1/decision-v13")) placeholderRequests.push(request);
+  };
+  page.on("request", recordPlaceholderRequest);
   await page.getByText("Orte finden", {exact:true}).click();
   await page.getByRole("button", {name:"Kultur",exact:true}).waitFor();
+  await page.getByText(/XYZ klingt nach einem Geheimcode/).waitFor();
+  page.off("request", recordPlaceholderRequest);
+  assert.equal(placeholderRequests.length, 0, "placeholder must reach the category chooser before any Decision request");
+  assert.equal(await page.getByTestId("wohin-result-card").count(), 0);
   assert.equal(await page.getByRole("button", {name:/Testclub|Katalogort Bern/}).count(), 0);
   await page.getByRole("button", {name:"Kultur",exact:true}).click();
   assert.match(await page.getByRole("textbox", {name:"Dein Suchwunsch",exact:true}).inputValue(), /Kulturelles/);

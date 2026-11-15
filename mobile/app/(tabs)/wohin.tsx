@@ -17,7 +17,7 @@ import { eventImageUrl } from "@/lib/events-v1";
 import { Image } from "expo-image";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { invokeDecisionProduct, recordDecisionProductInteraction, type PersonalDecisionTrace } from "@/lib/decision/productDecision";
-import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinClarificationQuery, wohinDiscoveryCategories, wohinDiscoveryDirections, wohinFollowUp, wohinLimitations, wohinPlaceMeta, wohinMessageKind, wohinOffTopicMessage } from "@/lib/decision/wohinModel";
+import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinClarificationQuery, wohinDiscoveryCategories, wohinDiscoveryDirections, wohinIsDiscoveryPlaceholder, wohinFollowUp, wohinLimitations, wohinPlaceMeta, wohinMessageKind, wohinOffTopicMessage } from "@/lib/decision/wohinModel";
 import { recordDecisionFailure, type DecisionFailurePhase } from "@/lib/decision/productDecisionDiagnostics";
 import { loadCanonicalSpotHeaders, loadDiscoverySpots, type DiscoverySpot } from "@/lib/spot-images";
 import { supabase } from "@/lib/supabase";
@@ -125,7 +125,8 @@ export default function WohinScreen() {
   const [verifiedActorId, setVerifiedActorId] = useState<string | null>(null);
   const [identityError, setIdentityError] = useState(false);
   const [identityAttempt, setIdentityAttempt] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [pendingSearch, setPendingSearch] = useState<{ message: string; isReply: boolean } | null>(null);
+  const loading = pendingSearch !== null;
   const [response, setResponse] = useState<DecisionProductResponse | null>(null);
   const [candidates, setCandidates] = useState<DecisionProductCandidate[]>([]);
   const [discovery, setDiscovery] = useState<DiscoverySpot[]>([]);
@@ -179,7 +180,7 @@ export default function WohinScreen() {
     setResponse(null);
     setCandidates([]);
     setDiscovery([]);
-    setLoading(false);
+    setPendingSearch(null);
     setError(null);
     setRetryRequest(null);
     setVerifiedActorId(null);
@@ -231,6 +232,7 @@ export default function WohinScreen() {
     requestInFlight.current = true;
     clearJourneySelection();
     const generation = ++requestGeneration.current;
+    const placeholder = !nextConversation && wohinIsDiscoveryPlaceholder(text);
     if (!nextConversation) {
       setSubmittedQuery(text.trim());
       if (!retry) setConversation({ wish: text.trim(), turns: [] });
@@ -244,7 +246,8 @@ export default function WohinScreen() {
     setEditing(false);
     setDetailsOpen(false);
     setActiveIndex(0);
-    setLoading(true);
+    const userReply = nextConversation?.turns.at(-1)?.answer;
+    setPendingSearch(placeholder ? null : { message: userReply ?? text.trim(), isReply: Boolean(userReply) });
     setError(null);
     setRetryRequest(null);
     setTrace(null);
@@ -254,6 +257,10 @@ export default function WohinScreen() {
       setResponse(null);
       setCandidates([]);
       setDiscovery([]);
+    }
+    if (placeholder) {
+      requestInFlight.current = false;
+      return;
     }
     let failurePhase: DecisionFailurePhase = "REQUEST";
     let request: DecisionProductRequest | undefined;
@@ -278,7 +285,6 @@ export default function WohinScreen() {
       void rememberRecentDecisionSearch(verifiedActorId, text, visible);
     } catch (cause) {
       if (generation !== requestGeneration.current) return;
-      const userReply = nextConversation?.turns.at(-1)?.answer;
       if (cause instanceof DecisionProductDialogueRoute && userReply) {
         if (cause.route === "NEW_PLAN") setNewPlan(userReply);
         else setOffTopic(true);
@@ -305,7 +311,7 @@ export default function WohinScreen() {
     } finally {
       if (generation === requestGeneration.current) {
         requestInFlight.current = false;
-        setLoading(false);
+        setPendingSearch(null);
       }
     }
   }, [authenticated, city, identityError, identityReady, user?.id, verifiedActorId]);
@@ -432,8 +438,22 @@ export default function WohinScreen() {
       ))}
     </View>
   ) : null;
+  const searchProgress = pendingSearch ? (
+    <View style={styles.searchProgress} accessibilityLiveRegion="polite">
+      <View style={styles.progressHeader}>
+        <View style={styles.progressAvatar} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <NuknukAvatar height={26} />
+        </View>
+        <AppText role="label" tone="pink" style={styles.querySummary}>NukNuk</AppText>
+        <ActivityIndicator size="small" color={color.pink} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
+      </View>
+      <AppText role="bodyStrong">{pendingSearch.isReply ? "Ich nehme das mit und schau noch mal." : "Ich schau mal, was zu deinem Wunsch passt."}</AppText>
+      <AppText role="body" tone="secondary" numberOfLines={3}>{`«${pendingSearch.message}»`}</AppText>
+    </View>
+  ) : null;
+  const discoveryPlaceholder = !editing && wohinIsDiscoveryPlaceholder(submittedQuery);
   const needsDiscovery = Boolean(city && authenticated && conversation && !editing && !loading
-    && !candidates.length && (response || standaloneQuestion || error));
+    && !candidates.length && (discoveryPlaceholder || response || standaloneQuestion || error));
   const discoveryDirections = React.useMemo(() => wohinDiscoveryDirections(submittedQuery), [submittedQuery]);
   useEffect(() => {
     setDiscovery([]);
@@ -467,12 +487,17 @@ export default function WohinScreen() {
 
   const showingResults = Boolean(response && candidates.length && !editing);
   const current = candidates[activeIndex];
-  const showConversation = Boolean(conversation && !editing && (loading || clarificationQuestion || followUp || error || newPlan || offTopic));
+  const showConversation = Boolean(conversation && !editing && (loading || discoveryPlaceholder || clarificationQuestion || followUp || error || newPlan || offTopic));
   useEffect(() => {
     if (!showConversation || (!clarificationQuestion && !loading)) return;
     const frame = requestAnimationFrame(() => searchScrollRef.current?.scrollToEnd({ animated: true }));
     return () => cancelAnimationFrame(frame);
   }, [clarificationQuestion, conversation, loading, showConversation]);
+  useEffect(() => {
+    if (!conversationOpen || !showingResults || !loading) return;
+    const frame = requestAnimationFrame(() => conversationScrollRef.current?.scrollToEnd({ animated: false }));
+    return () => cancelAnimationFrame(frame);
+  }, [conversationOpen, loading, showingResults]);
   const canSearch = !loading && identityReady && !identityError && authenticated && Boolean(city) && query.trim().length >= 3;
   const editQuery = () => {
     if (conversation) setQuery(conversation.wish);
@@ -561,13 +586,7 @@ export default function WohinScreen() {
 
           {showConversation ? <View style={styles.searchFlow}>
             {conversationHistory}
-            {loading ? <View style={styles.assistantMessage} accessibilityLiveRegion="polite">
-              <View style={styles.guideRow}>
-                <NuknukAvatar height={36} />
-                <AppText role="bodyStrong" style={styles.querySummary}>{conversation?.turns.length ? "NukNuk berücksichtigt deine Nachricht …" : "NukNuk prüft deinen Suchwunsch …"}</AppText>
-                <ActivityIndicator color={color.pink} />
-              </View>
-            </View> : clarificationQuestion || newPlan || offTopic ? conversationComposer : null}
+            {searchProgress ?? (clarificationQuestion || newPlan || offTopic ? conversationComposer : null)}
           </View> : <View style={styles.composer}>
             {city ? <View style={styles.location}>
               <Ionicons name="location-outline" size={16} color={color.pink} />
@@ -620,6 +639,7 @@ export default function WohinScreen() {
           </View> : null}
           {needsDiscovery ? <View style={styles.emptyState} accessibilityLiveRegion="polite">
             <AppText role="sectionTitle">{discovery.length ? "Orte zum Entdecken" : "Worauf hast du Lust?"}</AppText>
+            {discoveryPlaceholder ? <AppText role="body" tone="secondary">XYZ klingt nach einem Geheimcode. Gib mir eine Richtung, dann suche ich los.</AppText> : null}
             {discovery.length ? <AppText role="body" tone="secondary">Vielleicht ist hier etwas für dich dabei. Ob dein ganzer Plan dort klappt, ist noch offen.</AppText> : null}
             {discovery.map(spot => (
               <Pressable key={spot.id} accessibilityRole="button" onPress={() => router.push(`/spot/${spot.id}` as never)}
@@ -656,7 +676,6 @@ export default function WohinScreen() {
             {traceButton}
           </> : null}
           {!showConversation ? <View style={styles.privacy}>
-            <AppText role="caption" tone="secondary">Für die KI-Suche senden wir deinen Suchwunsch und gewählte Suchangaben an OpenAI. Bitte keine vertraulichen Daten eingeben.</AppText>
             <Pressable accessibilityRole="link" accessibilityLabel="Datenschutz zur KI-Suche öffnen" onPress={() => { void Linking.openURL("https://www.backyrd.ch/legal#decision").catch(() => setError("Die Datenschutzinformation konnte nicht geöffnet werden. Versuche es erneut.")); }} style={styles.followUpButton}>
               <AppText role="caption" tone="pink">Datenschutz zur KI-Suche</AppText>
             </Pressable>
@@ -677,6 +696,7 @@ export default function WohinScreen() {
             <ScrollView ref={conversationScrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetContent}>
               {conversationHistory}
               {conversationComposer}
+              {searchProgress}
             </ScrollView>
           </SafeAreaView>
         </KeyboardAvoidingView>
@@ -755,6 +775,9 @@ const styles = StyleSheet.create({
   history: { gap: 12 },
   userMessage: { maxWidth: "92%", alignSelf: "flex-end", gap: 5, backgroundColor: "#291C24", borderRadius: 18, borderBottomRightRadius: 6, padding: 14 },
   assistantMessage: { gap: 5, backgroundColor: backyrdTheme.color.surfaceElevated, borderRadius: 18, borderBottomLeftRadius: 6, padding: 14 },
+  searchProgress: { gap: 8, padding: 16, borderRadius: 22, borderBottomLeftRadius: 6, borderWidth: 1, borderColor: color.border, backgroundColor: backyrdTheme.color.surfaceElevated },
+  progressHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 2 },
+  progressAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "#291C24" },
   questionCard: { padding: 16, gap: 12, borderWidth: 1, borderColor: "#63344C", borderRadius: 22, backgroundColor: "#1F161C" },
   clarificationInput: { minHeight: 60, maxHeight: 145, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: color.border, backgroundColor: color.background, color: color.text, fontSize: 16, textAlignVertical: "top" },
   searchActions: { flexDirection: "row", flexWrap: "wrap", gap: 16, marginTop: 10 },
