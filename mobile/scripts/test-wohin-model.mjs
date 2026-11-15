@@ -7,7 +7,7 @@ import { validateDecisionProductRequest } from "@backyrd/product-decision-contra
 
 const source = fs.readFileSync(new URL("../lib/decision/wohinModel.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { createWohinRequest, visibleWohinCandidates, wohinRecommendation, wohinConsiderations, wohinClarificationQuery, wohinFollowUp, wohinLimitations, wohinPlaceMeta, wohinDiscoveryDirections, wohinDiscoveryCategories, wohinMessageKind } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
+const { createWohinRequest, visibleWohinCandidates, wohinRecommendation, wohinConsiderations, wohinClarificationQuery, wohinFollowUp, wohinLimitations, wohinPlaceMeta, wohinDiscoveryDirections, wohinIsDiscoveryPlaceholder, wohinDiscoveryCategories, wohinMessageKind } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
 
 test("Wohin sends only the new free text and profile city", () => {
   const request = createWohinRequest({ query: "  Sonntag   gemütlich Kaffee trinken  ", city: "Basel", requestId: "test-request-1" });
@@ -212,6 +212,8 @@ test("unmatched teriyaki and club request keeps nightlife first and Asian food a
 });
 
 test("uninterpretable wishes offer category choices and ignore directions from NukNuk's questions", () => {
+  for (const placeholder of ["XYZ", " xyz?! ", "ＸＹＺ"]) assert.equal(wohinIsDiscoveryPlaceholder(placeholder), true);
+  for (const search of ["XYZ Bar", "Wo ist XYZ?", "SBB", "K7", "Zoo"]) assert.equal(wohinIsDiscoveryPlaceholder(search), false);
   assert.deepEqual(wohinDiscoveryDirections("XYZ"), []);
   assert.deepEqual(wohinDiscoveryDirections("XYZ Rückfrage: Suchst du einen Club? Antwort: keine Ahnung"), []);
   assert.ok(wohinDiscoveryCategories().some(direction => direction.label === "Kultur"));

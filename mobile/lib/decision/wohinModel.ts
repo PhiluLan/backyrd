@@ -35,6 +35,10 @@ export function wohinDiscoveryDirections(query: string) {
     ? matches.filter(direction => direction.label !== "Essen") : matches;
 }
 
+export function wohinIsDiscoveryPlaceholder(query: string): boolean {
+  return /^xyz[.!?]*$/iu.test(query.normalize("NFKC").trim());
+}
+
 export function wohinDiscoveryCategories() {
   return discoveryDirections.filter(direction => ["Essen", "Cafés", "Clubs", "Kultur", "Draussen", "Sport"].includes(direction.label));
 }
