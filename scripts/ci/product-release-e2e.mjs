@@ -292,6 +292,7 @@ try {
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole("link", { name: "Datenschutz zur KI-Suche öffnen", exact: true }).waitFor();
   assert.equal(await page.getByText(/Suchangaben an OpenAI/).count(), 0);
+  if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-search-390.png`});
   const firstWish = "Sonntag gemütlich Kaffee trinken";
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).fill(firstWish);
   await page.getByText("Bern", { exact: true }).filter({visible:true}).last().waitFor();
@@ -339,7 +340,8 @@ try {
   const compactName=await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).getByText("Café Vorher",{exact:true}).boundingBox();
   const compactDetails=await page.getByText("Details & Hinweise",{exact:true}).first().boundingBox();
   assert.ok(compactName && compactDetails && compactName.y+compactName.height<=compactDetails.y,"Spot name and details action remain readable on small screens");
-  await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).getByText("Das Angebot hier passt zu deinem Plan.",{exact:true}).waitFor();
+  const compactReason = await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).getByText("Das Angebot hier passt zu deinem Plan.",{exact:true}).boundingBox();
+  assert.ok(compactReason && compactDetails && compactReason.y + compactReason.height <= compactDetails.y,"Spot explanation remains readable before the actions on small screens");
   // Real touch swipe, not a rejection action or another model call.
   const cdp=await context.newCDPSession(page);
   await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:270,y:170}]});

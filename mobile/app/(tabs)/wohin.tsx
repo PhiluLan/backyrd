@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { rememberRecentDecisionSearch } from "@/lib/decision/recentDecisionSearch";
 import { clearJourneySelection, rememberJourneySelection, canCarryPlaceRecommendation } from "@/lib/discovery-journey";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Keyboard, Linking, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, FlatList, Keyboard, Linking, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -30,12 +30,12 @@ type SearchConversation = {
 };
 
 const color = {
-  background: "#050506",
-  card: "#1B1B1D",
-  text: "#FFFFFF",
-  muted: "#A5A5AA",
-  border: "#36363B",
-  pink: "#FF4F91",
+  background: backyrdTheme.color.background,
+  card: "#1D171A",
+  text: backyrdTheme.color.textPrimary,
+  muted: "#B6A5AC",
+  border: "#47323C",
+  pink: backyrdTheme.color.pink,
   warning: "#FFC878",
 };
 
@@ -66,32 +66,41 @@ function availabilityLabel(candidate: DecisionProductCandidate): { text: string;
   return { text: "Die Öffnungszeiten kennen wir noch nicht", color: color.muted };
 }
 
-function DecisionResultCard({ candidate, recommendation, imageUrl, compact, onOpen, onDetails }: {
+function DecisionResultCard({ candidate, recommendation, imageUrl, onOpen, onDetails }: {
   candidate: DecisionProductCandidate;
   recommendation: string;
   imageUrl: string | null;
-  compact: boolean;
   onOpen: () => void;
   onDetails: () => void;
 }) {
+  const meta = wohinPlaceMeta(candidate);
+  const openLabel = candidate.presentation.event ? "Event entdecken" : "Ort entdecken";
+
   return (
     <View style={styles.resultCard} testID="wohin-result-card">
-      {candidate.presentation.event ? <Image source={imageUrl ? {uri:imageUrl} : undefined} accessibilityLabel={candidate.presentation.name} style={StyleSheet.absoluteFill} contentFit="cover" /> : <SpotArtwork imageUrl={imageUrl} spotId={candidate.spotId} spotName={candidate.presentation.name} showFallbackName={false} attributionPosition="top" style={StyleSheet.absoluteFill} />}
-      <LinearGradient pointerEvents="none" colors={["transparent", "rgba(5,5,6,0.45)", "rgba(5,5,6,0.97)"]} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} />
-      <View style={[styles.cardBottom, compact && styles.compactBottom]}>
-        <ScrollView style={styles.cardSummary} contentContainerStyle={styles.cardSummaryContent}>
-          <AppText role="displayM" style={styles.resultTitle}>{candidate.presentation.name}</AppText>
-          <AppText role="meta" style={styles.resultMeta}>{wohinPlaceMeta(candidate)}</AppText>
+      <View style={styles.cardArtwork}>
+        {candidate.presentation.event
+          ? imageUrl
+            ? <Image source={{ uri: imageUrl }} accessibilityLabel={candidate.presentation.name} style={StyleSheet.absoluteFill} contentFit="cover" />
+            : <Ionicons name="calendar-outline" size={30} color={color.muted} />
+          : <SpotArtwork imageUrl={imageUrl} spotId={candidate.spotId} spotName={candidate.presentation.name} showFallbackName={false} attributionPosition="top" style={StyleSheet.absoluteFill} />}
+      </View>
+      <View style={styles.cardBottom}>
+        <ScrollView nestedScrollEnabled style={styles.cardSummary} contentContainerStyle={styles.cardSummaryContent}>
+          {meta ? <AppText role="meta" style={styles.resultMeta}>{meta}</AppText> : null}
+          <AppText role="displayM" accessibilityRole="header">{candidate.presentation.name}</AppText>
           <AppText role="body" style={styles.cardReason}>{recommendation}</AppText>
         </ScrollView>
-        <Pressable accessibilityRole="button" onPress={onDetails} style={styles.detailsToggle}>
-          <AppText role="meta" style={styles.detailsText}>Details & Hinweise</AppText>
-          <Ionicons name="add" size={19} color={color.pink} />
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${candidate.presentation.name} entdecken`} onPress={onOpen} style={styles.openSpotButton}>
-          <AppText role="label" style={styles.openSpotText}>{candidate.presentation.event ? "Event entdecken" : "Ort entdecken"}</AppText>
-          <Ionicons name="arrow-forward" size={20} color={color.background} />
-        </Pressable>
+        <View style={styles.cardActions}>
+          <Pressable accessibilityRole="button" onPress={onDetails} style={({ pressed }) => [styles.detailsToggle, pressed && styles.pressed]}>
+            <AppText role="label" style={styles.detailsText}>Details &amp; Hinweise</AppText>
+            <Ionicons name="chevron-forward" size={16} color={color.muted} />
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${candidate.presentation.name} entdecken`} onPress={onOpen} style={({ pressed }) => [styles.openSpotButton, pressed && styles.pressed]}>
+            <AppText role="label" style={styles.openSpotText}>{openLabel}</AppText>
+            <Ionicons name="arrow-forward" size={19} color={color.background} />
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -101,6 +110,8 @@ export default function WohinScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const { fontScale, height } = useWindowDimensions();
+  const scrollResults = fontScale > 1.2 || height < 500;
   const [conversation, setConversation] = useState<SearchConversation | null>(null);
   const [conversationOpen, setConversationOpen] = useState(false);
   const [offTopic, setOffTopic] = useState(false);
@@ -519,90 +530,99 @@ export default function WohinScreen() {
     </Pressable>
   ) : null;
   const personal = response?.personalization.state === "ACTIVE";
+  const resultPadding = { paddingBottom: Math.max(8, insets.bottom - 2) + backyrdTheme.control.tabBarVisual + 10 };
+  const resultContent = showingResults ? (
+    <>
+      <View style={styles.resultHeader}>
+        <AppText role="displayM" accessibilityRole="header" style={styles.querySummary}>
+          {current?.tier === "UNCONFIRMED_FALLBACK" ? "Orte zum Abklären" : "Vorschläge"}
+        </AppText>
+        <Pressable accessibilityRole="button" accessibilityLabel="Suche ändern" onPress={editQuery} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+          <Ionicons name="create-outline" size={20} color={color.text} />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button" accessibilityLabel="Mit NukNuk chatten"
+          onPress={() => setConversationOpen(true)} style={({ pressed }) => [styles.iconButton, styles.chatButton, pressed && styles.pressed]}
+        >
+          <Ionicons name="chatbubble-ellipses-outline" size={20} color={color.pink} />
+        </Pressable>
+      </View>
+      {clarificationQuestion ? <Pressable
+        accessibilityRole="button" accessibilityLabel={`NukNuk fragt: ${clarificationQuestion} Gespräch öffnen`}
+        onPress={() => setConversationOpen(true)} style={({ pressed }) => [styles.conversationLink, pressed && styles.pressed]}
+      >
+        <Ionicons name="chatbubble-outline" size={18} color={color.pink} />
+        <AppText role="meta" style={styles.querySummary} numberOfLines={2}>{clarificationQuestion}</AppText>
+        <Ionicons name="chevron-forward" size={16} color={color.muted} />
+      </Pressable> : null}
+      <View style={[styles.deck, scrollResults && styles.scrollableDeck]} onLayout={(event) => { setPageWidth(event.nativeEvent.layout.width); setPageHeight(event.nativeEvent.layout.height); }}>
+        {pageWidth > 0 && pageHeight > 0 ? <FlatList
+          key={`${response!.decisionId}:${pageWidth}:${pageHeight}`}
+          ref={listRef}
+          data={candidates}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          initialScrollIndex={Math.min(activeIndex, candidates.length - 1)}
+          getItemLayout={(_, index) => ({ length: pageWidth, offset: pageWidth * index, index })}
+          viewabilityConfig={viewabilityConfig}
+          onViewableItemsChanged={onViewableItemsChanged}
+          extraData={coverImages}
+          keyExtractor={(candidate) => candidate.spotId}
+          renderItem={({ item: candidate }) => <View style={[styles.cardPage, { width: pageWidth, height: pageHeight }]}>
+            <DecisionResultCard candidate={candidate} recommendation={wohinRecommendation(candidate, response?.interpretation)} imageUrl={coverImages.has(candidate.spotId) ? coverImages.get(candidate.spotId)! : (candidate.presentation.event ? eventImageUrl(candidate.presentation.event.imageStoragePath) ?? candidate.presentation.imageUrl : candidate.presentation.imageUrl)} onOpen={() => openSpot(candidate)} onDetails={() => setDetailsOpen(true)} />
+          </View>}
+        /> : null}
+      </View>
+      {candidates.length > 1 ? <View style={styles.pager}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Vorheriger Vorschlag" disabled={activeIndex === 0} onPress={() => goTo(activeIndex - 1)} style={[styles.pagerButton, activeIndex === 0 && styles.disabled]}><Ionicons name="arrow-back" size={23} color={color.text} /></Pressable>
+        <View style={styles.pagerLabel}>
+          <AppText role="caption" tone="secondary" accessibilityLiveRegion="polite" accessibilityLabel={`Vorschlag ${activeIndex + 1} von ${candidates.length}`}>{activeIndex + 1} / {candidates.length}</AppText>
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Nächster Vorschlag" disabled={activeIndex === candidates.length - 1} onPress={() => goTo(activeIndex + 1)} style={[styles.pagerButton, activeIndex === candidates.length - 1 && styles.disabled]}><Ionicons name="arrow-forward" size={23} color={color.text} /></Pressable>
+      </View> : null}
+    </>
+  ) : null;
+
   return (
     <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
       <Stack.Screen options={{ title: "Wohin", headerShown: false }} />
-      {showingResults ? <View style={[styles.resultScreen, { paddingBottom: Math.max(8, insets.bottom - 2) + backyrdTheme.control.tabBarVisual + 10 }]}>
-        <View style={styles.resultHeader}>
-          <View style={styles.querySummary}>
-            <AppText role="displayM" accessibilityRole="header">{current?.tier === "UNCONFIRMED_FALLBACK" ? "Orte zum Abklären" : "Vorschläge"}</AppText>
-          </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Suche ändern" onPress={editQuery} style={styles.editSearch}>
-            <Ionicons name="create-outline" size={18} color={color.text} />
-            <AppText role="label">Ändern</AppText>
-          </Pressable>
-        </View>
-        <View style={styles.resultTools}>
-          <Pressable accessibilityRole="button"
-            accessibilityLabel={clarificationQuestion ? "NukNuks Rückfrage und Gespräch öffnen" : "Mit NukNuk chatten"}
-            onPress={() => setConversationOpen(true)} style={({ pressed }) => [styles.conversationLink, pressed && styles.pressed]}>
-            <Ionicons name="chatbubble-outline" size={19} color={color.pink} />
-            <View style={styles.querySummary}>
-              <AppText role="label" tone={clarificationQuestion ? "pink" : "primary"}>{clarificationQuestion ? "NukNuk fragt nach" : "Mit NukNuk chatten"}</AppText>
-              <AppText role="caption" tone="secondary" numberOfLines={2}>{clarificationQuestion ?? conversation?.wish}</AppText>
-            </View>
-            <Ionicons name="chevron-forward" size={17} color={color.muted} />
-          </Pressable>
-          {traceButton}
-        </View>
-        <View style={styles.deck} onLayout={(event) => { setPageWidth(event.nativeEvent.layout.width); setPageHeight(event.nativeEvent.layout.height); }}>
-          {pageWidth > 0 && pageHeight > 0 ? <FlatList
-            key={`${response!.decisionId}:${pageWidth}:${pageHeight}`}
-            ref={listRef}
-            data={candidates}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            initialScrollIndex={Math.min(activeIndex, candidates.length - 1)}
-            getItemLayout={(_, index) => ({ length: pageWidth, offset: pageWidth * index, index })}
-            viewabilityConfig={viewabilityConfig}
-            onViewableItemsChanged={onViewableItemsChanged}
-            extraData={coverImages}
-            keyExtractor={(candidate) => candidate.spotId}
-            renderItem={({ item: candidate }) => <View style={[styles.cardPage, { width: pageWidth, height: pageHeight }]}>
-              <DecisionResultCard candidate={candidate} recommendation={wohinRecommendation(candidate, response?.interpretation)} imageUrl={coverImages.has(candidate.spotId) ? coverImages.get(candidate.spotId)! : (candidate.presentation.event ? eventImageUrl(candidate.presentation.event.imageStoragePath) ?? candidate.presentation.imageUrl : candidate.presentation.imageUrl)} compact={pageHeight < 440} onOpen={() => openSpot(candidate)} onDetails={() => setDetailsOpen(true)} />
-            </View>}
-          /> : null}
-        </View>
-        <View style={styles.pager}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Vorheriger Vorschlag" disabled={activeIndex === 0} onPress={() => goTo(activeIndex - 1)} style={[styles.pagerButton, activeIndex === 0 && styles.disabled]}><Ionicons name="arrow-back" size={23} color={color.text} /></Pressable>
-          <View style={styles.pagerLabel}>
-            <AppText role="label" accessibilityLiveRegion="polite">{activeIndex + 1} / {candidates.length}</AppText>
-            <AppText role="caption" tone="muted">{candidates.length === 1 ? "Vorschlag" : "Vorschläge"}</AppText>
-          </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Nächster Vorschlag" disabled={activeIndex === candidates.length - 1} onPress={() => goTo(activeIndex + 1)} style={[styles.pagerButton, activeIndex === candidates.length - 1 && styles.disabled]}><Ionicons name="arrow-forward" size={23} color={color.text} /></Pressable>
-        </View>
-      </View> : <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView ref={searchScrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: backyrdTheme.layout.pageGutter, paddingTop: backyrdTheme.spacing.lg, paddingBottom: backyrdTheme.control.tabBar + insets.bottom + backyrdTheme.spacing.xl }}>
+      <LinearGradient pointerEvents="none" colors={["#291922", color.background]} style={styles.ambient} />
+      {showingResults ? (scrollResults
+        ? <ScrollView contentContainerStyle={[styles.scrollableResultScreen, resultPadding]}>{resultContent}</ScrollView>
+        : <View style={[styles.resultScreen, resultPadding]}>{resultContent}</View>
+      ) : <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView ref={searchScrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: backyrdTheme.layout.pageGutter, paddingTop: showConversation ? backyrdTheme.spacing.lg : backyrdTheme.spacing.xxxl, paddingBottom: backyrdTheme.control.tabBar + insets.bottom + backyrdTheme.spacing.xl }}>
           {editing && conversation ? <Pressable accessibilityRole="button" onPress={() => { setEditing(false); Keyboard.dismiss(); }} style={styles.backToResults}>
             <Ionicons name="arrow-back" size={18} color={color.pink} />
             <AppText role="label" tone="pink">{candidates.length ? "Zurück zu deinen Vorschlägen" : "Zurück zum Gespräch"}</AppText>
           </Pressable> : null}
           <View style={styles.searchHeader}>
-            <AppText role="label" tone="pink">NukNuk</AppText>
             <AppText role="displayXL" accessibilityRole="header">Wohin?</AppText>
-            {!showConversation ? <AppText role="body" tone="secondary">Erzähl NukNuk, worauf du gerade Lust hast.</AppText> : null}
+            {!showConversation ? <AppText role="body" style={styles.searchIntro}>Worauf hast du gerade Lust?</AppText> : null}
           </View>
 
           {showConversation ? <View style={styles.searchFlow}>
             {conversationHistory}
             {searchProgress ?? (clarificationQuestion || newPlan || offTopic ? conversationComposer : null)}
-          </View> : <View style={styles.composer}>
-            {city ? <View style={styles.location}>
-              <Ionicons name="location-outline" size={16} color={color.pink} />
-              <AppText role="meta" tone="secondary">{city}</AppText>
-            </View> : !identityReady ? <AppText role="caption" tone="secondary">Dein Profilort wird geladen …</AppText> : null}
-            <TextInput
-              accessibilityLabel="Dein Suchwunsch"
-              autoCapitalize="sentences"
-              multiline
-              maxLength={2000}
-              onChangeText={(value) => { setQuery(value); setOffTopic(false); setError(null); setRetryRequest(null); }}
-              placeholder="Z. B. Ein gemütliches Abendessen zu zweit"
-              placeholderTextColor={color.muted}
-              style={styles.searchInput}
-              value={query}
-            />
+          </View> : <View style={styles.searchFlow}>
+            <View style={styles.composer}>
+              {city ? <View style={styles.location}>
+                <Ionicons name="location-outline" size={16} color={color.pink} />
+                <AppText role="meta" tone="secondary">{city}</AppText>
+              </View> : !identityReady ? <AppText role="caption" tone="secondary">Dein Profilort wird geladen …</AppText> : null}
+              <TextInput
+                accessibilityLabel="Dein Suchwunsch"
+                autoCapitalize="sentences"
+                multiline
+                maxLength={2000}
+                onChangeText={(value) => { setQuery(value); setOffTopic(false); setError(null); setRetryRequest(null); }}
+                placeholder="Zum Beispiel: Heute Abend gemütlich was trinken …"
+                placeholderTextColor={color.muted}
+                style={styles.searchInput}
+                value={query}
+              />
+            </View>
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ disabled: !canSearch }}
@@ -697,6 +717,7 @@ export default function WohinScreen() {
               {conversationHistory}
               {conversationComposer}
               {searchProgress}
+              {traceButton}
             </ScrollView>
           </SafeAreaView>
         </KeyboardAvoidingView>
@@ -760,11 +781,13 @@ export default function WohinScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.background },
-  searchHeader: { gap: 8, marginBottom: 24 },
+  ambient: { position: "absolute", left: 0, right: 0, top: 0, height: 320 },
+  searchHeader: { gap: 10, marginBottom: 28 },
+  searchIntro: { color: "#D9C5C9", fontSize: 19, lineHeight: 27 },
   guideRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  composer: { padding: 18, gap: 14, borderRadius: 24, backgroundColor: backyrdTheme.color.surfaceElevated, borderWidth: 1, borderColor: color.border },
+  composer: { paddingHorizontal: 20, paddingVertical: 16, gap: 10, borderRadius: 24, backgroundColor: color.card, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border },
   location: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6 },
-  searchInput: { color: color.text, fontSize: 20, lineHeight: 28, minHeight: 108, maxHeight: 220, paddingVertical: 8, textAlignVertical: "top" },
+  searchInput: { color: color.text, fontSize: 18, lineHeight: 27, minHeight: 82, maxHeight: 220, paddingHorizontal: 0, paddingVertical: 4, textAlignVertical: "top" },
   primaryButton: { minHeight: 52, paddingVertical: 12, paddingHorizontal: 18, borderRadius: 999, backgroundColor: color.pink, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center" },
   primaryLabel: { color: color.background, flexShrink: 1 },
   primaryDisabled: { backgroundColor: "#252528" },
@@ -779,33 +802,36 @@ const styles = StyleSheet.create({
   progressHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 2 },
   progressAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "#291C24" },
   questionCard: { padding: 16, gap: 12, borderWidth: 1, borderColor: "#63344C", borderRadius: 22, backgroundColor: "#1F161C" },
-  clarificationInput: { minHeight: 60, maxHeight: 145, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: color.border, backgroundColor: color.background, color: color.text, fontSize: 16, textAlignVertical: "top" },
+  clarificationInput: { minHeight: 60, maxHeight: 145, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: color.border, backgroundColor: "#141012", color: color.text, fontSize: 16, textAlignVertical: "top" },
   searchActions: { flexDirection: "row", flexWrap: "wrap", gap: 16, marginTop: 10 },
   resultScreen: { flex: 1 },
-  resultHeader: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 10, flexDirection: "row", alignItems: "center", gap: 10 },
+  scrollableResultScreen: { flexGrow: 1 },
+  resultHeader: { paddingHorizontal: 22, paddingTop: 8, paddingBottom: 16, flexDirection: "row", alignItems: "center", gap: 8 },
   querySummary: { flex: 1, gap: 2 },
-  editSearch: { flexDirection: "row", gap: 6, alignItems: "center", minHeight: 44, paddingHorizontal: 10, borderRadius: 22, backgroundColor: backyrdTheme.color.surfaceElevated },
-  resultTools: { marginHorizontal: 16, marginBottom: 10 },
-  conversationLink: { minHeight: 54, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: color.border, backgroundColor: backyrdTheme.color.surfaceElevated },
+  iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: color.card },
+  chatButton: { backgroundColor: "#33212B" },
+  editSearch: { flexDirection: "row", gap: 6, alignItems: "center", minHeight: 44, paddingHorizontal: 10, borderRadius: 22, backgroundColor: color.card },
+  conversationLink: { marginHorizontal: 20, marginBottom: 14, minHeight: 44, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, backgroundColor: "#33212B" },
   deck: { flex: 1, minHeight: 0 },
-  cardPage: { flex: 1, paddingHorizontal: 16 },
-  resultCard: { flex: 1, borderRadius: 30, overflow: "hidden", backgroundColor: color.card, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border },
-  cardBottom: { position: "absolute", bottom: 0, left: 0, right: 0, maxHeight: "75%", padding: 20 },
-  compactBottom: { maxHeight: "92%", padding: 16 },
-  cardSummary: { flexShrink: 1 },
-  cardSummaryContent: { gap: 10 },
-  resultTitle: { color: color.text },
-  cardReason: { color: "#F7F2F5" },
-  resultMeta: { color: "#D1CDD1", marginBottom: 4 },
-  detailsToggle: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 7, justifyContent: "space-between", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#FFFFFF40", marginTop: 14, marginBottom: 10 },
-  detailsText: { color: color.pink },
+  scrollableDeck: { minHeight: 470 },
+  cardPage: { paddingHorizontal: 20 },
+  resultCard: { flex: 1, borderRadius: 28, overflow: "hidden", backgroundColor: color.card, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border },
+  cardArtwork: { flexGrow: 1, flexBasis: 0, minHeight: 104, alignItems: "center", justifyContent: "center", backgroundColor: "#2D2027" },
+  cardBottom: { flexShrink: 1, paddingHorizontal: 20, paddingTop: 17, paddingBottom: 13 },
+  cardSummary: { flexGrow: 0, flexShrink: 1 },
+  cardSummaryContent: { gap: 6 },
+  cardReason: { color: "#E2D3D6" },
+  resultMeta: { color: color.muted },
+  cardActions: { marginTop: 16, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.border, gap: 4 },
+  detailsToggle: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 7, justifyContent: "space-between" },
+  detailsText: { color: "#E2D3D6", flexShrink: 1 },
   recommendation: { fontSize: 22, lineHeight: 31, color: "#F7F2F5" },
-  openSpotButton: { minHeight: 52, paddingVertical: 12, borderRadius: 999, backgroundColor: color.pink, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
-  openSpotText: { color: color.background },
-  pager: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 24, paddingTop: 10, gap: 12 },
+  openSpotButton: { minHeight: 48, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 999, backgroundColor: color.pink, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
+  openSpotText: { color: color.background, flexShrink: 1 },
+  pager: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 24, paddingTop: 10, gap: 16 },
   pagerButton: { minWidth: 44, minHeight: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: color.card },
   disabled: { opacity: 0.3 },
-  pagerLabel: { alignItems: "center", gap: 2, flex: 1 },
+  pagerLabel: { alignItems: "center", minWidth: 45 },
   backToResults: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 },
   discoverySpot: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, minHeight: 52, borderRadius: 16, backgroundColor: color.card },
   emptyState: { marginTop: 28, gap: 12 },
