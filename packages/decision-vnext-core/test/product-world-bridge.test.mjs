@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION } from "@backyrd/world-knowledge-core";
 import { contentHash } from "../dist/canonical.js";
 import { parseProductWorldResolverBinding } from "../dist/product-world-resolver-binding.js";
-import { evaluateOpeningState } from "../dist/opening-state.js";
+import { evaluateOpeningDay, evaluateOpeningState } from "../dist/opening-state.js";
 import { evaluateProductV1IntentClassification, evaluateProductWorldViews } from "../dist/product-v1-evaluator.js";
 
 const at = "2026-09-20T12:00:00.000Z";
@@ -115,6 +115,25 @@ test("a verified overnight interval counts on the requested following day", () =
   const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, [world], contentHash([world.spot.spotId]));
   assert.equal(result.evaluation.candidates[0].actualAvailability.status, "open");
   assert.equal(result.evaluation.candidates[0].reasons.find((reason) => reason.reasonCode === "requested-day-opening-hours")?.statementDe, "Öffnungszeiten am gefragten Sonntag: 00:00–02:00.");
+});
+
+test("closing exactly at midnight never adds an opening interval to the next day", () => {
+  const policy = { version: ACCEPTED_SOURCE_POLICY.policyVersion, configured: true, authorizedTrustStates: ["VERIFIED"] };
+  const saturday = "2026-09-19", sunday = "2026-09-20", id = "66666666-6666-4666-a666-666666666666";
+  const interval = { start: "17:00", end: "00:00" };
+  const regular = [{ day: "SATURDAY", intervals: [interval] }, { day: "SUNDAY", intervals: [] }];
+  for (const hours of [
+    [fact("hours.regular", regular)],
+    [fact("hours.regular", [{ day: "SUNDAY", intervals: [] }]), fact("hours.special", [{ date: saturday, status: "OPEN", intervals: [interval] }])],
+  ]) {
+    const world = read(binding(id, [fact("location.timezone", "Europe/Zurich"), ...hours]));
+    assert.deepEqual(evaluateOpeningDay(world, saturday, policy).intervals, [interval]);
+    assert.equal(evaluateOpeningDay(world, sunday, policy).status, "closed");
+    assert.deepEqual(evaluateOpeningDay(world, sunday, policy).intervals, []);
+    assert.equal(evaluateOpeningState(world, "2026-09-19T22:00:00Z", policy).status, "closed");
+  }
+  const missing = read(binding(id, [fact("location.timezone", "Europe/Zurich"), fact("hours.regular", [regular[0]])]));
+  assert.equal(evaluateOpeningDay(missing, sunday, policy).status, "unknown");
 });
 
 test("confirmed context changes ranking evidence; missing data and numeric budget remain unknown", () => {

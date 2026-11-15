@@ -24,6 +24,11 @@ Das Datum wird für die konkrete Öffnungsprüfung gebraucht. Fehlendes Datum
 oder Budget verhindert aber nicht jede erste Orientierung. Die Rückfrage ist
 ein Vorschlag; welche Frage den grössten Nutzen hat, wird ebenfalls bewertet.
 
+Für eine datierte Suche prüft der Bibliothekar den örtlichen Kalendertag
+und das gewünschte Besuchsfenster gegen die belegten Öffnungszeiten.
+Eine Schlusszeit von 00:00 endet am Vortag. Nur ein Betrieb, der tatsächlich
+über Mitternacht hinaus geöffnet ist, liefert ein Intervall für den Folgetag.
+
 Beim offenen Wunsch für den Freund wäre eine sinnvolle erste Orientierung:
 
 > Welche Richtung würde ihm Freude machen: gemeinsam geniessen, etwas erleben
