@@ -96,6 +96,15 @@ try {
   let weatherUnavailable = true;
   let finishChatRequest;
   const pendingDecisionResponses = new Map();
+  const holdDecisionResponse = (wish) => {
+    let release;
+    const pending = new Promise(resolve => { release = resolve; });
+    pendingDecisionResponses.set(wish, pending);
+    return () => {
+      pendingDecisionResponses.delete(wish);
+      release();
+    };
+  };
   const remoteFixture = async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -286,16 +295,14 @@ try {
   const firstWish = "Sonntag gemütlich Kaffee trinken";
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).fill(firstWish);
   await page.getByText("Bern", { exact: true }).filter({visible:true}).last().waitFor();
-  const firstDecision = Promise.withResolvers();
-  pendingDecisionResponses.set(firstWish, firstDecision.promise);
+  const releaseFirstDecision = holdDecisionResponse(firstWish);
   try {
     await page.getByText("Orte finden", { exact: true }).click();
     await page.getByText("Ich schau mal, was zu deinem Wunsch passt.", { exact: true }).waitFor();
     await page.getByText(`«${firstWish}»`, { exact: true }).waitFor();
     if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-search-progress-390.png`});
   } finally {
-    pendingDecisionResponses.delete(firstWish);
-    firstDecision.resolve();
+    releaseFirstDecision();
   }
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).first().waitFor();
   await page.getByText("1 / 5", { exact: true }).waitFor();
@@ -385,15 +392,13 @@ try {
   const refinedWish = "ruhiges Café nach Reload Ergänzung: Lieber mit Terrasse";
   const refinedResponse = page.waitForResponse(result => result.url().endsWith("/functions/v1/decision-v13")
     && result.request().method() === "POST" && result.request().postDataJSON()?.naturalLanguage === refinedWish);
-  const refinedDecision = Promise.withResolvers();
-  pendingDecisionResponses.set(refinedWish, refinedDecision.promise);
+  const releaseRefinedDecision = holdDecisionResponse(refinedWish);
   try {
     await page.getByRole("button", {name:"Nachricht senden",exact:true}).click();
     await page.getByText("Ich nehme das mit und schau noch mal.", {exact:true}).waitFor();
     await page.getByText("«Lieber mit Terrasse»", {exact:true}).waitFor();
   } finally {
-    pendingDecisionResponses.delete(refinedWish);
-    refinedDecision.resolve();
+    releaseRefinedDecision();
   }
   assert.equal((await refinedResponse).status(), 200);
   await page.getByRole("heading", {name:"Dein Gespräch mit NukNuk",exact:true}).waitFor({state:"hidden"});
