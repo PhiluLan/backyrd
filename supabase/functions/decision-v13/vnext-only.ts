@@ -182,6 +182,7 @@ Deno.serve(async (request: Request) => {
       clarifyDialogue: personalCandidate,
       repairCompactMeaning: personalCandidate,
       includePurposeInstructions: personalCandidate,
+      fastSimpleSearch: personalCandidate && Deno.env.get("BACKYRD_NUKNUK_FAST_SIMPLE_SEARCH") !== "false",
     });
     const traceRequested = request.headers.get("x-backyrd-personal-trace") === "1";
     let mayReturnTrace = false;

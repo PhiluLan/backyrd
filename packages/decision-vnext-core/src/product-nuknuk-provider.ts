@@ -1,10 +1,45 @@
 import { buildNuknukCompactSearchRequest, validateCompactTurn, validateNuknukCompactSearch } from './nuknuk-understanding.js';
 import { DecisionProductError, type DecisionProductRuntimePorts } from './product-decision.js';
 import { assertExplicitContext } from './product-luna-provider.js';
-import { LibrarianContractError } from './product-luna-librarian.js';
+import { LibrarianContractError, type LibrarianRequest } from './product-luna-librarian.js';
 import { buildNuknukDialogueUpdate, mergeNuknukDialogueUpdate, splitNuknukDialogue } from './nuknuk-dialogue.js';
+import { librarianConcept } from '@backyrd/world-knowledge-core';
 
 const MAX_RESPONSE_BYTES = 65_536;
+const SIMPLE_SEARCH_TIMEOUT_MS = 6_000;
+const simpleSearchInstructions = `Du bist NukNuk. Übersetze diese einfache Suche nach einem Ort mit genau einer Aktivität in das vorgegebene JSON-Schema. Ausgabe nur {"singleActivity":true,"meaning":{"facts":[...]}}. facts ohne id und subjectIds. Jeder Fakt hat key, modality, basis und value. Bewahre alle genannten Wünsche. Trinken gehen: food.drink mit value {"text":"drinks"}, REQUIRED. Kaffee trinken: food.drink mit Text coffee, REQUIRED. Café/Restaurant als ausdrücklich gewünschter Ortstyp: offer.kind mit Text CAFE/RESTAURANT, REQUIRED. Essen gehen: food.meal mit Text meal, REQUIRED. Gemütlich: atmosphere.character mit Text gemütlich, PREFERRED. Ausdrücklich genannter Suchort: location.destination mit seinem Namen, REQUIRED. basis EXPLICIT für genannte Fakten. Keine zusätzlichen Fakten, Entitäten oder Leereinträge. Keine Erläuterung.`;
+
+type SimpleCriterion = readonly [key: string, modality: 'REQUIRED' | 'PREFERRED', value: string];
+
+/** Match the entire wish. An extra word may carry a constraint the short prompt does not cover. */
+function simpleSearchCriteria(query: string): SimpleCriterion[] | null {
+  const text = query.normalize('NFC').trim().toLocaleLowerCase('de-CH').replace(/\s+/gu, ' ').replace(/[.?]$/u, '');
+  const criteria: SimpleCriterion[] = [];
+  const drinks = /^(?:(gemütlich) )?(?:(?:et)?was )?trinken(?: gehen)?$/u.exec(text);
+  const coffee = /^(?:ein )?(?:(gemütliches) )?caf[eé]( in basel)?( für einen kaffee)?$/u.exec(text);
+  const restaurant = /^(?:ein )?(?:(gemütliches) )?restaurant( in basel)?$/u.exec(text);
+  if (drinks) criteria.push(['food.drink', 'REQUIRED', 'drinks']);
+  else if (coffee) {
+    criteria.push(['offer.kind', 'REQUIRED', 'cafe']);
+    if (coffee[3]) criteria.push(['food.drink', 'REQUIRED', 'coffee']);
+  } else if (restaurant) criteria.push(['offer.kind', 'REQUIRED', 'restaurant']);
+  else return null;
+  if (drinks?.[1] || coffee?.[1] || restaurant?.[1]) criteria.push(['atmosphere.character', 'PREFERRED', 'cozy']);
+  if (coffee?.[2] || restaurant?.[2]) criteria.push(['location.destination', 'REQUIRED', 'basel']);
+  return criteria;
+}
+
+function matchesSimpleCriteria(plan: LibrarianRequest, expected: readonly SimpleCriterion[]): boolean {
+  if (plan.facts.length !== expected.length || plan.entities.length > 1 || plan.entities.some(e => e.kind !== 'ACTIVITY')
+    || plan.bindings.length || plan.weatherConditions.length || plan.extensions.length || plan.raw.uncertainties.length) return false;
+  const clauses = plan.logic.kind === 'ALL' ? plan.logic.children : [plan.logic];
+  if (clauses.length !== plan.facts.length || !plan.facts.every(fact => clauses.some(c => c.kind === 'FACT' && c.factId === fact.id))) return false;
+  return expected.every(([key, modality, value]) => plan.facts.some(fact => {
+    if (fact.key !== key || fact.modality !== modality || fact.basis !== 'EXPLICIT' || fact.value.kind !== 'TEXT') return false;
+    const text = fact.value.text.trim().toLocaleLowerCase('de-CH');
+    return (key === 'atmosphere.character' || key === 'food.drink' ? librarianConcept(text) : text) === value;
+  }));
+}
 const purposeInstructions = `SUCHZIEL UND GEGENSTAND: Beginne mit dem eigentlichen Vorhaben. Was man anschauen, hören oder
 kennenlernen möchte, beschreibt das Thema des Besuchs. Beispiel: «alte Druckmaschinen
 anschauen» = experience.activity Ausstellung besuchen + experience.theme alte Druckmaschinen.
@@ -69,6 +104,7 @@ export function createDecisionProductNuknukProvider(input: {
   readonly clarifyDialogue?: boolean;
   readonly repairCompactMeaning?: boolean;
   readonly includePurposeInstructions?: boolean;
+  readonly fastSimpleSearch?: boolean;
 }): NonNullable<DecisionProductRuntimePorts['understand']> {
   const endpoint = new URL(input.endpoint);
   if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || endpoint.search || endpoint.hash
@@ -85,14 +121,16 @@ export function createDecisionProductNuknukProvider(input: {
     // No actor, session, approximate device location or ranking history enters the inference service.
     const explicitContext = { group: explicit.group, dateTime: explicit.dateTime, budget: explicit.budget, targetCity: explicit.targetCity };
     const hasExplicitContext = Object.values(explicitContext).some(value => value != null);
-    async function complete(prompt: {instructions: string; outputSchema: object}, userInput: string, routing = false): Promise<string> {
+    async function complete(prompt: {instructions: string; outputSchema: object}, userInput: string, mode: 'full' | 'dialogue' | 'simple' = 'full'): Promise<string> {
+      const routing = mode === 'dialogue';
       const baseInstructions = hasExplicitContext && !routing
         ? prompt.instructions + '\nBehalte explizit gesetzte Suchangaben aus explicitContext. request bleibt der Nutzertext.'
         : prompt.instructions;
-      const instructions = input.includePurposeInstructions && !routing && !prompt.instructions.includes("removeFactIds")
+      const instructions = input.includePurposeInstructions && mode === 'full' && !prompt.instructions.includes("removeFactIds")
         ? baseInstructions + "\n" + purposeInstructions : baseInstructions;
+      const requestSignal = mode === 'simple' ? AbortSignal.any([signal,AbortSignal.timeout(SIMPLE_SEARCH_TIMEOUT_MS)]) : signal;
       const response = await fetchImpl(endpoint, {
-        method: 'POST', redirect: 'error', signal, cache: 'no-store',
+        method: 'POST', redirect: 'error', signal: requestSignal, cache: 'no-store',
         headers: { authorization: `Bearer ${input.apiKey}`, 'content-type': 'application/json' },
         body: JSON.stringify({
           model: input.model, temperature: 0, max_tokens: routing ? 96 : 2048, stream: false,
@@ -109,7 +147,7 @@ export function createDecisionProductNuknukProvider(input: {
         throw new Error('product_nuknuk_unavailable');
       }
       const raw = await readModelResponse(response) as { model?: unknown; choices?: { finish_reason?: unknown; message?: { content?: unknown; refusal?: unknown } }[] } | null;
-      signal.throwIfAborted();
+      requestSignal.throwIfAborted();
       const choice = Array.isArray(raw?.choices) && raw.choices.length === 1 ? raw.choices[0] : undefined;
       if (raw?.model !== input.model || choice?.finish_reason !== 'stop' || choice.message?.refusal || typeof choice.message?.content !== 'string') {
         throw new Error('product_nuknuk_response_invalid');
@@ -120,7 +158,7 @@ export function createDecisionProductNuknukProvider(input: {
     const latestTurn = dialogue?.turns.at(-1);
     if (input.routeDialogue && dialogue && latestTurn) {
       const route = await classifyNuknukDialogue(dialogue.original, latestTurn.answer,
-        (prompt, userInput) => complete(prompt, userInput, true), input.clarifyDialogue).catch(() => null);
+        (prompt, userInput) => complete(prompt, userInput, 'dialogue'), input.clarifyDialogue).catch(() => null);
       signal.throwIfAborted();
       if (route === 'NEW_SEARCH') {
         throw new DecisionProductError('DECISION_NUKNUK_NEW_PLAN', 422, 'Möchtest du für den neuen Plan suchen?');
@@ -132,9 +170,24 @@ export function createDecisionProductNuknukProvider(input: {
     const original = dialogue?.original ?? query;
     const prompt = buildNuknukCompactSearchRequest({ query:original, reference });
     const userInput = hasExplicitContext ? JSON.stringify({request:original, explicitContext}) : prompt.input;
-    const raw = await complete(prompt, userInput);
     const interpret = (content: string) =>
       validateNuknukCompactSearch(JSON.parse(content) as unknown, { query:original, reference });
+    const simpleCriteria = input.fastSimpleSearch && !dialogue && !Object.values(explicit).some(v => v != null)
+      && !request.alternativeRequested && !request.previouslyPresentedCandidateIds.length && !request.rejectedCandidateIds.length
+      ? simpleSearchCriteria(original) : null;
+    if (simpleCriteria) {
+      try {
+        const simple = interpret(await complete({ ...prompt, instructions: simpleSearchInstructions }, userInput, 'simple'));
+        if (simple.requestState === 'EXECUTABLE' && simple.plan && !simple.clarification && !simple.clarificationIssue
+          && matchesSimpleCriteria(simple.plan, simpleCriteria)) {
+          assertExplicitContext(request, simple.plan);
+          return simple.plan;
+        }
+      } catch {
+        signal.throwIfAborted();
+      }
+    }
+    const raw = await complete(prompt, userInput);
     let result;
     try {
       try {

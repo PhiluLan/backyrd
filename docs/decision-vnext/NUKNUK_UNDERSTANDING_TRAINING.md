@@ -3303,3 +3303,16 @@ Providerstart, Transfers, Baselines, Training, DEV, TEST und Sicherung teilen
 denselben Kosten- und Zeitrahmen; Unterbrechungen setzen ihn nicht zurück.
 Der neue operative Zustand liegt unter
 `.local/nuknuk-understanding/runpod-20261110-solid-v7-full/`.
+
+## Kürzere Anweisung für einfache Suchen
+
+Das persönliche R15-Profil verwendet bei vollständig erkannten Einzelsuchen
+nach Getränken, Café oder Restaurant eine kürzere Anweisung für dasselbe
+Modell. Die Übergabe muss alle aus der Anfrage erwarteten Fakten mit der
+richtigen Verbindlichkeit enthalten. Bei fehlenden oder zusätzlichen Fakten,
+Rückfragen oder einem Zeitlimit von sechs Sekunden übernimmt die normale
+Modellanweisung. Alle anderen Wünsche gehen direkt über die normale
+Anweisung. Beide Wege verwenden denselben Bibliothekar.
+
+`BACKYRD_NUKNUK_FAST_SIMPLE_SEARCH=false` deaktiviert die Abkürzung
+im Backend.
