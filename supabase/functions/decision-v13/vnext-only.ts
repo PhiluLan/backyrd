@@ -135,7 +135,7 @@ function withCors(response: Response, origin: string | null): Response {
   const headers = new Headers(response.headers);
   headers.set("access-control-allow-origin", origin);
   headers.set("vary", "origin");
-  headers.set("access-control-allow-headers", "authorization, content-type, x-region, x-backyrd-personal-trace");
+  headers.set("access-control-allow-headers", "authorization, content-type, x-region, x-backyrd-personal-trace, x-backyrd-dialogue-choice");
   headers.set("access-control-allow-methods", "POST, OPTIONS");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
@@ -162,10 +162,15 @@ Deno.serve(async (request: Request) => {
     const config = configuration(provider !== "luna");
     const aiEnabled = Deno.env.get("BACKYRD_DECISION_AI_INTENT_ENABLED") === "true";
     const luna = () => createDecisionProductLunaProvider({ apiKey: required("OPENAI_API_KEY") });
+    const personalCandidate = provider === "nuknuk-personal" && Deno.env.get("BACKYRD_NUKNUK_PERSONAL_SEARCH_PROFILE") === "r15";
     const nuknuk = () => createDecisionProductNuknukProvider({
       endpoint: required("BACKYRD_NUKNUK_ENDPOINT"),
       apiKey: required("BACKYRD_NUKNUK_API_KEY"),
       model: required("BACKYRD_NUKNUK_MODEL"),
+      routeDialogue: request.headers.get("x-backyrd-dialogue-choice") === "1",
+      clarifyDialogue: personalCandidate,
+      repairCompactMeaning: personalCandidate,
+      includePurposeInstructions: personalCandidate,
     });
     const traceRequested = request.headers.get("x-backyrd-personal-trace") === "1";
     let mayReturnTrace = false;

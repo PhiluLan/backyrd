@@ -1,4 +1,4 @@
-import { BASEL_PROXIMITY_METERS, baselNeighborhoodAt, baselNeighborhoodNames, baselSearchAnchor, straightLineMeters, librarianDiscoveryLocalities, localityKey } from "./product-librarian-geography.js";
+import { BASEL_PROXIMITY_METERS, baselCityCentreEvidence, baselNeighborhoodAt, baselNeighborhoodNames, baselSearchAnchor, straightLineMeters, librarianDiscoveryLocalities, localityKey } from "./product-librarian-geography.js";
 import { eventVisitAvailability, eventFactMatch } from "./product-event-candidates.js";
 import { compileLibrarianPlan, librarianDecisionProof, combineLibrarianDecisionProof, librarianFacilityIsVisit, librarianFacilityVisitAreaKinds, librarianDiagnosis, type LibrarianDiagnosis } from "./product-librarian-plan.js";
 import { bookingEvidence, takeawayEvidence, externalConsumptionEvidence, qualitativePriceEvidence, LIBRARIAN_KNOWLEDGE_POLICY, type DomainEvidence } from "./product-librarian-knowledge.js";
@@ -6,7 +6,7 @@ import { librarianAllAgesSuitability, librarianRankingPreference, librarianManda
 import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
 import { librarianGlobalEligibility } from "./product-librarian-eligibility.js";
-import { experienceBookingMode, spotTypeSupports, experienceActivitySupports, declaredExperienceConcepts, parseExperienceProfile, hasOfferModule, type ExperienceProfile, type ExperienceProperty, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
+import { experienceBookingMode, spotTypeSupports, experienceActivitySupports, declaredExperienceConcepts, parseExperienceProfile, hasOfferModule, SPOT_TYPE_CATALOG, type ExperienceProfile, type ExperienceProperty, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
 import { contentHash, deepFreeze } from "./canonical.js";
 import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianFact, type LibrarianRequest, type LunaExpression } from "./product-luna-librarian.js";
 import { parseProductWorldResolverBinding, type ProductWorldView } from "./product-world-resolver-binding.js";
@@ -155,6 +155,7 @@ function offerDuty(fact: LibrarianFact): boolean {
         || fact.key === "condition.children" && concept === "children_activity"
         || librarianFacilityConcept(fact) === "playground";
 }
+const openDiscoveryOffers = ["WALK", "VISIT", "SELF_GUIDED_VISIT", "PERMANENT_EXHIBITION", "SPECIAL_EXHIBITION"];
 const contextual = (fact: LibrarianFact) => fact.modality === "CONTEXT";
 const neutral = (fact: LibrarianFact) => contextual(fact) || fact.modality === "NOT_REQUIRED";
 function assignments(request: LibrarianRequest, fact: LibrarianFact, offerId: string | null, areaId: string | null): Readonly<Record<string, string>> {
@@ -201,6 +202,34 @@ function join(a: State, b: Witness): State | null {
     return { chargeOfferIds: mergeSorted(a.chargeOfferIds, b.chargeable ? b.offerIds : []), assignments: combined, hashes: mergeSorted(a.hashes, b.evidenceHashes), offerIds: mergeSorted(a.offerIds, b.offerIds), areaIds: mergeSorted(a.areaIds, b.areaIds), uncertain: a.uncertain || b.conditionUnresolved };
 }
 const compare = (a: number, b: number, operator: string) => operator === "EQ" ? a === b : operator === "NEQ" ? a !== b : operator === "LTE" ? a <= b : operator === "LT" ? a < b : operator === "GTE" ? a >= b : operator === "GT" ? a > b : null;
+export const exhibitionThemeLabels = [
+    ["comics", "comic", "narrative kunst", "gezeichnete geschichten", "bildergeschichten"],
+    ["erdgeschichte", "naturgeschichte", "geologie"],
+    ["musikinstrumente", "musikinstrument", "alte musikinstrumente", "historische musikinstrumente"],
+    ["spielzeug", "teddybären", "puppen", "kaufmannsläden", "altes spielzeug", "historisches spielzeug"],
+    ["ägypten", "altägypten", "altes ägypten", "ägyptische kunst"],
+    ["papierherstellung", "historische papierherstellung", "papier machen", "papier schöpfen", "papierschöpfen"],
+    ["gegenwartskunst", "zeitgenössische kunst", "zeitgenössischer kunst"],
+    ["pharmazie", "heilmittel", "arzneimittel", "historische heilmittel", "alte heilmittel"],
+    ["kinetische kunst", "bewegliche kunst", "bewegliche figuren", "bewegliche figuren und objekte kinetische kunst",
+        "figuren und bewegliche dinge"],
+    ["feuerwehrgeschichte", "feuerwehr", "geschichte der feuerwehr", "geschichte der brandbekämpfung"],
+] as const;
+
+export function documentedExhibitionTheme(title: string, theme: string): boolean {
+    const normalize = (value: string) => value.normalize("NFKD").toLowerCase().replace(/\p{M}/gu,"").replace(/[^a-z0-9]+/gu," ").trim();
+    const caption = normalize(title);
+    if (/\b(?:kein|keine|keinen|keiner|nicht|ohne|abgesagt|ehemalig(?:e|en|er|es)?)\b/u.test(caption)) return false;
+    const target = normalize(theme);
+    // A documented civilisation is evidence for the broad historical topic.
+    // The inverse would incorrectly make every ancient-cultures exhibit Egyptian.
+    if (["alte kulturen", "antike kulturen", "antike zivilisationen"].includes(target)) {
+        return /\b(?:antike|altagypten|romer|mesopotamien)\b|\b(?:agyptische|griechische|romische)\s+(?:antiken|altertumer|skulpturen|vasen|artefakte)\b/u.test(caption);
+    }
+    const aliases = exhibitionThemeLabels.find(group => group.some(label => normalize(label) === target));
+    return aliases ? aliases.some(label => ` ${caption} `.includes(` ${normalize(label)} `)) : caption === target;
+}
+
 function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): MatchTruth {
     if (property.state !== "KNOWN")
         return "UNKNOWN";
@@ -214,12 +243,20 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
         // offer. This does not turn a beverage into a venue, workshop or meal.
         if (fact.key === "experience.activity" && property.key === "food.drink")
             return desired === "coffee" && typeof property.value === "string" && librarianConcept(property.value) === "coffee" ? "MET" : "UNKNOWN";
+        if (fact.key === "location.view" && typeof property.value === "string") {
+            const caption = librarianTerm(property.value);
+            if (/^(?:rhein|rheinblick|rheinaussicht)$/iu.test(fact.value.text.trim())
+                && !/\b(?:kein\w*|nicht|ohne|verstellt|verdeckt)\b/iu.test(caption)
+                && /\b(?:rheinblick|rheinaussicht|(?:blick|aussicht) (?:auf|über) den rhein)\b/iu.test(caption)) return "MET";
+        }
         if (typeof property.value === "boolean") {
             const concept = BOOLEAN_CONCEPTS[property.key];
             return concept && desired === concept ? (property.value ? "MET" : "FAILED") : "UNKNOWN";
         }
         if (typeof property.value !== "string")
             return "UNKNOWN";
+        if (fact.key === "experience.theme" && property.key === "experience.theme"
+            && documentedExhibitionTheme(property.value, fact.value.text)) return "MET";
         if (fact.key === "condition.children" && desired === "children_activity" && property.key === "condition.children")
             return "UNKNOWN"; // Generic Kinderangebote can mean a child's menu or price.
         if (sameLibrarianText(property.value, fact.value.text)) return "MET";
@@ -235,6 +272,7 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
         if (fact.key === "experience.activity" && property.key === "experience.activity") {
             const actual = librarianConcept(property.value);
             if (actual && desired && experienceActivitySupports(actual, desired)) return "MET";
+            if (desired && declaredExperienceConcepts(property.value, "ITEM_LIST").includes(desired)) return "MET";
         }
         const actual = librarianConcept(property.value);
         if (property.key === "food.meal_extent" && librarianMealExtentConcept(fact) !== null
@@ -252,8 +290,15 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
     }
     if (typeof property.value !== "number" || !("amount" in fact.value) || !("operator" in fact.value))
         return "UNKNOWN";
-    if (fact.key === "time.duration" && fact.value.kind === "DURATION" && fact.value.measurementScope === "AVAILABLE_TOTAL")
-        return "UNKNOWN";
+    if (fact.key === "time.duration" && fact.value.kind === "DURATION") {
+        if (fact.value.measurementScope === "AVAILABLE_TOTAL") return "UNKNOWN";
+        if (fact.value.operator === "APPROX" && fact.value.measurementScope === "ACTIVITY") {
+            // Compare typical activity durations within a small, defined window.
+            // This does not establish transit time or a guaranteed finishing time.
+            const toleranceMinutes = Math.max(5, fact.value.amount * 0.2);
+            return Math.abs(property.value - fact.value.amount) <= toleranceMinutes ? "MET" : "FAILED";
+        }
+    }
     const result = compare(property.value, fact.value.amount, fact.value.operator);
     return result === null ? "UNKNOWN" : result ? "MET" : "FAILED";
 }
@@ -305,18 +350,24 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         const latitude = world.facts.find(row => row.key === "location.latitude");
         const longitude = world.facts.find(row => row.key === "location.longitude");
         if (fact.key === "location.area") {
-            const target = fact.value.kind === "TEXT" ? baselNeighborhoodNames(fact.value.text) : null;
+            const areaName = fact.value.kind === "TEXT" ? fact.value.text : "";
+            const centre = baselCityCentreEvidence(areaName);
+            const target = centre?.names ?? baselNeighborhoodNames(areaName);
             const tag = world.facts.find(row => row.key === "location.neighborhood");
             if (localityKey(world.spot.location.locality ?? "") !== "basel" || !target)
                 return report("UNKNOWN", "NEIGHBORHOOD_EVIDENCE_MISSING");
+            const matchArea = (matches: boolean, reason: string, hashes: readonly string[]) => {
+                if (centre && !matches) return report("UNKNOWN", "BASEL_CITY_CENTRE_BOUNDARY_UNRESOLVED");
+                return witnessed(matches, reason, centre ? [...hashes, centre.evidenceHash] : hashes);
+            };
             if (typeof latitude?.value === "number" && typeof longitude?.value === "number") {
                 const area = baselNeighborhoodAt(target, latitude.value, longitude.value);
-                if (area) return witnessed(area.matches, "VERIFIED_NEIGHBORHOOD_GEOMETRY", [latitude.entryHash, longitude.entryHash, ...area.evidenceHashes]);
+                if (area) return matchArea(area.matches, "VERIFIED_NEIGHBORHOOD_GEOMETRY", [latitude.entryHash, longitude.entryHash, ...area.evidenceHashes]);
             }
             if (typeof tag?.value !== "string" || !baselNeighborhoodNames(tag.value))
                 return report("UNKNOWN", "NEIGHBORHOOD_EVIDENCE_MISSING");
             const tagName = localityKey(tag.value).replace(/[^a-z0-9]+/g, " ").trim();
-            return witnessed(target.includes(tagName), "VERIFIED_NEIGHBORHOOD", [tag.entryHash]);
+            return matchArea(target.includes(tagName), "VERIFIED_NEIGHBORHOOD", [tag.entryHash]);
         }
         const originName = fact.value.kind === "TEXT" && fact.key === "location.proximity" ? fact.value.text
             : fact.value.kind === "LENGTH" && fact.key === "location.distance"
@@ -375,6 +426,20 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     const placeType = !scopedKind && !librarianFacilityConcept(fact) ? assessLibrarianPlaceType(preferenceOnly ? { ...fact, modality: "PREFERRED" } : fact, world) : null;
     if (placeType) return report(placeType.state, placeType.reason, placeType.hashes.length ? [{ evidenceHashes: placeType.hashes, offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: placeType.state === "UNKNOWN", chargeable: false }] : []);
     if (!profile || !profileHash) {
+        const park = world.facts.find(row => row.key === "classification.place_types" && Array.isArray(row.value)
+            && row.value.includes("PARK") && row.authorizedUseCases?.includes("DISCOVERY"));
+        const playground = world.facts.find(row => row.key === "offering.onsite" && Array.isArray(row.value)
+            && row.authorizedUseCases?.includes("DISCOVERY") && row.value.some(entry =>
+                entry && typeof entry === "object" && "kind" in entry && entry.kind === "KIDS_PLAY_AREA"
+                && "relationship" in entry && entry.relationship === "PART_OF_SPOT" && "area" in entry && typeof entry.area === "string"));
+        const asksParkPlayground = librarianFacilityConcept(fact) === "playground";
+        if (park && playground && asksParkPlayground && ["REQUIRED", "PREFERRED"].includes(fact.modality)
+            && !request.bindings.length &&
+            !request.facts.some(other => other !== fact && other.key === "offer.area" && other.value.kind === "TEXT"
+                && librarianConcept(other.value.text) === "indoor" && other.modality === "REQUIRED")) {
+            return report("MET", "VERIFIED_PARK_PLAYGROUND", [{ evidenceHashes: [park.entryHash, playground.entryHash],
+                offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: false, chargeable: false }]);
+        }
         const legacy = assessLegacyLibrarianFact(preferenceOnly ? { ...fact, modality: "PREFERRED" } : fact, world, visit);
         return report(legacy.state, legacy.reason, legacy.hashes.length ? [{ evidenceHashes: legacy.hashes, offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: legacy.state === "UNKNOWN", chargeable: false }] : []);
     }
@@ -434,6 +499,19 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     if (offerDuty(fact) && desired) {
         const classification = world.facts.find(r => r.key === "classification.place_types" && Array.isArray(r.value));
         const place = classification?.value as readonly string[] | undefined;
+        const recordedType = classification?.authorizedUseCases?.includes("DISCOVERY") === true;
+        if (recordedType && (desired === "open_discovery" || desired === "walkable_garden")) {
+            const isDiscoveryVenue = (place ?? []).some(type => SPOT_TYPE_CATALOG.some(row => row.kind === type
+                && ["CULTURE_ARTS", "OUTDOOR_NATURE", "ATTRACTIONS_LANDMARKS"].includes(row.group)));
+            const isGarden = place?.includes("BOTANICAL_GARDEN") ?? false;
+            for (const offer of profile.offers) {
+                const matches = desired === "open_discovery" ? isDiscoveryVenue && openDiscoveryOffers.includes(offer.kind)
+                    : isGarden && offer.kind === "WALK";
+                if (matches)
+                    for (const areaId of offer.areaIds.length ? offer.areaIds : [null])
+                        add("MET", offer, areaId, { kind: offer.kind, name: offer.name }, false, [classification.entryHash]);
+            }
+        }
         const categoryProof = desired === "zoo" ? place?.some(type=>spotTypeSupports(type,"ZOO")) : desired === "museum" ? place?.some(type=>spotTypeSupports(type,"MUSEUM")) : desired === "restaurant" ? (LIBRARIAN_PLACE_TYPE_LANGUAGE.children.RESTAURANT ?? []).some(type => place?.includes(type)) : desired === "bar" ? (LIBRARIAN_PLACE_TYPE_LANGUAGE.children.BAR ?? []).some(type => place?.includes(type)) : null;
         for (const offer of profile.offers) {
             // A restaurant with a documented full pizza meal can support a
@@ -472,6 +550,25 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
             }
         }
     }
+    if (fact.key === "offer.kind" && fact.value.kind === "TEXT"
+        && ["kunstmuseum", "kunst_museum"].includes(librarianTerm(fact.value.text))) {
+        const museum = world.facts.find(row => row.key === "classification.place_types" && Array.isArray(row.value)
+            && row.value.includes("MUSEUM") && row.authorizedUseCases?.includes("DISCOVERY"));
+        if (museum)
+            for (const offer of profile.offers.filter(offer => ["PERMANENT_EXHIBITION", "SPECIAL_EXHIBITION", "SELF_GUIDED_VISIT", "VISIT"].includes(offer.kind)
+                && /\b(?:kunst(?:sammlung|werke|ausstellung)?|malerei|skulpturen)\b/iu.test(offer.name)))
+                for (const areaId of offer.areaIds.length ? offer.areaIds : [null])
+                    add("MET", offer, areaId, { kind: offer.kind, artMuseumOffer: offer.name }, false, [museum.entryHash]);
+    }
+    if (fact.key === "experience.activity" && fact.modality === "EXCLUDED" && fact.value.kind === "TEXT"
+        && librarianTerm(fact.value.text) === "sport"
+        && request.facts.some(f => f.key === "experience.activity" && f.modality === "REQUIRED"
+            && f.value.kind === "TEXT" && librarianConcept(f.value.text) === "open_discovery")) {
+        for (const offer of profile.offers.filter(offer => openDiscoveryOffers.includes(offer.kind)
+            && offer.kind !== "WALK" && !offer.properties.some(row => row.key === "experience.activity")))
+            for (const areaId of offer.areaIds.length ? offer.areaIds : [null])
+                add("FAILED", offer, areaId, { excludedSportAbsentInOfferKind: offer.kind });
+    }
     // An authored food/drink offer can explicitly list its products in its
     // title. Reuse the bounded item-list grammar (including negation and
     // qualification guards), without upgrading generic pastry into cake.
@@ -480,7 +577,42 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
             if (declaredExperienceConcepts(offer.name,"ITEM_LIST").includes(desired))
                 for (const areaId of offer.areaIds.length ? offer.areaIds : [null])
                     add("MET",offer,areaId,{declaredProductTitle:offer.name});
-    if (desired && ["experience.activity", "offer.feature", "atmosphere.music", "condition.children"].includes(fact.key)) {
+    if (fact.key === "food.drink" && desired === "coffee")
+        for (const offer of profile.offers.filter(o => o.kind === "CAFE" && /^(?:specialty coffee|kaffeeangebot)$/iu.test(o.name.trim())))
+            for (const areaId of offer.areaIds.length ? offer.areaIds : [null])
+                add("MET", offer, areaId, {declaredCoffeeOffer: offer.name, kind: offer.kind});
+    if (fact.key === "location.waterbody" && fact.value.kind === "TEXT"
+        && librarianTerm(fact.value.text) === "rhein") {
+        for (const offer of profile.offers.filter(offer => offer.kind === "EXCURSION_RIDE")) {
+            const caption = librarianTerm(offer.name);
+            if (!/\b(?:kein\w*|nicht|ohne|abgesagt)\b/u.test(caption)
+                && /\b(?:den rhein überqueren|rheinüberquerung|(?:fähre|fährfahrt|bootsfahrt) über den rhein)\b/u.test(caption)) {
+                for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) {
+                    add("MET",offer,areaId,{documentedCrossing:offer.name,waterbody:"Rhein"});
+                }
+            }
+        }
+    }
+    if (fact.key === "experience.theme" && fact.value.kind === "TEXT") {
+        for (const offer of profile.offers.filter(offer => ["PERMANENT_EXHIBITION", "SPECIAL_EXHIBITION", "SELF_GUIDED_VISIT", "VISIT"].includes(offer.kind))) {
+            if (documentedExhibitionTheme(offer.name, fact.value.text))
+                for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) add("MET", offer, areaId, {declaredExhibitionTitle: offer.name});
+        }
+    }
+    if (fact.key === "participation.format" && desired === "self_guided")
+        for (const offer of profile.offers.filter(offer => offer.kind === "SELF_GUIDED_VISIT"))
+            for (const areaId of offer.areaIds.length ? offer.areaIds : [null])
+                add("MET", offer, areaId, { kind: offer.kind, programme: offer.name });
+    if (fact.key === "experience.activity" && desired === "exhibition") {
+        for (const offer of profile.offers.filter(offer => ["SELF_GUIDED_VISIT", "VISIT"].includes(offer.kind)
+            && /\b(?:museum|ausstellung|dauerausstellung|sonderausstellung|ausstellungen)\b/iu.test(offer.name)
+            && !/\b(?:keine?|ohne|nicht)\b/iu.test(offer.name))) {
+            for (const areaId of offer.areaIds)
+                if (profile.areas.some(area => area.id === areaId && area.kind === "EXHIBITION"))
+                    add("MET", offer, areaId, { kind: offer.kind, exhibitionVisit: offer.name });
+        }
+    }
+    if (desired && ["experience.activity", "offer.kind", "offer.feature", "atmosphere.music", "condition.children"].includes(fact.key)) {
         for (const offer of profile.offers) {
             const declared = declaredExperienceConcepts(offer.name, "OFFER_NAME");
             const genericChildMeal = ["condition.children", "experience.activity", "offer.kind"].includes(fact.key) && desired === "children_activity"
@@ -525,12 +657,31 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                     add("MET", offer, area.id, area, offer.kind === "VISIT" && offer.areaIds.length > 1);
             }
     }
+    // An authored offer or area can identify the setting of this activity.
+    // Never borrow the setting from a different area at the venue.
+    if (fact.key === "offer.area" && (desired === "indoor" || desired === "outdoor")) {
+        for (const offer of profile.offers) {
+            for (const area of profile.areas.filter(area => offer.areaIds.includes(area.id))) {
+                if (area.properties.some(property => property.key === "location.setting")) continue;
+                const caption = librarianTerm(offer.name);
+                const areaLabel = librarianTerm(area.name);
+                const proof = offer.kind === "SWIMMING" && /\b(?:schwimmen im (?:gartenbad|freibad|sommerbad)|im (?:gartenbad|freibad|sommerbad) schwimmen)\b/u.test(caption)
+                    ? "outdoor" : offer.kind === "SWIMMING" && /\b(?:schwimmen im (?:winter)?hallenbad|im (?:winter)?hallenbad schwimmen)\b/u.test(caption)
+                    ? "indoor" : desired === "outdoor" && declaredExperienceConcepts(offer.name,"OFFER_NAME").includes("skating")
+                        && /^offenes eisfeld(?:\s|$)/u.test(areaLabel) ? "outdoor" : null;
+                if (proof) add(proof === desired ? "MET" : "FAILED", offer, area.id, {declaredSetting:proof, offer:offer.name, area:area.name});
+            }
+        }
+    }
     const keys = librarianFactPropertySourceKeys(fact, semantics?.sourceKeys(fact));
+    const viewFromOffer = fact.key === "location.view" && fact.value.kind === "TEXT"
+        && /^(?:rhein|rheinblick|rheinaussicht)$/iu.test(fact.value.text.trim());
     const observedKeys = new Set<string>();
     let knownValueChecks = 0, unknownValueChecks = 0, outsideConditionChecks = 0;
     let typedWorldLimitation: string | null = null;
     const inspect = (properties: readonly ExperienceProperty[], offer: ExperienceOffer | null, areaId: string | null, areaScoped = false) => {
-        for (const property of properties.filter(p => keys.includes(p.key))) {
+        for (const property of properties.filter(p => keys.includes(p.key) || viewFromOffer && p.key === "experience.activity"
+            && offer?.kind === "SELF_GUIDED_VISIT" && areaId !== null)) {
             // Protection must locate the selected activity. A venue-wide roof
             // or an unrelated cafe cannot establish a rain-safe playground.
             if (rainSuitability && ["condition.weather_protection", "location.setting"].includes(property.key)
@@ -887,8 +1038,13 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
             }
             const sourceAtom = allAtoms.find(a => a.report.factId === r.factId);
             if (sourceAtom && r.state === "MET") {
-                if (librarianRankingPreference(fact.modality)) {
-                    const compatible = sourceAtom.witnesses.filter(w => join(state, w) !== null);
+                if (librarianRankingPreference(r.modality)) {
+                    // An exhibit's theme is evidence for its own programme.
+                    // Shared building or room cannot prove it for another offer.
+                    const topicOffers = fact.key === "experience.theme" ? state.offerIds.filter(offerId =>
+                        !fact.subjectIds.length || fact.subjectIds.some(id => state.assignments[`owner:${id}:offer:${offerId}`] === offerId)) : [];
+                    const compatible = sourceAtom.witnesses.filter(w => join(state, w) !== null
+                        && (!topicOffers.length || w.offerIds.every(id => topicOffers.includes(id))));
                     if (!compatible.length && sourceAtom.witnesses.length)
                         return { ...r, state: "UNKNOWN" as const, reason: "RANKING_DETAIL_NOT_PROVEN_FOR_SELECTED_OFFER", evidenceHashes: [], offerIds: [], areaIds: [] };
                     return { ...r, evidenceHashes: sorted(compatible.flatMap(w => w.evidenceHashes)), offerIds: sorted(compatible.flatMap(w => w.offerIds)), areaIds: sorted(compatible.flatMap(w => w.areaIds)) };
@@ -908,7 +1064,7 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
             const gate = librarianVenueAvailability(world, visit);
             next.push({ factId: "legacy:venue-time", family: "eligibility", modality: "REQUIRED", state: gate.state, reason: gate.reason, evidenceHashes: gate.hashes, offerIds: [], areaIds: [] });
         }
-        if (visit.requested && profile) for (const id of state.offerIds) {
+        if (profile) for (const id of state.offerIds) {
             const availability = offerAvailability(profile.offers.find(o => o.id === id)!, world, visit);
             if (availability.state !== "MET") next.push({ factId: `availability:${id}`, family: "eligibility", modality: "REQUIRED", state: availability.state, reason: availability.reason, evidenceHashes: availability.hashes, offerIds: [id], areaIds: state.areaIds });
         }

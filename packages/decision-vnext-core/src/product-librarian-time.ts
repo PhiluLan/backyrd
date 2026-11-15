@@ -195,8 +195,32 @@ export function librarianOfferAvailability(offer: ExperienceOffer, world: Produc
     hashes: readonly string[];
     reason: string;
 } {
+    // The offer profile can carry a current closure even without a requested
+    // visit date. A timetable or a sibling offer must not override it.
+    const closureNotice = /^(?:derzeit\s+|aktuell\s+)?(?:bis auf weiteres\s+|vorübergehend\s+)geschlossen(?:\s|[.,;!]|$)/iu;
+    const closures = offer.properties.filter(property => property.key === "participation.permission"
+        && property.state === "KNOWN" && typeof property.value === "string" && closureNotice.test(property.value.trim()));
+    const applicableClosures = closures.map(property => ({property, state: librarianConditions(property.conditions, visit)}))
+        .filter(closure => closure.state !== "FAILED");
+    if (applicableClosures.length) {
+        const closed = applicableClosures.some(closure => closure.state === "MET");
+        return {state: closed ? "FAILED" : "UNKNOWN", reason: closed ? "VERIFIED_OFFER_CLOSURE" : "OFFER_CLOSURE_CONDITIONS_UNRESOLVED",
+            hashes: applicableClosures.map(closure => contentHash({offerId: offer.id, closure: closure.property}))};
+    }
     if (!visit.requested)
         return { state: "MET", hashes: [], reason: "NO_TIME_REQUIREMENT" };
+    // Venue hours cannot confirm a scheduled programme with no scoped timetable.
+    // Titles can be names of works. Treat authored weekday text as an unresolved
+    // scheduling cue, and let typed schedules / occurrences establish the date.
+    const caption = /\bam (?:montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)(?:morgen|vormittag|mittag|nachmittag|abend|nacht)?\b/iu;
+    if (!offer.schedule.length && !world.eventOccurrence && visit.complete && visit.dates.length
+        && ["MUSIC_EVENT","THEATRE_PERFORMANCE","CINEMA_SCREENING","PLAY"].includes(offer.kind)
+        && caption.test(offer.name) && offer.properties.some(property=>property.key==="experience.activity"
+            && property.state==="KNOWN" && typeof property.value==="string"
+            && /\b(?:aktuelle (?:durchführung|termine)|programm\s+prüfen|anmeldung\b[^.!?]{0,35}\bprüfen)\b/iu.test(property.value))) {
+        return {state:"UNKNOWN",hashes:[contentHash({offerId:offer.id,offerTitle:offer.name,properties:offer.properties})],
+            reason:"PROGRAMME_WITHOUT_CONFIRMED_SCHEDULE"};
+    }
     if (visit.undatedDayPhase) {
         // Respect a documented recurring restriction without inventing a day,
         // current opening or availability. No schedule means no calendar claim.

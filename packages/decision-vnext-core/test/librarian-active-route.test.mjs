@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDecisionProductHttpHandler, createDecisionProductLunaProvider, createDecisionProductRpcEvaluationProvider, contentHash } from '../dist/index.js';
+import { validateNuknukCompactSearch } from '../dist/nuknuk-understanding.js';
 import { request as plan, fact, meal, profile, offer, area, prop, price, binding, worldFact, budget, date, evening, reference, authority } from './librarian-matching-fixtures.mjs';
 import { exercise } from "./librarian-active-route-fixtures.mjs";
 
@@ -131,6 +132,15 @@ test('overlapped city preparation preserves complete responses for all ten domai
  }
 });
 
+test('venue hours cannot confirm a recurring programme that asks users to check its schedule',async()=>{
+ const {librarianOfferAvailability,createLibrarianVisitWindow}=await import('../dist/product-librarian-time.js');
+ const program={...offer('quiz','PLAY'),name:'Pub Quiz am Sonntagabend',schedule:[],
+  properties:[prop('experience.activity','Sonntagabend Pub Quiz; aktuelle Durchführung und Anmeldung beim Lokal prüfen')]};
+ const result=librarianOfferAvailability(program,{},createLibrarianVisitWindow([{...date(),value:{...date().value,kind:'DATE'}}],reference.timezone));
+ assert.equal(result.state,'UNKNOWN');
+ assert.equal(result.reason,'PROGRAMME_WITHOUT_CONFIRMED_SCHEDULE');
+});
+
 test('a dated dinner without its own timetable inherits venue hours and explains the source',async()=>{
  const b=binding(810,profile([{...offer(),schedule:[]}]));
  const r=await exercise({text:'Morgen Abend essen in Basel',meaning:plan([meal(),date(),evening()]),catalog:[b]});
@@ -185,6 +195,7 @@ test('an indoor cafe cannot confirm an indoor child activity, and cannot substit
  const r=await exercise({text:'Indoor Bewegungsspiel mit Kind',meaning:plan([fact('play','experience.activity','Bewegungsspiel'),fact('in','offer.area','drinnen'),fact('age','people.age',{amount:4,operator:'EQ',unit:'YEARS'},'CONTEXT',['p2'])]),catalog:[b]});
  assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,null);assert.equal(r.body.candidates[0].tier,'UNCONFIRMED_FALLBACK');
  assert.ok(r.body.candidates[0].reasons.some(r=>r.statement.includes('die Kombination deiner Wünsche')&&!r.confirmed));
+ assert.ok(!r.body.candidates[0].reasons.some(r=>r.code==='librarian-provisional-visit'));
 });
 test('partial wheelchair access is explained; a specifically disproven step-free entrance remains excluded',async()=>{
  const b=binding(826,profile(),[
@@ -229,6 +240,16 @@ test('mandatory activity duration and route length excesses both exclude',async(
  const blocked=await exercise({text:'Weg höchstens drei Kilometer',meaning:route,catalog:[tooLong]});
  assert.equal(blocked.status,200);assert.equal(blocked.body.primaryCandidateId,null);assert.equal(blocked.body.candidates[0].tier,'INELIGIBLE');
 });
+test('an approximate activity duration compares against the documented offer duration',async()=>{
+ const wish=plan([meal(),fact('duration','time.duration',{amount:45,operator:'APPROX',unit:'MINUTES',measurementScope:'ACTIVITY',includes:['ACTIVITY']})]);
+ const make=(id,minutes)=>binding(id,profile([offer('dinner','DINNER',['inside'],minutes===null?[]:[prop('time.duration',minutes)])]));
+ const near=make(851,50),long=make(852,120),unknown=make(853,null);
+ const result=await exercise({text:'In ungefähr einer Dreiviertelstunde essen',meaning:wish,catalog:[long,unknown,near]});
+ assert.equal(result.status,200,JSON.stringify(result.diagnostics));
+ assert.equal(result.body.primaryCandidateId,near.decisionProjection.spotId);
+ assert.equal(result.body.candidates.find(c=>c.spotId===long.decisionProjection.spotId)?.tier,'INELIGIBLE');
+ assert.equal(result.body.candidates.find(c=>c.spotId===unknown.decisionProjection.spotId)?.tier,'UNCONFIRMED_FALLBACK');
+});
 test('explicitly excluded food drinks activities and participation content prevent recommendation',async()=>{
  for(const [key,value] of [['food.dish','Pizza'],['food.drink','Bier'],['experience.activity','Tanzen'],['participation.language','Deutsch'],['participation.format','geführt']]) {
   const b=binding(844,profile([offer('dinner','DINNER',['inside'],[prop(key,value)])]));
@@ -238,6 +259,19 @@ test('explicitly excluded food drinks activities and participation content preve
   assert.ok(r.body.candidates[0].reasons.some(reason=>reason.statement.includes('ausgeschlossener Inhalt')&&!reason.confirmed),key);
  }
 });
+test('evidence for a river view belongs to the visit and cannot come from nearby water alone',async()=>{
+ const view=profile([offer('view','SELF_GUIDED_VISIT',['terrace'],[
+  prop('experience.activity','Aussichtsterrasse mit Blick über den Rhein im alten Städtchen.'),
+ ])],[area('terrace')]);
+ const near=profile([offer('near','SELF_GUIDED_VISIT',['terrace'],[
+  prop('experience.activity','Garten beim Rhein, ohne Blick auf den Rhein.'),
+ ])],[area('terrace')]);
+ const good=binding(848,view), bad=binding(849,near);
+ const result=await exercise({text:'Wo sieht man den Rhein?',meaning:plan([fact('view','location.view','Rhein')]),catalog:[bad,good]});
+ assert.equal(result.status,200,JSON.stringify(result.diagnostics));
+ assert.equal(result.body.primaryCandidateId,good.decisionProjection.spotId);
+ assert.equal(result.body.candidates.find(row=>row.spotId===bad.decisionProjection.spotId).rank,null);
+});
 test('excluded venue types still exclude, without treating unknown excluded types as mandatory positive identities',async()=>{
  const zoo=binding(845,profile()),restaurant=binding(846,profile());
  zoo.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['ZOO'];
@@ -245,6 +279,9 @@ test('excluded venue types still exclude, without treating unknown excluded type
  assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,null);
  assert.equal(r.body.candidates.find(c=>c.spotId===zoo.decisionProjection.spotId).rank,null);
  assert.ok(r.body.candidates.find(c=>c.spotId===zoo.decisionProjection.spotId).unknownHardConstraints.length>0); // source exclusion rights stay unmodified
+ const card=r.body.candidates.find(c=>c.spotId===restaurant.decisionProjection.spotId);
+ assert.equal(card.tier,'UNCONFIRMED_FALLBACK');
+ assert.ok(card.reasons.some(reason=>reason.code==='librarian-provisional-visit' && !reason.confirmed));
 });
 test('legacy UI equipment and exclusion requirements cannot be silently dropped',async()=>{
  const b=binding(847,profile([offer('dinner','DINNER',['inside'],[prop('food.drink','Bier')])],[area('inside',[prop('amenity.playground',false)])]),[worldFact('amenity.features',['TOILET']),worldFact('offering.groups',['BEER'])]);
@@ -443,4 +480,155 @@ test('NukNuk preserves the previous search through an answer and accepts a sourc
    assert.equal(merged.facts.find(row=>row.key==='time.date').value.date,date().value.date);
    assert.equal(merged.facts.find(row=>row.key==='atmosphere.character').value.text,'cozy');
  }
+});
+
+test('NukNuk retains prior facts when an unreferenced new fact reuses their wire IDs', async () => {
+ const {mergeNuknukDialogueUpdate} = await import('../dist/nuknuk-dialogue.js');
+ const saturday = {...date(),id:'f3',subjectIds:[]};
+ const companion = fact('f4','people.relationship','Kollegin','CONTEXT',[]);
+ const proximity = fact('f3','location.proximity','Bankverein','PREFERRED',[]);
+ const previous = {facts:[saturday,companion],entities:[],extensions:[],weatherConditions:[],bindings:[],uncertainties:[],logic:null};
+ const delta = {meaning:{facts:[proximity,{...saturday,id:'f4'}]},removeFactIds:[],removalEvidence:[]};
+ const turns = [{question:null,answer:'Am gleichen Tag, am liebsten beim Bankverein.'}];
+ const merged = mergeNuknukDialogueUpdate(previous,delta,turns);
+ assert.deepEqual(merged.meaning.facts,[saturday,companion,{...proximity,id:'dialogueFact1'}]);
+ const ambiguous = structuredClone(delta);
+ ambiguous.meaning.logic = {kind:'FACT',factId:'f3'};
+ assert.equal(mergeNuknukDialogueUpdate(previous,ambiguous,turns).meaning.facts.filter(row=>row.id==='f3').length,2);
+});
+
+test('accepting reservations updates the booking criterion without removing an independent preference', async () => {
+ const {mergeNuknukDialogueUpdate} = await import('../dist/nuknuk-dialogue.js');
+ const seating=fact('seating','atmosphere.character','Platz am Tisch','PREFERRED',[]);
+ const booking=fact('booking','participation.booking','spontaneous','REQUIRED',[]);
+ const previous={facts:[seating,booking],entities:[],extensions:[],weatherConditions:[],bindings:[],uncertainties:[],logic:null};
+ const quote='Es darf auch mit Reservierung sein.';
+ const answer='Wir werden vier. Du kannst auch etwas mit Reservation nehmen.';
+ const source='Du kannst auch etwas mit Reservation nehmen.';
+ const delta={meaning:{facts:[]},removeFactIds:['seating','booking'],
+  removalEvidence:[{id:'seating',quote:source},{id:'booking',quote:source}]};
+ assert.deepEqual(mergeNuknukDialogueUpdate(previous,delta,[{question:null,answer}]).meaning.facts,[seating]);
+ assert.throws(()=>mergeNuknukDialogueUpdate(previous,{...delta,removalEvidence:[{id:'seating',quote},{id:'booking',quote:source}]},
+  [{question:null,answer}]),/nuknuk_dialogue_removal_without_answer/);
+});
+
+test("the exhibition title proves its own topic, not a separate unrelated workshop", async () => {
+  const exhibit = name => ({...offer('display','PERMANENT_EXHIBITION'),name});
+  const themed = profile([exhibit('Musikinstrumente aus fünf Jahrhunderten')],[area()],'MUSEUM');
+  const unrelated = profile([exhibit('Antike Münzen'),{...offer('workshop','WORKSHOP'),name:'Musikinstrumente bauen'}],[area()],'MUSEUM');
+  const result = await exercise({
+    text:'Ein Museum über Musikinstrumente in Basel',
+    meaning:plan([fact('visit','experience.activity','Museum besuchen'),fact('theme','experience.theme','Musikinstrumente')]),
+    catalog:[binding(1,themed),binding(2,unrelated)],
+  });
+  assert.equal(result.status,200);
+  assert.equal(result.body.primaryCandidateId,binding(1,themed).decisionProjection.spotId);
+  assert.equal(result.body.candidates.find(c=>c.spotId===binding(2,unrelated).decisionProjection.spotId)?.rank ?? null,null);
+});
+
+test("a self-guided exhibition can fulfil a thematic exhibition request", async () => {
+  const named = name => profile([{...offer('display','SELF_GUIDED_VISIT'),name,prices:[]}],[area()],'MUSEUM');
+  const matching = binding(1,named('Ausstellung zur Geschichte der Pharmazie'));
+  const walking = binding(2,named('Spaziergang ohne Ausstellung durch den Hof'));
+  const result = await exercise({text:'Eine Ausstellung über alte Heilmittel',
+    meaning:plan([fact('visit','experience.activity','Ausstellung besuchen'),
+      fact('theme','experience.theme','alte Heilmittel')]),catalog:[walking,matching]});
+  assert.equal(result.status,200);
+  assert.equal(result.body.primaryCandidateId,matching.decisionProjection.spotId);
+  assert.equal(result.body.candidates.find(c=>c.spotId===walking.decisionProjection.spotId)?.rank ?? null,null);
+});
+
+test("self-guided admission is scoped to the selected exhibition", async () => {
+  const thematic = {...offer('display','SELF_GUIDED_VISIT'),name:'Ausstellung zur Geschichte der Pharmazie',prices:[]};
+  const selfGuided = binding(1,profile([thematic],[area()],'MUSEUM'));
+  const guidedOnly = binding(2,profile([{...thematic,kind:'GUIDED_TOUR'}],[area()],'MUSEUM'));
+  const query = 'Eine Ausstellung über alte Heilmittel ohne Führung';
+  const { plan: meaning } = validateNuknukCompactSearch({meaning:{facts:[
+    fact('activity','experience.activity','Ausstellung besuchen','REQUIRED',[]),
+    fact('theme','experience.theme','alte Heilmittel','REQUIRED',[]),
+    fact('format','participation.accessibility','self_guided','REQUIRED',[]),
+  ]}},{query,reference});
+  assert.equal(meaning.facts.find(row=>row.id==='format')?.key,'participation.format');
+  const result = await exercise({text:query,meaning,catalog:[guidedOnly,selfGuided],understandOverride:async()=>meaning});
+  assert.equal(result.status,200);
+  assert.equal(result.body.primaryCandidateId,selfGuided.decisionProjection.spotId);
+  assert.equal(result.body.candidates.find(c=>c.spotId===guidedOnly.decisionProjection.spotId)?.rank ?? null,null);
+});
+
+test("a structured flea-market value uses the same scoped offer as the German label", async () => {
+  const flea = {...offer('market','MARKET_VISIT'),name:'Flohmarkt'};
+  const produce = {...offer('market','MARKET_VISIT'),name:'Gemüsemarkt'};
+  const market = (id,entry) => {
+    const row = binding(id,profile([{...entry,prices:[]}],[area()],'SHOPPING_MARKETS'));
+    row.decisionProjection.facts.find(entry=>entry.key==='classification.place_types').value=['MARKET'];
+    return row;
+  };
+  const matching = market(1,flea);
+  const other = market(2,produce);
+  for (const label of ['Flohmarkt','FLOH_MARKET','FLEA_MARKET']) {
+    const result = await exercise({text:'Flohmarkt in Basel',
+      meaning:plan([fact('market','offer.kind',label)]),catalog:[other,matching]});
+    assert.equal(result.status,200,label+' '+JSON.stringify(result.diagnostics));
+    assert.equal(result.body.primaryCandidateId,matching.decisionProjection.spotId,label);
+    assert.equal(result.body.candidates.find(c=>c.spotId===other.decisionProjection.spotId)?.rank ?? null,null,label);
+  }
+});
+
+test("a documented river cruise is distinct from a ferry crossing and a tram ride", async () => {
+  const ride = (id,name) => {
+    const row = binding(id,profile([
+      {...offer('ride','EXCURSION_RIDE'),name,prices:[]},
+    ],[area()],'OUTDOOR_NATURE'));
+    row.decisionProjection.facts.find(entry=>entry.key==='classification.place_types').value=['LANDMARK'];
+    return row;
+  };
+  const cruise = ride(1,'Rundfahrten auf dem Rhein');
+  const ferry = ride(2,'Mit der Fähre den Rhein überqueren');
+  const tram = ride(3,'Historisches Tram für private Rundfahrten buchen');
+  for (const [activity,spot] of [['Schifffahrt',cruise],['Fähre',ferry]]) {
+    const result = await exercise({text:activity,meaning:plan([fact('ride','experience.activity',activity)]),
+      catalog:[tram,ferry,cruise]});
+    assert.equal(result.status,200);
+    assert.deepEqual(result.body.candidates.filter(c=>c.rank!==null).map(c=>c.spotId),[spot.decisionProjection.spotId]);
+  }
+});
+
+test("a scoped specialty coffee offer proves a request for coffee", async () => {
+  const entry = {...offer('cafe','CAFE'),name:'Specialty Coffee',prices:[]};
+  const b = binding(1,profile([entry]));
+  b.decisionProjection.facts.find(entry=>entry.key==='classification.place_types').value=['CAFE'];
+  const result = await exercise({text:'Kaffee in Basel',meaning:plan([fact('drink','food.drink','coffee')]),catalog:[b]});
+  assert.equal(result.status,200);
+  assert.equal(result.body.primaryCandidateId,b.decisionProjection.spotId);
+});
+
+test("a delegated discovery request keeps the exclusion and uses a documented programme", async () => {
+  const text = 'Ich suche für uns etwas in Basel. Kein Sport, du kannst gerne eine Idee aussuchen.';
+  const meaning = {facts:[
+    {...fact('city','location.destination','Basel','REQUIRED',[]),subjectIds:[]},
+    {...fact('sport','experience.activity','Sport','EXCLUDED',[]),subjectIds:[]},
+  ]};
+  const interpretation = validateNuknukCompactSearch({meaning},{query:text,reference});
+  assert.ok(interpretation.plan.facts.some(f=>f.key==='experience.activity' && f.value.text==='offene Entdeckung'));
+  assert.ok(interpretation.plan.facts.some(f=>f.id==='sport' && f.modality==='EXCLUDED'));
+  const museum = binding(1,profile([{...offer('view','PERMANENT_EXHIBITION'),name:'Ausstellung über die Stadtgeschichte'}],[area()],'MUSEUM'));
+  const result = await exercise({text,meaning:interpretation.plan,catalog:[museum,binding(2,profile())],
+    understandOverride:async()=>interpretation.plan});
+  assert.equal(result.status,200);
+  assert.equal(result.body.primaryCandidateId,museum.decisionProjection.spotId);
+  assert.equal(result.body.candidates.filter(row=>row.rank!==null).length,1);
+});
+
+test("documented ancient artefacts match a broad historic theme without treating a modern country as ancient", async () => {
+  const museum = (id,theme) => binding(id,profile([
+    {...offer('display','PERMANENT_EXHIBITION',['inside'],[prop('experience.theme',theme)]),name:'Dauerausstellung'},
+  ],[area()],'MUSEUM'));
+  const ancient = museum(1,'Ägypten sowie griechische und römische Skulpturen');
+  const modern = museum(2,'Griechische Fotografie seit 1980');
+  const result = await exercise({text:'Eine Ausstellung über alte Kulturen',
+    meaning:plan([fact('visit','experience.activity','Ausstellung besuchen'),fact('theme','experience.theme','alte Kulturen')]),
+    catalog:[modern,ancient]});
+  assert.equal(result.status,200);
+  assert.equal(result.body.primaryCandidateId,ancient.decisionProjection.spotId);
+  assert.equal(result.body.candidates.find(c=>c.spotId===modern.decisionProjection.spotId)?.rank ?? null,null);
 });

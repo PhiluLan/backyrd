@@ -6,7 +6,7 @@ import type { LibrarianFact, LibrarianRequest } from "./product-luna-librarian.j
 import { AREA_CATALOG } from "@backyrd/world-knowledge-core";
 
 export type LibrarianDiagnosis = "MISSING_DATA" | "UNSUPPORTED_REQUIREMENT" | "REQUEST_NEEDS_CLARIFICATION" | "UNINTERPRETED_VALUE" | "CONFLICTING_DATA" | "CONDITIONS_UNRESOLVED" | "EVIDENCE_INSUFFICIENT" | "SOURCE_NOT_AUTHORIZED";
-export const LIBRARIAN_PROOF_POLICY = "backyrd.librarian-proof-policy@1" as const;
+export const LIBRARIAN_PROOF_POLICY = "backyrd.librarian-proof-policy@2" as const;
 export type LibrarianProofDimension = "EXPERIENCE" | "REQUIREMENT" | "AVAILABILITY" | "ACCESS" | "CONTEXT";
 export function librarianFacilityVisitAreaKinds(fact: LibrarianFact): readonly string[] {
     const concept = librarianFacilityConcept(fact);
@@ -32,7 +32,8 @@ export function librarianFacilityIsVisit(request: LibrarianRequest, fact: Librar
 export function librarianProofDimension(request: LibrarianRequest, fact: LibrarianFact, active: readonly LibrarianFact[]): LibrarianProofDimension {
     if (["CONTEXT", "NOT_REQUIRED"].includes(fact.modality)) return "CONTEXT";
     if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL") return "AVAILABILITY";
-    if (["experience.activity", "offer.kind", "food.meal"].includes(fact.key) || librarianFacilityIsVisit(request, fact, active)
+    if (fact.modality === "EXCLUDED") return "REQUIREMENT";
+    if (["experience.activity", "offer.kind", "food.meal", "location.view"].includes(fact.key) || librarianFacilityIsVisit(request, fact, active)
         || fact.value.kind === "TEXT" && ["offer.feature", "atmosphere.music"].includes(fact.key)
             && ["live_jazz", "live_music", "music_event", "jazz"].includes(librarianConcept(fact.value.text) ?? "")
         || fact.value.kind === "TEXT" && ["condition.children", "food.option", "food.drink"].includes(fact.key)

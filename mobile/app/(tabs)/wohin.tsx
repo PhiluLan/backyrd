@@ -1,6 +1,5 @@
-import { useIsFocused } from "@react-navigation/native";
 import { NuknukAvatar } from "@/components/NuknukAvatar";
-import { DecisionProductClarification } from "@backyrd/product-decision-contract";
+import { DecisionProductClarification, DecisionProductDialogueRoute } from "@backyrd/product-decision-contract";
 import { useAuth } from "@/hooks/useAuth";
 import { rememberRecentDecisionSearch } from "@/lib/decision/recentDecisionSearch";
 import { clearJourneySelection, rememberJourneySelection, canCarryPlaceRecommendation } from "@/lib/discovery-journey";
@@ -18,7 +17,7 @@ import { eventImageUrl } from "@/lib/events-v1";
 import { Image } from "expo-image";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { invokeDecisionProduct, recordDecisionProductInteraction, type PersonalDecisionTrace } from "@/lib/decision/productDecision";
-import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinClarificationQuery, wohinDiscoveryCategories, wohinDiscoveryDirections, wohinFollowUp, wohinLimitations, wohinPlaceMeta } from "@/lib/decision/wohinModel";
+import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinClarificationQuery, wohinDiscoveryCategories, wohinDiscoveryDirections, wohinFollowUp, wohinLimitations, wohinPlaceMeta, wohinMessageKind, wohinOffTopicMessage } from "@/lib/decision/wohinModel";
 import { recordDecisionFailure, type DecisionFailurePhase } from "@/lib/decision/productDecisionDiagnostics";
 import { loadCanonicalSpotHeaders, loadDiscoverySpots, type DiscoverySpot } from "@/lib/spot-images";
 import { supabase } from "@/lib/supabase";
@@ -27,7 +26,7 @@ import { backyrdTheme } from "@/theme/backyrd";
 
 type SearchConversation = {
   wish: string;
-  turns: { question: string; answer: string }[];
+  turns: { question: string | null; answer: string }[];
 };
 
 const color = {
@@ -100,11 +99,12 @@ function DecisionResultCard({ candidate, recommendation, imageUrl, compact, onOp
 
 export default function WohinScreen() {
   const router = useRouter();
-  const focused = useIsFocused();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [conversation, setConversation] = useState<SearchConversation | null>(null);
   const [conversationOpen, setConversationOpen] = useState(false);
+  const [offTopic, setOffTopic] = useState(false);
+  const [newPlan, setNewPlan] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [pageWidth, setPageWidth] = useState(0);
@@ -133,7 +133,7 @@ export default function WohinScreen() {
   const [coverImages, setCoverImages] = useState<Map<string, string | null>>(new Map());
   const [standaloneQuestion, setStandaloneQuestion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [retryRequest, setRetryRequest] = useState<DecisionProductRequest | null>(null);
+  const [retryRequest, setRetryRequest] = useState<{request: DecisionProductRequest; conversation?: SearchConversation} | null>(null);
   const autoRunKey = useRef<string | null>(null);
   const seenImpressions = useRef(new Set<string>());
   const responseRef = useRef<DecisionProductResponse | null>(null);
@@ -173,6 +173,8 @@ export default function WohinScreen() {
     setClarificationAnswer("");
     setConversation(null);
     setConversationOpen(false);
+    setOffTopic(false);
+    setNewPlan(null);
     setEditing(false);
     setResponse(null);
     setCandidates([]);
@@ -229,11 +231,15 @@ export default function WohinScreen() {
     requestInFlight.current = true;
     clearJourneySelection();
     const generation = ++requestGeneration.current;
-    setSubmittedQuery(text.trim());
-    if (!retry) setConversation(nextConversation ?? { wish: text.trim(), turns: [] });
-    setConversationOpen(false);
+    if (!nextConversation) {
+      setSubmittedQuery(text.trim());
+      if (!retry) setConversation({ wish: text.trim(), turns: [] });
+      setConversationOpen(false);
+    }
+    setOffTopic(false);
+    setNewPlan(null);
     setClarificationAnswer("");
-    setStandaloneQuestion(null);
+    if (!nextConversation) setStandaloneQuestion(null);
     Keyboard.dismiss();
     setEditing(false);
     setDetailsOpen(false);
@@ -243,34 +249,57 @@ export default function WohinScreen() {
     setRetryRequest(null);
     setTrace(null);
     setTraceOpen(false);
-    responseRef.current = null;
-    setResponse(null);
-    setCandidates([]);
-    setDiscovery([]);
+    if (!nextConversation) {
+      responseRef.current = null;
+      setResponse(null);
+      setCandidates([]);
+      setDiscovery([]);
+    }
     let failurePhase: DecisionFailurePhase = "REQUEST";
     let request: DecisionProductRequest | undefined;
     try {
       request = retry ?? createWohinRequest({ query: text, city, requestId: Crypto.randomUUID() });
       failurePhase = "LOAD";
-      const result = await invokeDecisionProduct({ supabase, request, onTrace(value) {
+      const result = await invokeDecisionProduct({ supabase, request, supportsDialogueChoice: Boolean(nextConversation), onTrace(value) {
         if (generation === requestGeneration.current) setTrace(value);
       } });
       failurePhase = "DISPLAY";
       const visible = visibleWohinCandidates(result);
       if (generation !== requestGeneration.current) return;
+      if (nextConversation) {
+        setSubmittedQuery(text.trim());
+        setConversation(nextConversation);
+        setStandaloneQuestion(null);
+      }
       responseRef.current = result;
       setResponse(result);
       setCandidates(visible);
       void rememberRecentDecisionSearch(verifiedActorId, text, visible);
     } catch (cause) {
+      if (generation !== requestGeneration.current) return;
+      const userReply = nextConversation?.turns.at(-1)?.answer;
+      if (cause instanceof DecisionProductDialogueRoute && userReply) {
+        if (cause.route === "NEW_PLAN") setNewPlan(userReply);
+        else setOffTopic(true);
+        setConversationOpen(true);
+        return;
+      }
       if (cause instanceof DecisionProductClarification) {
-        if (generation === requestGeneration.current) setStandaloneQuestion(cause.question);
+        if (nextConversation) {
+          setSubmittedQuery(text.trim());
+          setConversation(nextConversation);
+          responseRef.current = null;
+          setResponse(null);
+          setCandidates([]);
+          setDiscovery([]);
+        }
+        setStandaloneQuestion(cause.question);
         return;
       }
       void recordDecisionFailure(cause, failurePhase).catch(() => undefined);
       if (generation === requestGeneration.current) {
         setError(userFacingError(cause, "Wohin kann gerade keine verlässlichen Vorschläge zeigen."));
-        if (request) setRetryRequest(request);
+        if (request) setRetryRequest({request, conversation: nextConversation});
       }
     } finally {
       if (generation === requestGeneration.current) {
@@ -306,45 +335,77 @@ export default function WohinScreen() {
   };
 
   const clarificationQuestion = response?.clarification ?? standaloneQuestion;
-  const refinedQuery = clarificationQuestion
-    ? wohinClarificationQuery(submittedQuery, clarificationQuestion, clarificationAnswer)
-    : null;
+  const refinedQuery = wohinClarificationQuery(submittedQuery, clarificationQuestion, clarificationAnswer);
   const submitReply = () => {
-    if (!refinedQuery || !clarificationQuestion || !conversation) return;
+    if (!refinedQuery || !conversation) return;
+    const message = clarificationAnswer.trim();
+    const kind = wohinMessageKind(message, conversation.wish);
+    if (kind === "OFF_TOPIC") {
+      Keyboard.dismiss();
+      setOffTopic(true);
+      setClarificationAnswer("");
+      return;
+    }
+    if (kind === "NEW_PLAN") {
+      Keyboard.dismiss();
+      setNewPlan(message);
+      return;
+    }
     void run(refinedQuery, undefined, {
       ...conversation,
       turns: [...conversation.turns, { question: clarificationQuestion, answer: clarificationAnswer.trim() }],
     });
   };
-  const replyLimit = clarificationQuestion ? Math.max(0, 2000 - submittedQuery.length - clarificationQuestion.length - 22) : 0;
-  const clarificationCard = clarificationQuestion ? (
+  const replyPrefixLength = clarificationQuestion ? clarificationQuestion.length + "\nRückfrage: \nAntwort: ".length : "\nErgänzung: ".length;
+  const replyLimit = Math.max(0, 2000 - submittedQuery.length - replyPrefixLength);
+  const conversationComposer = newPlan ? (
+    <View style={styles.questionCard} accessibilityLiveRegion="polite">
+      <AppText role="body">Das klingt nach einem zweiten Plan. Möchtest du hier weitermachen oder soll ich für den neuen Plan suchen?</AppText>
+      <Pressable accessibilityRole="button" accessibilityLabel="Für den neuen Plan suchen" onPress={() => void run(newPlan)} style={styles.primaryButton}>
+        <AppText role="label" style={styles.primaryLabel}>Für den neuen Plan suchen</AppText>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Bei dieser Suche bleiben" onPress={() => {
+        setNewPlan(null);
+        setClarificationAnswer("");
+      }} style={styles.followUpButton}>
+        <AppText role="label" tone="pink">Bei dieser Suche bleiben</AppText>
+      </Pressable>
+    </View>
+  ) : (
     <View style={styles.questionCard}>
-      <View style={styles.guideRow}>
-        <NuknukAvatar height={52} animate={focused} />
-        <AppText role="label" tone="pink">NukNuk fragt nach</AppText>
-      </View>
-      <AppText role="cardTitle" accessibilityLiveRegion="polite">{clarificationQuestion}</AppText>
+      {offTopic ? <AppText role="body" accessibilityLiveRegion="polite">{wohinOffTopicMessage}</AppText> : null}
+      {clarificationQuestion ? <View style={styles.guideRow}>
+        <NuknukAvatar height={36} />
+        <View style={styles.querySummary}>
+          <AppText role="label" tone="pink">NukNuk fragt nach</AppText>
+          <AppText role="cardTitle" accessibilityLiveRegion="polite">{clarificationQuestion}</AppText>
+        </View>
+      </View> : <AppText role="label" tone="pink">Suche mit NukNuk verfeinern</AppText>}
       {replyLimit > 0 ? <>
         <TextInput
           style={styles.clarificationInput}
-          accessibilityLabel="Antwort auf NukNuks Rückfrage"
-          placeholder="Schreib deine Antwort …"
+          accessibilityLabel={clarificationQuestion ? "Antwort auf NukNuks Rückfrage" : "Nachricht an NukNuk"}
+          placeholder={clarificationQuestion ? "Schreib deine Antwort …" : "Was möchtest du ergänzen?"}
           placeholderTextColor={color.muted}
           autoCapitalize="sentences"
           multiline
           value={clarificationAnswer}
-          onChangeText={setClarificationAnswer}
+          onChangeText={(text) => {
+            setOffTopic(false);
+            setClarificationAnswer(text);
+          }}
           maxLength={replyLimit}
         />
-        <Pressable accessibilityRole="button" disabled={!refinedQuery || loading}
+        <Pressable accessibilityRole="button" accessibilityLabel={clarificationQuestion ? "Antwort senden" : "Nachricht senden"}
+          disabled={!refinedQuery || loading}
           accessibilityState={{ disabled: !refinedQuery || loading }}
           onPress={submitReply} style={({ pressed }) => [styles.primaryButton, (!refinedQuery || loading) && styles.primaryDisabled, pressed && styles.pressed]}>
-          <AppText role="label" style={refinedQuery && !loading ? styles.primaryLabel : styles.disabledLabel}>Antwort senden</AppText>
+          <AppText role="label" style={refinedQuery && !loading ? styles.primaryLabel : styles.disabledLabel}>{clarificationQuestion ? "Antwort senden" : "Nachricht senden"}</AppText>
           <Ionicons name="arrow-up" size={18} color={refinedQuery && !loading ? color.background : color.muted} />
         </Pressable>
       </> : <AppText role="body" tone="secondary">Dein Suchwunsch ist schon sehr lang. Passe deine ursprüngliche Anfrage an, um die Antwort zu ergänzen.</AppText>}
     </View>
-  ) : null;
+  );
   const conversationHistory = conversation ? (
     <View style={styles.history}>
       <View style={styles.userMessage}>
@@ -353,12 +414,17 @@ export default function WohinScreen() {
       </View>
       {conversation.turns.map(({ question, answer }, index) => (
         <View key={index} style={styles.history}>
-          <View style={styles.assistantMessage}>
-            <AppText role="caption" tone="pink">NukNuk</AppText>
-            <AppText role="body">{question}</AppText>
-          </View>
+          {question ? <View style={styles.assistantMessage}>
+            <View style={styles.guideRow}>
+              <NuknukAvatar height={36} />
+              <View style={styles.querySummary}>
+                <AppText role="caption" tone="pink">NukNuk</AppText>
+                <AppText role="body">{question}</AppText>
+              </View>
+            </View>
+          </View> : null}
           <View style={styles.userMessage}>
-            <AppText role="caption" tone="pink">Deine Antwort</AppText>
+            <AppText role="caption" tone="pink">{question ? "Deine Antwort" : "Deine Ergänzung"}</AppText>
             <AppText role="body">{answer}</AppText>
           </View>
         </View>
@@ -400,7 +466,7 @@ export default function WohinScreen() {
 
   const showingResults = Boolean(response && candidates.length && !editing);
   const current = candidates[activeIndex];
-  const showConversation = Boolean(conversation && !editing && (loading || clarificationQuestion || followUp || error));
+  const showConversation = Boolean(conversation && !editing && (loading || clarificationQuestion || followUp || error || newPlan || offTopic));
   useEffect(() => {
     if (!showConversation || (!clarificationQuestion && !loading)) return;
     const frame = requestAnimationFrame(() => searchScrollRef.current?.scrollToEnd({ animated: true }));
@@ -442,11 +508,11 @@ export default function WohinScreen() {
         </View>
         <View style={styles.resultTools}>
           <Pressable accessibilityRole="button"
-            accessibilityLabel={clarificationQuestion ? "NukNuks Rückfrage und Gespräch öffnen" : "Suchverlauf öffnen"}
+            accessibilityLabel={clarificationQuestion ? "NukNuks Rückfrage und Gespräch öffnen" : "Mit NukNuk chatten"}
             onPress={() => setConversationOpen(true)} style={({ pressed }) => [styles.conversationLink, pressed && styles.pressed]}>
-            <NuknukAvatar height={42} />
+            <Ionicons name="chatbubble-outline" size={19} color={color.pink} />
             <View style={styles.querySummary}>
-              <AppText role="label" tone={clarificationQuestion ? "pink" : "primary"}>{clarificationQuestion ? "NukNuk fragt nach" : "Deine Anfrage"}</AppText>
+              <AppText role="label" tone={clarificationQuestion ? "pink" : "primary"}>{clarificationQuestion ? "NukNuk fragt nach" : "Mit NukNuk chatten"}</AppText>
               <AppText role="caption" tone="secondary" numberOfLines={2}>{clarificationQuestion ?? conversation?.wish}</AppText>
             </View>
             <Ionicons name="chevron-forward" size={17} color={color.muted} />
@@ -487,22 +553,20 @@ export default function WohinScreen() {
             <AppText role="label" tone="pink">{candidates.length ? "Zurück zu deinen Vorschlägen" : "Zurück zum Gespräch"}</AppText>
           </Pressable> : null}
           <View style={styles.searchHeader}>
-            <View style={styles.headerCopy}>
-              <AppText role="label" tone="pink">NukNuk</AppText>
-              <AppText role="displayXL" accessibilityRole="header">Wohin?</AppText>
-              {!showConversation ? <AppText role="body" tone="secondary">Erzähl NukNuk, worauf du gerade Lust hast.</AppText> : null}
-            </View>
-            {!showConversation ? <NuknukAvatar height={132} animate={focused} /> : null}
+            <AppText role="label" tone="pink">NukNuk</AppText>
+            <AppText role="displayXL" accessibilityRole="header">Wohin?</AppText>
+            {!showConversation ? <AppText role="body" tone="secondary">Erzähl NukNuk, worauf du gerade Lust hast.</AppText> : null}
           </View>
 
           {showConversation ? <View style={styles.searchFlow}>
             {conversationHistory}
             {loading ? <View style={styles.assistantMessage} accessibilityLiveRegion="polite">
               <View style={styles.guideRow}>
+                <NuknukAvatar height={36} />
+                <AppText role="bodyStrong" style={styles.querySummary}>{conversation?.turns.length ? "NukNuk berücksichtigt deine Nachricht …" : "NukNuk prüft deinen Suchwunsch …"}</AppText>
                 <ActivityIndicator color={color.pink} />
-                <AppText role="bodyStrong">{conversation?.turns.length ? "NukNuk berücksichtigt deine Antwort …" : "NukNuk sucht passende Orte …"}</AppText>
               </View>
-            </View> : clarificationCard}
+            </View> : clarificationQuestion || newPlan || offTopic ? conversationComposer : null}
           </View> : <View style={styles.composer}>
             {city ? <View style={styles.location}>
               <Ionicons name="location-outline" size={16} color={color.pink} />
@@ -513,7 +577,7 @@ export default function WohinScreen() {
               autoCapitalize="sentences"
               multiline
               maxLength={2000}
-              onChangeText={(value) => { setQuery(value); setError(null); setRetryRequest(null); }}
+              onChangeText={(value) => { setQuery(value); setOffTopic(false); setError(null); setRetryRequest(null); }}
               placeholder="Z. B. Ein gemütliches Abendessen zu zweit"
               placeholderTextColor={color.muted}
               style={styles.searchInput}
@@ -523,12 +587,18 @@ export default function WohinScreen() {
               accessibilityRole="button"
               accessibilityState={{ disabled: !canSearch }}
               disabled={!canSearch}
-              onPress={() => void run(query)}
+              onPress={() => {
+                if (wohinMessageKind(query) === "OFF_TOPIC") {
+                  Keyboard.dismiss();
+                  setOffTopic(true);
+                } else void run(query);
+              }}
               style={({ pressed }) => [styles.primaryButton, !canSearch && styles.primaryDisabled, pressed && styles.pressed]}
             >
               <AppText role="label" style={canSearch ? styles.primaryLabel : styles.disabledLabel}>Orte finden</AppText>
               <Ionicons name="arrow-forward" size={18} color={canSearch ? color.background : color.muted} />
             </Pressable>
+            {offTopic ? <AppText role="body" accessibilityLiveRegion="polite">{wohinOffTopicMessage}</AppText> : null}
           </View>}
           {identityError ? <View style={{ marginTop: 20 }}><Text style={{ color: color.warning }}>Dein Profil konnte gerade nicht geprüft werden. Wohin ist vorübergehend nicht verfügbar.</Text><Pressable accessibilityRole="button" onPress={() => setIdentityAttempt((value) => value + 1)}><Text style={{ color: color.pink, marginTop: 12, fontWeight: "800" }}>Erneut prüfen</Text></Pressable></View> : null}
           {identityReady && !identityError && !authenticated ? <Text style={{ color: color.warning, marginTop: 20 }}>Bitte melde dich an, um Wohin zu nutzen.</Text> : null}
@@ -536,7 +606,7 @@ export default function WohinScreen() {
           {error ? <View style={styles.emptyState} accessibilityLiveRegion="polite">
             <Text style={{ color: color.warning }}>{error}</Text>
             {retryRequest && identityReady && !identityError && authenticated && city ? (
-              <Pressable accessibilityRole="button" disabled={loading} onPress={() => void run(retryRequest.naturalLanguage, retryRequest)} style={styles.followUpButton}>
+              <Pressable accessibilityRole="button" disabled={loading} onPress={() => void run(retryRequest.request.naturalLanguage, retryRequest.request, retryRequest.conversation)} style={styles.followUpButton}>
                 <AppText role="label" tone="pink">Dieselbe Suche erneut versuchen</AppText>
               </Pressable>
             ) : null}
@@ -593,7 +663,7 @@ export default function WohinScreen() {
         </ScrollView>
       </KeyboardAvoidingView>}
       <Modal visible={conversationOpen && showingResults && !traceOpen} transparent animationType="slide" onShow={() => {
-        if (clarificationQuestion) conversationScrollRef.current?.scrollToEnd({ animated: false });
+        conversationScrollRef.current?.scrollToEnd({ animated: false });
       }} onRequestClose={() => setConversationOpen(false)}>
         <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <SafeAreaView style={styles.detailSheet} edges={["top", "bottom"]} accessibilityViewIsModal>
@@ -605,7 +675,7 @@ export default function WohinScreen() {
             </View>
             <ScrollView ref={conversationScrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetContent}>
               {conversationHistory}
-              {clarificationCard}
+              {conversationComposer}
             </ScrollView>
           </SafeAreaView>
         </KeyboardAvoidingView>
@@ -669,8 +739,7 @@ export default function WohinScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.background },
-  searchHeader: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 24 },
-  headerCopy: { flex: 1, gap: 8 },
+  searchHeader: { gap: 8, marginBottom: 24 },
   guideRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   composer: { padding: 18, gap: 14, borderRadius: 24, backgroundColor: backyrdTheme.color.surfaceElevated, borderWidth: 1, borderColor: color.border },
   location: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6 },

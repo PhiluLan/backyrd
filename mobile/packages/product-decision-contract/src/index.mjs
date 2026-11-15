@@ -38,6 +38,14 @@ export class DecisionProductClarification extends Error {
   }
 }
 
+export class DecisionProductDialogueRoute extends Error {
+  constructor(route) {
+    super("decision_nuknuk_dialogue_route");
+    this.name = "DecisionProductDialogueRoute";
+    this.route = route;
+  }
+}
+
 export function decisionProductInputFailure(value) {
   if (value?.contractVersion !== "backyrd.decision-vnext.product-error@1.0"
     || value.status !== "UNAVAILABLE" || value.legacyFallbackUsed !== false) return null;
@@ -45,6 +53,8 @@ export function decisionProductInputFailure(value) {
   if (code === "DECISION_NEEDS_CLARIFICATION" && typeof message === "string" && /^[^?!<>\r\n]{9,239}\?$/u.test(message)) {
     return new DecisionProductClarification(message);
   }
+  if (code === "DECISION_NUKNUK_NEW_PLAN") return new DecisionProductDialogueRoute("NEW_PLAN");
+  if (code === "DECISION_NUKNUK_OFF_TOPIC") return new DecisionProductDialogueRoute("OFF_TOPIC");
   if (code === "DECISION_NUKNUK_UNRESOLVED") return new DecisionProductUnavailableError("decision_nuknuk_unresolved");
   return null;
 }
@@ -148,7 +158,8 @@ export async function executeDecisionProductSingleRoute({ binding, request, invo
   let raw;
   try { raw = await invoke(request); }
   catch (error) {
-    if (error instanceof DecisionProductClarification || error instanceof DecisionProductUnavailableError && error.code === "decision_nuknuk_unresolved") throw error;
+    if (error instanceof DecisionProductClarification || error instanceof DecisionProductDialogueRoute
+        || error instanceof DecisionProductUnavailableError && error.code === "decision_nuknuk_unresolved") throw error;
     throw new DecisionProductUnavailableError("decision_single_route_unavailable", error);
   }
   return Object.freeze(validateDecisionProductResponse(raw, request));

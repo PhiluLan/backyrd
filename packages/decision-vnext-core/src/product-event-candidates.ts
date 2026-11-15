@@ -83,7 +83,10 @@ export function projectDecisionEventOccurrences(raw:unknown, city:string, now:st
     const snapshotHash=contentHash({source:"PUBLISHED_MANUAL_EVENT_OCCURRENCE@1",event});
     const conditions=emptyExperienceConditions();
     const properties:ExperienceProperty[]=event.categories.flatMap(category=>activities[category]?[{key:"experience.activity",value:activities[category]!,label:null,state:"KNOWN" as const,conditions}]:[]);
-    for (const activity of event.activities ?? []) properties.push({key:"experience.activity",value:activity,label:null,state:"KNOWN",conditions});
+    for (const activity of event.activities ?? []) {
+      const key = librarianConcept(activity) === "open_group_play" ? "participation.format" : "experience.activity";
+      properties.push({key,value:activity,label:null,state:"KNOWN",conditions});
+    }
     if(event.minimumAge!==null)properties.push({key:"participation.minimum_age",value:event.minimumAge,label:null,state:"KNOWN",conditions});
     const amount=event.isFree===true?0:event.priceMin;
     const profile={...emptyExperienceProfile("TEMPORARY_PLACES"),reviewed:true,areas:event.placeEnvironment && event.placeEnvironment!=="UNKNOWN" ? [{id:event.occurrenceId,kind:event.placeEnvironment,name:event.venueName??event.title,properties:[]}] : [],offers:[{id:event.occurrenceId,kind:categoryOffer[event.categories[0]!]??"EVENT",name:event.title.slice(0,160),areaIds:event.placeEnvironment && event.placeEnvironment!=="UNKNOWN" ? [event.occurrenceId] : [],properties,

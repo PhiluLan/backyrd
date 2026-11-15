@@ -108,7 +108,11 @@ export class DecisionProductClarification extends Error {
   constructor(question: string);
   question: string;
 }
-export function decisionProductInputFailure(value: unknown): DecisionProductClarification | DecisionProductUnavailableError | null;
+export class DecisionProductDialogueRoute extends Error {
+  constructor(route: "NEW_PLAN" | "OFF_TOPIC");
+  route: "NEW_PLAN" | "OFF_TOPIC";
+}
+export function decisionProductInputFailure(value: unknown): DecisionProductClarification | DecisionProductDialogueRoute | DecisionProductUnavailableError | null;
 
 export const DECISION_PRODUCT_CONTRACT: Readonly<{ request: DecisionProductRequest["contractVersion"]; response: DecisionProductResponse["contractVersion"]; learningPort: "backyrd.user-intelligence.product-decision-learning-port@1.0"; transportFunction: "decision-v13" }>;
 export function validateDecisionProductRequest<T extends DecisionProductRequest>(value: T): T;

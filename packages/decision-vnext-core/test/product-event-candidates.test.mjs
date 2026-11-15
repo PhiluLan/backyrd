@@ -228,3 +228,13 @@ test('seasonal family activity does not prove free rides, age permissions or a m
  assert.equal(views(changes)[0].eventOccurrence.isFree,null);
  assert.equal(views(changes)[0].eventOccurrence.minimumAge,null);
 });
+
+test('an explicitly recorded open game belongs to its occurrence and not to a generic court',()=>{
+ const facts=[fact('sport','experience.activity','table_tennis'),fact('open','participation.format','open_group_play')];
+ const neutral={title:'Offener Mitspieltreff',categories:['SPORT'],activities:['Tischtennis spielen']};
+ const unknown=run(facts,neutral).result;
+ const open=run(facts,{...neutral,activities:[...neutral.activities,'Offener Mitspieltreff']}).result;
+ assert.equal(unknown.ranked.length,0);
+ assert.equal(unknown.unresolved[0]?.facts.find(f=>f.factId==='open')?.state,'UNKNOWN');
+ assert.equal(open.ranked[0]?.facts.find(f=>f.factId==='open')?.state,'MET');
+});

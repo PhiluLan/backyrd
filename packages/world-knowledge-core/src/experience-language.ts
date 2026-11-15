@@ -21,6 +21,19 @@ const concepts: readonly LibrarianConcept[] = [
     { id: "fairground", labels: ["Jahrmarkt besuchen", "Jahrmarkt", "Jahrmarktbesuch", "Herbstmesse", "Herbstmesse besuchen", "Kirmes", "funfair"] },
     { id: "table_tennis", labels: ["Tischtennis", "Tischtennis spielen", "Pingpong", "Ping Pong", "Ping-Pong", "Pingpong spielen", "Ping Pong spielen", "Ping-Pong spielen", "Table tennis", "play table tennis", "playing table tennis", "pingpöngle", "pingpoengle"] },
     { id: "self_barbecue", labels: ["grillieren", "selber grillieren", "grillen", "selbst grillen", "Grillstellen nutzen", "Grillplatz nutzen", "Öffentliche Grillstellen nutzen", "use a barbecue grill"] },
+    { id: "trampoline", labels: ["Trampolin", "Trampolinspringen", "auf dem Trampolin springen"] },
+    { id: "cinema", labels: ["Film schauen", "Film anschauen", "Kino besuchen"] },
+    { id: "skating", labels: ["Eislaufen", "Schlittschuh laufen", "Schlittschuhlaufen", "Schlittschuh fahren"] },
+    { id: "excursion_ride", labels: ["Ausflugsfahrt"] },
+    { id: "boat_cruise", labels: ["Schifffahrt", "Schiffsrundfahrt", "Rundfahrt mit dem Schiff", "Rundfahrt auf dem Rhein", "Rundfahrten auf dem Rhein"] },
+    { id: "walk", labels: ["Spazieren", "Spazieren gehen", "Spaziergang", "Walking", "Spazieren und Park entdecken"] },
+    { id: "open_discovery", labels: ["offene Entdeckung"] },
+    { id: "walkable_garden", labels: ["Garten", "Garten besuchen"] },
+    { id: "self_guided", labels: ["selbständig besichtigen", "selbstständig besichtigen", "selbstgeführt", "auf eigene Faust"] },
+    { id: "opera", labels: ["Oper", "Oper erleben", "Oper besuchen", "Oper hören", "Opernaufführung"] },
+    { id: "secondhand_market", labels: ["Flohmarkt", "Floh market", "FLOHMARKET", "FLOH_MARKET", "FLEA_MARKET", "Secondhandmarkt", "Secondhand und Antiquitäten entdecken"] },
+    { id: "ferry_crossing", labels: ["Fähre", "Fährfahrt", "Fahrt mit der Fähre", "Fahrt mit der Fähre über den Rhein", "Mit der Fähre den Rhein überqueren"] },
+    { id: "bathing", labels: ["Baden", "Badi"] },
     { id: "bouldering", labels: ["bouldern", "bouldering"] },
     { id: "climbing", labels: ["klettern", "climbing"] },
     { id: "training", labels: ["training", "trainieren", "freies training"] },
@@ -39,12 +52,14 @@ const concepts: readonly LibrarianConcept[] = [
     { id: "breakfast", labels: ["frühstück", "breakfast"] },
     { id: "restaurant", labels: ["restaurant", "restaurantbesuch"] },
     { id: "museum", labels: ["museum", "museumsbesuch", "museum besuchen"] },
-    { id: "zoo", labels: ["zoo", "zoobesuch", "zoo besuchen"] },
+    { id: "zoo", labels: ["zoo", "zoobesuch", "zoo besuchen", "Tierpark", "Tierpark besuchen"] },
     { id: "bar", labels: ["bar", "barbesuch"] },
     { id: "guided", labels: ["führung", "geführt", "guided_tour"] },
     { id: "workshop", labels: ["workshop", "kreativworkshop"] },
+    { id: "open_group_play", labels: ["Offener Mitspieltreff", "Offenes Mitspielen", "Open group play"] },
     { id: "animals", labels: ["tiere anschauen", "tiere ansehen", "tiere beobachten", "tierbeobachtung", "animal_observation"] },
     { id: "exhibition", labels: ["ausstellung", "ausstellung besuchen"] },
+    { id: "observe", labels: ["etwas anschauen", "etwas ansehen", "sich etwas anschauen"] },
     { id: "party", labels: ["private feier", "private feiern", "private_celebration"] },
     { id: "dancing", labels: ["Tanzen", "tanzen gehen", "Clubabend", "Clubabend / Tanzen"] },
     { id: "music_event", labels: ["musikveranstaltung", "music_event"] },
@@ -129,11 +144,17 @@ export const sameLibrarianText = (a: string, b: string): boolean => librarianTer
  * This is not synonym equivalence and never infers venue identity backwards. */
 export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
     Object.freeze({ offered: "zoo", requested: "animals" }),
+    Object.freeze({ offered: "museum", requested: "visit" }),
+    Object.freeze({ offered: "exhibition", requested: "visit" }),
+    Object.freeze({ offered: "exhibition", requested: "observe" }),
+    Object.freeze({ offered: "guided", requested: "visit" }),
     Object.freeze({ offered: "swimming", requested: "bathing" }),
     Object.freeze({ offered: "coffee", requested: "drinks" }),
     Object.freeze({ offered: "live_jazz", requested: "jazz" }),
     Object.freeze({ offered: "live_jazz", requested: "live_music" }),
     Object.freeze({ offered: "live_jazz", requested: "music_event" }),
+    Object.freeze({ offered: "boat_cruise", requested: "excursion_ride" }),
+    Object.freeze({ offered: "ferry_crossing", requested: "excursion_ride" }),
     Object.freeze({ offered: "children_course", requested: "children_activity" }),
     Object.freeze({ offered: "movement_play", requested: "children_activity" }),
     Object.freeze({ offered: "bouldering", requested: "climbing" }),
@@ -143,7 +164,7 @@ export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
 ]);
 export const experienceActivitySupports = (offered: string, requested: string): boolean => offered === requested
     || EXPERIENCE_ACTIVITY_RELATIONS.some(relation => relation.offered === offered && relation.requested === requested);
-export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@22" as const;
+export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@27" as const;
 export const EXPERIENCE_LANGUAGE_CONCEPTS = concepts;
 const legacyOfferConcepts: Readonly<Record<string, readonly string[]>> = {
     ...Object.fromEntries(OFFER_CATALOG.map(o=>[o.kind,[o.concept]])),

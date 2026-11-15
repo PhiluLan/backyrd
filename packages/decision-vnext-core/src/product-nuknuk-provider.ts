@@ -1,9 +1,24 @@
 import { buildNuknukCompactSearchRequest, validateCompactTurn, validateNuknukCompactSearch } from './nuknuk-understanding.js';
 import { DecisionProductError, type DecisionProductRuntimePorts } from './product-decision.js';
 import { assertExplicitContext } from './product-luna-provider.js';
+import { LibrarianContractError } from './product-luna-librarian.js';
 import { buildNuknukDialogueUpdate, mergeNuknukDialogueUpdate, splitNuknukDialogue } from './nuknuk-dialogue.js';
 
 const MAX_RESPONSE_BYTES = 65_536;
+const purposeInstructions = `SUCHZIEL UND GEGENSTAND: Beginne mit dem eigentlichen Vorhaben. Was man anschauen, hören oder
+kennenlernen möchte, beschreibt das Thema des Besuchs. Beispiel: «alte Druckmaschinen
+anschauen» = experience.activity Ausstellung besuchen + experience.theme alte Druckmaschinen.
+«Selber mit einer Druckmaschine arbeiten» verlangt dagegen eine Tätigkeit zum Mitmachen.
+Wähle bei ausdrücklich genannter Ortsart zuerst den kanonischen Ortstyp: «Museum für
+Kunsthandwerk» = offer.kind MUSEUM + experience.theme Kunsthandwerk. Wenn nur etwas über ein
+Thema gesucht wird, darfst du eine passende Besuchsform ableiten; erfinde keine Ausstellung,
+keinen konkreten Spot und keine Mitmachpflicht.
+ORTSROLLE: «In X suche ich …» und «ich bin in X und möchte dort …» binden die Suche an X.
+Gemeinde = location.destination, Quartier = location.area. Ein Ortsname mit «vorher»,
+«wohnen», «kommen aus», «später treffen» oder als anderer Termin ist nur Kontext, sofern
+die Aktivität nicht ausdrücklich dort stattfinden soll. Bei offenem Termin erfinde kein Datum.
+«Im Dezember» ist eine Monatsangabe, kein beliebiger Tag im Dezember.
+`;
 
 async function readModelResponse(response: Response): Promise<unknown> {
   if (!response.body) throw new Error('product_nuknuk_response_invalid');
@@ -24,12 +39,36 @@ async function readModelResponse(response: Response): Promise<unknown> {
   }
 }
 
+const dialogueRouteInstructions = 'Du entscheidest nur, wie Backyrd eine Nachricht behandelt. FIRST_SEARCH: neuer Spot- oder Unternehmungswunsch ohne bisherigen Plan. UPDATE_SEARCH: gleiche Unternehmung wird konkretisiert oder eine Anforderung dieses Plans geändert. NEW_SEARCH: eigenständige neue Unternehmung oder anderer Anlass, auch wenn die vorherige Unternehmung ausfällt. Eine vollständige eigenständige Unternehmung mit anderem Anlass, Hauptangebot oder neuer Begleitung kann ein neuer Plan sein, auch wenn beide Vorhaben draussen stattfinden. OUT_OF_SCOPE: erkennbar fachfremde Aufgabe wie Übersetzung oder Textarbeit. Spot, Ort, Ausflug, Aktivität, Kultur und Vorschläge können Suchwünsche sein. Verwende nur route.';
+const dialogueRouteLabels = ['FIRST_SEARCH', 'UPDATE_SEARCH', 'NEW_SEARCH', 'OUT_OF_SCOPE'] as const;
+type DialogueRoute = typeof dialogueRouteLabels[number];
+
+const dialogueRoutePrompt = {
+  instructions: dialogueRouteInstructions,
+  outputSchema: {type:'object',properties:{route:{type:'string',enum:dialogueRouteLabels}},required:['route'],additionalProperties:false},
+};
+
+const clarifiedDialogueInstructions = 'Prüfe, wer was erleben soll. Ein neuer vollständiger Wunsch über eine andere Gruppe oder eine eigene Unternehmung bedeutet NEW_SEARCH, selbst wenn Tag, Ort oder Kategorie gleich bleiben. Ein einzelner neuer Wunsch an die bestehende Unternehmung bleibt UPDATE_SEARCH. Änderungen am gewünschten Angebotsumfang, an der Uhrzeit oder an der Zusammensetzung der Besuchsgruppe können zum selben Vorhaben gehören. Ein anderer Termin ist nicht allein ein neuer Plan. Eine Antwort, die sich auf die Rückfrage oder bestehende Wahl bezieht, bleibt eine Änderung. Ein klar als eigenes zweites Vorhaben formulierter Wunsch öffnet einen neuen Plan.';
+
+export async function classifyNuknukDialogue(currentWish: string, message: string,
+  complete: (prompt: typeof dialogueRoutePrompt, userInput: string) => Promise<string>, clarify = false): Promise<DialogueRoute | null> {
+  const prompt = clarify ? {...dialogueRoutePrompt, instructions: dialogueRouteInstructions + '\n' + clarifiedDialogueInstructions}
+    : dialogueRoutePrompt;
+  const raw: unknown = JSON.parse(await complete(prompt, JSON.stringify({currentWish, message})));
+  if (!raw || typeof raw !== 'object' || !('route' in raw)) return null;
+  return dialogueRouteLabels.find(label => label === raw.route) ?? null;
+}
+
 export function createDecisionProductNuknukProvider(input: {
   readonly endpoint: string;
   readonly apiKey: string;
   readonly model: string;
   readonly now?: () => Date;
   readonly fetchImpl?: typeof fetch;
+  readonly routeDialogue?: boolean;
+  readonly clarifyDialogue?: boolean;
+  readonly repairCompactMeaning?: boolean;
+  readonly includePurposeInstructions?: boolean;
 }): NonNullable<DecisionProductRuntimePorts['understand']> {
   const endpoint = new URL(input.endpoint);
   if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || endpoint.search || endpoint.hash
@@ -46,20 +85,23 @@ export function createDecisionProductNuknukProvider(input: {
     // No actor, session, approximate device location or ranking history enters the inference service.
     const explicitContext = { group: explicit.group, dateTime: explicit.dateTime, budget: explicit.budget, targetCity: explicit.targetCity };
     const hasExplicitContext = Object.values(explicitContext).some(value => value != null);
-    async function complete(prompt: {instructions: string; outputSchema: object}, userInput: string): Promise<string> {
+    async function complete(prompt: {instructions: string; outputSchema: object}, userInput: string, routing = false): Promise<string> {
+      const baseInstructions = hasExplicitContext && !routing
+        ? prompt.instructions + '\nBehalte explizit gesetzte Suchangaben aus explicitContext. request bleibt der Nutzertext.'
+        : prompt.instructions;
+      const instructions = input.includePurposeInstructions && !routing && !prompt.instructions.includes("removeFactIds")
+        ? baseInstructions + "\n" + purposeInstructions : baseInstructions;
       const response = await fetchImpl(endpoint, {
         method: 'POST', redirect: 'error', signal, cache: 'no-store',
         headers: { authorization: `Bearer ${input.apiKey}`, 'content-type': 'application/json' },
         body: JSON.stringify({
-          model: input.model, temperature: 0, max_tokens: 2048, stream: false,
+          model: input.model, temperature: 0, max_tokens: routing ? 96 : 2048, stream: false,
           chat_template_kwargs: { enable_thinking: false },
           messages: [
-            { role: 'system', content: hasExplicitContext
-              ? prompt.instructions + '\nBehalte explizit gesetzte Suchangaben aus explicitContext. request bleibt der Nutzertext.'
-              : prompt.instructions },
+            { role: 'system', content: instructions },
             { role: 'user', content: userInput },
           ],
-          response_format: { type: 'json_schema', json_schema: { name: 'nuknuk_compact_search', strict: true, schema: prompt.outputSchema } },
+          response_format: { type: 'json_schema', json_schema: { name: routing ? 'backyrd_dialogue_route' : 'nuknuk_compact_search', strict: true, schema: prompt.outputSchema } },
         }),
       });
       if (!response.ok) {
@@ -75,12 +117,40 @@ export function createDecisionProductNuknukProvider(input: {
       return choice.message.content;
     }
     const dialogue = splitNuknukDialogue(query);
+    const latestTurn = dialogue?.turns.at(-1);
+    if (input.routeDialogue && dialogue && latestTurn) {
+      const route = await classifyNuknukDialogue(dialogue.original, latestTurn.answer,
+        (prompt, userInput) => complete(prompt, userInput, true), input.clarifyDialogue).catch(() => null);
+      signal.throwIfAborted();
+      if (route === 'NEW_SEARCH') {
+        throw new DecisionProductError('DECISION_NUKNUK_NEW_PLAN', 422, 'Möchtest du für den neuen Plan suchen?');
+      }
+      if (route === 'OUT_OF_SCOPE') {
+        throw new DecisionProductError('DECISION_NUKNUK_OFF_TOPIC', 422, 'NukNuk hilft dir bei der Suche nach passenden Orten und Erlebnissen.');
+      }
+    }
     const original = dialogue?.original ?? query;
     const prompt = buildNuknukCompactSearchRequest({ query:original, reference });
-    const raw = await complete(prompt, hasExplicitContext ? JSON.stringify({request:original, explicitContext}) : prompt.input);
+    const userInput = hasExplicitContext ? JSON.stringify({request:original, explicitContext}) : prompt.input;
+    const raw = await complete(prompt, userInput);
+    const interpret = (content: string) =>
+      validateNuknukCompactSearch(JSON.parse(content) as unknown, { query:original, reference });
     let result;
     try {
-      result = validateNuknukCompactSearch(JSON.parse(raw) as unknown, { query:original, reference });
+      try {
+        result = interpret(raw);
+      } catch (error) {
+        if (!input.repairCompactMeaning) throw error;
+        const defect = error instanceof LibrarianContractError && error.code === 'condition_unbound'
+          ? 'Wetter nur übernehmen, falls es im Nutzerwunsch vorkommt. Verknüpfe echte Wenn-dann-Bedingungen mit den zugehörigen Alternativen.'
+          : 'Achte auf getrennte Rollen für Suchort, Besuchszeit, Art des Angebots, eigene Tätigkeit und Inhalt zum Anschauen.';
+        const repairPrompt = { ...prompt, instructions: prompt.instructions + '\n' + [
+          'Erstelle die Suchübergabe einmal neu, direkt aus dem ursprünglichen Wunsch.',
+          'Behalte ausdrücklich genannte Orte, Zeiten, Personen und Ausschlüsse. Erzwinge eine Vorliebe nicht als Pflicht.',
+          defect,
+        ].join(' ') };
+        result = interpret(await complete(repairPrompt, userInput));
+      }
       if (dialogue && 'searchMeaning' in result) {
         const update = buildNuknukDialogueUpdate(prompt, result.searchMeaning, dialogue.turns);
         const changes: unknown = JSON.parse(await complete(update, update.input));

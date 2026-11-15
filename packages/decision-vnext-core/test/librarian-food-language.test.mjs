@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fact, request, profile, offer, area, prop, price, binding, search, budget, worldFact } from './librarian-matching-fixtures.mjs';
+import { validateNuknukCompactSearch } from "../dist/nuknuk-understanding.js";
+import { reference, date, evening, fact, request, profile, offer, area, prop, price, binding, search, budget, worldFact } from './librarian-matching-fixtures.mjs';
 import {exercise} from './librarian-active-route-fixtures.mjs';
 import {readFileSync} from 'node:fs';
 
@@ -465,4 +466,59 @@ test('a children activity alone is not evidence that an adult accompanies the vi
  const r=search(companionRequest(),[binding(1,familyVenue(),[childEntryRule()])]);
  assert.equal(r.ranked.length,0);
  assert.ok(r.unresolved[0].facts.some(f=>f.reason==='PARTICIPANT_AGE_COVERAGE_INCOMPLETE'));
+});
+
+test('drinks tonight remains the main activity while cocktails improve the order', async () => {
+ const base = [date(), evening(), fact('cocktails', 'food.drink', 'cocktails', 'PREFERRED')];
+ const meaning = { ...request(base).raw, entities: [{ id: 'a1', kind: 'ACTIVITY', label: 'Besuch', members: [] }],
+   logic: { kind: 'ALL', children: base.map(({id}) => ({kind:'FACT', factId:id})) } };
+ const query = 'Einfach was trinken heute Abend, am liebsten cocktails';
+ const { plan } = validateNuknukCompactSearch({meaning}, {query, reference});
+ assert.ok(plan.facts.some(f => f.key === 'food.drink' && f.value.text === 'drinks' && f.modality === 'REQUIRED'));
+ assert.equal(plan.facts.find(f => f.id === 'cocktails').modality, 'PREFERRED');
+ const regular = binding(1, profile([offer('bar', 'DRINKS')], [area()], 'BAR'));
+ const cocktail = binding(2, profile([offer('bar', 'DRINKS', ['inside'], [prop('food.drink', 'cocktails')])], [area()], 'BAR'));
+ const dinner = binding(3, profile());
+ const result = await exercise({text:query, catalog:[regular,cocktail,dinner], understandOverride:async () => plan});
+ assert.equal(result.status, 200, JSON.stringify(result.diagnostics));
+ assert.ok(result.body.candidates[0].reasons.some(reason => reason.confirmed && reason.statement === "Bestätigt: Cocktails."));
+ const regularResult = result.body.candidates.find(row => row.spotId === regular.decisionProjection.spotId);
+ assert.ok(regularResult.reasons.some(reason => !reason.confirmed && reason.statement === "Noch nicht bestätigt: Cocktails."));
+ assert.deepEqual(result.body.candidates.filter(row => row.rank !== null).map(row => row.spotId),
+   [cocktail,regular].map(row => row.decisionProjection.spotId));
+});
+
+test('the Decision response keeps a proven dinner as provisional when booking is unknown', async () => {
+ const q = request([fact('dinner', 'food.meal', 'dinner'), date(), evening(),
+   fact('booking', 'participation.booking', 'ohne Voranmeldung')]);
+ const open = binding(1, profile());
+ const closed = binding(2, profile([{...offer(), schedule:[{weekday:4,start:'11:00',end:'14:00'}]}]));
+ const text = 'Morgen Abend essen, nur ohne Voranmeldung';
+ const { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION } = await import('../dist/product-luna-librarian.js');
+ const meaning = prepareLibrarianRequest({contractVersion:LUNA_LIBRARIAN_CONTRACT_VERSION, sourceText:text, reference, output:q.raw});
+ const result = await exercise({text, catalog:[open,closed], understandOverride:async () => ({
+   meaning, clarification:'Kommt für dich auch ein Besuch mit Voranmeldung infrage?',
+ })});
+ assert.equal(result.status, 200, JSON.stringify(result.diagnostics));
+ assert.equal(result.body.primaryCandidateId, null);
+ const candidates = result.body.candidates.filter(row => row.reasons.some(reason => reason.code === 'librarian-provisional-visit'));
+ assert.deepEqual(candidates.map(row => row.spotId), [open.decisionProjection.spotId]);
+ assert.equal(candidates[0].tier, 'UNCONFIRMED_FALLBACK');
+ assert.equal(candidates[0].rank, null);
+ assert.match(result.body.clarification, /Voranmeldung/);
+});
+
+test('a birthday follow-up preserves small venue as an open preference on the dinner card', async () => {
+ const facts = [fact('dinner', 'food.meal', 'dinner'), date(), evening(),
+   fact('cozy', 'atmosphere.character', 'gemütlich', 'PREFERRED')];
+ const meaning = { ...request(facts).raw, entities: [{id:'a1',kind:'ACTIVITY',label:'Besuch',members:[]}] };
+ const query = 'Geburtstag meiner Frau, etwas Besonderes zum Essen heute Abend Rückfrage: Was ist euch wichtig? Antwort: gemütlich und klein';
+ const { plan } = validateNuknukCompactSearch({meaning}, {query,reference});
+ assert.ok(plan.facts.some(f => f.key === 'experience.character' && f.value.text === 'klein' && f.modality === 'PREFERRED'));
+ const venue = binding(1, profile([offer()], [area('inside', [prop('atmosphere.character', 'gemütlich')])]));
+ const result = await exercise({text:query,catalog:[venue],understandOverride:async () => plan});
+ assert.equal(result.status, 200, JSON.stringify(result.diagnostics));
+ assert.equal(result.body.primaryCandidateId, venue.decisionProjection.spotId);
+ assert.ok(result.body.candidates[0].reasons.some(reason => !reason.confirmed
+   && /die Grösse des Lokals\./.test(reason.statement)), JSON.stringify(result.body.candidates[0].reasons));
 });
