@@ -39,7 +39,7 @@ begin
   if auth.uid() is null then raise exception 'authentication_required' using errcode='42501'; end if;
   -- Serialize canonical saves and repairs for this spot. The claim endpoints
   -- enforce the existing role, ownership, visibility and source policies.
-  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('world-current-pointer:'||p_spot_id::text,0));
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('world-search-publish:'||p_spot_id::text,0));
   if public.is_admin_v1(auth.uid()) then
     v_claim := public.world_product_admin_submit_claim_v1(
       p_spot_id,p_attribute_key,p_knowledge_state,p_value,p_observed_at,p_valid_from,
@@ -90,7 +90,7 @@ begin
     order by s.id
     limit p_limit
   loop
-    perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('world-current-pointer:'||v_spot::text,0));
+    perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('world-search-publish:'||v_spot::text,0));
     perform world_knowledge_private.publish_approved_spot_search_v1(v_spot);
     v_processed := v_processed+1;
   end loop;
