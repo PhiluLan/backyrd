@@ -10,7 +10,7 @@ import {
 } from "../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js";
 import { createDecisionProductHttpHandler, decisionCandidateOrderReason, type DecisionProductRuntimePorts } from "../../../packages/decision-vnext-core/dist/product-decision.js";
 import { createDecisionProductLunaProvider } from "../../../packages/decision-vnext-core/dist/product-luna-provider.js";
-import { summarizeNuknukActivity } from "../../../packages/decision-vnext-core/dist/admin-nuknuk-activity.js";
+import { summarizeNuknukActivity } from "../../../packages/decision-vnext-core/dist/nuknuk-activity-summary.js";
 import { createDecisionProductNuknukProvider } from "../../../packages/decision-vnext-core/dist/product-nuknuk-provider.js";
 
 import type { LibrarianRequest } from "../../../packages/decision-vnext-core/dist/product-luna-librarian.js";

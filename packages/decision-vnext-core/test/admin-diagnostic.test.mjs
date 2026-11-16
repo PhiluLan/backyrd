@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createAdminDiagnosticHandler,BASEL_DIAGNOSTIC_QUERIES,resolveAdminDiagnosticCase} from '../dist/admin-diagnostic.js';
-import { summarizeNuknukActivity } from '../dist/admin-nuknuk-activity.js';
+import { summarizeNuknukActivity } from '../dist/nuknuk-activity-summary.js';
 const actor={userId:'actor',subjectBindingHash:'hash',sessionId:'session',sessionBindingHash:'session-hash',authenticationContextHash:'auth-hash'};
 function setup(overrides={}){const calls=[];const h=createAdminDiagnosticHandler({authenticate:async()=>{calls.push('auth');return actor;},isAdmin:async()=>{calls.push('admin');return true;},checkControl:async()=>{calls.push('control');},diagnose:async(input,value)=>{calls.push(['diagnose',input.caseIndex??input.query,value.userId]);return input;},...overrides});return {h,calls};}
 const request=(body={caseIndex:0},headers={})=>new Request('https://example.test/diagnostic',{method:'POST',headers:{authorization:'Bearer user-session','content-type':'application/json',...headers},body:JSON.stringify(body)});
