@@ -1,8 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 
 export type AdminAuthorizationResult =
-  | { ok: true; userId: string }
+  | { ok: true; userId: string; client: ReturnType<typeof createAdminClient> }
   | { ok: false; status: 401 | 403 | 500; error: string };
+
+function createAdminClient(url: string, anonKey: string, token: string) {
+  return createClient(url, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+}
 
 export async function authorizeAdminRequest(request: Request): Promise<AdminAuthorizationResult> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -18,10 +25,7 @@ export async function authorizeAdminRequest(request: Request): Promise<AdminAuth
     return { ok: false, status: 401, error: "authentication_required" };
   }
 
-  const client = createClient(url, anonKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
+  const client = createAdminClient(url, anonKey, token);
   const { data: userData, error: userError } = await client.auth.getUser(token);
   if (userError || !userData.user) {
     return { ok: false, status: 401, error: "invalid_session" };
@@ -32,5 +36,5 @@ export async function authorizeAdminRequest(request: Request): Promise<AdminAuth
     return { ok: false, status: 403, error: "admin_required" };
   }
 
-  return { ok: true, userId: userData.user.id };
+  return { ok: true, userId: userData.user.id, client };
 }

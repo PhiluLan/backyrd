@@ -32,7 +32,8 @@ test -n "${SUPABASE_ACCESS_TOKEN:-}" || { echo "SUPABASE_ACCESS_TOKEN required" 
 supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json > deployment-audit/functions-before.json
 
 jq -e --slurpfile live deployment-audit/functions-before.json '
-  (.codeOnlyDeliveryScope.existingFunctionReceipt.functions // .isolatedResearchScope.existingFunctionReceipt.functions // []) | all(. as $bound |
+  ((.codeOnlyDeliveryScope.existingFunctionReceipt.functions // .isolatedResearchScope.existingFunctionReceipt.functions // [])
+   + (.isolatedResearchScope.decisionFunctionReceipt.functions // [])) | all(. as $bound |
     any($live[0][]; .slug == $bound.slug and .status == "ACTIVE" and .verify_jwt == true and .version >= $bound.version and .ezbr_sha256 == $bound.bundleHash)
   )
 ' "$plan_path" >/dev/null

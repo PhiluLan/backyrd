@@ -7,7 +7,7 @@ import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
 import { NOV14_ADMIN_MIGRATIONS } from "./preapplied-nov14-admin-ledger.mjs";
-import { nuknukActivityAppliedReceipt, scopeNuknukActivityMigrations, hasNuknukActivityRestoreIdentity } from "./isolated-research-migration.mjs";
+import { nuknukActivityAppliedReceipt, scopeNuknukActivityMigrations, analyticsPageviewsAppliedReceipt, scopeAnalyticsPageviewsMigrations } from "./isolated-research-migration.mjs";
 import { betaSocialAppliedReceipt, scopeBetaSocialMigrations, BETA_SOCIAL_FUNCTIONS, ANALYTICS_PRIVACY_REPAIR_MIGRATION, analyticsPrivacyAppliedReceipt, betaSecurityAppliedReceipt, scopeBetaSecurityMigrations, seasonalEventAppliedReceipt, scopeSeasonalEventMigrations, regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -552,14 +552,20 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     try { git(repo, ["merge-base", "--is-ancestor", source, headSha]); return true; } catch { return false; }
   });
   if (appliedNuknukActivity) preappliedPaths.add(appliedNuknukActivity.migration.path);
+  const appliedAnalyticsPageviews = analyticsPageviewsAppliedReceipt(state, head.read, source => {
+    try { git(repo, ["merge-base", "--is-ancestor", source, headSha]); return true; } catch { return false; }
+  });
+  if (appliedAnalyticsPageviews) preappliedPaths.add(appliedAnalyticsPageviews.migration.path);
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
   const codeOnlyScope = authority?.codeOnlyDeliveryScope ?? null;
   const nuknukActivityScope = authority?.nuknukActivityDeliveryScope ?? null;
-  const boundedFunctionScope = nuknukActivityScope ?? codeOnlyScope;
+  const analyticsPageviewsScope = authority?.analyticsPageviewsDeliveryScope ?? null;
+  const boundedFunctionScope = analyticsPageviewsScope ?? nuknukActivityScope ?? codeOnlyScope;
+  const functionReceipts = [boundedFunctionScope?.existingFunctionReceipt];
+  if (analyticsPageviewsScope) functionReceipts.push(analyticsPageviewsScope.decisionFunctionReceipt);
   const codeOnlyDeferredFunctions = [];
-  if (boundedFunctionScope?.existingFunctionReceipt) {
-    const receipt = boundedFunctionScope.existingFunctionReceipt;
+  for (const receipt of functionReceipts.filter(Boolean)) {
     if (!/^[a-f0-9]{40}$/.test(receipt.sourceSha) || !Number.isSafeInteger(receipt.deploymentRunId)
       || receipt.deploymentRunId < 1 || !Array.isArray(receipt.functions)) throw new Error("code_only_existing_function_receipt_invalid");
     git(repo, ["merge-base", "--is-ancestor", receipt.sourceSha, headSha]);
@@ -672,7 +678,10 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   }
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
-  const scoped = nuknukActivityScope
+  const scoped = analyticsPageviewsScope
+    ? scopeAnalyticsPageviewsMigrations({ pending: allPending, scope: analyticsPageviewsScope, baseSha, deployFunctions,
+      authDeploy: authConfig?.deploy === true, retiredFunctions, appliedAnalyticsPageviews })
+    : nuknukActivityScope
     ? scopeNuknukActivityMigrations({ pending: allPending, scope: nuknukActivityScope, baseSha, deployFunctions,
       authDeploy: authConfig?.deploy === true, appliedNuknukActivity })
     : socialScope
@@ -714,6 +723,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     appliedAnalyticsPrivacy,
     appliedRegionalDecision,
     appliedNuknukActivity,
+    appliedAnalyticsPageviews,
     appliedSeasonalEvent,
     appliedAreaReservation,
     isolatedResearchScope: isolatedResearchScope ?? null,

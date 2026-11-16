@@ -112,6 +112,27 @@ export function scopeNuknukActivityMigrations({ pending, scope, baseSha, deployF
   }
   return { pendingMigrations: selected, deferredMigrations: DEFERRED_BOOKING_MIGRATIONS, isolatedResearchScope: scope };
 }
+export const ANALYTICS_PAGEVIEWS_SCOPE = "backyrd.admin-analytics-pageviews-delivery-scope@1.0";
+export const ANALYTICS_PAGEVIEWS_MIGRATION = Object.freeze({
+  path: "supabase/migrations/20261116145153_admin_analytics_pageviews_v1.sql",
+  sha256: "62414edad70e66d7fc2e4c7c758d500c610fd6ddc449d7c14162cb7a70961d14",
+});
+export function analyticsPageviewsAppliedReceipt(state, read, isAncestor) {
+  return exactResearchReceipt(state, read, isAncestor, ANALYTICS_PAGEVIEWS_MIGRATION, "analyticsPageviewsRelease");
+}
+export function scopeAnalyticsPageviewsMigrations({ pending, scope, baseSha, deployFunctions, authDeploy, retiredFunctions, appliedAnalyticsPageviews }) {
+  if (scope?.contractVersion !== ANALYTICS_PAGEVIEWS_SCOPE || scope.executionAuthorized !== false
+    || scope.baseSha !== baseSha || !equal(scope.migrations, [ANALYTICS_PAGEVIEWS_MIGRATION])
+    || !equal(scope.deferredMigrations, DEFERRED_BOOKING_MIGRATIONS)
+    || !equal(scope.functions, []) || deployFunctions.length || authDeploy || retiredFunctions.length
+    || !Number.isSafeInteger(scope.backupRunId) || scope.backupRunId < 1
+    || !hasNuknukActivityRestoreIdentity(scope.restoreDrill)) throw new Error("analytics_pageviews_delivery_scope_invalid");
+  const selected = appliedAnalyticsPageviews ? [] : [ANALYTICS_PAGEVIEWS_MIGRATION];
+  if (!equal(canonicalRows(pending), canonicalRows([...DEFERRED_BOOKING_MIGRATIONS, ...selected]))) {
+    throw new Error("analytics_pageviews_pending_scope_changed");
+  }
+  return { pendingMigrations: selected, deferredMigrations: DEFERRED_BOOKING_MIGRATIONS, isolatedResearchScope: scope };
+}
 export const SEASONAL_EVENT_MIGRATION = Object.freeze({path:"supabase/migrations/20261101162452_seasonal_event_editions_v1.sql",sha256:"a4e1961dbbca4c283c45b3f1d901cc9df2abd2f41b6b6acd82bd6dd30855380b"});
 export function seasonalEventAppliedReceipt(state,read,isAncestor) {
   return exactResearchReceipt(state,read,isAncestor,SEASONAL_EVENT_MIGRATION,"seasonalEventRelease");
@@ -245,6 +266,11 @@ export function prepareResearchMigrationWorkspace(plan,root,output) {
     ? scopeNuknukActivityMigrations({ pending: [...plan.pendingMigrations, ...(plan.deferredMigrations ?? [])],
       scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,
       authDeploy: plan.authConfig?.deploy === true, appliedNuknukActivity: plan.appliedNuknukActivity })
+    : plan.isolatedResearchScope?.contractVersion === ANALYTICS_PAGEVIEWS_SCOPE
+    ? scopeAnalyticsPageviewsMigrations({ pending: [...plan.pendingMigrations, ...plan.deferredMigrations],
+      scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,
+      authDeploy: plan.authConfig?.deploy === true, retiredFunctions: plan.retiredFunctions,
+      appliedAnalyticsPageviews: plan.appliedAnalyticsPageviews })
     : plan.isolatedVoltaScope
     ? scopeVoltaMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedVoltaScope,
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,

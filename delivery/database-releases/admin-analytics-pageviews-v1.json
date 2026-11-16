@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "admin-analytics-pageviews-v1",
+  "previousEvidence": "nov14-admin-ledger-reconciliation-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "1e3a60dfa773e2cd8463115b6985c7f112e810bb19590a79395abc86483411b9",
+    "applicationSchemaSha256": "d2033712b8e7b1b3478d5c451d258cd75c1ee7e32d411750c2c4561fe25bbe66"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261116145153_admin_analytics_pageviews_v1.sql",
+      "sha256": "62414edad70e66d7fc2e4c7c758d500c610fd6ddc449d7c14162cb7a70961d14"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/admin_analytics_pageviews_v1.sql",
+      "sha256": "1fb84aabb7559e857b115ad6450ba53d885ac53e65cad34ba296c144e62105da"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "46fd23fbdca836cc3909e3e394fca32707d6aada6f19850a86442da9c5b303e8",
+    "applicationSchemaSha256": "0d9beb4f49ea8bd4ff1d50aa60d67356b8f7d820e662072af1a00b184d4b4ee0"
+  }
+}

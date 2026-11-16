@@ -6,7 +6,7 @@ import { cpSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync }
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProductionPlan, parseSupabaseFunctionConfig } from "../deployment/supabase-production-plan.mjs";
-import { BETA_SOCIAL_MIGRATION, BETA_SECURITY_MIGRATIONS, NUKNUK_ACTIVITY_MIGRATION, hasNuknukActivityRestoreIdentity } from "../deployment/isolated-research-migration.mjs";
+import { BETA_SOCIAL_MIGRATION, BETA_SECURITY_MIGRATIONS, NUKNUK_ACTIVITY_MIGRATION, ANALYTICS_PAGEVIEWS_SCOPE, ANALYTICS_PAGEVIEWS_MIGRATION, hasNuknukActivityRestoreIdentity } from "../deployment/isolated-research-migration.mjs";
 import { isExactProductAdditiveSet, isExactPreappliedPriorityReceipt } from "./product-additive-migration-scope.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -192,12 +192,13 @@ function verifiedBetaSocialRecovery(plan, additive, migrations) {
     && scope.founderApproval?.status==="EXPLICIT_SCOPE_AND_RECOVERY_RISK_ACCEPTED";
 }
 
-function verifiedNuknukActivityRecovery(plan, additive, migrations) {
+function verifiedArchiveRecovery(plan, additive, migrations) {
   const scope = plan.isolatedResearchScope;
-  return scope?.contractVersion === "backyrd.nuknuk-activity-delivery-scope@1.0"
+  const analytics = scope?.contractVersion === ANALYTICS_PAGEVIEWS_SCOPE;
+  return (analytics || scope?.contractVersion === "backyrd.nuknuk-activity-delivery-scope@1.0")
     && scope.executionAuthorized === false && !plan.authDeploy && !plan.authConfig?.deploy
-    && JSON.stringify(plan.deployFunctions) === JSON.stringify(["decision-admin-diagnostic", "decision-v13"])
-    && JSON.stringify(migrations) === JSON.stringify([NUKNUK_ACTIVITY_MIGRATION])
+    && JSON.stringify(plan.deployFunctions) === JSON.stringify(analytics ? [] : ["decision-admin-diagnostic", "decision-v13"])
+    && JSON.stringify(migrations) === JSON.stringify([analytics ? ANALYTICS_PAGEVIEWS_MIGRATION : NUKNUK_ACTIVITY_MIGRATION])
     && JSON.stringify(scope.migrations) === JSON.stringify(migrations)
     && additive?.restoreDrillStatus === "ISOLATED_DATABASE_AND_MEDIA_RESTORE_PASS"
     && hasNuknukActivityRestoreIdentity(scope.restoreDrill)
@@ -217,7 +218,14 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     baseSha: readProductionState(root, identity.sourceSha).supabase.shippedSourceSha,
     headSha: identity.sourceSha,
   });
-  const deployable = trackedFor(root, identity.sourceSha, [...(actualPlan.functions ?? []).filter(item=>item.deploy).flatMap(item=>item.files.map(file=>file.path)),"supabase/functions/decision-v13", "supabase/functions/decision-engine-worker", "supabase/functions/decision-admin-diagnostic", ...WORKER_SOURCE_DIRS, "supabase/migrations", "supabase/config.toml", "supabase/production", "delivery/recovery/beta-security-rehearsal-v1.json"]);
+  const certifiedFunctions = ["decision-v13", "decision-engine-worker", "decision-admin-diagnostic"];
+  const functionFiles = (actualPlan.functions ?? [])
+    .filter(item => item.deploy || certifiedFunctions.includes(item.slug))
+    .flatMap(item => item.files.map(file => file.path));
+  const deployable = trackedFor(root, identity.sourceSha, [
+    ...functionFiles, ...certifiedFunctions.map(slug => `supabase/functions/${slug}`), ...WORKER_SOURCE_DIRS,
+    "supabase/migrations", "supabase/config.toml", "supabase/production", "delivery/recovery/beta-security-rehearsal-v1.json",
+  ]);
   const sourceSetPaths = Object.fromEntries(Object.entries(SOURCE_SETS).map(([name, paths]) => [name, trackedFor(root, identity.sourceSha, paths)]));
   const tracked = [...new Set([...deployable, ...Object.values(sourceSetPaths).flat()])].sort();
   const bundleRoot = resolve(outputDir, "bundle");
@@ -317,13 +325,13 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
       && (additiveMigrationScope.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
         || verifiedBetaSecurityRecovery(actualPlan,additiveMigrationScope,currentRiskSet)
         || verifiedBetaSocialRecovery(actualPlan,additiveMigrationScope,currentRiskSet)
-        || verifiedNuknukActivityRecovery(actualPlan, additiveMigrationScope, currentRiskSet))
+        || verifiedArchiveRecovery(actualPlan, additiveMigrationScope, currentRiskSet))
       && additiveMigrationScope.guaranteedDatabaseRollback === false
       && JSON.stringify(currentRiskSet) === JSON.stringify(additiveMigrationScope.migrations)
       && (isExactProductAdditiveSet(currentRiskSet)
         || verifiedBetaSecurityRecovery(actualPlan,additiveMigrationScope,currentRiskSet)
         || verifiedBetaSocialRecovery(actualPlan,additiveMigrationScope,currentRiskSet)
-        || verifiedNuknukActivityRecovery(actualPlan, additiveMigrationScope, currentRiskSet)),
+        || verifiedArchiveRecovery(actualPlan, additiveMigrationScope, currentRiskSet)),
     "release_recovery_risk_acceptance_invalid");
   }
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
@@ -431,14 +439,14 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
       || isolatedVoltaAccepted
       || ((isExactProductAdditiveSet(currentRiskSet) || verifiedBetaSecurityRecovery(manifest.productionPlan,manifest.productionPlan.additiveMigrationScope,currentRiskSet)
           || verifiedBetaSocialRecovery(manifest.productionPlan,manifest.productionPlan.additiveMigrationScope,currentRiskSet)
-          || verifiedNuknukActivityRecovery(manifest.productionPlan, manifest.productionPlan.additiveMigrationScope, currentRiskSet))
+          || verifiedArchiveRecovery(manifest.productionPlan, manifest.productionPlan.additiveMigrationScope, currentRiskSet))
         && manifest.productionPlan.additiveMigrationScope?.contractVersion === "backyrd.product-v1-additive-migration-scope@1.0"
         && manifest.productionPlan.additiveMigrationScope.projectRef === "hjgcrrzfjchzqoegcywn"
         && manifest.productionPlan.additiveMigrationScope.executionAuthorized === false
         && (manifest.productionPlan.additiveMigrationScope.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
           || verifiedBetaSecurityRecovery(manifest.productionPlan,manifest.productionPlan.additiveMigrationScope,currentRiskSet)
           || verifiedBetaSocialRecovery(manifest.productionPlan,manifest.productionPlan.additiveMigrationScope,currentRiskSet)
-          || verifiedNuknukActivityRecovery(manifest.productionPlan, manifest.productionPlan.additiveMigrationScope, currentRiskSet))
+          || verifiedArchiveRecovery(manifest.productionPlan, manifest.productionPlan.additiveMigrationScope, currentRiskSet))
         && manifest.productionPlan.additiveMigrationScope.guaranteedDatabaseRollback === false
         && JSON.stringify(currentRiskSet) === JSON.stringify(manifest.productionPlan.additiveMigrationScope.migrations)));
   requireValue(Array.isArray(acceptedMigrationSet) && (deliveryTarget === "IOS_OTA" || productPendingScopeAccepted), "release_recovery_pending_scope_invalid");
