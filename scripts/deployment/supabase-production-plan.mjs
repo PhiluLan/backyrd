@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
-import { NOV14_ADMIN_MIGRATIONS } from "./preapplied-nov14-admin-ledger.mjs";
-import { nuknukActivityAppliedReceipt, scopeNuknukActivityMigrations, analyticsPageviewsAppliedReceipt, scopeAnalyticsPageviewsMigrations } from "./isolated-research-migration.mjs";
+import { NOV14_ADMIN_MIGRATIONS, NOV16_EAT_MIGRATIONS } from "./preapplied-admin-ledger.mjs";
+import { nuknukActivityAppliedReceipt, scopeNuknukActivityMigrations, analyticsPageviewsAppliedReceipt, scopeAnalyticsPageviewsMigrations, ANALYTICS_PAGEVIEWS_MIGRATION } from "./isolated-research-migration.mjs";
 import { betaSocialAppliedReceipt, scopeBetaSocialMigrations, BETA_SOCIAL_FUNCTIONS, ANALYTICS_PRIVACY_REPAIR_MIGRATION, analyticsPrivacyAppliedReceipt, betaSecurityAppliedReceipt, scopeBetaSecurityMigrations, seasonalEventAppliedReceipt, scopeSeasonalEventMigrations, regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -496,14 +496,17 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     }
   }
   const preappliedPaths = new Set([...preappliedMigrations.map((entry) => entry.path), ...(priorityReceipt ? [priorityReceipt.path] : [])]);
-  const preappliedNov14AdminMigrations = NOV14_ADMIN_MIGRATIONS.filter(({ path }) => head.files.has(path));
-  if (preappliedNov14AdminMigrations.length) {
-    if (preappliedNov14AdminMigrations.length !== NOV14_ADMIN_MIGRATIONS.length
-      || preappliedNov14AdminMigrations.some(({ path, sha256: digest }) => sha256(head.read(path)) !== digest)) {
-      throw new Error("nov14_admin_preapplied_source_mismatch");
+  function bindPreappliedMigrations(expected, scope) {
+    const present = expected.filter(({ path }) => head.files.has(path));
+    if (present.length && (present.length !== expected.length
+      || present.some(({ path, sha256: digest }) => sha256(head.read(path)) !== digest))) {
+      throw new Error(scope + "_preapplied_source_mismatch");
     }
-    for (const { path } of preappliedNov14AdminMigrations) preappliedPaths.add(path);
+    for (const { path } of present) preappliedPaths.add(path);
+    return present;
   }
+  const preappliedNov14AdminMigrations = bindPreappliedMigrations(NOV14_ADMIN_MIGRATIONS, "nov14_admin");
+  const preappliedNov16EatMigrations = bindPreappliedMigrations(NOV16_EAT_MIGRATIONS, "nov16_eat");
   const appliedResearch = researchAppliedReceipt(state, head.read, source => {
     try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
   });
@@ -712,11 +715,13 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     weatherContextDeliveryScope: weatherScope,
     migrations,
     preappliedNov14AdminMigrations,
+    preappliedNov16EatMigrations,
     pendingMigrations,
     // This approved migration predates the remote tip. Only the exact isolated
     // scope may insert it; the CLI dry-run must still match the single SQL file.
     migrationPushFlags: isolatedResearchScope
-      && JSON.stringify(pendingMigrations) === JSON.stringify([AREA_RESERVATION_MIGRATION])
+      && [AREA_RESERVATION_MIGRATION, ANALYTICS_PAGEVIEWS_MIGRATION]
+        .some(migration => JSON.stringify(pendingMigrations) === JSON.stringify([migration]))
       ? ["--include-all"] : [],
     deferredMigrations,
     appliedBetaSecurity,

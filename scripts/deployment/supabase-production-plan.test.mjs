@@ -445,7 +445,7 @@ test("WeatherKit delivery is bound to one exact authenticated function after ver
 });
 
 test("the imported November 14 ledger requires all four exact remote statement hashes", async () => {
-  const { NOV14_ADMIN_MIGRATIONS, verifyNov14AdminLedger } = await import("./preapplied-nov14-admin-ledger.mjs");
+  const { NOV14_ADMIN_MIGRATIONS, verifyNov14AdminLedger } = await import("./preapplied-admin-ledger.mjs");
   const rows = NOV14_ADMIN_MIGRATIONS.map(({ path, sha256 }) => {
     const [, version, name] = /\/(\d{14})_([a-z_]+)\.sql$/.exec(path);
     return { version, name, statement_count: 1, statement_sha256: sha256 };

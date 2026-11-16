@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { NOV14_ADMIN_EVIDENCE, NOV14_ADMIN_MIGRATIONS } from "../deployment/preapplied-nov14-admin-ledger.mjs";
+import { NOV14_ADMIN_EVIDENCE, NOV14_ADMIN_MIGRATIONS } from "../deployment/preapplied-admin-ledger.mjs";
 import { validatePendingMigrationCorrection } from "./validate-pending-migration-correction.mjs";
 
 const SHA256 = /^[0-9a-f]{64}$/;

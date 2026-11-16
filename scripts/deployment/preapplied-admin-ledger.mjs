@@ -24,33 +24,51 @@ export const NOV14_ADMIN_MIGRATIONS = [
 
 export const NOV14_ADMIN_EVIDENCE = "nov14-admin-ledger-reconciliation-v1";
 
-export function verifyNov14AdminLedger(rows) {
-  if (!Array.isArray(rows) || rows.length !== NOV14_ADMIN_MIGRATIONS.length) {
-    throw new Error("nov14_admin_remote_ledger_scope_mismatch");
+export const NOV16_EAT_MIGRATIONS = [
+  {
+    path: "supabase/migrations/20261116144626_world_admin_bulk_complete_eat_rules.sql",
+    sha256: "11d2167bab16777d2fc3dd361355e7adf820d151619aba1daf066c9a3ab805e4",
+  },
+  {
+    path: "supabase/migrations/20261116145630_world_service_rebuild_eat_defaults.sql",
+    sha256: "242a01dbb069a8e64d089a6e4e6befbaa0c8b293d94182a7bf35a299d873c2b7",
+  },
+];
+
+function verifyAdminLedger(rows, migrations, scope) {
+  if (!Array.isArray(rows) || rows.length !== migrations.length) {
+    throw new Error(scope + "_remote_ledger_scope_mismatch");
   }
-  for (const [index, entry] of NOV14_ADMIN_MIGRATIONS.entries()) {
+  for (const [index, entry] of migrations.entries()) {
     const [, version, name] = /\/(\d{14})_([a-z_]+)\.sql$/.exec(entry.path);
     const row = rows[index];
     if (row.version !== version || row.name !== name || Number(row.statement_count) !== 1
-      || row.statement_sha256 !== entry.sha256) throw new Error("nov14_admin_remote_ledger_identity_mismatch:" + version);
+      || row.statement_sha256 !== entry.sha256) throw new Error(scope + "_remote_ledger_identity_mismatch:" + version);
   }
+}
+
+export function verifyNov14AdminLedger(rows) {
+  verifyAdminLedger(rows, NOV14_ADMIN_MIGRATIONS, "nov14_admin");
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [planPath, workdir] = process.argv.slice(2);
   const plan = JSON.parse(readFileSync(planPath, "utf8"));
-  if (plan.preappliedNov14AdminMigrations?.length) {
-    if (JSON.stringify(plan.preappliedNov14AdminMigrations) !== JSON.stringify(NOV14_ADMIN_MIGRATIONS)) {
-      throw new Error("nov14_admin_plan_scope_invalid");
-    }
-    const versions = NOV14_ADMIN_MIGRATIONS.map(({ path }) => "'" + path.split("/").at(-1).slice(0, 14) + "'").join(",");
+  const scopes = [
+    ["nov14_admin", plan.preappliedNov14AdminMigrations, NOV14_ADMIN_MIGRATIONS],
+    ["nov16_eat", plan.preappliedNov16EatMigrations, NOV16_EAT_MIGRATIONS],
+  ];
+  for (const [scope, planned, expected] of scopes) {
+    if (!planned?.length) continue;
+    if (JSON.stringify(planned) !== JSON.stringify(expected)) throw new Error(scope + "_plan_scope_invalid");
+    const versions = expected.map(({ path }) => "'" + path.split("/").at(-1).slice(0, 14) + "'").join(",");
     const query = `select version,name,cardinality(statements) as statement_count,
       encode(sha256(convert_to(array_to_string(statements,chr(10)),'UTF8')),'hex') as statement_sha256
       from supabase_migrations.schema_migrations where version in (${versions}) order by version`;
     const args = ["db", "query", "--linked", "--agent=no", "--output", "json", query];
     if (workdir) args.unshift("--workdir", workdir);
     const output = JSON.parse(execFileSync("supabase", args, { encoding: "utf8" }));
-    verifyNov14AdminLedger(Array.isArray(output) ? output : output.result);
-    console.log("Four existing Admin migration hashes verified read-only");
+    verifyAdminLedger(Array.isArray(output) ? output : output.result, expected, scope);
+    console.log(`${expected.length} existing ${scope} migration hashes verified read-only`);
   }
 }

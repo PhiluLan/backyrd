@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "nov16-eat-ledger-reconciliation-v1",
+  "previousEvidence": "admin-analytics-pageviews-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "46fd23fbdca836cc3909e3e394fca32707d6aada6f19850a86442da9c5b303e8",
+    "applicationSchemaSha256": "0d9beb4f49ea8bd4ff1d50aa60d67356b8f7d820e662072af1a00b184d4b4ee0"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261116144626_world_admin_bulk_complete_eat_rules.sql",
+      "sha256": "11d2167bab16777d2fc3dd361355e7adf820d151619aba1daf066c9a3ab805e4"
+    },
+    {
+      "path": "supabase/migrations/20261116145630_world_service_rebuild_eat_defaults.sql",
+      "sha256": "242a01dbb069a8e64d089a6e4e6befbaa0c8b293d94182a7bf35a299d873c2b7"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/nov16_eat_ledger_reconciliation_v1.sql",
+      "sha256": "7a310133ea4096fd2fc8b07ddbec48cd570a758bc33e09cd4d9e10ff13995500"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "04d8502220170b05a2ef75485978dc23e3b95ccf835eebfa1f2338ddb65c8144",
+    "applicationSchemaSha256": "e0a6bf6383cb9eaec47d18b2bb8942b14f84646df63c51664d6d575fe7c0e1fa"
+  }
+}
