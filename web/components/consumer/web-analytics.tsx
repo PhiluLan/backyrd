@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase/client";
 
+const measuredHosts = new Set(["www.backyrd.ch", "backyrd.ch"]);
 const publicPaths = new Set(["/", "/places", "/discover", "/search", "/decision", "/moments", "/events", "/booking"]);
 
 function publicPageGroup(path: string) {
@@ -18,6 +19,7 @@ export function WebAnalytics() {
   const lastView = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!measuredHosts.has(window.location.hostname)) return;
     const group = publicPageGroup(pathname);
     if (!group) {
       lastView.current = null;

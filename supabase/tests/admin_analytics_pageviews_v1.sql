@@ -5,6 +5,9 @@ values
  ('00000000-0000-0000-0000-000000000000','96dfdfda-6aa4-4558-8000-000000000001','authenticated','authenticated','page-admin@fixture.invalid','','{}','{}',now(),now()),
  ('00000000-0000-0000-0000-000000000000','96dfdfda-6aa4-4558-8000-000000000002','authenticated','authenticated','page-viewer@fixture.invalid','','{}','{}',now(),now());
 insert into public.profiles(id,is_admin) values('96dfdfda-6aa4-4558-8000-000000000001',true) on conflict(id) do update set is_admin=excluded.is_admin;
+insert into public.consent_purposes(key,title_de,description_de,category,legal_basis,requires_consent,is_required,default_enabled,sort_order,is_active)
+values ('optional_product_analytics','Optionale Produktanalyse','Synthetische Fixture für den Aufrufbericht.',
+ 'analytics','consent',true,false,false,100,true) on conflict (key) do nothing;
 insert into public.user_consents(user_id,purpose_key,status,granted_at,source)
 values('96dfdfda-6aa4-4558-8000-000000000002','optional_product_analytics','granted',now(),'system_migration');
 
