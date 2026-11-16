@@ -1,3 +1,4 @@
+import type { AdminNuknukStatus, NuknukCheck } from './admin-nuknuk-status.js';
 import type { DecisionProductAuthenticatedActor } from './product-decision.js';
 
 export const BASEL_DIAGNOSTIC_QUERIES = Object.freeze([
@@ -25,6 +26,7 @@ export interface AdminDiagnosticPorts {
   authenticate(token:string,signal:AbortSignal):Promise<DecisionProductAuthenticatedActor|null>;
   isAdmin(token:string,signal:AbortSignal):Promise<boolean>;
   checkControl(signal:AbortSignal):Promise<void>;
+  nuknukStatus?(check:NuknukCheck,signal:AbortSignal):Promise<AdminNuknukStatus>;
   diagnose(input:AdminDiagnosticInput,actor:DecisionProductAuthenticatedActor,signal:AbortSignal):Promise<unknown>;
 }
 
@@ -56,6 +58,10 @@ export function createAdminDiagnosticHandler(ports:AdminDiagnosticPorts) {
       const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
       let body:unknown;try{body=JSON.parse(new TextDecoder().decode(bytes));}catch{return reply(400,{error:'invalid_request'});}
       if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length!==1)return reply(400,{error:'diagnostic_request_invalid'});
+      if ('nuknukStatus' in body && (body.nuknukStatus === 'connection' || body.nuknukStatus === 'model') && ports.nuknukStatus) {
+        if (body.nuknukStatus === 'model') await ports.checkControl(controller.signal);
+        return reply(200, await ports.nuknukStatus(body.nuknukStatus, controller.signal));
+      }
       let input:AdminDiagnosticInput;
       if('caseIndex' in body && typeof body.caseIndex==='number' && Number.isInteger(body.caseIndex) && body.caseIndex>=0 && body.caseIndex<BASEL_DIAGNOSTIC_QUERIES.length) input={caseIndex:body.caseIndex};
       else if('query' in body && typeof body.query==='string' && body.query.trim().length>0 && body.query.length<=2000) input={query:body.query};

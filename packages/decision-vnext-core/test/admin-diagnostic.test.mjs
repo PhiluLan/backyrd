@@ -36,3 +36,41 @@ test('custom input requires the same Admin and runtime authority',async()=>{
  const query='Dinner';let s=setup({isAdmin:async()=>false});assert.equal((await s.h(request({query}))).status,403);
  s=setup({checkControl:async()=>{throw Error('off');}});assert.equal((await s.h(request({query}))).status,503);
 });
+
+test('NukNuk status uses the admin boundary and a model check also uses runtime control', async () => {
+ const check = async mode => ({state:mode === 'model' ? 'healthy' : 'connected'});
+ let s=setup({isAdmin:async()=>false,nuknukStatus:()=>assert.fail('non-admin status check')});
+ assert.equal((await s.h(request({nuknukStatus:'connection'}))).status,403);
+ s=setup({nuknukStatus:check});
+ assert.deepEqual(await (await s.h(request({nuknukStatus:'connection'}))).json(),{state:'connected'});
+ assert.deepEqual(s.calls,['auth','admin']);
+ assert.deepEqual(await (await s.h(request({nuknukStatus:'model'}))).json(),{state:'healthy'});
+ assert.deepEqual(s.calls,['auth','admin','auth','admin','control']);
+ assert.equal((await s.h(request({nuknukStatus:'model',endpoint:'https://foreign.test'}))).status,400);
+ s=setup({checkControl:async()=>{throw Error('off');},nuknukStatus:()=>assert.fail('disabled model check')});
+ assert.equal((await s.h(request({nuknukStatus:'model'}))).status,503);
+});
+
+test('a reachable HTTPS endpoint does not count as a healthy model', async () => {
+ const {checkAdminNuknukStatus}=await import('../dist/admin-nuknuk-status.js');
+ const configuration={provider:'nuknuk-personal',aiEnabled:true,personalUser:'00000000-0000-0000-0000-000000000001',
+  model:'nuknuk-35b-r15',endpoint:'https://fixture.example/v1/chat/completions',apiKey:'private-fixture-key'};
+ const signal=new AbortController().signal;
+ const passive=await checkAdminNuknukStatus(configuration,'connection',signal,async (_url,init)=>{
+  assert.deepEqual(init.headers,{'content-type':'application/json'});
+  assert.equal(init.redirect,'error');
+  return new Response(null,{status:401});
+ });
+ assert.equal(passive.state,'connected');
+ const result=await checkAdminNuknukStatus(configuration,'model',signal,async (_url,init)=>{
+  assert.equal(init.headers.authorization,'Bearer private-fixture-key');
+  assert.equal(JSON.parse(init.body).max_tokens,96);
+  return Response.json({model:configuration.model,choices:[{message:{content:'{"route":"UPDATE_SEARCH"}'}}]});
+ });
+ assert.equal(result.state,'healthy');
+ assert.ok(!JSON.stringify(result).includes('private-fixture-key')&&!JSON.stringify(result).includes('fixture.example'));
+ const offline=await checkAdminNuknukStatus(configuration,'connection',signal,async ()=>new Response(null,{status:404}));
+ assert.equal(offline.state,'unreachable');
+ const disabled=await checkAdminNuknukStatus({...configuration,aiEnabled:false},'model',signal,()=>assert.fail('disabled model still called'));
+ assert.equal(disabled.state,'disabled');
+});
