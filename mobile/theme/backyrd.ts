@@ -1,11 +1,15 @@
 import { DynamicColorIOS, Platform, PlatformColor, useColorScheme } from "react-native";
+import { runtimeVersion } from "expo-updates";
 import appearanceColors from "./appearance-colors.json";
 
 type AppearanceColorName = keyof typeof appearanceColors.dark;
 
+export const usesFixedDarkAppearance = Platform.OS === "ios" && runtimeVersion === "1.1.0";
+
 /** Native dynamic colors keep module-level StyleSheets in sync with the OS appearance. */
 function appearanceColor(name: AppearanceColorName): string {
   if (Platform.OS === "ios") {
+    if (usesFixedDarkAppearance) return appearanceColors.dark[name];
     return DynamicColorIOS({ light: appearanceColors.light[name], dark: appearanceColors.dark[name] }) as unknown as string;
   }
   if (Platform.OS === "android") {
@@ -84,5 +88,6 @@ export const backyrdLightColors = {
 export const backyrdLightTheme = { ...backyrdTheme, color: backyrdLightColors } as const;
 
 export function useBackyrdTheme() {
-  return useColorScheme() === "light" ? backyrdLightTheme : backyrdTheme;
+  const scheme = useColorScheme();
+  return !usesFixedDarkAppearance && scheme === "light" ? backyrdLightTheme : backyrdTheme;
 }

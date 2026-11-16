@@ -20,7 +20,7 @@ import PushNotificationRouter from "../components/PushNotificationRouter";
 import { ProductLoading, ProductState } from "../components/ui/ProductState";
 import { runtimeConfigStatus } from "../lib/supabase";
 import SplashScreen from "./splash";
-import { useBackyrdTheme } from "../theme/backyrd";
+import { useBackyrdTheme, usesFixedDarkAppearance } from "../theme/backyrd";
 import { AppearancePreferenceProvider } from "../theme/appearancePreference";
 import { StartupContentContext } from "../providers/StartupContentProvider";
 
@@ -135,7 +135,7 @@ function BootstrappedApp() {
 
   return (
     <AnalyticsProvider>
-      <StatusBar style="auto" />
+      <StatusBar style={usesFixedDarkAppearance ? "light" : "auto"} />
       <View style={styles.root}>
         <StartupContentContext.Provider value={startupContent}>
           <View
