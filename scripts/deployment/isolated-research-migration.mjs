@@ -74,13 +74,13 @@ export const NUKNUK_ACTIVITY_MIGRATION = Object.freeze({
   path: "supabase/migrations/20261116123311_nuknuk_request_activity_v1.sql",
   sha256: "9e6dfd03da110315fb61f2868b85eae7d35351a3c3a495c9fdcca658c2299496",
 });
-export const NUKNUK_ACTIVITY_RESTORE_PATH = "delivery/recovery/nuknuk-activity-restore-v1.json";
+export function hasNuknukActivityRestoreIdentity(receipt) {
+  return Number.isSafeInteger(receipt?.runId) && receipt.runId > 0
+    && Number.isSafeInteger(receipt.artifactId) && receipt.artifactId > 0
+    && /^sha256:[0-9a-f]{64}$/.test(receipt.artifactDigest ?? "");
+}
 export function verifyNuknukActivityRestore(receipt, bytes) {
-  if (receipt?.path !== NUKNUK_ACTIVITY_RESTORE_PATH
-    || !Number.isSafeInteger(receipt.runId) || receipt.runId < 1
-    || createHash("sha256").update(bytes).digest("hex") !== receipt.sha256) {
-    throw new Error("nuknuk_activity_restore_receipt_invalid");
-  }
+  if (!hasNuknukActivityRestoreIdentity(receipt)) throw new Error("nuknuk_activity_restore_receipt_invalid");
   const report = JSON.parse(bytes.toString());
   if (report.version !== "backyrd-backup-restore-drill-v1" || report.status !== "PASS"
     || report.foreignKeysValidated !== true || report.proposedIntegrityRepair

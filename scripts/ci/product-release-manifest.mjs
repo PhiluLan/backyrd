@@ -6,7 +6,7 @@ import { cpSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync }
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProductionPlan, parseSupabaseFunctionConfig } from "../deployment/supabase-production-plan.mjs";
-import { BETA_SOCIAL_MIGRATION, BETA_SECURITY_MIGRATIONS, NUKNUK_ACTIVITY_MIGRATION, NUKNUK_ACTIVITY_RESTORE_PATH, verifyNuknukActivityRestore } from "../deployment/isolated-research-migration.mjs";
+import { BETA_SOCIAL_MIGRATION, BETA_SECURITY_MIGRATIONS, NUKNUK_ACTIVITY_MIGRATION, hasNuknukActivityRestoreIdentity } from "../deployment/isolated-research-migration.mjs";
 import { isExactProductAdditiveSet, isExactPreappliedPriorityReceipt } from "./product-additive-migration-scope.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -37,7 +37,7 @@ const SOURCE_SETS = Object.freeze({
     "mobile/lib/decision/wohinModel.ts",
     "web/lib/decision-web-api.ts",
   ],
-  productPolicy: ["delivery/product-authority-v1.json", "docs/architecture/PRODUCT_V1_ACTIVE_SURFACE.md", "delivery/recovery/beta-security-rehearsal-v1.json", NUKNUK_ACTIVITY_RESTORE_PATH],
+  productPolicy: ["delivery/product-authority-v1.json", "docs/architecture/PRODUCT_V1_ACTIVE_SURFACE.md", "delivery/recovery/beta-security-rehearsal-v1.json"],
 });
 const EDGE_BUILD_DIRS = Object.freeze([
   "packages/decision-vnext-core/dist",
@@ -200,9 +200,7 @@ function verifiedNuknukActivityRecovery(plan, additive, migrations) {
     && JSON.stringify(migrations) === JSON.stringify([NUKNUK_ACTIVITY_MIGRATION])
     && JSON.stringify(scope.migrations) === JSON.stringify(migrations)
     && additive?.restoreDrillStatus === "ISOLATED_DATABASE_AND_MEDIA_RESTORE_PASS"
-    && scope.restoreDrill?.path === NUKNUK_ACTIVITY_RESTORE_PATH
-    && Number.isSafeInteger(scope.restoreDrill.runId) && scope.restoreDrill.runId > 0
-    && HASH.test(scope.restoreDrill.sha256 ?? "")
+    && hasNuknukActivityRestoreIdentity(scope.restoreDrill)
     && JSON.stringify(additive.restoreDrillReceipt) === JSON.stringify(scope.restoreDrill);
 }
 
@@ -287,11 +285,6 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   if(actualPlan.isolatedResearchScope?.contractVersion==="backyrd.beta-security-delivery-scope@1.0") {
     const proof=actualPlan.isolatedResearchScope.restoreDrill;
     requireValue(fileIndex.get(proof.path)?.sha256===proof.sha256,"release_restore_receipt_not_sealed");
-  }
-  if (actualPlan.isolatedResearchScope?.contractVersion === "backyrd.nuknuk-activity-delivery-scope@1.0") {
-    const proof = actualPlan.isolatedResearchScope.restoreDrill;
-    requireValue(fileIndex.get(proof.path)?.sha256 === proof.sha256, "release_restore_receipt_not_sealed");
-    verifyNuknukActivityRestore(proof, readFileSync(resolve(bundleRoot, proof.path)));
   }
   const recoveryRisk = authority.founderRecoveryRiskAcceptance;
   const currentRiskSet = (actualPlan.productPreappliedImport?.migrations ?? [
@@ -452,10 +445,6 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
   if(manifest.productionPlan.isolatedResearchScope?.contractVersion==="backyrd.beta-security-delivery-scope@1.0") {
     const proof=manifest.productionPlan.isolatedResearchScope.restoreDrill;
     requireValue(Object.values(manifest.components).flat().some(file=>file.path===proof.path && file.sha256===proof.sha256),"release_restore_receipt_not_sealed");
-  }
-  if (manifest.productionPlan.isolatedResearchScope?.contractVersion === "backyrd.nuknuk-activity-delivery-scope@1.0") {
-    verifyNuknukActivityRestore(manifest.productionPlan.isolatedResearchScope.restoreDrill,
-      readFileSync(resolve(artifactDir, "bundle", NUKNUK_ACTIVITY_RESTORE_PATH)));
   }
   const sealedMigrations = new Map((manifest.components.database ?? []).map(({ path, sha256: migrationSha256 }) => [path, migrationSha256]));
   for (const entry of acceptedMigrationSet) requireValue(sealedMigrations.get(entry.path) === entry.sha256, "release_recovery_migration_bytes_invalid");

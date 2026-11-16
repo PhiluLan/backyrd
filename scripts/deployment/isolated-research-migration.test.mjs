@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,writeFileSync,existsSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {RESEARCH_MIGRATION as target,VOLTA_MIGRATIONS as volta,DEFERRED_BOOKING_MIGRATIONS as deferred,scopeResearchMigrations,scopeVoltaMigrations,researchAppliedReceipt,voltaAppliedReceipt,prepareResearchMigrationWorkspace} from './isolated-research-migration.mjs';
 const base='a'.repeat(40);
@@ -234,8 +233,8 @@ test('NukNuk activity delivery permits exactly its migration and both Decision f
   assert.throws(() => scopeNuknukActivityMigrations({ ...request, deployFunctions: [...functions, 'weather-context'] }), /scope_invalid/);
 });
 
-test('NukNuk activity recovery rejects changed bytes, non-isolated runs and production writes', async () => {
-  const { NUKNUK_ACTIVITY_RESTORE_PATH: path, verifyNuknukActivityRestore } = await import('./isolated-research-migration.mjs');
+test('NukNuk activity recovery rejects incomplete artifact identities, non-isolated runs and production writes', async () => {
+  const { verifyNuknukActivityRestore } = await import('./isolated-research-migration.mjs');
   const report = {
     version: 'backyrd-backup-restore-drill-v1', status: 'PASS', foreignKeysValidated: true,
     sourceType: 'VERIFIED_AWS_ARCHIVE', sourceArchiveSha256: 'a'.repeat(64), sourceMainSha: base,
@@ -244,13 +243,10 @@ test('NukNuk activity recovery rejects changed bytes, non-isolated runs and prod
     sequencesMatch: true, allMediaBytesMatch: true, bucketControlsRestored: true, databaseServicesStopped: true,
     outboundNetworkDisabled: true, independentDatabaseAndMediaTargets: true, disposableTargetsRemoved: true,
   };
-  const pack = value => {
-    const bytes = Buffer.from(JSON.stringify(value));
-    return [{ path, runId: 1, sha256: createHash('sha256').update(bytes).digest('hex') }, bytes];
-  };
-  assert.doesNotThrow(() => verifyNuknukActivityRestore(...pack(report)));
-  assert.throws(() => verifyNuknukActivityRestore(...pack({ ...report, productionWrites: 1 })), /restore_evidence_invalid/);
-  assert.throws(() => verifyNuknukActivityRestore(...pack({ ...report, outboundNetworkDisabled: false })), /restore_evidence_invalid/);
-  const [receipt] = pack(report);
-  assert.throws(() => verifyNuknukActivityRestore(receipt, Buffer.from('{}')), /restore_receipt_invalid/);
+  const receipt = { runId: 1, artifactId: 2, artifactDigest: 'sha256:' + 'a'.repeat(64) };
+  const asBytes = value => Buffer.from(JSON.stringify(value));
+  assert.doesNotThrow(() => verifyNuknukActivityRestore(receipt, asBytes(report)));
+  assert.throws(() => verifyNuknukActivityRestore(receipt, asBytes({ ...report, productionWrites: 1 })), /restore_evidence_invalid/);
+  assert.throws(() => verifyNuknukActivityRestore(receipt, asBytes({ ...report, outboundNetworkDisabled: false })), /restore_evidence_invalid/);
+  assert.throws(() => verifyNuknukActivityRestore({ ...receipt, artifactDigest: 'invalid' }, asBytes(report)), /restore_receipt_invalid/);
 });

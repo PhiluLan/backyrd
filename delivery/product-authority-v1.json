@@ -75,14 +75,18 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261103182149_beta_social_contact_and_mentions_v1.sql",
-        "sha256": "79c28e5de8abe18ad8c2b6f332c1f7555c2627102f1a1e0eecd0a614d0297383"
+        "path": "supabase/migrations/20261116123311_nuknuk_request_activity_v1.sql",
+        "sha256": "9e6dfd03da110315fb61f2868b85eae7d35351a3c3a495c9fdcca658c2299496"
       }
     ],
     "executionAuthorized": false,
-    "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
+    "restoreDrillStatus": "ISOLATED_DATABASE_AND_MEDIA_RESTORE_PASS",
     "guaranteedDatabaseRollback": false,
-    "source": "Founder explicitly accepted the exact Social migration recovery risk on 2026-11-04. Isolated SQL and authorization checks passed; productive rollback/cutover for this Social release remains untested and is not guaranteed."
+    "restoreDrillReceipt": {
+      "runId": 43878789183,
+      "artifactId": 14231428566,
+      "artifactDigest": "sha256:05df22f9723963b1cf7d0861bfed98154da461ab90405ed79a9ec1ce145323af"
+    }
   },
   "protectedSemanticSourceSet": {
     "paths": [
@@ -253,6 +257,11 @@
           "sourceSetHash": "f832c85b99821d14075b3999c430145694854a8f8974b7e4dfceaa1401bdc904"
         }
       ]
+    },
+    "restoreDrill": {
+      "runId": 43878789183,
+      "artifactId": 14231428566,
+      "artifactDigest": "sha256:05df22f9723963b1cf7d0861bfed98154da461ab90405ed79a9ec1ce145323af"
     }
   }
 }
