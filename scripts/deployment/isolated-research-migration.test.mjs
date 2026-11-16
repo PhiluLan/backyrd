@@ -250,3 +250,26 @@ test('NukNuk activity recovery rejects incomplete artifact identities, non-isola
   assert.throws(() => verifyNuknukActivityRestore(receipt, asBytes({ ...report, outboundNetworkDisabled: false })), /restore_evidence_invalid/);
   assert.throws(() => verifyNuknukActivityRestore({ ...receipt, artifactDigest: 'invalid' }, asBytes(report)), /restore_receipt_invalid/);
 });
+
+test('Analytics delivery permits only its exact migration and preserves deferred Booking SQL', async () => {
+  const {
+    ANALYTICS_PAGEVIEWS_SCOPE, ANALYTICS_PAGEVIEWS_MIGRATION: migration, scopeAnalyticsPageviewsMigrations,
+  } = await import('./isolated-research-migration.mjs');
+  const request = {
+    pending: [...deferred, migration], baseSha: base, deployFunctions: [], retiredFunctions: [], authDeploy: false,
+    scope: {
+      contractVersion: ANALYTICS_PAGEVIEWS_SCOPE, baseSha: base, migrations: [migration],
+      deferredMigrations: deferred, backupRunId: 1, executionAuthorized: false, functions: [],
+      restoreDrill: { runId: 1, artifactId: 2, artifactDigest: 'sha256:' + 'a'.repeat(64) },
+    },
+  };
+  const plan = scopeAnalyticsPageviewsMigrations(request);
+  assert.deepEqual(plan.pendingMigrations, [migration]);
+  assert.deepEqual(plan.deferredMigrations, deferred);
+  assert.throws(() => scopeAnalyticsPageviewsMigrations({ ...request, pending: [...request.pending, target] }), /pending_scope_changed/);
+  for (const patch of [{ authDeploy: true }, { deployFunctions: ['decision-v13'] }, { retiredFunctions: ['decision-v13'] }]) {
+    assert.throws(() => scopeAnalyticsPageviewsMigrations({ ...request, ...patch }), /scope_invalid/);
+  }
+  const applied = { ...request, pending: deferred, appliedAnalyticsPageviews: { migration } };
+  assert.deepEqual(scopeAnalyticsPageviewsMigrations(applied).pendingMigrations, []);
+});
