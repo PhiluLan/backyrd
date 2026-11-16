@@ -147,6 +147,11 @@ async function isolatedTarget(cli,phase,operation) {
  const sql=body=>run('docker',['exec','-i','supabase_db_'+project,'psql','-U','supabase_admin','-d','postgres','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','-f','-'],{input:body});
  try {
   run(cli,['init','--workdir',workdir,'--yes','--agent=no']);
+  // CLI 2.122.0's default Storage image predates tenant lifecycle migrations.
+  // Use the matching managed schema in disposable restore targets only.
+  const platformVersions=join(workdir,'supabase/.temp');
+  mkdirSync(platformVersions,{recursive:true,mode:0o700});
+  writeFileSync(join(platformVersions,'storage-version'),'v1.95.0',{mode:0o600});
   const configPath=join(workdir,'supabase/config.toml');let config=readFileSync(configPath,'utf8');
   config=config.replace(/^project_id = .*$/m,'project_id = "'+project+'"').replace(/5432([0-9])/g,(_,n)=>'6202'+n).replace(/(\[db.seed\][\s\S]*?)enabled = true/, '$1enabled = false');writeFileSync(configPath,config,{mode:0o600});
   run('docker',['network','create','--internal',network]);networkCreated=true;started=true;
