@@ -120,7 +120,7 @@ export const ANALYTICS_PAGEVIEWS_MIGRATION = Object.freeze({
 export const SPOT_SEARCH_FRESHNESS_SCOPE = "backyrd.spot-search-freshness-delivery-scope@1.0";
 export const SPOT_SEARCH_FRESHNESS_MIGRATION = Object.freeze({
   path: "supabase/migrations/20261116175436_publish_spot_search_changes.sql",
-  sha256: "5a42081f73e066ffaa18164404ad3f62ad74d0ce2f567ea0f46c560e884e4b46",
+  sha256: "f34d770c56ee2c4a7224bbcf0b34f9ba3640b24d7e0e3882b51f759cd97593f3",
 });
 export function spotSearchFreshnessAppliedReceipt(state, read, isAncestor) {
   return exactResearchReceipt(state, read, isAncestor, SPOT_SEARCH_FRESHNESS_MIGRATION, "spotSearchFreshnessRelease");

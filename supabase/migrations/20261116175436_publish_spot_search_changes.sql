@@ -148,3 +148,34 @@ revoke all on function public.world_product_admin_refresh_stale_search_v1(intege
   from public, anon, authenticated, service_role;
 grant execute on function public.world_product_admin_refresh_stale_search_v1(integer)
   to authenticated;
+
+-- Reconcile the existing catalog when installing the fix. Existing public
+-- claims are resolved with their original provenance. This bounded operation
+-- is part of the migration transaction and makes no new claims.
+do $$
+declare
+  v_pending uuid[];
+  v_spot uuid;
+begin
+  select array(
+    select s.id
+    from public.spots s
+    left join world_knowledge_private.current_projection_pointers p on p.spot_id=s.id
+    where s.status='approved' and exists (
+      select 1 from world_knowledge_private.claims c
+      where c.spot_id=s.id and c.visibility='PUBLIC'
+        and (p.spot_id is null or c.last_changed_at>p.ledger_cutoff_at)
+    )
+    order by s.id
+    limit 201
+  ) into v_pending;
+  if cardinality(v_pending)>200 then
+    raise exception 'world_product_refresh_initial_scope_exceeded' using errcode='54000';
+  end if;
+  foreach v_spot in array v_pending loop
+    perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('world-search-publish:'||v_spot::text,0));
+    perform world_knowledge_private.publish_approved_spot_search_v1(v_spot);
+  end loop;
+  raise notice 'Refreshed % approved spot search projections',cardinality(v_pending);
+end;
+$$;
