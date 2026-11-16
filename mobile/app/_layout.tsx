@@ -73,8 +73,9 @@ function BootstrappedApp() {
     LibreFranklin_600SemiBold,
     LibreFranklin_700Bold,
   });
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, startupFailed: authStartupFailed, retryStartup } = useAuth();
   const [safetyStartupReady, setSafetyStartupReady] = useState(false);
+  const [safetyStartupFailed, setSafetyStartupFailed] = useState(false);
   const bootstrapReady = !fontError && fontsLoaded && !authLoading && safetyStartupReady;
   const [splashSettled, setSplashSettled] = useState(false);
   const [reactSplashReady, setReactSplashReady] = useState(false);
@@ -92,6 +93,8 @@ function BootstrappedApp() {
       title="Darstellung nicht geladen"
       message="Backyrd konnte seine Schrift gerade nicht vorbereiten. Starte die App bitte noch einmal."
     />
+  ) : authStartupFailed ? (
+    <ProductState title="Anmeldung nicht erreichbar" message="Prüfe deine Verbindung und versuche es nochmals." actionLabel="Nochmals versuchen" onAction={retryStartup} />
   ) : !fontsLoaded || authLoading ? (
     <ProductLoading />
   ) : null;
@@ -104,24 +107,28 @@ function BootstrappedApp() {
 
   const onSplashSettled = useCallback(() => setSplashSettled(true), []);
   const onReactSplashReady = useCallback(() => setReactSplashReady(true), []);
-  const onSafetyStartupReady = useCallback(() => setSafetyStartupReady(true), []);
+  const onSafetyStartupReady = useCallback((failed: boolean) => {
+    setSafetyStartupReady(!failed);
+    setSafetyStartupFailed(failed);
+  }, []);
 
   useEffect(() => {
     // Do not hide the native launch screen until the React splash has a real
     // layout. Hiding it after the animation would run that animation behind
     // the native screen and leave only the final b. mark visible.
-    if ((!reactSplashReady && !fontError) || nativeSplashHidden) return;
+    if (nativeSplashHidden || (!reactSplashReady && !fontError && !authStartupFailed && !safetyStartupFailed)) return;
 
     void ExpoSplashScreen.hideAsync()
       .catch(() => undefined)
       .finally(() => setNativeSplashHidden(true));
-  }, [fontError, nativeSplashHidden, reactSplashReady]);
+  }, [authStartupFailed, fontError, nativeSplashHidden, reactSplashReady, safetyStartupFailed]);
 
   const entryRoute = !group || group === "index" || group === "gate";
   const homeRoute = group === "(tabs)" && (!leaf || leaf === "index");
   const contentReady = entryRoute ? gateReady : !homeRoute || homeReady;
   const canReveal = bootstrapReady && splashSettled && (contentReady || contentDeadlineReached);
-  const showStartupSplash = !fontError && !startupRevealed && !canReveal;
+  const showStartupSplash = !fontError && !authStartupFailed && !safetyStartupFailed && !startupRevealed && !canReveal;
+  const startupOverlayVisible = showStartupSplash || Boolean(fontError) || authStartupFailed;
 
   useEffect(() => {
     if (!bootstrapReady || startupRevealed || contentDeadlineReached) return;
@@ -140,9 +147,9 @@ function BootstrappedApp() {
         <StartupContentContext.Provider value={startupContent}>
           <View
             style={styles.root}
-            aria-hidden={showStartupSplash}
-            importantForAccessibility={showStartupSplash ? "no-hide-descendants" : "auto"}
-            accessibilityElementsHidden={showStartupSplash}
+            aria-hidden={startupOverlayVisible}
+            importantForAccessibility={startupOverlayVisible ? "no-hide-descendants" : "auto"}
+            accessibilityElementsHidden={startupOverlayVisible}
           >
             <GlobalSafetyEnforcementGuard
               authReady={!authLoading}
@@ -156,7 +163,7 @@ function BootstrappedApp() {
             </GlobalSafetyEnforcementGuard>
           </View>
         </StartupContentContext.Provider>
-        {fontError ? (
+        {fontError || authStartupFailed ? (
           <View
             accessibilityViewIsModal
             pointerEvents="auto"

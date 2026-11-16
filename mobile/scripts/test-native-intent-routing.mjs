@@ -183,7 +183,7 @@ test("gives one startup authority priority over the asynchronous default Home wr
   assert.match(coldStartRouterSource, /selectTarget\(target\.receipt\)/);
   assert.match(coldStartRouterSource, /waitForTargetDispatch/);
   assert.match(coldStartRouterSource, /selectNoTarget\(\)/);
-  assert.match(gateSource, /await rootStartupNavigationAuthority\.waitForSelection\(\)/);
+  assert.match(gateSource, /withRequestDeadline\(\s*signal => rootStartupNavigationAuthority\.waitForSelection\(signal\)/);
   assert.match(gateSource, /target === "\/\(tabs\)" && startupSelection\.kind === "target"/);
   assert.match(gateSource, /allowProductTargetFromEntryGate\(\)/);
   assert.match(gateSource, /completeDefaultStart\(\)/);

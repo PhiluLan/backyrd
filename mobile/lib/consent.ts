@@ -145,10 +145,11 @@ export async function setMyConsent(
   }
 }
 
-export async function getMyLegalGateStatus() {
-  const { data, error } = await supabase.rpc("get_my_legal_gate_status_v1", {
+export async function getMyLegalGateStatus(signal?: AbortSignal) {
+  const request = supabase.rpc("get_my_legal_gate_status_v1", {
     p_locale: "de-CH",
   });
+  const { data, error } = await (signal ? request.abortSignal(signal) : request);
 
   if (error) throw error;
   return Array.isArray(data) ? data[0] ?? null : data;

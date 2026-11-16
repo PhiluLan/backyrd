@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { getMyLegalGateStatus } from "@/lib/consent";
 import { StateView } from "@/components/foundation/StateView";
 import { rootStartupNavigationAuthority } from "@/lib/root-startup-navigation";
+import { withRequestDeadline } from "@/lib/requestDeadline";
 
 const ALLOWED_WHEN_GATED = new Set([
   "/legal-consent",
@@ -31,7 +32,7 @@ export default function LegalGateGuard({ children }: PropsWithChildren) {
 
     async function checkGate() {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const { data, error } = await withRequestDeadline(() => supabase.auth.getSession(), 8_000);
         if (error) throw error;
         if (cancelled) return;
 
@@ -41,7 +42,7 @@ export default function LegalGateGuard({ children }: PropsWithChildren) {
           return;
         }
 
-        const status = await getMyLegalGateStatus();
+        const status = await withRequestDeadline(getMyLegalGateStatus, 8_000);
         if (typeof status?.gate_required !== "boolean") throw new Error("legal_status_missing");
         if (!cancelled) {
           const legalState = status?.gate_required === true ? "required" : "clear";

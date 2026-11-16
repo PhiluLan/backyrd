@@ -9,12 +9,13 @@ export type SafetyWriteStatus = {
   requiresAccountReview: boolean;
 };
 
-export async function getSafetyWriteStatus():
+export async function getSafetyWriteStatus(signal?: AbortSignal):
 Promise<SafetyWriteStatus | null> {
-  const { data, error } = await supabase.rpc(
+  const request = supabase.rpc(
     "safety_user_enforcement_summary_v1",
     {},
   );
+  const { data, error } = await (signal ? request.abortSignal(signal) : request);
 
   if (error) {
     console.log("getSafetyWriteStatus failed", error);
