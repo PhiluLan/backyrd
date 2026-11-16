@@ -273,3 +273,23 @@ test('Analytics delivery permits only its exact migration and preserves deferred
   const applied = { ...request, pending: deferred, appliedAnalyticsPageviews: { migration } };
   assert.deepEqual(scopeAnalyticsPageviewsMigrations(applied).pendingMigrations, []);
 });
+
+test('Spot search release selects only its migration after verified Analytics deployment', async () => {
+  const {
+    SPOT_SEARCH_FRESHNESS_SCOPE, SPOT_SEARCH_FRESHNESS_MIGRATION: migration,
+    ANALYTICS_PAGEVIEWS_MIGRATION, scopeAnalyticsPageviewsMigrations,
+  } = await import('./isolated-research-migration.mjs');
+  const request = {
+    pending: [...deferred, migration], baseSha: base, deployFunctions: [], retiredFunctions: [],
+    authDeploy: false, appliedAnalyticsPageviews: { migration: ANALYTICS_PAGEVIEWS_MIGRATION },
+    scope: {
+      contractVersion: SPOT_SEARCH_FRESHNESS_SCOPE, baseSha: base, migrations: [migration],
+      deferredMigrations: deferred, backupRunId: 1, executionAuthorized: false, functions: [],
+      restoreDrill: { runId: 1, artifactId: 2, artifactDigest: 'sha256:' + 'a'.repeat(64) },
+    },
+  };
+  assert.deepEqual(scopeAnalyticsPageviewsMigrations(request).pendingMigrations, [migration]);
+  assert.throws(() => scopeAnalyticsPageviewsMigrations({ ...request, appliedAnalyticsPageviews: null }), /scope_invalid/);
+  assert.throws(() => scopeAnalyticsPageviewsMigrations({ ...request, pending: [...request.pending, ANALYTICS_PAGEVIEWS_MIGRATION] }), /pending_scope_changed/);
+  assert.deepEqual(scopeAnalyticsPageviewsMigrations({ ...request, pending: deferred, appliedSpotSearchFreshness: { migration } }).pendingMigrations, []);
+});

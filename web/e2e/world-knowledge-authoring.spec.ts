@@ -53,14 +53,15 @@ async function mockOwner(page: Page, tier: "OWNER_BASIC" | "OWNER_PRO", role: "V
     status: 200, contentType: "application/json", body: JSON.stringify(detail()),
   }));
   const submissions: Array<Record<string, unknown>> = [];
-  await page.route("**/rest/v1/rpc/world_product_owner_submit_claim_v1", async (route) => {
+  await page.route("**/rest/v1/rpc/world_product_save_and_publish_claim_v1", async (route) => {
     const body = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
     submissions.push(body);
     answers[String(body.p_attribute_key)] = {
       claimId: "41000000-0000-4000-8000-000000000011",
       knowledgeState: body.p_knowledge_state, value: body.p_value,
     };
-    await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    manifest = { manifestHash: "a".repeat(64), worldSnapshot: { spotId, conflicts: [] } };
+    await route.fulfill({ json: { manifestHash: manifest.manifestHash } });
   });
   await page.route("**/api/world-knowledge/shadow", async (route) => {
     manifest = { manifestHash: "a".repeat(64), worldSnapshot: { spotId, conflicts: [] } };
@@ -317,7 +318,7 @@ test('Verknüpfte Bereiche bleiben vor versehentlichem Entfernen geschützt',asy
 });
 
 test('Speicherfehler meldet keinen Erfolg und kann mit unverändertem Entwurf wiederholt werden',async({page})=>{
- const owner=await mockOwner(page,'OWNER_BASIC');let fail=true;await page.route('**/rest/v1/rpc/world_product_owner_submit_claim_v1',async(route)=>{if(fail){await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'test unavailable'})});}else await route.fallback();});
+ const owner=await mockOwner(page,'OWNER_BASIC');let fail=true;await page.route('**/rest/v1/rpc/world_product_save_and_publish_claim_v1',async(route)=>{if(fail){await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'test unavailable'})});}else await route.fallback();});
  await openEditor(page);await addFromCatalogue(page,'Mittagessen');await page.getByLabel('Name des Angebots',{exact:true}).fill('Mein Mittag');await saveProfile(page);await expect(guided(page).getByRole('alert')).toContainText('Speichern fehlgeschlagen');expect(owner.submissions).toHaveLength(0);fail=false;await guided(page).getByRole('button',{name:'Änderungen speichern',exact:true}).click();await expect.poll(()=>owner.submissions.length).toBe(1);
 });
 
@@ -621,7 +622,7 @@ for(const width of [390,1280])test(`Speichern ohne Prüfhaken und anschließend 
 
 test('Speichern und weiter speichert zuerst, bleibt bei Fehlern am Entwurf und erlaubt Wiederholung',async({page})=>{
  const owner=await mockOwner(page,'OWNER_BASIC');let fail=true;
- await page.route('**/rest/v1/rpc/world_product_owner_submit_claim_v1',async route=>fail?route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'test unavailable'})}):route.fallback());
+ await page.route('**/rest/v1/rpc/world_product_save_and_publish_claim_v1',async route=>fail?route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'test unavailable'})}):route.fallback());
  await openEditor(page);await addFromCatalogue(page,'Mittagessen');await page.getByLabel('Name des Angebots',{exact:true}).fill('Mein Mittag');
  await guided(page).getByRole('button',{name:'Speichern & weiter',exact:true}).click();
  await expect(guided(page).getByRole('alert')).toContainText('Speichern fehlgeschlagen');await expect(guided(page)).toHaveAttribute('data-workspace','OFFERS');expect(owner.submissions).toHaveLength(0);
@@ -680,7 +681,7 @@ test('Erfolgsmeldungen verschwinden nach zwei Sekunden, Fehler bleiben sichtbar'
  await mockOwner(page,'OWNER_BASIC');await openEditor(page);await addFromCatalogue(page,'Mittagessen');await saveProfile(page);
  const toast=page.locator('.wk-toast');await expect(toast).toBeVisible();await expect(toast).toHaveCount(0,{timeout:3500});
  await page.getByLabel('Name des Angebots',{exact:true}).fill('Mittagskarte');await saveProfile(page);await expect(toast).toBeVisible();await expect(toast).toHaveCount(0,{timeout:3500});
- await page.route('**/rest/v1/rpc/world_product_owner_submit_claim_v1',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'test unavailable'})}));
+ await page.route('**/rest/v1/rpc/world_product_save_and_publish_claim_v1',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'test unavailable'})}));
  await page.getByLabel('Name des Angebots',{exact:true}).fill('Fehlerentwurf');await saveProfile(page);await expect(guided(page).getByRole('alert')).toContainText('Speichern fehlgeschlagen');await expect(guided(page).getByRole('button',{name:'Änderungen speichern',exact:true})).toBeEnabled();
 });
 
