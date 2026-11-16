@@ -143,7 +143,8 @@ test("Admin World reuses the existing Swiss Places lookup with explicit address 
   for (const key of ["location.address_line1", "location.locality", "location.country_code", "location.latitude", "location.longitude"]) {
     assert.ok(product.includes(key), `${key} must be saved through the authorized claim path`);
   }
-  assert.match(product, /await saveField\(field, "KNOWN_VALUE", value\)/);
+  assert.match(product, /world_product_save_and_publish_address_v1/);
+  assert.match(product, /p_changes: changes/);
 });
 
 test("authoring writes rebuild and read the canonical snapshot without a normal-view file handoff", async () => {

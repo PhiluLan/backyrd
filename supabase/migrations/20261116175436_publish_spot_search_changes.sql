@@ -59,6 +59,53 @@ revoke all on function public.world_product_save_and_publish_claim_v1(uuid,text,
 grant execute on function public.world_product_save_and_publish_claim_v1(uuid,text,text,jsonb,timestamptz,timestamptz,timestamptz,text,uuid,text)
   to authenticated;
 
+-- An address selection changes one location. Avoid publishing a latitude
+-- with the previous longitude while the editor is saving the other fields.
+create function public.world_product_save_and_publish_address_v1(
+  p_spot_id uuid,p_changes jsonb,p_observed_at timestamptz,p_idempotency_key text
+) returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_change jsonb;
+  v_key text;
+  v_seen text[] := array[]::text[];
+  v_supersedes uuid;
+begin
+  if auth.uid() is null then raise exception 'authentication_required' using errcode='42501'; end if;
+  if jsonb_typeof(p_changes) is distinct from 'array'
+    or length(coalesce(p_idempotency_key,'')) not between 1 and 100 then
+    raise exception 'world_spot_address_changes_invalid' using errcode='22023';
+  end if;
+  if jsonb_array_length(p_changes) not between 1 and 5 then
+    raise exception 'world_spot_address_changes_invalid' using errcode='22023';
+  end if;
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('world-search-publish:'||p_spot_id::text,0));
+  for v_change in select value from jsonb_array_elements(p_changes)
+  loop
+    v_key := v_change->>'key';
+    if v_key is null or v_key not in ('location.address_line1','location.locality',
+      'location.country_code','location.latitude','location.longitude') or v_key=any(v_seen) then
+      raise exception 'world_spot_address_changes_invalid' using errcode='22023';
+    end if;
+    v_seen := array_append(v_seen,v_key);
+    v_supersedes := (v_change->>'supersedesClaimId')::uuid;
+    if public.is_admin_v1(auth.uid()) then
+      perform public.world_product_admin_submit_claim_v1(
+        p_spot_id,v_key,'KNOWN_VALUE',v_change->'value',p_observed_at,
+        null,null,'PUBLIC',v_supersedes,p_idempotency_key||':'||v_key);
+    else
+      perform public.world_product_owner_submit_claim_v1(
+        p_spot_id,v_key,'KNOWN_VALUE',v_change->'value',p_observed_at,
+        null,null,'PUBLIC',v_supersedes,p_idempotency_key||':'||v_key);
+    end if;
+  end loop;
+  return jsonb_build_object('manifestHash',world_knowledge_private.publish_approved_spot_search_v1(p_spot_id));
+end;
+$$;
+revoke all on function public.world_product_save_and_publish_address_v1(uuid,jsonb,timestamptz,text)
+  from public, anon, authenticated, service_role;
+grant execute on function public.world_product_save_and_publish_address_v1(uuid,jsonb,timestamptz,text)
+  to authenticated;
+
 -- Replay existing accepted claims through the normal resolver in bounded,
 -- restartable batches. The resolver still determines their eligibility.
 create function public.world_product_admin_refresh_stale_search_v1(p_limit integer default 10)

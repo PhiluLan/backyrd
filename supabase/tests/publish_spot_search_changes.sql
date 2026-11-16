@@ -44,12 +44,18 @@ select pg_temp.assert((public.world_product_admin_refresh_stale_search_v1(1)->>'
 select pg_temp.assert((public.world_product_admin_refresh_stale_search_v1(1)->>'processedSpots')::integer=0,
   'A retry must skip the repaired spot');
 
+select pg_temp.assert(public.world_product_save_and_publish_address_v1(
+  'ca010000-0000-4000-8000-000000000003',
+  '[{"key":"location.latitude","value":47.55},{"key":"location.longitude","value":7.58}]',
+  clock_timestamp(),'search-freshness-address'
+)->>'manifestHash' is not null,'The complete address change must publish together');
+
 reset role;
 select pg_temp.assert(exists(
   select 1 from world_knowledge_private.current_projection_pointers p
   join world_knowledge_private.resolution_manifests m on m.id=p.manifest_id
   cross join lateral jsonb_array_elements(world_knowledge_private.product_decision_projection_v1(m.world_snapshot)->'facts') as f
-  where p.spot_id='ca010000-0000-4000-8000-000000000003' and f->>'key'='location.latitude' and f->'value'='47.55'::jsonb
+  where p.spot_id='ca010000-0000-4000-8000-000000000003' and f->>'key'='location.longitude' and f->'value'='7.58'::jsonb
 ),'Decision must receive the accepted coordinate');
 -- A simulated newer pointer forces publication to fail after claim submission.
 -- The failed transaction must leave no accepted edit behind.

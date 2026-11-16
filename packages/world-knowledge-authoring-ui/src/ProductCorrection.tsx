@@ -444,16 +444,31 @@ export function WorldProductCorrection({ client, prepareDiscovery, search, addre
     }
     setBusy(true);
     try {
-      for (const [key, value] of values) {
-        if (detail.answers[key]?.knowledgeState === "KNOWN_VALUE" && detail.answers[key]?.value === value) continue;
-        const field = AUTHORING_FIELDS.find((item) => item.attributeKey === key);
-        if (!field) throw new Error(`Das Ortsfeld ${key} ist nicht verfügbar.`);
-        await saveField(field, "KNOWN_VALUE", value);
+      const changes = values.flatMap(([key, value]) => {
+        const prior = detail.answers[key];
+        return prior?.knowledgeState === "KNOWN_VALUE" && prior.value === value
+          ? [] : [{ key, value, supersedesClaimId: prior?.claimId ?? null }];
+      });
+      if (changes.length) {
+        const { data, error } = await client.rpc("world_product_save_and_publish_address_v1", {
+          p_spot_id: detail.spotId,
+          p_changes: changes,
+          p_observed_at: new Date().toISOString(),
+          p_idempotency_key: `product-address:${crypto.randomUUID()}`,
+        });
+        if (error) throw new Error(safeRpcMessage(error));
+        const result = data as { manifestHash?: string } | null;
+        const refreshed = await readDetail(detail.spotId);
+        if (!result?.manifestHash || refreshed.manifest?.manifestHash !== result.manifestHash) {
+          throw new Error("Die aktualisierte Adresse konnte nicht bestätigt werden. Bitte lade den Spot neu.");
+        }
+        setDetail(refreshed);
+        window.dispatchEvent(new Event("backyrd:spot-profile-updated"));
       }
       setAddressSelection(null);
       showSaveSuccess("Adresse und Koordinaten gespeichert und im World-Reader geprüft.");
     } catch (error) {
-      setMessage(`${messageOf(error)} Bereits gespeicherte Ortsangaben bleiben erhalten; bitte den Spot neu laden und prüfen.`);
+      setMessage(messageOf(error));
       setMessageIsError(true);
     } finally {
       setBusy(false);
