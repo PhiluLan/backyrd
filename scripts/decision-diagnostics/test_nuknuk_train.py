@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import subprocess
+import sys
 
 spec = importlib.util.spec_from_file_location("nuknuk_train", Path(__file__).with_name("nuknuk-train.py"))
 trainer = importlib.util.module_from_spec(spec)
@@ -99,6 +100,7 @@ class TrainingBoundaryTests(unittest.TestCase):
                         os.close(write_fd)
                     guard.terminate_owned(child, immediate=True)
 
+    @unittest.skipUnless(sys.platform == "darwin", "requires macOS libproc")
     def test_real_own_process_physical_footprint_is_readable(self):
         import os
         self.assertGreater(guard.physical_footprint(os.getpid()), 0)
