@@ -2,6 +2,16 @@
   "schemaVersion": "backyrd-production-state-v1",
   "projectRef": "hjgcrrzfjchzqoegcywn",
   "supabase": {
+    "nuknukActivityRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "migration": {
+        "path": "supabase/migrations/20261116123311_nuknuk_request_activity_v1.sql",
+        "sha256": "9e6dfd03da110315fb61f2868b85eae7d35351a3c3a495c9fdcca658c2299496"
+      },
+      "sourceSha": "d44430afa644bf772ee23156d0f960a46fce484f",
+      "deploymentRunId": 43888093975,
+      "manifestHash": "9f7f2e90c5f150ee2ffce1ad80aa9774a595e3374d1713e13d22b5cd188f330e"
+    },
     "shippedSourceSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
     "migrationTip": "20261019203759_booking_restaurant_console_v1",
     "migrationCount": 191,
