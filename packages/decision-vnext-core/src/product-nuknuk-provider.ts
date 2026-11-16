@@ -105,6 +105,8 @@ export function createDecisionProductNuknukProvider(input: {
   readonly repairCompactMeaning?: boolean;
   readonly includePurposeInstructions?: boolean;
   readonly fastSimpleSearch?: boolean;
+  readonly onModelCall?: (mode: 'full' | 'dialogue' | 'simple') => void;
+  readonly onDialogue?: () => void;
 }): NonNullable<DecisionProductRuntimePorts['understand']> {
   const endpoint = new URL(input.endpoint);
   if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || endpoint.search || endpoint.hash
@@ -129,6 +131,7 @@ export function createDecisionProductNuknukProvider(input: {
       const instructions = input.includePurposeInstructions && mode === 'full' && !prompt.instructions.includes("removeFactIds")
         ? baseInstructions + "\n" + purposeInstructions : baseInstructions;
       const requestSignal = mode === 'simple' ? AbortSignal.any([signal,AbortSignal.timeout(SIMPLE_SEARCH_TIMEOUT_MS)]) : signal;
+      input.onModelCall?.(mode);
       const response = await fetchImpl(endpoint, {
         method: 'POST', redirect: 'error', signal: requestSignal, cache: 'no-store',
         headers: { authorization: `Bearer ${input.apiKey}`, 'content-type': 'application/json' },
@@ -155,6 +158,7 @@ export function createDecisionProductNuknukProvider(input: {
       return choice.message.content;
     }
     const dialogue = splitNuknukDialogue(query);
+    if (dialogue) input.onDialogue?.();
     const latestTurn = dialogue?.turns.at(-1);
     if (input.routeDialogue && dialogue && latestTurn) {
       const route = await classifyNuknukDialogue(dialogue.original, latestTurn.answer,

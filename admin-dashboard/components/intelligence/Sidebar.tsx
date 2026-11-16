@@ -31,6 +31,7 @@ const navigationItems: NavigationItem[] = [
   { href: "/safety-integrity", label: "Safety & Moderation", icon: "!", groupLabel: "Sicherheit" },
   { href: "/privacy", label: "Datenschutz", icon: "▣" },
   { href: "/decision", label: "Decisions", icon: "✦", groupLabel: "System" },
+  { href: "/nuknuk", label: "NukNuk", icon: "◈" },
   { href: "/reference-locations", label: "Referenzorte", icon: "⌖" },
   { href: "/moments", label: "Moments", icon: "◉" },
   { href: "/errors", label: "Fehler", icon: "!" },

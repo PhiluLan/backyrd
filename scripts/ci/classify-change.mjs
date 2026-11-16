@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { NUKNUK_ACTIVITY_MIGRATION } from "../deployment/isolated-research-migration.mjs";
 import { resolveChangeContext } from "./resolve-change-context.mjs";
 import { validatePendingMigrationCorrection } from "./validate-pending-migration-correction.mjs";
 
@@ -134,11 +135,16 @@ function isApprovedSpotEventEntry(entry) {
     && entry?.scope === approvedSpotEventMigration.scope;
 }
 
+const isApprovedNuknukActivityRetention = entry =>
+  entry?.path === NUKNUK_ACTIVITY_MIGRATION.path
+  && entry.sha256 === NUKNUK_ACTIVITY_MIGRATION.sha256
+  && entry.scope === "NUKNUK_ACTIVITY_OLDER_THAN_SEVEN_DAYS_ONLY";
+
 export function isAuthorizedBoundedMigration(path, text, trustAnchor) {
   const entries = trustAnchor.authorizedBoundedMigrations;
   if (!Array.isArray(entries)) return false;
   const match = entries.find((entry) => entry?.path === path);
-  const acceptedScope = isApprovedSpotEventEntry(match)
+  const acceptedScope = isApprovedNuknukActivityRetention(match) || isApprovedSpotEventEntry(match)
     || isApprovedDiscoveryCounterEntry(match)
     || match?.scope === "CONSENT_ERASURE_AND_EXPIRED_PRIVATE_IDEMPOTENCY_ONLY"
     || (match?.scope === "EXPIRED_PRIVATE_AI_INTENT_CACHE_ONLY"
@@ -193,6 +199,7 @@ export function classifyChange({ root, context, policy }) {
   const approvedSpotEvents = (candidateAnchor.authorizedBoundedMigrations ?? []).filter(isApprovedSpotEventEntry);
   trustAnchor.authorizedBoundedMigrations = [
     ...(trustAnchor.authorizedBoundedMigrations ?? []), ...approvedSpotEvents,
+    ...(candidateAnchor.authorizedBoundedMigrations ?? []).filter(isApprovedNuknukActivityRetention),
   ];
   const protectedDecisionPaths = new Set(trustAnchor.protectedSemanticSourceSet?.paths ?? []);
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/"));

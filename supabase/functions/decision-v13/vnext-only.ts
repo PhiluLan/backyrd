@@ -10,6 +10,7 @@ import {
 } from "../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js";
 import { createDecisionProductHttpHandler, decisionCandidateOrderReason, type DecisionProductRuntimePorts } from "../../../packages/decision-vnext-core/dist/product-decision.js";
 import { createDecisionProductLunaProvider } from "../../../packages/decision-vnext-core/dist/product-luna-provider.js";
+import { summarizeNuknukActivity } from "../../../packages/decision-vnext-core/dist/nuknuk-activity-summary.js";
 import { createDecisionProductNuknukProvider } from "../../../packages/decision-vnext-core/dist/product-nuknuk-provider.js";
 
 import type { LibrarianRequest } from "../../../packages/decision-vnext-core/dist/product-luna-librarian.js";
@@ -173,6 +174,12 @@ Deno.serve(async (request: Request) => {
     const config = configuration(provider !== "luna");
     const aiEnabled = Deno.env.get("BACKYRD_DECISION_AI_INTENT_ENABLED") === "true";
     const luna = () => createDecisionProductLunaProvider({ apiKey: required("OPENAI_API_KEY") });
+    const started = performance.now();
+    let selectedNuknuk = false;
+    let dialogue = false;
+    let completed: DecisionProductResponse | undefined;
+    let failure: { stage: string; code: string } | undefined;
+    const calls: ("full" | "dialogue" | "simple")[] = [];
     const personalCandidate = provider === "nuknuk-personal" && Deno.env.get("BACKYRD_NUKNUK_PERSONAL_SEARCH_PROFILE") === "r15";
     const nuknuk = () => createDecisionProductNuknukProvider({
       endpoint: required("BACKYRD_NUKNUK_ENDPOINT"),
@@ -182,6 +189,8 @@ Deno.serve(async (request: Request) => {
       clarifyDialogue: personalCandidate,
       repairCompactMeaning: personalCandidate,
       includePurposeInstructions: personalCandidate,
+      onModelCall: mode => calls.push(mode),
+      onDialogue: () => { dialogue = true; },
       fastSimpleSearch: personalCandidate && Deno.env.get("BACKYRD_NUKNUK_FAST_SIMPLE_SEARCH") !== "false",
     });
     const traceRequested = request.headers.get("x-backyrd-personal-trace") === "1";
@@ -191,6 +200,7 @@ Deno.serve(async (request: Request) => {
     const understandingProvider: NonNullable<DecisionProductRuntimePorts["understand"]> = async (input, actor, signal) => {
       if (!aiEnabled) throw new Error("product_understanding_disabled");
       const useNuknuk = provider === "nuknuk" || (provider === "nuknuk-personal" && actor.userId === personalNuknukUser);
+      selectedNuknuk = useNuknuk;
       mayReturnTrace = traceRequested && provider === "nuknuk-personal" && actor.userId === personalNuknukUser;
       return (useNuknuk ? nuknuk() : luna())(input, actor, signal);
     };
@@ -218,13 +228,26 @@ Deno.serve(async (request: Request) => {
         if (mayReturnTrace) handoff = meaning;
         return ports.evaluate(input, actor, signal, meaning);
       },
-      diagnostics: { reportFailure(stage, code) {
+      diagnostics: { reportResult(result) {
+        if (selectedNuknuk) completed = result;
+      }, reportFailure(stage, code) {
+        if (selectedNuknuk) failure = { stage, code };
         // Fixed-shape operational signal only: no token, actor, query text, or SQL error detail.
         console.error(JSON.stringify({ event: "decision_vnext_failure", stage, code }));
       }, reportTimings(outcome, stages) {
         // Latency diagnostics contain only fixed stage names and rounded durations.
         // They never include a user, prompt, spot, credential, or model payload.
         console.info(JSON.stringify({ event: "decision_vnext_timing", outcome, stages }));
+        if (!selectedNuknuk) return;
+        const row = summarizeNuknukActivity({
+          response: completed, failure, stages, calls, dialogue, elapsedMs: performance.now() - started,
+        });
+        const task = Promise.resolve(service.from("backyrd_nuknuk_request_activity_v1")
+          .insert(row).abortSignal(AbortSignal.timeout(2_500))).then(({ error }) => {
+          if (error) console.warn("nuknuk_activity_write_failed");
+        }).catch(() => console.warn("nuknuk_activity_write_failed"));
+        const runtime = (globalThis as typeof globalThis & { EdgeRuntime?: { waitUntil(promise: Promise<unknown>): void } }).EdgeRuntime;
+        runtime?.waitUntil(task);
       } },
     })(request);
     if (!mayReturnTrace || ![200, 422].includes(response.status)) return withCors(response, origin);

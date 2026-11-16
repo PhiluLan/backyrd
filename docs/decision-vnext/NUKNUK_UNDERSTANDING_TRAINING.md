@@ -3316,3 +3316,11 @@ Anweisung. Beide Wege verwenden denselben Bibliothekar.
 
 `BACKYRD_NUKNUK_FAST_SIMPLE_SEARCH=false` deaktiviert die Abkürzung
 im Backend.
+
+## Betriebsübersicht in Backyrd Intelligence
+
+Unter **System → NukNuk** prüft die Statusansicht den konfigurierten Endpunkt. Ein manueller Modelltest verwendet eine synthetische Anfrage und erscheint nicht in der Anfragestatistik.
+
+Die Anfragestatistik umfasst abgeschlossene Backend-Versuche, die tatsächlich an den NukNuk-Verständnisdienst geroutet wurden. Sie misst die Operationen für Verständnis und Bibliothekar getrennt. Die Gesamtdauer enthält die übrige Backend-Verarbeitung. Ein Backend-Ergebnis mit provisorischen Spots erscheint als «Orte zum Abklären». Clientseitige Ausweichvorschläge sind darin nicht messbar. Die Kennzahl für Rückfragen kann sich mit Vorschlägen überschneiden.
+
+Die Erfassung beginnt mit der bereitgestellten Decision-Version und schreibt Betriebsmetadaten im Hintergrund. Der tägliche Überblick liest ein rollendes 24-Stunden-Fenster. Die Migration richtet eine stündliche Bereinigung für Einträge älter als sieben Tage ein. Suchtexte, Kontokennungen, Spot-IDs und Modellantworten gehören nicht in diese Tabelle.

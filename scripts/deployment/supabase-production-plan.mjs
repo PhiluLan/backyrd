@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
+import { nuknukActivityAppliedReceipt, scopeNuknukActivityMigrations, hasNuknukActivityRestoreIdentity } from "./isolated-research-migration.mjs";
 import { betaSocialAppliedReceipt, scopeBetaSocialMigrations, BETA_SOCIAL_FUNCTIONS, ANALYTICS_PRIVACY_REPAIR_MIGRATION, analyticsPrivacyAppliedReceipt, betaSecurityAppliedReceipt, scopeBetaSecurityMigrations, seasonalEventAppliedReceipt, scopeSeasonalEventMigrations, regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -538,19 +539,25 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     try {git(repo,["merge-base","--is-ancestor",source,headSha]);return true;}catch{return false;}
   });
   if(appliedBetaSocial)preappliedPaths.add(appliedBetaSocial.migration.path);
+  const appliedNuknukActivity = nuknukActivityAppliedReceipt(state, head.read, source => {
+    try { git(repo, ["merge-base", "--is-ancestor", source, headSha]); return true; } catch { return false; }
+  });
+  if (appliedNuknukActivity) preappliedPaths.add(appliedNuknukActivity.migration.path);
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
   const codeOnlyScope = authority?.codeOnlyDeliveryScope ?? null;
+  const nuknukActivityScope = authority?.nuknukActivityDeliveryScope ?? null;
+  const boundedFunctionScope = nuknukActivityScope ?? codeOnlyScope;
   const codeOnlyDeferredFunctions = [];
-  if (codeOnlyScope?.existingFunctionReceipt) {
-    const receipt = codeOnlyScope.existingFunctionReceipt;
+  if (boundedFunctionScope?.existingFunctionReceipt) {
+    const receipt = boundedFunctionScope.existingFunctionReceipt;
     if (!/^[a-f0-9]{40}$/.test(receipt.sourceSha) || !Number.isSafeInteger(receipt.deploymentRunId)
       || receipt.deploymentRunId < 1 || !Array.isArray(receipt.functions)) throw new Error("code_only_existing_function_receipt_invalid");
     git(repo, ["merge-base", "--is-ancestor", receipt.sourceSha, headSha]);
     for (const bound of receipt.functions) {
       const item = functions.find(candidate => candidate.slug === bound.slug);
       const verified = getFunctionSourceIdentity({repo,ref:receipt.sourceSha,slug:bound.slug});
-      if (!item?.deploy || codeOnlyScope.functions?.includes(bound.slug) || !HASH.test(bound.bundleHash)
+      if (!item?.deploy || boundedFunctionScope.functions?.includes(bound.slug) || !HASH.test(bound.bundleHash)
         || !Number.isSafeInteger(bound.version) || bound.version < 1
         || verified.verifyJwt !== item.verifyJwt || verified.sourceSetHash !== bound.sourceSetHash) {
         throw new Error("code_only_existing_function_binding_invalid:" + bound.slug);
@@ -643,8 +650,8 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     // The source plan still binds exact bytes for all deferred migrations.
     // A new/changed migration is a data release, never silently included here.
   }
-  const deferredFunctionChanges = securityScope ? securityScope.deferredFunctionChanges : codeOnlyScope ? codeOnlyDeferredFunctions : authority?.isolatedResearchMigrationScope?.deferredFunctionChanges ?? [];
-  if (deferredFunctionChanges.length && !securityScope && !codeOnlyScope) {
+  const deferredFunctionChanges = securityScope ? securityScope.deferredFunctionChanges : boundedFunctionScope ? codeOnlyDeferredFunctions : authority?.isolatedResearchMigrationScope?.deferredFunctionChanges ?? [];
+  if (deferredFunctionChanges.length && !securityScope && !boundedFunctionScope) {
     if (![RESEARCH_SAFETY_MIGRATION,RESEARCH_RHASSOUL_MIGRATION,ADMIN_CATEGORY_MIGRATION,AREA_RESERVATION_MIGRATION].some(target => JSON.stringify(authority.isolatedResearchMigrationScope.migrations) === JSON.stringify([target]))
       || JSON.stringify(deferredFunctionChanges) !== JSON.stringify(RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES)
       || JSON.stringify(functionChanges) !== JSON.stringify(deferredFunctionChanges)) throw new Error("isolated_research_deferred_function_binding_changed");
@@ -656,7 +663,10 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   }
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
-  const scoped = socialScope
+  const scoped = nuknukActivityScope
+    ? scopeNuknukActivityMigrations({ pending: allPending, scope: nuknukActivityScope, baseSha, deployFunctions,
+      authDeploy: authConfig?.deploy === true, appliedNuknukActivity })
+    : socialScope
     ? scopeBetaSocialMigrations({pending:allPending,scope:socialScope,baseSha,deployFunctions:deployFunctions.filter(slug=>slug!==weatherSlug),authDeploy:authConfig?.deploy===true,appliedBetaSocial})
     : securityScope
     ? scopeBetaSecurityMigrations({pending:allPending,scope:securityScope,baseSha,deployFunctions,authConfig,appliedBetaSecurity,appliedAnalyticsPrivacy})
@@ -693,6 +703,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     appliedBetaSecurity,
     appliedAnalyticsPrivacy,
     appliedRegionalDecision,
+    appliedNuknukActivity,
     appliedSeasonalEvent,
     appliedAreaReservation,
     isolatedResearchScope: isolatedResearchScope ?? null,

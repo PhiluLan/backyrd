@@ -433,6 +433,7 @@ export interface DecisionProductRuntimePorts {
     record(event: ProductDecisionLearningInput, signal: AbortSignal): Promise<unknown>;
   };
   readonly diagnostics?: {
+    reportResult?(response: DecisionProductResponse): void;
     reportFailure(stage: string, code: string): void;
     reportTimings?(outcome: "SUCCESS" | "ERROR", stages: readonly DecisionProductRuntimeTiming[]): void;
   };
@@ -572,6 +573,7 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
         }
       });
       await at("FINAL_OUTPUT", async () => undefined);
+      try { ports.diagnostics?.reportResult?.(resolved.response); } catch { /* Diagnostics may never affect a Decision. */ }
       reportTimings("SUCCESS");
       return new Response(JSON.stringify(resolved.response), { status: 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
     } catch (error) {

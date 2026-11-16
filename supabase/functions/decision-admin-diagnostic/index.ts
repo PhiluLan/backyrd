@@ -1,4 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.112.4';
+import type { NuknukActivityOverview } from '../../../packages/decision-vnext-core/dist/admin-nuknuk-activity.js';
+import {checkAdminNuknukStatus} from '../../../packages/decision-vnext-core/dist/admin-nuknuk-status.js';
 import {createAdminDiagnosticHandler,resolveAdminDiagnosticCase,DIAGNOSTIC_REFERENCE} from '../../../packages/decision-vnext-core/dist/admin-diagnostic.js';
 import {createDecisionProductProductionPorts,createDecisionProductRpcEvaluationProvider,createDecisionProductRpcInteractionAuthorityProvider,createDecisionProductRpcLearningPort,type DecisionProductRpcClient,type DecisionProductProductionConfiguration} from '../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js';
 import {createDecisionProductLunaProvider} from '../../../packages/decision-vnext-core/dist/product-luna-provider.js';
@@ -31,19 +33,30 @@ Deno.serve(async(request:Request)=>{
    return {data:result.data,error:result.error?{message:'diagnostic_rpc_unavailable'}:null};
   }};
   const evaluationProvider=createDecisionProductRpcEvaluationProvider(rpc,{meaningRequired:true,onSearch:(result)=>{searchTrace=result;}});
-  const ports=createDecisionProductProductionPorts({rpc,configuration:config,evaluationProvider,interactionAuthority:createDecisionProductRpcInteractionAuthorityProvider(rpc),learningPort:createDecisionProductRpcLearningPort(rpc,config.identity),authClient:{async getUser(token,signal){const r=await service.auth.getUser(token);if(signal.aborted)return {user:null,error:{message:'aborted'}};return {user:r.data.user?{id:r.data.user.id,role:r.data.user.role,is_anonymous:r.data.user.is_anonymous,banned_until:r.data.user.banned_until}:null,error:r.error?{message:'invalid_session'}:null};}},understandingProvider:createDecisionProductLunaProvider({apiKey:required('OPENAI_API_KEY'),now:()=>new Date(reference.now),fetchImpl:async(url,options)=>{
+  const ports=createDecisionProductProductionPorts({rpc,configuration:config,evaluationProvider,interactionAuthority:createDecisionProductRpcInteractionAuthorityProvider(rpc),learningPort:createDecisionProductRpcLearningPort(rpc,config.identity),authClient:{async getUser(token,signal){const r=await service.auth.getUser(token);if(signal.aborted)return {user:null,error:{message:'aborted'}};return {user:r.data.user?{id:r.data.user.id,role:r.data.user.role,is_anonymous:r.data.user.is_anonymous,banned_until:r.data.user.banned_until}:null,error:r.error?{message:'invalid_session'}:null};}},understandingProvider:(request, actor, signal)=>createDecisionProductLunaProvider({apiKey:required('OPENAI_API_KEY'),now:()=>new Date(reference.now),fetchImpl:async(url,options)=>{
    if(url!=='https://api.openai.com/v1/responses')throw Error('diagnostic_provider_destination_invalid');
    const response=await fetch(url,options);
    const payload:unknown=await response.json();
    if(payload&&typeof payload==='object'&&!Array.isArray(payload)&&'usage'in payload)usage=payload.usage;
    return new Response(JSON.stringify(payload),{status:response.status,headers:{'content-type':'application/json'}});
-  }})});
+  }})(request, actor, signal)});
   const handler=createAdminDiagnosticHandler({authenticate:(token,signal)=>ports.auth.authenticate(token,signal),isAdmin:async(token,signal)=>{
    // Authorization is checked using the caller's verified session, never a service-role assertion.
    const caller=createClient(url,required('SUPABASE_ANON_KEY'),{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:`Bearer ${token}`}}});
    const result=await caller.rpc('admin_is_admin_v1').abortSignal(signal);
    return !result.error&&result.data===true;
-  },checkControl:async(signal)=>{await ports.control.assertBoundary('RATE_LIMIT',signal);},diagnose:async(input,actor,signal)=>{
+  },nuknukActivity:async(signal)=>{
+   const {data,error}=await service.rpc('backyrd_nuknuk_activity_overview_v1').abortSignal(signal);
+   if(error || !data || typeof data !== 'object' || !Array.isArray(data.recent)) throw Error('nuknuk_activity_unavailable');
+   return data as NuknukActivityOverview;
+  },nuknukStatus:(check,signal)=>checkAdminNuknukStatus({
+    provider:Deno.env.get('BACKYRD_DECISION_UNDERSTANDING_PROVIDER')??'luna',
+    aiEnabled:Deno.env.get('BACKYRD_DECISION_AI_INTENT_ENABLED')==='true',
+    personalUser:Deno.env.get('BACKYRD_NUKNUK_PERSONAL_USER_ID'),
+    endpoint:Deno.env.get('BACKYRD_NUKNUK_ENDPOINT'),
+    apiKey:Deno.env.get('BACKYRD_NUKNUK_API_KEY'),
+    model:Deno.env.get('BACKYRD_NUKNUK_MODEL'),
+  },check,signal),checkControl:async(signal)=>{await ports.control.assertBoundary('RATE_LIMIT',signal);},diagnose:async(input,actor,signal)=>{
    const selected=resolveAdminDiagnosticCase(input);reference=selected.reference;
    const index=selected.caseIndex;
    const started=performance.now();const id=crypto.randomUUID();
