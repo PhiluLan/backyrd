@@ -218,7 +218,14 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     baseSha: readProductionState(root, identity.sourceSha).supabase.shippedSourceSha,
     headSha: identity.sourceSha,
   });
-  const deployable = trackedFor(root, identity.sourceSha, [...(actualPlan.functions ?? []).filter(item=>item.deploy).flatMap(item=>item.files.map(file=>file.path)),"supabase/functions/decision-v13", "supabase/functions/decision-engine-worker", "supabase/functions/decision-admin-diagnostic", ...WORKER_SOURCE_DIRS, "supabase/migrations", "supabase/config.toml", "supabase/production", "delivery/recovery/beta-security-rehearsal-v1.json"]);
+  const certifiedFunctions = ["decision-v13", "decision-engine-worker", "decision-admin-diagnostic"];
+  const functionFiles = (actualPlan.functions ?? [])
+    .filter(item => item.deploy || certifiedFunctions.includes(item.slug))
+    .flatMap(item => item.files.map(file => file.path));
+  const deployable = trackedFor(root, identity.sourceSha, [
+    ...functionFiles, ...certifiedFunctions.map(slug => `supabase/functions/${slug}`), ...WORKER_SOURCE_DIRS,
+    "supabase/migrations", "supabase/config.toml", "supabase/production", "delivery/recovery/beta-security-rehearsal-v1.json",
+  ]);
   const sourceSetPaths = Object.fromEntries(Object.entries(SOURCE_SETS).map(([name, paths]) => [name, trackedFor(root, identity.sourceSha, paths)]));
   const tracked = [...new Set([...deployable, ...Object.values(sourceSetPaths).flat()])].sort();
   const bundleRoot = resolve(outputDir, "bundle");
