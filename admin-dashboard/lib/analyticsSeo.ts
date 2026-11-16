@@ -64,7 +64,10 @@ export async function buildSeoReport(signal: AbortSignal): Promise<SeoReport> {
     const meta = tags(head, "meta");
     const title = /<title\b[^>]*>([^<]*)<\/title>/i.exec(head)?.[1]?.trim();
     const canonicalUrl = tags(head, "link").find(row => row.rel?.toLowerCase() === "canonical")?.href;
-    const canonical = canonicalUrl ? (canonicalUrl === new URL(path, origin).href || canonicalUrl === path ? "self" : "other") : "missing";
+    const pageUrl = new URL(path, origin);
+    const selfCanonical = canonicalUrl && URL.canParse(canonicalUrl, pageUrl)
+      && new URL(canonicalUrl, pageUrl).href === pageUrl.href;
+    const canonical = canonicalUrl ? (selfCanonical ? "self" : "other") : "missing";
     const directives = [headers?.get("x-robots-tag") ?? "", ...meta.filter(row => ["robots", "googlebot"].includes(row.name?.toLowerCase())).map(row => row.content ?? "")];
     return {
       path, status, title: title ? decodeText(title).slice(0, 180) : null,
