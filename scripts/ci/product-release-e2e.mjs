@@ -96,7 +96,7 @@ try {
   const chatSends = [];
   let chatLoadFail = true;
   let weatherUnavailable = true;
-  let safetyUnavailable = false;
+  let pauseSafetyResponse;
   let finishChatRequest;
   const pendingDecisionResponses = new Map();
   const holdDecisionResponse = (wish) => {
@@ -201,8 +201,9 @@ try {
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(session) });
     }
     if (path === "/auth/v1/user") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) });
-    if (safetyUnavailable && path.endsWith("/rpc/safety_user_enforcement_summary_v1")) {
-      return route.fulfill({ status: 503, json: { message: "Safety temporarily unavailable" } });
+    if (pauseSafetyResponse && path.endsWith("/rpc/safety_user_enforcement_summary_v1")) {
+      await pauseSafetyResponse;
+      return route.abort().catch(() => undefined);
     }
     if (path.includes("/rest/v1/rpc/safety_user_enforcement_summary_v1")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ active_points: 0, confirmed_violations: 0, active_measure_type: state.locked ? "account_restricted" : null, active_measure_ends_at: null, can_write: !state.locked, requires_account_review: false }]) });
     if (path.includes("/rest/v1/rpc/get_my_legal_gate_status_v1")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ gate_required: false }]) });
@@ -608,7 +609,7 @@ try {
   assert.equal(await loginPage.getByLabel("Passwort", { exact: true }).evaluate(node => node.type),"text");
   await loginPage.getByRole("button",{name:"Passwort verbergen",exact:true}).click();
   assert.equal(await loginPage.getByLabel("Passwort", { exact: true }).evaluate(node => node.type),"password");
-  await loginPage.getByText("Einloggen", { exact: true }).last().click();
+  await loginPage.getByRole("button", { name: "Einloggen", exact: true }).click();
   await loginPage.waitForFunction(() => window.localStorage.getItem("sb-example-auth-token") !== null);
   assert.equal(passwordLogins, 1);
   const recoveryPage = await loginContext.newPage();
@@ -671,11 +672,13 @@ try {
   await page.reload({waitUntil:"domcontentloaded"});
   await page.getByRole("button",{name:"Ort speichern",exact:true}).waitFor();
 
-  safetyUnavailable = true;
+  let releaseSafetyResponse;
+  pauseSafetyResponse = new Promise(resolve => { releaseSafetyResponse = resolve; });
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByText("Sicherheitsprüfung nicht erreichbar", { exact: true }).waitFor();
   assert.equal(await page.getByRole("button", { name: "Ort speichern", exact: true }).count(), 0);
-  safetyUnavailable = false;
+  pauseSafetyResponse = undefined;
+  releaseSafetyResponse();
   await page.getByRole("button", { name: "Nochmals versuchen", exact: true }).click();
   await page.getByRole("button", { name: "Ort speichern", exact: true }).waitFor();
 
