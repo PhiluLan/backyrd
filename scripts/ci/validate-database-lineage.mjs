@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { NOV14_ADMIN_MIGRATIONS } from "../deployment/preapplied-nov14-admin-ledger.mjs";
 import { validatePendingMigrationCorrection } from "./validate-pending-migration-correction.mjs";
 
 const migrationPattern = /^(\d{14})_([a-z0-9_]+)\.sql$/;
@@ -122,6 +123,10 @@ export function validateBaseDiff(root, baseSha, manifest) {
   const correction = validatePendingMigrationCorrection({ root, baseSha, headSha: "HEAD" });
 
   const allowedHistorical = new Set(manifest.production_aliases.map((alias) => alias.production_filename));
+  for (const migration of NOV14_ADMIN_MIGRATIONS) {
+    const file = resolve(root, migration.path);
+    if (existsSync(file) && sha256(readFileSync(file)) === migration.sha256) allowedHistorical.add(migration.path.split("/").at(-1));
+  }
   const baseNames = execFileSync(
     "git",
     ["-C", root, "ls-tree", "-r", "--name-only", baseSha, "--", "supabase/migrations"],

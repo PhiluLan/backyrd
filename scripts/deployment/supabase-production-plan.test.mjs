@@ -443,3 +443,16 @@ test("WeatherKit delivery is bound to one exact authenticated function after ver
  assert.equal(check(input),'weather-context');
  for(const patch of [{appliedSocial:null},{authDeploy:true},{retiredFunctions:[{slug:'other'}]},{functions:[{...input.functions[0],verifyJwt:false}]},{functions:[{...input.functions[0],sourceSetHash:'c'.repeat(64)}]},{scope:{...input.scope,executionAuthorized:true}},{scope:{...input.scope,function:{slug:'other',sourceSetHash:hash}}}])assert.throws(()=>check({...input,...patch}),/weather_context_delivery_scope_invalid/);
 });
+
+test("the imported November 14 ledger requires all four exact remote statement hashes", async () => {
+  const { NOV14_ADMIN_MIGRATIONS, verifyNov14AdminLedger } = await import("./preapplied-nov14-admin-ledger.mjs");
+  const rows = NOV14_ADMIN_MIGRATIONS.map(({ path, sha256 }) => {
+    const [, version, name] = /\/(\d{14})_([a-z_]+)\.sql$/.exec(path);
+    return { version, name, statement_count: 1, statement_sha256: sha256 };
+  });
+  assert.doesNotThrow(() => verifyNov14AdminLedger(rows));
+  assert.throws(() => verifyNov14AdminLedger(rows.slice(1)), /remote_ledger_scope_mismatch/);
+  const changed = [...rows];
+  changed[0] = { ...changed[0], statement_sha256: "0".repeat(64) };
+  assert.throws(() => verifyNov14AdminLedger(changed), /remote_ledger_identity_mismatch/);
+});

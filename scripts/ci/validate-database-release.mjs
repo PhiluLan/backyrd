@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { NOV14_ADMIN_EVIDENCE, NOV14_ADMIN_MIGRATIONS } from "../deployment/preapplied-nov14-admin-ledger.mjs";
 import { validatePendingMigrationCorrection } from "./validate-pending-migration-correction.mjs";
 
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -37,7 +38,12 @@ export function activeDatabaseEvidence(root, ref) {
   const selected = releases.at(-1);
   const sameTip = releases.filter((release) => migrationTip(release) === migrationTip(selected));
   if (sameTip.length !== 1) throw new Error(`database_evidence_tip_ambiguous:${migrationTip(selected)}`);
-  const { path, evidence } = selected;
+  // The observed November 14 migrations precede the SQL tip, but their
+  // clean-boot evidence also includes the already-merged November 16 schema.
+  const reconciliation = releases.find(({ evidence }) => evidence.id === NOV14_ADMIN_EVIDENCE
+    && evidence.previousEvidence === selected.evidence.id
+    && JSON.stringify(evidence.migrations) === JSON.stringify(NOV14_ADMIN_MIGRATIONS));
+  const { path, evidence } = reconciliation ?? selected;
   return { path, evidence };
 }
 
