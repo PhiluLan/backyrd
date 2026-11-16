@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { DM_Serif_Display, Geist, Libre_Franklin } from "next/font/google";
 import "./globals.css";
 import "./owner-intelligence.css";
@@ -7,6 +8,7 @@ import "./landing-logo-moments.css";
 import "./consumer.css";
 import "@backyrd/world-knowledge-authoring-ui/styles.css";
 import "@/components/owner/owner-world-editor.css";
+import { WebAnalytics } from "@/components/consumer/web-analytics";
 import { ConsumerShell } from "@/components/consumer/consumer-shell";
 
 const libreFranklin = Libre_Franklin({
@@ -58,6 +60,7 @@ export default function RootLayout({
       className={`${libreFranklin.variable} ${dmSerif.variable} ${geist.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <Suspense fallback={null}><WebAnalytics /></Suspense>
         <ConsumerShell>{children}</ConsumerShell>
       </body>
     </html>

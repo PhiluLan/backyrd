@@ -14,7 +14,7 @@ type NavigationItem = {
 const navigationItems: NavigationItem[] = [
   { href: "/dashboard", label: "Übersicht", icon: "◫", groupLabel: "Überblick" },
   { href: "/founder", label: "Founder Cockpit", icon: "B" },
-  { href: "/growth", label: "Wachstum", icon: "↗" },
+  { href: "/growth", label: "Analytics", icon: "↗" },
   { href: "/spots", label: "Spots", icon: "⌖", groupLabel: "Spots" },
   { href: "/world-knowledge", label: "Aufgaben & Recherche", icon: "◇" },
   { href: "/spots/presentation", label: "Detail-Darstellung", icon: "▤" },

@@ -82,7 +82,7 @@ export default function GrowthPage() {
   return (
     <div className="gr-page">
       <header className="gr-header">
-        <div><span className="gr-overline">BACKYRD · PRODUCT GROWTH</span><h1>Wachstum,<br />das etwas bedeutet.</h1><p>Von der Registrierung bis zur erfolgreichen Decision vNext – mit sichtbarer Messabdeckung und ohne erfundene Gewissheit.</p></div>
+        <div><span className="gr-overline">BACKYRD</span><h1>Analytics</h1><p>Registrierungen, Nutzung und der Weg von der ersten «Wohin?»-Suche zur geöffneten Spotkarte.</p></div>
         <div className="gr-headerControls">
           <DateRangeSelector value={preset} onChange={setPreset} />
           <div className="gr-freshnessRow"><span className={`gr-freshness ${stale ? "stale" : "fresh"}`}><i />{stale ? "Daten älter als erwartet" : "Live-Daten aktuell"}</span><button type="button" onClick={() => void load()} disabled={refreshing}>{refreshing ? "Aktualisiert …" : "Jetzt aktualisieren"}</button></div>
@@ -128,7 +128,7 @@ export default function GrowthPage() {
 
       <div className="gr-grid2">
         <section className="gr-card">
-          <SectionHead overline="Activation" title="Der echte Product-Funnel" detail="Jede Stufe ist strenger als die vorherige." />
+          <SectionHead overline="Activation" title="Von der Registrierung zum ersten Spot" detail="Die Messabdeckung steht bei jeder Stufe." />
           <div className="gr-funnel">{data.funnel.map((step) => <div className="gr-funnelStep" key={step.step_order}><div><span>{step.step_order.toString().padStart(2, "0")}</span><strong>{step.step_name}</strong><b>{number(step.users)}</b></div><div className="gr-funnelTrack"><i style={{ width: step.users ? `${Math.max(3, (step.users / funnelMax) * 100)}%` : "0%" }} /></div><small>{coverageLabel(step.coverage)}</small></div>)}</div>
         </section>
         <section className="gr-card">
