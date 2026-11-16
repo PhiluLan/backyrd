@@ -70,6 +70,30 @@ export function scopeRegionalDecisionMigrations({pending,scope,baseSha,deployFun
     throw new Error("regional_decision_pending_scope_changed");
   return {pendingMigrations:selected,deferredMigrations:DEFERRED_BOOKING_MIGRATIONS,isolatedResearchScope:scope};
 }
+export const NUKNUK_ACTIVITY_MIGRATION = Object.freeze({
+  path: "supabase/migrations/20261116123311_nuknuk_request_activity_v1.sql",
+  sha256: "9e6dfd03da110315fb61f2868b85eae7d35351a3c3a495c9fdcca658c2299496",
+});
+const nuknukActivityFunctions = ["decision-admin-diagnostic", "decision-v13"];
+export function nuknukActivityAppliedReceipt(state, read, isAncestor) {
+  return exactResearchReceipt(state, read, isAncestor, NUKNUK_ACTIVITY_MIGRATION, "nuknukActivityRelease");
+}
+export function scopeNuknukActivityMigrations({ pending, scope, baseSha, deployFunctions, authDeploy, appliedNuknukActivity }) {
+  if (scope?.contractVersion !== "backyrd.nuknuk-activity-delivery-scope@1.0"
+    || scope.executionAuthorized !== false || scope.baseSha !== baseSha
+    || !equal(scope.migrations, [NUKNUK_ACTIVITY_MIGRATION])
+    || !equal(scope.deferredMigrations, DEFERRED_BOOKING_MIGRATIONS)
+    || !equal(scope.functions, nuknukActivityFunctions)
+    || !equal(deployFunctions, nuknukActivityFunctions)
+    || !Number.isSafeInteger(scope.backupRunId) || scope.backupRunId < 1 || authDeploy) {
+    throw new Error("nuknuk_activity_delivery_scope_invalid");
+  }
+  const selected = appliedNuknukActivity ? [] : [NUKNUK_ACTIVITY_MIGRATION];
+  if (!equal(canonicalRows(pending), canonicalRows([...DEFERRED_BOOKING_MIGRATIONS, ...selected]))) {
+    throw new Error("nuknuk_activity_pending_scope_changed");
+  }
+  return { pendingMigrations: selected, deferredMigrations: DEFERRED_BOOKING_MIGRATIONS, isolatedResearchScope: scope };
+}
 export const SEASONAL_EVENT_MIGRATION = Object.freeze({path:"supabase/migrations/20261101162452_seasonal_event_editions_v1.sql",sha256:"a4e1961dbbca4c283c45b3f1d901cc9df2abd2f41b6b6acd82bd6dd30855380b"});
 export function seasonalEventAppliedReceipt(state,read,isAncestor) {
   return exactResearchReceipt(state,read,isAncestor,SEASONAL_EVENT_MIGRATION,"seasonalEventRelease");
@@ -199,6 +223,10 @@ export function prepareResearchMigrationWorkspace(plan,root,output) {
     : plan.isolatedResearchScope?.contractVersion === "backyrd.regional-decision-delivery-scope@1.0"
     ? scopeRegionalDecisionMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedResearchScope,
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,appliedRegionalDecision:plan.appliedRegionalDecision})
+    : plan.isolatedResearchScope?.contractVersion === "backyrd.nuknuk-activity-delivery-scope@1.0"
+    ? scopeNuknukActivityMigrations({ pending: [...plan.pendingMigrations, ...(plan.deferredMigrations ?? [])],
+      scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,
+      authDeploy: plan.authConfig?.deploy === true, appliedNuknukActivity: plan.appliedNuknukActivity })
     : plan.isolatedVoltaScope
     ? scopeVoltaMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedVoltaScope,
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,

@@ -62,6 +62,12 @@
       "sha256": "e1d5608ce05a1149c16f2aac2220a7d8f313dfd83181f9c34440492d9c2e820b",
       "scope": "GENERATED_FUTURE_EVENT_OCCURRENCES_OUTSIDE_SERIES_ONLY",
       "source": "Founder approved the exact bounded recurrence cleanup for PR validation, then explicitly confirmed production publication and the untested database recovery risk on 2026-10-18 in this release conversation. No unrelated SQL is authorized."
+    },
+    {
+      "path": "supabase/migrations/20261116123311_nuknuk_request_activity_v1.sql",
+      "sha256": "9e6dfd03da110315fb61f2868b85eae7d35351a3c3a495c9fdcca658c2299496",
+      "scope": "NUKNUK_ACTIVITY_OLDER_THAN_SEVEN_DAYS_ONLY",
+      "source": "Founder separately authorized hourly retention of NukNuk activity records older than seven days in the release chat on 2026-11-16."
     }
   ],
   "additiveProductMigrationScope": {
@@ -179,12 +185,15 @@
     "guaranteedDatabaseRollback": false,
     "source": "Founder explicitly approved the exact two SQL migrations, bounded release path and breached-password flag on 2026-11-02, including the disclosed remaining recovery risk. Original AWS rows/schema/ACL and all 140 media files match; the exact 37-reference privacy correction passed only on the isolated copy. Production cutover remains untested; a fresh clean backup/restore is required after production correction."
   },
-  "codeOnlyDeliveryScope": {
-    "contractVersion": "backyrd.code-only-delivery-scope@1.0",
+  "nuknukActivityDeliveryScope": {
+    "contractVersion": "backyrd.nuknuk-activity-delivery-scope@1.0",
     "executionAuthorized": false,
-    "functions": [
-      "decision-admin-diagnostic",
-      "decision-v13"
+    "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
+    "migrations": [
+      {
+        "path": "supabase/migrations/20261116123311_nuknuk_request_activity_v1.sql",
+        "sha256": "9e6dfd03da110315fb61f2868b85eae7d35351a3c3a495c9fdcca658c2299496"
+      }
     ],
     "deferredMigrations": [
       {
@@ -204,7 +213,11 @@
         "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
       }
     ],
-    "source": "Founder approved the Decision-only backend and matching iOS OTA on 2026-11-14. Applied Social and Weather deployments retain their independent production receipts. Pending SQL stays deferred.",
+    "functions": [
+      "decision-admin-diagnostic",
+      "decision-v13"
+    ],
+    "backupRunId": 43841442993,
     "existingFunctionReceipt": {
       "sourceSha": "422803e03b910db1770b7a44be1ea78f09a3e0bd",
       "deploymentRunId": 42385325625,
