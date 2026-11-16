@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
@@ -11,7 +11,7 @@ import { withRequestDeadline } from "../lib/requestDeadline";
 import { presentMomentTags } from "../lib/moment-presentation";
 import { backyrdTheme as theme, useBackyrdTheme } from "../theme/backyrd";
 
-export function HomeMomentsSection({ city, revision }: { city: string; revision: number }) {
+export function HomeMomentsSection({ city, revision, onInitialContentReady }: { city: string; revision: number; onInitialContentReady?: (city: string) => void }) {
   const { user } = useAuth();
   const actorId = user?.id;
   const router = useRouter();
@@ -19,14 +19,16 @@ export function HomeMomentsSection({ city, revision }: { city: string; revision:
   useFocusEffect(useCallback(() => {
     let active = true;
     if (!actorId) { setState(null); return; }
-    setState(null);
     void withRequestDeadline(() => loadVisibleSocialFeed({ mode: "for_you", city, limit: 6 }), 8_000).then(posts => {
       if (active) setState({ actor: actorId, city, revision, posts: posts.filter(post => post.spot_id && post.spot_name), failed: false });
     }).catch(() => { if (active) setState({ actor: actorId, city, revision, posts: [], failed: true }); });
     return () => { active = false; };
   }, [city, revision, actorId]));
+  const current = state && state.actor === actorId && state.city === city && state.revision === revision ? state : null;
+  useEffect(() => {
+    if (current) onInitialContentReady?.(city);
+  }, [city, current, onInitialContentReady]);
   if (!actorId) return null;
-  const current = state?.actor === actorId && state.city === city && state.revision === revision ? state : null;
   return <View style={styles.section}>
     <View style={styles.heading}>
       <HomeDisplayHeading title="backyrd Momente" accent="," />

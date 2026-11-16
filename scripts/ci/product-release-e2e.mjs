@@ -90,6 +90,8 @@ try {
   page.on("pageerror", (error) => process.stderr.write(`browser page error: ${error.message}\n`));
   let passwordLogins = 0;
   let fixturePhotoRequests = 0;
+  let releaseStartupPhoto;
+  const startupPhotoPending = new Promise(resolve => { releaseStartupPhoto = resolve; });
   let momentPublishes = 0;
   const chatSends = [];
   let chatLoadFail = true;
@@ -182,11 +184,16 @@ try {
       assert.equal(url.searchParams.get("limit"),"20");
       return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify([{id:"11111111-1111-4111-a111-111111111111",name:"Café Moment",address:"Testgasse 1",lat:46.94,lng:7.44,status:"approved"}])});
     }
+    if (path === "/fixture-startup-photo.jpg") {
+      await startupPhotoPending;
+      return route.fulfill({status:200,contentType:"image/jpeg",path:resolve(root,"mobile/assets/headers/bern_day.jpg")});
+    }
     if (path === "/fixture-spot-photo.jpg") { fixturePhotoRequests++; return route.fulfill({status:200,contentType:"image/jpeg",path:resolve(root,"mobile/assets/headers/bern_day.jpg")}); }
     if (path === "/rest/v1/rpc/backyrd_web_canonical_spot_image_headers_v1") {
       const {p_spot_ids: ids} = JSON.parse(request.postData() ?? "{}");
       assert.ok(Array.isArray(ids) && ids.length <= 5, "covers are a bounded batch for visible candidates");
-      return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(ids.map(id=>({spot_id:id,header_photo_path:id === spots[1].spotId ? `${endpoint}/fixture-spot-photo.jpg` : null})))});
+      const photos = new Map([[spots[0].spotId, "fixture-startup-photo.jpg"], [spots[1].spotId, "fixture-spot-photo.jpg"]]);
+      return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(ids.map(id=>({spot_id:id,header_photo_path:photos.has(id) ? `${endpoint}/${photos.get(id)}` : null})))});
     }
     if (path === "/auth/v1/token" && url.searchParams.get("grant_type") === "password") {
       passwordLogins += 1;
@@ -223,10 +230,19 @@ try {
   await context.route("https://weatherkit.apple.com/fixture-weather-logo.png", route => route.fulfill({status:200,contentType:"image/png",path:resolve(root,"mobile/assets/icon.png")}));
 
   const appUrl = `http://127.0.0.1:${address.port}`;
+  const startupPhotoRequest = page.waitForRequest(request => request.url() === `${endpoint}/fixture-startup-photo.jpg`);
   await page.goto(appUrl, { waitUntil: "domcontentloaded" });
+  await startupPhotoRequest;
+  // Hold the cover past the full splash animation to check that content controls the handoff.
+  await page.waitForTimeout(3_400);
+  assert.equal(await page.getByTestId("startup-splash").isVisible(), true);
+  releaseStartupPhoto();
+  await page.getByTestId("startup-splash").waitFor({ state: "hidden", timeout: 3_000 });
   await page.getByRole("textbox", { name: "Was willst du machen?", exact: true }).waitFor({ timeout: 30000 }).catch(async (error) => {
     throw new Error(`Authenticated home did not appear at ${page.url()}: ${(await page.locator("body").innerText()).slice(0, 1200)}`, { cause: error });
   });
+  const startupRail = page.getByLabel("Orte entdecken", { exact: true });
+  assert.equal(await startupRail.getByLabel("Bild wird geladen", { exact: true }).count(), 0);
   // The prominent Plus opens the draft directly; location refusal does not block manual entry.
   await page.getByText("Wetter gerade nicht verfügbar", { exact: true }).waitFor();
   weatherUnavailable = false;

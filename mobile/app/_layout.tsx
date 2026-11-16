@@ -1,7 +1,7 @@
 // mobile/app/_layout.tsx
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Stack } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Stack, useSegments } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
@@ -22,6 +22,9 @@ import { runtimeConfigStatus } from "../lib/supabase";
 import SplashScreen from "./splash";
 import { useBackyrdTheme } from "../theme/backyrd";
 import { AppearancePreferenceProvider } from "../theme/appearancePreference";
+import { StartupContentContext } from "../providers/StartupContentProvider";
+
+const STARTUP_CONTENT_DEADLINE_MS = 9_000;
 
 void ExpoSplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -63,6 +66,7 @@ function RootStack() {
 }
 
 function BootstrappedApp() {
+  const [group, leaf] = useSegments() as readonly string[];
   const [fontsLoaded, fontError] = useFonts({
     DMSerifDisplay_400Regular,
     LibreFranklin_400Regular,
@@ -75,6 +79,13 @@ function BootstrappedApp() {
   const [splashSettled, setSplashSettled] = useState(false);
   const [reactSplashReady, setReactSplashReady] = useState(false);
   const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
+  const [gateReady, setGateReady] = useState(false);
+  const [homeReady, setHomeReady] = useState(false);
+  const [contentDeadlineReached, setContentDeadlineReached] = useState(false);
+  const [startupRevealed, setStartupRevealed] = useState(false);
+  const reportGateReady = useCallback(() => setGateReady(true), []);
+  const reportHomeReady = useCallback(() => setHomeReady(true), []);
+  const startupContent = useMemo(() => startupRevealed ? {} : { reportGateReady, reportHomeReady }, [startupRevealed, reportGateReady, reportHomeReady]);
 
   const bootstrapState = fontError ? (
     <ProductState
@@ -106,22 +117,45 @@ function BootstrappedApp() {
       .finally(() => setNativeSplashHidden(true));
   }, [fontError, nativeSplashHidden, reactSplashReady]);
 
-  const showStartupSplash = !fontError && (!bootstrapReady || !splashSettled);
+  const entryRoute = !group || group === "index" || group === "gate";
+  const homeRoute = group === "(tabs)" && (!leaf || leaf === "index");
+  const contentReady = entryRoute ? gateReady : !homeRoute || homeReady;
+  const canReveal = bootstrapReady && splashSettled && (contentReady || contentDeadlineReached);
+  const showStartupSplash = !fontError && !startupRevealed && !canReveal;
+
+  useEffect(() => {
+    if (!bootstrapReady || startupRevealed || contentDeadlineReached) return;
+    const timeout = setTimeout(() => setContentDeadlineReached(true), STARTUP_CONTENT_DEADLINE_MS);
+    return () => clearTimeout(timeout);
+  }, [bootstrapReady, startupRevealed, contentDeadlineReached]);
+
+  useEffect(() => {
+    if (canReveal) setStartupRevealed(true);
+  }, [canReveal]);
 
   return (
     <AnalyticsProvider>
       <StatusBar style="auto" />
       <View style={styles.root}>
-        <GlobalSafetyEnforcementGuard
-          authReady={!authLoading}
-          onStartupCheckSettled={onSafetyStartupReady}
-        >
-          <LegalGateGuard>
-            <RootStack />
-            <ColdStartProductDeepLinkRouter ready={bootstrapReady} />
-            <PushNotificationRouter />
-          </LegalGateGuard>
-        </GlobalSafetyEnforcementGuard>
+        <StartupContentContext.Provider value={startupContent}>
+          <View
+            style={styles.root}
+            aria-hidden={showStartupSplash}
+            importantForAccessibility={showStartupSplash ? "no-hide-descendants" : "auto"}
+            accessibilityElementsHidden={showStartupSplash}
+          >
+            <GlobalSafetyEnforcementGuard
+              authReady={!authLoading}
+              onStartupCheckSettled={onSafetyStartupReady}
+            >
+              <LegalGateGuard>
+                <RootStack />
+                <ColdStartProductDeepLinkRouter ready={bootstrapReady} />
+                <PushNotificationRouter />
+              </LegalGateGuard>
+            </GlobalSafetyEnforcementGuard>
+          </View>
+        </StartupContentContext.Provider>
         {fontError ? (
           <View
             accessibilityViewIsModal
@@ -134,6 +168,7 @@ function BootstrappedApp() {
           <View
             accessibilityViewIsModal
             pointerEvents="auto"
+            testID="startup-splash"
             style={styles.bootstrapOverlay}
           >
             <SplashScreen

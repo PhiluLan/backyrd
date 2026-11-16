@@ -55,16 +55,16 @@ let loadArrow;
 function visit(node){if(ts.isVariableDeclaration(node)&&node.name.getText(syntax)==="load"&&node.initializer&&ts.isCallExpression(node.initializer))loadArrow=node.initializer.arguments[0];ts.forEachChild(node,visit);}
 visit(syntax);assert.ok(loadArrow);
 const callback=ts.transpileModule(`exports.load = ${loadArrow.getText(syntax)};`,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
-const loadRequest={current:0},moodRequest={current:0},view={},nearCalls=[];
+const loadRequest={current:0},moodRequest={current:0},displayedCatalog={current:null},view={},nearCalls=[];
 let location={ok:true,source:"current",location:{coords:{latitude:47.5596,longitude:7.5886}}},pendingNear=null;
 const cityRows=[{...far,city:"Bern"}];
-const ports={ loadDiscoveryOpeningSchedules:async()=>({}),user:{id:"actor"},loadRequest,moodRequest,cleanName:v=>typeof v==="string"&&v.trim()?v.trim():null,
+const ports={ loadDiscoveryOpeningSchedules:async()=>({}),user:{id:"actor"},loadRequest,moodRequest,displayedCatalog,cleanName:v=>typeof v==="string"&&v.trim()?v.trim():null,
  withRequestDeadline:task=>task(new AbortController().signal),
  supabase:{from:()=>({select(){return this;},eq(){return this;},abortSignal(){return this;},maybeSingle:async()=>({data:{city:"Bern",first_name:"Alex"}})})},
  getPrivacySafeLocation:async options=>{assert.equal(options.requestPermission,false);assert.equal(options.allowLastKnown,false);assert.equal(options.forceConsentRefresh,true);return location;},
  readRecentDecisionSearch:async()=>null,loadDiscoverySpotsByIds:async()=>[],loadNewestCitySpots:async()=>cityRows,validDiscoveryLocation,loadHomeNearbySpots:async p=>{nearCalls.push(p);return pendingNear?pendingNear:{nearest:[near],newest:[near]};},loadDiscoverySpots:async city=>{assert.equal(city,"Bern");return cityRows;},loadMoodContext:async rows=>{view.moods=rows;},
 };
-for(const name of ["OpeningSchedules","CurrentLocation","Spots","NewSpots","RecentSearch","RecentSpots","RecentError","NewError","SpotMoods","Loading","Refreshing","Error","City","FirstName","ProfileAvatar"])ports[`set${name}`]=value=>{view[name]=value;};
+for(const name of ["OpeningSchedules","CurrentLocation","Spots","NewSpots","RecentSearch","RecentSpots","RecentError","NewError","SpotMoods","Loading","Refreshing","Error","City","FirstName","ProfileAvatar","DetailsReady"])ports[`set${name}`]=value=>{view[name]=value;};
 const homeModule={exports:{}};
 new Function(...Object.keys(ports),"exports",callback)(...Object.values(ports),homeModule.exports);
 await homeModule.exports.load();
@@ -75,6 +75,9 @@ location={ok:true,source:"current",location:{coords:{latitude:48,longitude:8}}};
 let release;
 pendingNear=new Promise(resolve=>{release=resolve;});
 const older=homeModule.exports.load();await new Promise(resolve=>setImmediate(resolve));
+assert.equal(view.Loading,false,"returning to Home must not replace its visible rail with a skeleton");
+assert.deepEqual(view.Spots,[near],"previously displayed places remain mounted while the refresh is pending");
+assert.equal(view.FirstName,"Alex");
 pendingNear=null;location={ok:false};await homeModule.exports.load();release({nearest:[near],newest:[near]});await older;
 assert.equal(view.CurrentLocation,null);assert.deepEqual(view.Spots,cityRows,"a late GPS search cannot overwrite a subsequent consent/location failure");
 ports.readRecentDecisionSearch=async()=>({query:"My actual last wish",spotIds:["a","b"],searchedAt:Date.now()});

@@ -13,13 +13,14 @@ import { haversineKm } from "../lib/utils/haversine";
 import { backyrdTheme as theme, useSFPro } from "../theme/backyrd";
 
 /** The same place card and rail geometry for all Home discovery entry points. */
-export function HomeSpotRail({ spots, moods, moodCounts, location, label, openingStatuses }: {
+export function HomeSpotRail({ spots, moods, moodCounts, location, label, openingStatuses, onVisibleArtworkReady }: {
   spots: readonly DiscoverySpot[];
   moods: Record<string, string[]>;
   moodCounts: Record<string, number | null | undefined>;
   location: LocationCoordinates | null;
   label: string;
   openingStatuses: Record<string, SpotOpeningStatus>;
+  onVisibleArtworkReady?: (spotId: string) => void;
 }) {
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -46,7 +47,8 @@ export function HomeSpotRail({ spots, moods, moodCounts, location, label, openin
       accessibilityLabel={`${spot.name} öffnen${moods[spot.id]?.length ? `. Moods: ${moods[spot.id].slice(0, 3).join(", ")}` : ""}${moodCountDescription(moodCounts[spot.id]) ? `. ${moodCountDescription(moodCounts[spot.id])}` : ""}`}
       key={spot.id} onPress={() => router.push(`/spot/${spot.id}` as never)}
       style={({ pressed }) => [styles.card, { width: cardWidth, minHeight: cardHeight, paddingTop: theme.spacing.display * 2 }, pressed && styles.pressed]}>
-      <SpotArtwork imageUrl={spot.header_photo_url} priority={index < 2 ? "high" : "normal"} spotId={spot.id} spotName={spot.name} showFallbackName={false} style={StyleSheet.absoluteFill} />
+      <SpotArtwork imageUrl={spot.header_photo_url} priority={index < 2 ? "high" : "normal"} spotId={spot.id} spotName={spot.name} showFallbackName={false} style={StyleSheet.absoluteFill}
+        onArtworkReady={index < 2 && onVisibleArtworkReady ? () => onVisibleArtworkReady(spot.id) : undefined} />
       <LinearGradient colors={["rgba(5,5,5,0.02)", "rgba(5,5,5,0.18)", "rgba(5,5,5,0.92)"]} locations={[0.2, 0.54, 1]} style={StyleSheet.absoluteFill} />
       <OpeningStatusBadge status={openingStatuses[spot.id] ?? "unknown"} style={styles.statusPill} />
       <View style={styles.cardContent}>
