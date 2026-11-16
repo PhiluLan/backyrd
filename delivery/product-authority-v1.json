@@ -75,8 +75,8 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261116145153_admin_analytics_pageviews_v1.sql",
-        "sha256": "62414edad70e66d7fc2e4c7c758d500c610fd6ddc449d7c14162cb7a70961d14"
+        "path": "supabase/migrations/20261116175436_publish_spot_search_changes.sql",
+        "sha256": "5a42081f73e066ffaa18164404ad3f62ad74d0ce2f567ea0f46c560e884e4b46"
       }
     ],
     "executionAuthorized": false,
@@ -265,13 +265,13 @@
     }
   },
   "analyticsPageviewsDeliveryScope": {
-    "contractVersion": "backyrd.admin-analytics-pageviews-delivery-scope@1.0",
+    "contractVersion": "backyrd.spot-search-freshness-delivery-scope@1.0",
     "executionAuthorized": false,
     "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
     "migrations": [
       {
-        "path": "supabase/migrations/20261116145153_admin_analytics_pageviews_v1.sql",
-        "sha256": "62414edad70e66d7fc2e4c7c758d500c610fd6ddc449d7c14162cb7a70961d14"
+        "path": "supabase/migrations/20261116175436_publish_spot_search_changes.sql",
+        "sha256": "5a42081f73e066ffaa18164404ad3f62ad74d0ce2f567ea0f46c560e884e4b46"
       }
     ],
     "deferredMigrations": [

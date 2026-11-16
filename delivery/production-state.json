@@ -600,6 +600,16 @@
         }
       ],
       "note": "Only the Founder-approved Social SQL and two JWT-protected Functions were applied from the certified Main artifact. Exact production domains verified. The four Booking migrations remain absent. Historical full baseline is preserved. Native two-account acceptance and real provider execution are still pending; this receipt does not claim Paket 3 green."
+    },
+    "analyticsPageviewsRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "migration": {
+        "path": "supabase/migrations/20261116145153_admin_analytics_pageviews_v1.sql",
+        "sha256": "62414edad70e66d7fc2e4c7c758d500c610fd6ddc449d7c14162cb7a70961d14"
+      },
+      "sourceSha": "a9d8e0ed8e12bbd1cc0bb1f996edee0a513a833e",
+      "deploymentRunId": 43901964003,
+      "manifestHash": "3a1722b2d85896dcfe1ceb565c4dbd9457826655123fa1c062cb521bb3371887"
     }
   },
   "mobile": {

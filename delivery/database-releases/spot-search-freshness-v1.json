@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "spot-search-freshness-v1",
+  "previousEvidence": "nov16-eat-ledger-reconciliation-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "04d8502220170b05a2ef75485978dc23e3b95ccf835eebfa1f2338ddb65c8144",
+    "applicationSchemaSha256": "e0a6bf6383cb9eaec47d18b2bb8942b14f84646df63c51664d6d575fe7c0e1fa"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261116175436_publish_spot_search_changes.sql",
+      "sha256": "5a42081f73e066ffaa18164404ad3f62ad74d0ce2f567ea0f46c560e884e4b46"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/publish_spot_search_changes.sql",
+      "sha256": "893e98201304d443dda1db9e24f1e28e834d8f9899ed5a7b0071410eb65b2b25"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "d9aa8af5072bd56c8c78306b2f88ac30acd25b432cc252f743a80ebd408f02ff",
+    "applicationSchemaSha256": "56c6fc737ff71541d6baa73ed89aec41f8945dfc400f0e497756d9bcb87847e8"
+  }
+}

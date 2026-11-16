@@ -117,17 +117,29 @@ export const ANALYTICS_PAGEVIEWS_MIGRATION = Object.freeze({
   path: "supabase/migrations/20261116145153_admin_analytics_pageviews_v1.sql",
   sha256: "62414edad70e66d7fc2e4c7c758d500c610fd6ddc449d7c14162cb7a70961d14",
 });
+export const SPOT_SEARCH_FRESHNESS_SCOPE = "backyrd.spot-search-freshness-delivery-scope@1.0";
+export const SPOT_SEARCH_FRESHNESS_MIGRATION = Object.freeze({
+  path: "supabase/migrations/20261116175436_publish_spot_search_changes.sql",
+  sha256: "5a42081f73e066ffaa18164404ad3f62ad74d0ce2f567ea0f46c560e884e4b46",
+});
+export function spotSearchFreshnessAppliedReceipt(state, read, isAncestor) {
+  return exactResearchReceipt(state, read, isAncestor, SPOT_SEARCH_FRESHNESS_MIGRATION, "spotSearchFreshnessRelease");
+}
 export function analyticsPageviewsAppliedReceipt(state, read, isAncestor) {
   return exactResearchReceipt(state, read, isAncestor, ANALYTICS_PAGEVIEWS_MIGRATION, "analyticsPageviewsRelease");
 }
-export function scopeAnalyticsPageviewsMigrations({ pending, scope, baseSha, deployFunctions, authDeploy, retiredFunctions, appliedAnalyticsPageviews }) {
-  if (scope?.contractVersion !== ANALYTICS_PAGEVIEWS_SCOPE || scope.executionAuthorized !== false
-    || scope.baseSha !== baseSha || !equal(scope.migrations, [ANALYTICS_PAGEVIEWS_MIGRATION])
+export function scopeAnalyticsPageviewsMigrations({ pending, scope, baseSha, deployFunctions, authDeploy, retiredFunctions, appliedAnalyticsPageviews, appliedSpotSearchFreshness }) {
+  const isSpotSearch = scope?.contractVersion === SPOT_SEARCH_FRESHNESS_SCOPE;
+  const target = isSpotSearch ? SPOT_SEARCH_FRESHNESS_MIGRATION : ANALYTICS_PAGEVIEWS_MIGRATION;
+  if ((!isSpotSearch && scope?.contractVersion !== ANALYTICS_PAGEVIEWS_SCOPE)
+    || (isSpotSearch && !appliedAnalyticsPageviews) || scope.executionAuthorized !== false
+    || scope.baseSha !== baseSha || !equal(scope.migrations, [target])
     || !equal(scope.deferredMigrations, DEFERRED_BOOKING_MIGRATIONS)
     || !equal(scope.functions, []) || deployFunctions.length || authDeploy || retiredFunctions.length
     || !Number.isSafeInteger(scope.backupRunId) || scope.backupRunId < 1
     || !hasNuknukActivityRestoreIdentity(scope.restoreDrill)) throw new Error("analytics_pageviews_delivery_scope_invalid");
-  const selected = appliedAnalyticsPageviews ? [] : [ANALYTICS_PAGEVIEWS_MIGRATION];
+  const applied = isSpotSearch ? appliedSpotSearchFreshness : appliedAnalyticsPageviews;
+  const selected = applied ? [] : [target];
   if (!equal(canonicalRows(pending), canonicalRows([...DEFERRED_BOOKING_MIGRATIONS, ...selected]))) {
     throw new Error("analytics_pageviews_pending_scope_changed");
   }
@@ -266,11 +278,11 @@ export function prepareResearchMigrationWorkspace(plan,root,output) {
     ? scopeNuknukActivityMigrations({ pending: [...plan.pendingMigrations, ...(plan.deferredMigrations ?? [])],
       scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,
       authDeploy: plan.authConfig?.deploy === true, appliedNuknukActivity: plan.appliedNuknukActivity })
-    : plan.isolatedResearchScope?.contractVersion === ANALYTICS_PAGEVIEWS_SCOPE
+    : [ANALYTICS_PAGEVIEWS_SCOPE, SPOT_SEARCH_FRESHNESS_SCOPE].includes(plan.isolatedResearchScope?.contractVersion)
     ? scopeAnalyticsPageviewsMigrations({ pending: [...plan.pendingMigrations, ...plan.deferredMigrations],
       scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,
       authDeploy: plan.authConfig?.deploy === true, retiredFunctions: plan.retiredFunctions,
-      appliedAnalyticsPageviews: plan.appliedAnalyticsPageviews })
+      appliedAnalyticsPageviews: plan.appliedAnalyticsPageviews, appliedSpotSearchFreshness: plan.appliedSpotSearchFreshness })
     : plan.isolatedVoltaScope
     ? scopeVoltaMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedVoltaScope,
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,
