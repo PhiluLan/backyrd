@@ -28,3 +28,18 @@
 .buttons button:last-child { background: var(--pink); color: #180b10; font-weight: 700; }
 .buttons button:disabled { opacity: .55; cursor: default; }
 .links { gap: 18px; margin-top: 18px; }
+
+.activity { margin-top: 32px; }
+.activityHeader { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.activityHeader h2 { margin: 0 0 6px; }
+.activityHeader p, .activityNote { color: var(--muted); margin: 0; }
+.activityNote { margin-top: 12px; font-size: .82rem; }
+.requestTable { overflow-x: auto; }
+.requestTable table { width: 100%; border-collapse: collapse; text-align: left; font-size: .9rem; }
+.requestTable caption { text-align: left; font-size: 1.05rem; font-weight: 650; margin-bottom: 12px; }
+.requestTable th, .requestTable td { border-bottom: 1px solid var(--line); padding: 10px; vertical-align: top; }
+.requestTable th { color: var(--muted); font-size: .8rem; }
+.requestTable td:first-child, .requestTable td:nth-child(n+4) { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.requestTable tr:last-child td { border-bottom: 0; }
+.requestTable small { display: block; color: var(--muted); margin-top: 4px; }
+.requestTable [data-outcome="ERROR"], .requestTable [data-outcome="TIMEOUT"] { color: var(--red); }

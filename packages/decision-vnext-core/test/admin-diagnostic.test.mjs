@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createAdminDiagnosticHandler,BASEL_DIAGNOSTIC_QUERIES,resolveAdminDiagnosticCase} from '../dist/admin-diagnostic.js';
+import { summarizeNuknukActivity } from '../dist/admin-nuknuk-activity.js';
 const actor={userId:'actor',subjectBindingHash:'hash',sessionId:'session',sessionBindingHash:'session-hash',authenticationContextHash:'auth-hash'};
 function setup(overrides={}){const calls=[];const h=createAdminDiagnosticHandler({authenticate:async()=>{calls.push('auth');return actor;},isAdmin:async()=>{calls.push('admin');return true;},checkControl:async()=>{calls.push('control');},diagnose:async(input,value)=>{calls.push(['diagnose',input.caseIndex??input.query,value.userId]);return input;},...overrides});return {h,calls};}
 const request=(body={caseIndex:0},headers={})=>new Request('https://example.test/diagnostic',{method:'POST',headers:{authorization:'Bearer user-session','content-type':'application/json',...headers},body:JSON.stringify(body)});
@@ -73,4 +74,49 @@ test('a reachable HTTPS endpoint does not count as a healthy model', async () =>
  assert.equal(offline.state,'unreachable');
  const disabled=await checkAdminNuknukStatus({...configuration,aiEnabled:false},'model',signal,()=>assert.fail('disabled model still called'));
  assert.equal(disabled.state,'disabled');
+});
+
+test('NukNuk activity only reads via authorized admin access', async () => {
+  const overview = { totals: { requests: 0 }, recent: [] };
+  let reads = 0;
+  const read = async () => { reads++; return overview; };
+  const allowed = setup({ nuknukActivity: read });
+  const denied = setup({ isAdmin: async () => false, nuknukActivity: read });
+  assert.equal((await denied.h(request({ nuknukActivity: 'recent' }))).status, 403);
+  assert.equal((await allowed.h(request({ nuknukActivity: 'recent', days: 90 }))).status, 400);
+  assert.equal(reads, 0);
+  const response = await allowed.h(request({ nuknukActivity: 'recent' }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), overview);
+  assert.equal(reads, 1);
+  assert.deepEqual(allowed.calls, ['auth', 'admin', 'auth', 'admin']);
+});
+
+const observation = {
+  stages: [
+    { stage: 'INTERPRETATION', operationMs: 940, controlBeforeMs: 50, controlAfterMs: 10 },
+    { stage: 'EVALUATION', operationMs: 120, controlBeforeMs: 15, controlAfterMs: 5 },
+  ],
+  calls: ['simple', 'full'], elapsedMs: 1340.75, dialogue: false,
+};
+
+test('provisional results and a question are reported together without copying request or spot data', () => {
+  const response = { primaryCandidateId: null, candidates: [{ name: 'a private spot' }], clarification: 'Private text?' };
+  assert.deepEqual(summarizeNuknukActivity({ ...observation, response }), {
+    outcome: 'PROVISIONAL', clarification: true, path: 'SIMPLE_TO_FULL', candidate_count: 1,
+    model_calls: 2, model_ms: 940, librarian_ms: 120, total_ms: 1341, failure_stage: null,
+  });
+});
+
+test('provider timeout, unresolved request and question-only outcome stay distinct', () => {
+  const base = { ...observation, stages: observation.stages.slice(0, 1), calls: ['dialogue'], dialogue: true };
+  const summarize = code => summarizeNuknukActivity({ ...base, failure: { code, stage: 'INTERPRETATION' } });
+  const timeout = summarize('REQUEST_TIMEOUT');
+  assert.equal(timeout.outcome, 'TIMEOUT');
+  assert.equal(timeout.path, 'DIALOGUE');
+  assert.equal(timeout.librarian_ms, null);
+  assert.equal(timeout.failure_stage, 'INTERPRETATION');
+  assert.equal(summarize('DECISION_NUKNUK_UNRESOLVED').outcome, 'UNRESOLVED');
+  assert.equal(summarize('DECISION_NEEDS_CLARIFICATION').clarification, true);
+  assert.equal(summarize('DECISION_NUKNUK_OFF_TOPIC').failure_stage, null);
 });

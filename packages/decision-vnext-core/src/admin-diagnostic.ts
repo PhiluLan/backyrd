@@ -1,3 +1,4 @@
+import type { NuknukActivityOverview } from './admin-nuknuk-activity.js';
 import type { AdminNuknukStatus, NuknukCheck } from './admin-nuknuk-status.js';
 import type { DecisionProductAuthenticatedActor } from './product-decision.js';
 
@@ -26,6 +27,7 @@ export interface AdminDiagnosticPorts {
   authenticate(token:string,signal:AbortSignal):Promise<DecisionProductAuthenticatedActor|null>;
   isAdmin(token:string,signal:AbortSignal):Promise<boolean>;
   checkControl(signal:AbortSignal):Promise<void>;
+  nuknukActivity?(signal:AbortSignal):Promise<NuknukActivityOverview>;
   nuknukStatus?(check:NuknukCheck,signal:AbortSignal):Promise<AdminNuknukStatus>;
   diagnose(input:AdminDiagnosticInput,actor:DecisionProductAuthenticatedActor,signal:AbortSignal):Promise<unknown>;
 }
@@ -61,6 +63,9 @@ export function createAdminDiagnosticHandler(ports:AdminDiagnosticPorts) {
       if ('nuknukStatus' in body && (body.nuknukStatus === 'connection' || body.nuknukStatus === 'model') && ports.nuknukStatus) {
         if (body.nuknukStatus === 'model') await ports.checkControl(controller.signal);
         return reply(200, await ports.nuknukStatus(body.nuknukStatus, controller.signal));
+      }
+      if ('nuknukActivity' in body && body.nuknukActivity === 'recent' && ports.nuknukActivity) {
+        return reply(200, await ports.nuknukActivity(controller.signal));
       }
       let input:AdminDiagnosticInput;
       if('caseIndex' in body && typeof body.caseIndex==='number' && Number.isInteger(body.caseIndex) && body.caseIndex>=0 && body.caseIndex<BASEL_DIAGNOSTIC_QUERIES.length) input={caseIndex:body.caseIndex};

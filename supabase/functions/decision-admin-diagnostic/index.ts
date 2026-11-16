@@ -1,4 +1,5 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.112.4';
+import type { NuknukActivityOverview } from '../../../packages/decision-vnext-core/dist/admin-nuknuk-activity.js';
 import {checkAdminNuknukStatus} from '../../../packages/decision-vnext-core/dist/admin-nuknuk-status.js';
 import {createAdminDiagnosticHandler,resolveAdminDiagnosticCase,DIAGNOSTIC_REFERENCE} from '../../../packages/decision-vnext-core/dist/admin-diagnostic.js';
 import {createDecisionProductProductionPorts,createDecisionProductRpcEvaluationProvider,createDecisionProductRpcInteractionAuthorityProvider,createDecisionProductRpcLearningPort,type DecisionProductRpcClient,type DecisionProductProductionConfiguration} from '../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js';
@@ -44,6 +45,10 @@ Deno.serve(async(request:Request)=>{
    const caller=createClient(url,required('SUPABASE_ANON_KEY'),{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:`Bearer ${token}`}}});
    const result=await caller.rpc('admin_is_admin_v1').abortSignal(signal);
    return !result.error&&result.data===true;
+  },nuknukActivity:async(signal)=>{
+   const {data,error}=await service.rpc('backyrd_nuknuk_activity_overview_v1').abortSignal(signal);
+   if(error || !data || typeof data !== 'object' || !Array.isArray(data.recent)) throw Error('nuknuk_activity_unavailable');
+   return data as NuknukActivityOverview;
   },nuknukStatus:(check,signal)=>checkAdminNuknukStatus({
     provider:Deno.env.get('BACKYRD_DECISION_UNDERSTANDING_PROVIDER')??'luna',
     aiEnabled:Deno.env.get('BACKYRD_DECISION_AI_INTENT_ENABLED')==='true',

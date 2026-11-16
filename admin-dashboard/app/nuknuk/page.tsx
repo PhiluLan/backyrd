@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { AdminNuknukStatus, NuknukCheck } from "../../../packages/decision-vnext-core/src/admin-nuknuk-status";
+import Activity from "./Activity";
 import styles from "./status.module.css";
 
 const states: Record<AdminNuknukStatus["state"], { title: string; detail: string; tone: string }> = {
@@ -110,6 +111,7 @@ export default function NuknukPage() {
         <button type="button" disabled={busy !== null || status?.state === "disabled" || status?.state === "configuration"} onClick={() => requestCheck("model")}>Modell testen</button>
       </div>
     </section>
+    <Activity />
     <div className={styles.links}>
       <Link className="bi-back" href="/decision-diagnostics">Decision-Diagnose →</Link>
       <Link className="bi-back" href="/system">Systemstatus →</Link>
