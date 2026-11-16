@@ -13,6 +13,11 @@ on:
         type: choice
         default: PRODUCT
         options: [PRODUCT, IOS_OTA]
+      ios_ota_runtime:
+        description: iOS runtime to certify for an OTA
+        type: choice
+        default: current
+        options: [current, '1.1.0']
       certification_confirmation:
         description: Type CERTIFY_PRODUCT_RELEASE
         required: true
@@ -22,7 +27,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: manual-product-artifact-${{ inputs.canonical_main_sha }}
+  group: manual-product-artifact-${{ inputs.canonical_main_sha }}-${{ inputs.ios_ota_runtime }}
   cancel-in-progress: false
 
 jobs:
@@ -71,9 +76,16 @@ jobs:
         env:
           BACKYRD_RELEASE_BUILD: '1'
           APP_VARIANT: prod
+          IOS_OTA_RUNTIME: ${{ inputs.ios_ota_runtime }}
+          DELIVERY_TARGET: ${{ inputs.delivery_target }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ vars.PRODUCT_V1_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.PRODUCT_V1_SUPABASE_ANON_KEY }}
         run: |
+          if test "$IOS_OTA_RUNTIME" = "1.1.0"; then
+            test "$DELIVERY_TARGET" = IOS_OTA
+            export BACKYRD_IOS_OTA_RUNTIME="$IOS_OTA_RUNTIME"
+            npx expo config --type public --json | jq -e '.ios.runtimeVersion == "1.1.0"' >/dev/null
+          fi
           npm run release:validate
           npx expo export --platform ios --clear --output-dir "$RUNNER_TEMP/mobile-ios"
           node scripts/verify-ios-ota-export.mjs "$RUNNER_TEMP/mobile-ios"

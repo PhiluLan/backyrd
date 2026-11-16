@@ -38,6 +38,10 @@ export default (context = { config: {} }) => {
   );
 
   const isEasBuild = process.env.EAS_BUILD === "true";
+  const iosOtaRuntime = process.env.BACKYRD_IOS_OTA_RUNTIME;
+  if (iosOtaRuntime && (iosOtaRuntime !== "1.1.0" || isDev || isEasBuild || process.env.BACKYRD_RELEASE_BUILD !== "1")) {
+    throw new Error("The iOS 1.1.0 runtime override is only supported for Production OTA releases.");
+  }
   if (isDev && isEasBuild && (!supabaseUrl || !supabaseAnonKey)) {
     throw new Error("Development and preview builds require isolated Supabase public configuration from their EAS environment.");
   }
@@ -70,6 +74,7 @@ export default (context = { config: {} }) => {
     },
 
     ios: {
+      ...(iosOtaRuntime ? { runtimeVersion: iosOtaRuntime } : {}),
       bundleIdentifier: isDev
         ? IOS_DEVELOPMENT_BUNDLE_IDENTIFIER
         : IOS_PRODUCTION_BUNDLE_IDENTIFIER,
