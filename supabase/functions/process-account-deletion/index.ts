@@ -2,6 +2,8 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { readOrderedPages, removeExportFiles } from "../_shared/data-rights-pagination.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -200,10 +202,10 @@ Deno.serve(async (request) => {
 
     const storageSummary: Record<string, number> = {};
 
-    const ownedStorage = await userClient.rpc(
+    const ownedStorage = await readOrderedPages<{ bucket_id: string; object_path: string }>((from, to) => userClient.rpc(
       "admin_account_owned_storage_paths_v1",
       { p_user_id: targetUserId },
-    );
+    ).order("bucket_id").order("object_path").range(from, to));
     if (ownedStorage.error) throw ownedStorage.error;
 
     for (const bucket of [
@@ -215,8 +217,8 @@ Deno.serve(async (request) => {
       const paths = (ownedStorage.data ?? [])
         .filter((row: { bucket_id: string }) => row.bucket_id === bucket)
         .map((row: { object_path: string }) => row.object_path);
-      if (paths.length > 0) {
-        const removal = await admin.storage.from(bucket).remove(paths);
+      for (let offset = 0; offset < paths.length; offset += 100) {
+        const removal = await admin.storage.from(bucket).remove(paths.slice(offset, offset + 100));
         if (removal.error) throw new Error(`${bucket}: ${removal.error.message}`);
       }
       storageSummary[bucket] = paths.length;
@@ -224,45 +226,12 @@ Deno.serve(async (request) => {
 
     // Data exports are service-owned and therefore use the canonical user
     // prefix rather than storage ownership.
-    for (const bucket of ["data-rights-exports"]) {
-      let removed = 0;
-      let offset = 0;
-
-      while (true) {
-        const list = await admin.storage
-          .from(bucket)
-          .list(targetUserId, {
-            limit: 100,
-            offset,
-            sortBy: { column: "name", order: "asc" },
-          });
-
-        if (list.error) {
-          if (list.error.message.toLowerCase().includes("not found")) break;
-          throw new Error(`${bucket}: ${list.error.message}`);
-        }
-
-        const entries = list.data ?? [];
-        if (entries.length === 0) break;
-
-        const paths = entries
-          .filter((entry) => entry.name)
-          .map((entry) => `${targetUserId}/${entry.name}`);
-
-        if (paths.length > 0) {
-          const removal = await admin.storage.from(bucket).remove(paths);
-          if (removal.error) {
-            throw new Error(`${bucket}: ${removal.error.message}`);
-          }
-          removed += paths.length;
-        }
-
-        if (entries.length < 100) break;
-        offset += 100;
-      }
-
-      storageSummary[bucket] = removed;
-    }
+    const exportStorage = admin.storage.from("data-rights-exports");
+    storageSummary["data-rights-exports"] = await removeExportFiles(
+      targetUserId,
+      () => exportStorage.list(targetUserId, { limit: 100, sortBy: { column: "name", order: "asc" } }),
+      paths => exportStorage.remove(paths),
+    );
 
     let erasureResult: unknown = {
       recovery_mode: true,

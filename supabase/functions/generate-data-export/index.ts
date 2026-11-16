@@ -1,6 +1,21 @@
 // supabase/functions/generate-data-export/index.ts
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { readOrderedPages } from "../_shared/data-rights-pagination.ts";
+
+// Include every unfixed part of the primary key when the user filter is not unique.
+const exportOrder: Record<string, readonly string[]> = {
+  review_likes: ["review_id"],
+  social_post_reactions: ["post_id", "reaction_type"],
+  user_taste_concepts_v2: ["concept_id"],
+  user_taste_moods_v1: ["mood_id"],
+  user_taste_time_v1: ["time_bucket"],
+  user_taste_profile_v1: ["user_id"],
+  user_place_type_preferences_v1: ["context_key", "place_type"],
+  backyrd_user_context_feature_preferences_v1: ["context_scope", "context_key", "feature_type", "feature_key"],
+  user_consents: ["purpose_key"],
+  user_legal_acceptances: ["document_id"],
+};
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -18,7 +33,11 @@ async function selectBy(
   column: string,
   userId: string,
 ) {
-  const { data, error } = await client.from(table).select("*").eq(column, userId);
+  const { data, error } = await readOrderedPages<Record<string, unknown>>((from, to) => {
+    const query = client.from(table).select("*").eq(column, userId);
+    for (const key of exportOrder[table] ?? ["id"]) query.order(key);
+    return query.range(from, to);
+  });
 
   if (error) {
     console.warn(`[data-export] ${table} skipped`, error.message);
@@ -160,16 +179,16 @@ Deno.serve(async (request) => {
       selectBy(admin, "spot_claims", "user_id", user.id),
     ]);
 
-    const { data: ownedSpots, error: ownedSpotsError } = await admin
+    const { data: ownedSpots, error: ownedSpotsError } = await readOrderedPages((from, to) => admin
       .from("spots")
       .select("*")
-      .or(`owner_id.eq.${user.id},created_by.eq.${user.id}`);
+      .or(`owner_id.eq.${user.id},created_by.eq.${user.id}`).order("id").range(from, to));
 
-    const { data: storageObjects, error: storageError } = await admin
+    const { data: storageObjects, error: storageError } = await readOrderedPages((from, to) => admin
       .schema("storage")
       .from("objects")
       .select("id, bucket_id, name, owner, created_at, updated_at, metadata")
-      .or(`owner.eq.${user.id},name.like.${user.id}/%`);
+      .or(`owner.eq.${user.id},name.like.${user.id}/%`).order("id").range(from, to));
 
     const {data: personMentions,error: personMentionsError} = await admin.rpc("account_person_mentions_export_v1",{p_user_id:user.id});
 
