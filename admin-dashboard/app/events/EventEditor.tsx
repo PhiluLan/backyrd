@@ -8,6 +8,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { formatAdminError, logAdminError } from "@/lib/adminErrors";
 import { buildVenuePayload, filterEventSpots, validateEventInput, venueFieldsAfterTyping, type EventSpot } from "@/lib/eventAdmin";
 
+import styles from "./events.module.css";
+
 const CATEGORIES = ["MUSIC", "NIGHTLIFE", "ART", "THEATRE", "FILM", "FOOD_DRINK", "FAMILY", "SPORT", "ACTIVITY", "LEISURE", "MARKET", "WORKSHOP", "COMMUNITY", "OTHER"];
 type Occurrence = { id: string; start_at: string; end_at: string | null; status: string; is_recurrence_exception: boolean; ticket_status: "UNKNOWN" | "AVAILABLE" | "SOLD_OUT" };
 type FormState = {
@@ -39,6 +41,8 @@ export default function EventEditor({ eventId }: { eventId?: string }) {
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [ticketBusy, setTicketBusy] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loadedEventId, setLoadedEventId] = useState<string>();
+  const canSave = !busy && (!eventId || loadedEventId === eventId);
   const [error, setError] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((current) => ({ ...current, [key]: value }));
@@ -84,7 +88,11 @@ export default function EventEditor({ eventId }: { eventId?: string }) {
       let venue: { name: string; address_line: string | null; matched_spot_id: string | null } | null = null;
       if (event.primary_venue_id) {
         const { data: venueRow, error: venueError } = await supabase.from("event_venues_v1").select("name,address_line,matched_spot_id").eq("id", event.primary_venue_id).single();
-        if (venueError) logAdminError("Veranstaltungsort laden", venueError, { eventId, venueId: event.primary_venue_id });
+        if (venueError) {
+          logAdminError("Veranstaltungsort laden", venueError, { eventId, venueId: event.primary_venue_id });
+          setError("Der gespeicherte Veranstaltungsort konnte nicht geladen werden. Bitte lade die Seite erneut.");
+          return;
+        }
         venue = venueRow;
       }
       const rule = event.recurrence_rule ?? {};
@@ -101,6 +109,7 @@ export default function EventEditor({ eventId }: { eventId?: string }) {
         imagePath: event.image_storage_path ?? "", startDate: rule.startDate ?? blank.startDate,
         startTime: rule.startTime ?? blank.startTime, endTime: rule.endTime ?? blank.endTime,
       });
+      setLoadedEventId(eventId);
       const { data: occurrenceRows, error: occurrenceError } = await supabase.from("event_occurrences_v1").select("id,start_at,end_at,status,is_recurrence_exception,ticket_status").eq("event_id", eventId).order("start_at");
       if (occurrenceError) logAdminError("Occurrences laden", occurrenceError, { eventId });
       setOccurrences((occurrenceRows ?? []) as Occurrence[]);
@@ -145,14 +154,14 @@ export default function EventEditor({ eventId }: { eventId?: string }) {
     }
   }
 
-  async function save(nextStatus?: string) {
+  async function save(status: string) {
+    if (!canSave) return;
     const validationError = validateEventInput(form);
     if (validationError) return setError(validationError);
     if (form.spotId && !selectedSpot) return setError("Der verknüpfte Backyrd Spot konnte nicht geladen werden. Bitte wähle ihn erneut aus oder verwende einen freien Veranstaltungsort.");
     setBusy(true);
     setError("");
     const id = eventId ?? crypto.randomUUID();
-    const status = nextStatus ?? form.status;
     try {
       const now = new Date().toISOString();
       let venueId: string | null = null;
@@ -228,10 +237,13 @@ export default function EventEditor({ eventId }: { eventId?: string }) {
   return <div className="bi-page">
     <div className="bi-back"><Link href="/events">← Events</Link></div>
     <header className="bi-header">
-      <div><div className="bi-eyebrow">MANUAL ADMIN</div><h1>{eventId ? "Event bearbeiten" : "Neues Event"}</h1><p>Event und konkrete Occurrences bleiben getrennt.</p></div>
-      <div className="bi-detailActions"><button disabled={busy} className="bi-actionButton" onClick={() => save("DRAFT")}>Entwurf</button><button disabled={busy} className="bi-primaryButton" onClick={() => save("PUBLISHED")}>Veröffentlichen</button>{eventId && <button disabled={busy} className="bi-actionButton" onClick={() => save("CANCELLED")}>Absagen</button>}</div>
+      <div>
+        <h1>{eventId ? "Event bearbeiten" : "Neues Event"}</h1>
+        {eventId && canSave && form.status === "DRAFT" && <p>Entwurf · Noch nicht in der App sichtbar</p>}
+      </div>
+      <a href="#event-veroeffentlichen" className="bi-actionButton">Zu den Veröffentlichungsoptionen ↓</a>
     </header>
-    {error && <div className="bi-error" role="alert">{error}</div>}
+    {error && !canSave && !busy && <div className="bi-error" role="alert">{error}</div>}
     <div className="bi-gridTwo"><section className="bi-card eventForm">
       <label>Titel<input value={form.title} onChange={(event) => set("title", event.target.value)} /></label>
       <label>Beschreibung<textarea rows={5} maxLength={600} value={form.description} onChange={(event) => set("description", event.target.value)} /></label>
@@ -258,7 +270,21 @@ export default function EventEditor({ eventId }: { eventId?: string }) {
       <label>Veranstalter<input value={form.organizer} onChange={(event) => set("organizer", event.target.value)} /></label><label>Externer Link<input type="url" value={form.externalUrl} onChange={(event) => set("externalUrl", event.target.value)} /></label><label>Eventbild<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>
       <label><input type="checkbox" checked={form.recurring} onChange={(event) => set("recurring", event.target.checked)} /> Wiederkehrend</label>
       {form.recurring && <><div className="eventGrid"><label>Rhythmus<select value={form.frequency} onChange={(event) => set("frequency", event.target.value)}><option value="DAILY">Täglich</option><option value="WEEKLY">Wöchentlich</option><option value="MONTHLY">Monatlich</option></select></label><label>Alle X Wochen/Monate<input type="number" min="1" value={form.interval} onChange={(event) => set("interval", event.target.value)} /></label><label>Enddatum<input type="date" value={form.until} onChange={(event) => set("until", event.target.value)} /></label><label>Anzahl<input type="number" min="1" value={form.count} onChange={(event) => set("count", event.target.value)} /></label></div><label>Wiederholungsinfo<input value={form.recurrenceSummary} onChange={(event) => set("recurrenceSummary", event.target.value)} /></label></>}
-      <button disabled={busy} className="bi-primaryButton" onClick={() => save()}>{busy ? "Speichert …" : "Speichern & Termine erzeugen"}</button>
+      <div id="event-veroeffentlichen" className={styles.publishSection}>
+        {error && canSave && <div className="bi-error" role="alert">{error}</div>}
+        {form.status === "DRAFT" && <p>Veröffentliche das Event, damit es in der App erscheint.</p>}
+        <div className={styles.publishActions}>
+          <button type="button" disabled={!canSave} className="bi-primaryButton" onClick={() => save("PUBLISHED")}>
+            {busy ? "Speichert …" : form.status === "PUBLISHED" ? "Änderungen speichern" : "Veröffentlichen"}
+          </button>
+          {form.status === "DRAFT" && (
+            <button type="button" disabled={!canSave} className="bi-actionButton" onClick={() => save("DRAFT")}>
+              Entwurf speichern
+            </button>
+          )}
+          {eventId && <button type="button" disabled={!canSave} className="bi-actionButton" onClick={() => save("CANCELLED")}>Absagen</button>}
+        </div>
+      </div>
     </section><aside><section className="bi-card"><div className="bi-kicker">VORSCHAU</div><h2>{form.title || "Unbenanntes Event"}</h2><p>{form.description || "Noch keine Beschreibung."}</p><strong>{form.startDate} · {form.startTime}–{form.endTime}</strong><p>{form.free ? "Gratis" : form.price ? `CHF ${form.price}` : "Preis unbekannt"} · {form.categories.join(" · ")}</p></section>{eventId && <section className="bi-card eventOccurrences"><h3>Occurrences</h3>{occurrences.map((occurrence) => <div className="bi-rowItem" key={occurrence.id}><div><strong>{new Date(occurrence.start_at).toLocaleString("de-CH")}</strong><label>Ticketstand für diesen Termin<select aria-label={`Ticketstand ${occurrence.id}`} value={occurrence.ticket_status ?? "UNKNOWN"} disabled={ticketBusy !== null || busy} onChange={async e=>{
  const status=e.target.value as Occurrence["ticket_status"];
  setTicketBusy(occurrence.id); setError("");

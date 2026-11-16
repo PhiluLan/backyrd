@@ -1,0 +1,85 @@
+.toolbar > input,
+.toolbar > select {
+  min-width: 0;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.eventLink {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px 18px;
+  min-height: 56px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.eventLink:hover strong,
+.eventLink:focus-visible strong {
+  text-decoration: underline;
+}
+
+.eventDescription {
+  display: grid;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+
+.eventDescription > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.edit {
+  color: #ff80aa;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.publishSection {
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  scroll-margin-top: 96px;
+}
+
+.publishSection p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.publishActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.publishActions button {
+  min-height: 44px;
+}
+
+@media (max-width: 600px) {
+  .toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .eventLink {
+    grid-template-columns: minmax(0, 1fr) auto;
+    justify-items: start;
+  }
+
+  .eventDescription {
+    grid-column: 1 / -1;
+  }
+
+  .publishActions > :first-child {
+    flex-basis: 100%;
+  }
+}
