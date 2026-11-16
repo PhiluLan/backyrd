@@ -4,6 +4,15 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+import styles from "./events.module.css";
+
+const statusLabels: Record<string, string> = {
+  DRAFT: "Entwurf",
+  PUBLISHED: "Veröffentlicht",
+  CANCELLED: "Abgesagt",
+  ENDED: "Beendet",
+};
+
 type EventSummary = {
   id: string;
   primary_source_id: string;
@@ -68,66 +77,52 @@ export default function EventsPage() {
       </header>
       {error && <div className="bi-error">{error}</div>}
       <section className="bi-card">
-        <div className="bi-tableToolbar">
+        <div className={`bi-tableToolbar ${styles.toolbar}`}>
           <input
             className="bi-input"
+            aria-label="Events suchen"
             placeholder="Events suchen …"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
           <select
             className="bi-select"
+            aria-label="Eventstatus filtern"
             value={status}
             onChange={(event) => setStatus(event.target.value)}
           >
             <option value="ALL">Alle Status</option>
             {["DRAFT", "PUBLISHED", "CANCELLED", "ENDED"].map((item) => (
-              <option key={item}>{item}</option>
+              <option key={item} value={item}>{statusLabels[item]}</option>
             ))}
           </select>
         </div>
-        <div className="bi-tableWrap">
-          <table className="bi-table">
-            <thead>
-              <tr>
-                <th>Event</th>
-                <th>Kategorien</th>
-                <th>Status</th>
-                <th>Veranstalter</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((event) => (
-                <tr key={event.id}>
-                  <td>
+        <ul className={styles.list} aria-label="Events">
+          {shown.map((event) => {
+            const href = event.series_id
+              ? `/events/seasonal/${event.id}`
+              : event.authoring_spot_id
+                ? `/spots/${event.authoring_spot_id}/edit#events`
+                : `/events/${event.id}/edit`;
+            const label = event.status === "DRAFT" && event.provenance.submissionStatus === "PENDING_REVIEW"
+              ? "Zur Prüfung"
+              : statusLabels[event.status] ?? event.status;
+            const tone = event.status === "PUBLISHED" ? "success" : event.status === "CANCELLED" ? "danger" : "muted";
+
+            return (
+              <li key={event.id}>
+                <Link className={styles.eventLink} href={href}>
+                  <div className={styles.eventDescription}>
                     <strong>{event.title}</strong>
-                  </td>
-                  <td>{event.categories.join(" · ")}</td>
-                  <td>
-                    <span
-                      className={`bi-badge ${
-                        event.status === "PUBLISHED"
-                          ? "success"
-                          : event.status === "CANCELLED"
-                            ? "danger"
-                            : "muted"
-                      }`}
-                    >
-                      {event.status === "DRAFT" && event.provenance.submissionStatus === "PENDING_REVIEW" ? "Zur Prüfung" : event.status}
-                    </span>
-                  </td>
-                  <td>{event.organizer ?? "—"}</td>
-                  <td>
-                    <Link className="bi-action" href={event.series_id ? `/events/seasonal/${event.id}` : event.authoring_spot_id ? `/spots/${event.authoring_spot_id}/edit#events` : `/events/${event.id}/edit`}>
-                      Bearbeiten →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    <span>{[event.categories.join(" · "), event.organizer].filter(Boolean).join(" · ")}</span>
+                  </div>
+                  <span className={`bi-badge ${tone}`}>{label}</span>
+                  <span className={styles.edit}>Bearbeiten <span aria-hidden="true">→</span></span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
         {!shown.length && <div className="bi-empty">Keine Events gefunden.</div>}
       </section>
     </div>
