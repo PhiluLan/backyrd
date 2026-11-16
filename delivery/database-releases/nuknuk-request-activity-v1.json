@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "nuknuk-request-activity-v1",
+  "previousEvidence": "beta-social-moments-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "01e6dfc9ef02e2bac385cc4c791cdf7087cf6755a5be9d63ac2cc2ca6b07fd96",
+    "applicationSchemaSha256": "95c7f39a2039fb1ac6b27ad6717ac8b0eee215635033d963d7120cbc25e4e9d6"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261116123311_nuknuk_request_activity_v1.sql",
+      "sha256": "9e6dfd03da110315fb61f2868b85eae7d35351a3c3a495c9fdcca658c2299496"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/nuknuk_request_activity_v1.sql",
+      "sha256": "f85a908e24b2d3e38270a1710ca4280aee1d3e066ab946d2c1908af2fcb8831d"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "0828b7104a856cb5a76a1f630cb37e7b83701abdb0ad7e5895a199bdd958c482",
+    "applicationSchemaSha256": "ba647e1811a10d4f7b447d228e26f06a9c1ccd7eaa2d2b8e4243ddd45d72fae7"
+  }
+}
