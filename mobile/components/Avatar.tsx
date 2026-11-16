@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { backyrdTheme as theme } from "../theme/backyrd";
 import { AppText } from "./foundation/AppText";
 
-export default function Avatar({ uri, name, size = 36, fallback = "initials" }: { uri?: string | null; name?: string | null; size?: number; fallback?: "initials" | "smiley" }) {
+export default function Avatar({ uri, name, size = 36, fallback = "initials", onImageSettled }: { uri?: string | null; name?: string | null; size?: number; fallback?: "initials" | "smiley"; onImageSettled?: () => void }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [uri]);
   const initials = useMemo(() => (name ?? "?")
@@ -17,7 +17,7 @@ export default function Avatar({ uri, name, size = 36, fallback = "initials" }: 
   const frame = { width: size, height: size, borderRadius: size / 2 };
 
   if (uri && !failed) {
-    return <Image accessibilityLabel={`${name?.trim() || "Backyrd"} Profilbild`} onError={() => setFailed(true)} source={{ uri }} style={[styles.image, frame]} />;
+    return <Image accessibilityLabel={`${name?.trim() || "Backyrd"} Profilbild`} onError={() => setFailed(true)} onLoadEnd={onImageSettled} source={{ uri }} style={[styles.image, frame]} />;
   }
   return (
     <View accessibilityLabel={`${name?.trim() || "Backyrd"} Profilbild-Platzhalter`} style={[styles.fallback, frame]}>

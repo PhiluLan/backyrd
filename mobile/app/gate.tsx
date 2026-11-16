@@ -14,6 +14,7 @@ import { getMyProductEntryStatus } from "../lib/onboardingStatus";
 import { useAuth } from "../hooks/useAuth";
 import { rootStartupNavigationAuthority } from "../lib/root-startup-navigation";
 import { backyrdTheme as theme, useBackyrdTheme } from "../theme/backyrd";
+import { useStartupContent } from "../providers/StartupContentProvider";
 
 function normalizeRoute(route: string | null | undefined): string {
   if (!route) return "/(tabs)";
@@ -111,6 +112,11 @@ export default function GateScreen() {
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [forcedLoggedOut, setForcedLoggedOut] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { reportGateReady } = useStartupContent();
+
+  useEffect(() => {
+    if (!authLoading && !checkingStatus && (!session?.user || forcedLoggedOut || errorMessage)) reportGateReady?.();
+  }, [authLoading, checkingStatus, errorMessage, forcedLoggedOut, reportGateReady, session?.user]);
 
   async function forceLogoutBecauseSessionIsStale(reason?: unknown) {
     console.log("Gate stale session detected:", reason);

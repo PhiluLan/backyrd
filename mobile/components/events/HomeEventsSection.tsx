@@ -12,7 +12,7 @@ import { backyrdTheme as theme, useBackyrdTheme } from "../../theme/backyrd";
 import { EventCard } from "./EventCard";
 import { HomeDisplayHeading } from "../HomeDisplayHeading";
 
-export function HomeEventsSection() {
+export function HomeEventsSection({ onInitialContentReady }: { onInitialContentReady?: () => void }) {
   const { color } = useBackyrdTheme();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -41,6 +41,9 @@ export function HomeEventsSection() {
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    if (state !== "loading") onInitialContentReady?.();
+  }, [onInitialContentReady, state]);
 
   // Events stay recognisable as a rail on every phone width: smaller than the
   // primary Spot cards, but with the same snap physics and intentional peek.

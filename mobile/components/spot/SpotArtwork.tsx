@@ -11,9 +11,9 @@ import { SPOT_PHOTO_POLICY } from "../../lib/spot-photo-policy";
 import { imageDiagnosticContext, resolveCanonicalSpotImage, type CanonicalSpotImageProvenance } from "../../lib/spot-images";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
-type Props = { spotId: string; spotName: string; imageUrl?: string | null; style?: StyleProp<ViewStyle>; accessibilityLabel?: string; priority?: "low" | "normal" | "high"; showFallbackName?: boolean; attributionPosition?: "top" | "bottom"; onResolvedImage?: (image: { provenance: CanonicalSpotImageProvenance; identity: string }) => void };
+type Props = { spotId: string; spotName: string; imageUrl?: string | null; style?: StyleProp<ViewStyle>; accessibilityLabel?: string; priority?: "low" | "normal" | "high"; showFallbackName?: boolean; attributionPosition?: "top" | "bottom"; onResolvedImage?: (image: { provenance: CanonicalSpotImageProvenance; identity: string }) => void; onArtworkReady?: () => void };
 
-export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLabel, priority = "normal", showFallbackName = true, attributionPosition = "bottom", onResolvedImage }: Props) {
+export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLabel, priority = "normal", showFallbackName = true, attributionPosition = "bottom", onResolvedImage, onArtworkReady }: Props) {
   const { session, user } = useAuth();
   const ownerImage = useMemo(() => resolveCanonicalSpotImage({ headerPhotoUrl: imageUrl }), [imageUrl]);
   const [googleImage, setGoogleImage] = useState<GooglePlacePhotoResult | null>(null);
@@ -72,6 +72,10 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
   }, [googleImage?.imageIdentity, googleImage?.imageUrl, onResolvedImage, ownerImage.identity, ownerImage.imageUrl, provenance]);
 
   const fallbackVisible = googleResolved && (status === "error" || status === "empty");
+  const [displayedUrl, setDisplayedUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (fallbackVisible || (activeUrl && activeUrl === displayedUrl && status === "loaded")) onArtworkReady?.();
+  }, [activeUrl, displayedUrl, fallbackVisible, onArtworkReady, status]);
 
   return (
     <View style={[styles.root, style]}>
@@ -90,6 +94,7 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
             setStatus("error");
           }}
           onLoad={() => setStatus("loaded")}
+          onDisplay={onArtworkReady ? () => setDisplayedUrl(activeUrl) : undefined}
           onLoadStart={() => setStatus("loading")}
           priority={priority}
           recyclingKey={`${spotId}:${activeUrl}`}

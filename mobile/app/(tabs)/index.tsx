@@ -2,7 +2,7 @@ import { useMinuteClock } from "../../hooks/useMinuteClock";
 import type { OpeningSchedule } from "../../lib/discovery-opening-hours";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AppState,
   KeyboardAvoidingView,
@@ -39,6 +39,7 @@ import { withRequestDeadline } from "../../lib/requestDeadline";
 import { supabase } from "../../lib/supabase";
 import { homeRailCardWidth } from "../../lib/home-rail";
 import { homeDaypart } from "../../lib/home-daypart";
+import { useStartupContent } from "../../providers/StartupContentProvider";
 import { backyrdTheme as theme, useBackyrdTheme, useSFPro } from "../../theme/backyrd";
 
 function cleanName(value: unknown) {
@@ -46,9 +47,15 @@ function cleanName(value: unknown) {
 }
 
 export default function HomeScreen() {
+  const { user } = useAuth();
+  return <HomeContent key={user?.id ?? "guest"} />;
+}
+
+function HomeContent() {
   const { color } = useBackyrdTheme();
   const router = useRouter();
   const { user } = useAuth();
+  const { reportHomeReady } = useStartupContent();
   const { width, fontScale } = useWindowDimensions();
   const [query, setQuery] = useState("");
   const [searchHint, setSearchHint] = useState<string | null>(null);
@@ -84,52 +91,68 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentLocation, setCurrentLocation] = useState<LocationCoordinates | null>(null);
+  const [detailsReady, setDetailsReady] = useState(false);
+  const [eventsReady, setEventsReady] = useState(false);
+  const [readyAvatarUri, setReadyAvatarUri] = useState<string | null>(null);
+  const [weatherReadyCity, setWeatherReadyCity] = useState<string>();
+  const [momentsReadyCity, setMomentsReadyCity] = useState<string>();
+  const [readyArtworkIds, setReadyArtworkIds] = useState<ReadonlySet<string>>(() => new Set());
+  const onEventsReady = useCallback(() => setEventsReady(true), []);
+  const onVisibleArtworkReady = useCallback((id: string) => {
+    setReadyArtworkIds(ids => ids.has(id) ? ids : new Set([...ids, id]));
+  }, []);
 
   const loadRequest = useRef(0);
   const moodRequest = useRef(0);
+  const displayedCatalog = useRef<{ city: string; location: LocationCoordinates | null } | null>(null);
   const loadMoodContext = useCallback(async (catalog: DiscoverySpot[]) => {
     const requestId = ++moodRequest.current;
-    setSpotMoods({});
     try {
       const rows = await loadSpotBrowseMoods(catalog.map(spot => spot.id));
       if (requestId !== moodRequest.current) return;
       const labels: Record<string, string[]> = {};
       for (const row of rows) (labels[row.spot_id] ??= []).push(row.label);
       setSpotMoods(labels);
-    } catch { /* Moods enrich discovery without blocking the catalog. */ }
+    } catch {
+      if (requestId === moodRequest.current) setSpotMoods({});
+    }
   }, []);
 
   const load = useCallback(async (refresh = false) => {
     const requestId = ++loadRequest.current;
     ++moodRequest.current;
-    setOpeningSchedules({});
-    setCurrentLocation(null);
-    setSpots([]);
-    setNewSpots([]);
-    setRecentSearch(null);
-    setRecentSpots([]);
-    setRecentError(false);
-    setNewError(false);
-    setSpotMoods({});
-    setLoading(true);
+    // Keep the mounted rails and their artwork visible during same-account refreshes.
+    if (!displayedCatalog.current) setLoading(true);
+    setDetailsReady(false);
     setRefreshing(refresh);
     setError(null);
     try {
       const [profile, location] = await Promise.all([
         user?.id ? withRequestDeadline(async signal => {
           const result = await supabase.from("profiles").select("city,first_name,display_name,username,avatar_url").eq("id", user.id).abortSignal(signal).maybeSingle();
+          if (result.error) throw result.error;
           return result.data;
-        }, 5_000).catch(() => null) : Promise.resolve(null),
+        }, 5_000).catch(() => undefined) : Promise.resolve(null),
         withRequestDeadline(() => getPrivacySafeLocation({ purpose: "nearby_discovery", requestPermission: false, forceConsentRefresh: true, allowLastKnown: false, timeoutMs: 5_000 }), 6_500).catch(() => null),
       ]);
       if (requestId !== loadRequest.current) return;
-      const productCity = cleanName(profile?.city) ?? "Basel";
-      setCity(productCity);
-      setProfileAvatar(user?.id ? { userId: user.id, uri: cleanName(profile?.avatar_url) } : null);
-      const profileName = cleanName(profile?.first_name) ?? cleanName(profile?.display_name) ?? cleanName(profile?.username);
-      setFirstName(profileName ? profileName.split(/\s+/)[0] : null);
+      const productCity = profile === undefined ? displayedCatalog.current?.city ?? "Basel" : cleanName(profile?.city) ?? "Basel";
+      if (!displayedCatalog.current) setCity(productCity);
+      if (profile !== undefined) {
+        setProfileAvatar(user?.id ? { userId: user.id, uri: cleanName(profile?.avatar_url) } : null);
+        const profileName = cleanName(profile?.first_name) ?? cleanName(profile?.display_name) ?? cleanName(profile?.username);
+        setFirstName(profileName ? profileName.split(/\s+/)[0] : null);
+      }
       const point = location?.ok && location.source === "current" ? { latitude: location.location.coords.latitude, longitude: location.location.coords.longitude } : null;
       const current = validDiscoveryLocation(point) ? point : null;
+      if (!current && displayedCatalog.current?.location) {
+        // A nearby catalog is no longer valid after losing the current location.
+        displayedCatalog.current = null;
+        setCurrentLocation(null);
+        setSpots([]);
+        setNewSpots([]);
+        setLoading(true);
+      }
       // Publish the location only together with its matching catalog, never label city rows as nearby.
       const recentTask = user?.id ? readRecentDecisionSearch(user.id).then(async search => {
         if (!search) return null;
@@ -144,6 +167,8 @@ export default function HomeScreen() {
         recentTask,
       ]);
       if (requestId !== loadRequest.current) return;
+      displayedCatalog.current = { city: productCity, location: current };
+      setCity(productCity);
       setCurrentLocation(current);
       setSpots(local.nearest.slice(0, 14));
       setNewSpots(local.newest ?? []);
@@ -151,14 +176,21 @@ export default function HomeScreen() {
       setRecentSearch(recent && user?.id ? { ...recent.search, actorId: user.id } : null);
       setRecentSpots(recent?.places ?? []);
       setRecentError(recent?.failed ?? false);
-      void loadDiscoveryOpeningSchedules([...local.nearest.slice(0, 6), ...(local.newest ?? []), ...(recent?.places ?? [])])
+      const openingHours = loadDiscoveryOpeningSchedules([...local.nearest.slice(0, 6), ...(local.newest ?? []), ...(recent?.places ?? [])])
         .then(statuses => { if (requestId === loadRequest.current) setOpeningSchedules(statuses); })
-        .catch(() => { /* Unavailable hours stay unknown; place discovery remains usable. */ });
-      void loadMoodContext([...local.nearest.slice(0, 14), ...(local.newest ?? []), ...(recent?.places ?? [])]);
+        .catch(() => { if (requestId === loadRequest.current) setOpeningSchedules({}); });
+      void Promise.all([openingHours, loadMoodContext([...local.nearest.slice(0, 14), ...(local.newest ?? []), ...(recent?.places ?? [])])])
+        .then(() => { if (requestId === loadRequest.current) setDetailsReady(true); });
     } catch {
       if (requestId === loadRequest.current) {
+        displayedCatalog.current = null;
         setError("Die Orte konnten gerade nicht geladen werden.");
         setSpots([]);
+        setNewSpots([]);
+        setRecentSearch(null);
+        setRecentSpots([]);
+        setOpeningSchedules({});
+        setSpotMoods({});
         setCurrentLocation(null);
       }
     } finally {
@@ -173,6 +205,15 @@ export default function HomeScreen() {
   }, [load]));
 
   const topSpots = spots.slice(0, 6);
+  const avatarUri = profileAvatar?.userId === user?.id ? profileAvatar?.uri ?? null : null;
+  const onAvatarReady = useCallback(() => setReadyAvatarUri(avatarUri), [avatarUri]);
+  const avatarReady = !avatarUri || readyAvatarUri === avatarUri;
+  const initialArtworkReady = topSpots.slice(0, 2).every(spot => readyArtworkIds.has(spot.id));
+  const greetingReady = !useSFPro || !headlineName || measuredGreeting?.name === headlineName;
+  const initialSectionsReady = eventsReady && (!user || (weatherReadyCity === city && momentsReadyCity === city));
+  useEffect(() => {
+    if (!loading && (error || (detailsReady && avatarReady && initialArtworkReady && greetingReady && initialSectionsReady))) reportHomeReady?.();
+  }, [avatarReady, detailsReady, error, greetingReady, initialArtworkReady, initialSectionsReady, loading, reportHomeReady]);
   const heroCardWidth = homeRailCardWidth(width, { minimum: 248, maximum: 356 });
   const heroCardHeight = Math.round(heroCardWidth * 1.08);
   const activeRecent = recentSearch?.actorId === user?.id ? recentSearch : null;
@@ -210,7 +251,7 @@ export default function HomeScreen() {
                   <Ionicons color={color.textPrimary} name="notifications-outline" size={30} />
                 </IconButton>
                 <Pressable accessibilityLabel="Profil öffnen" accessibilityRole="button" hitSlop={8} onPress={() => router.push("/(tabs)/profile" as never)}>
-                  <Avatar uri={profileAvatar?.userId === user.id ? profileAvatar.uri : null} name={firstName ?? user.email ?? "backyrd"} size={50} fallback="smiley" />
+                  <Avatar uri={avatarUri} name={firstName ?? user.email ?? "backyrd"} size={50} fallback="smiley" onImageSettled={reportHomeReady ? onAvatarReady : undefined} />
                 </Pressable>
               </> : <Pressable accessibilityRole="button" accessibilityLabel="Anmelden" onPress={() => router.push("/auth/login" as never)} style={[styles.guestLogin, { borderColor: color.border }]}>
                 <AppText role="label" tone="pink">Anmelden</AppText>
@@ -235,7 +276,7 @@ export default function HomeScreen() {
             </Pressable> : null}
           </View>
           {searchHint ? <AppText role="caption" tone="error" style={styles.searchHint}>{searchHint}</AppText> : null}
-          {user?.id ? <WeatherContext city={city} actorId={user.id} revision={momentRevision} /> : null}
+          {user?.id ? <WeatherContext city={city} actorId={user.id} revision={momentRevision} onInitialContentReady={reportHomeReady ? setWeatherReadyCity : undefined} /> : null}
 
           <View style={[styles.sectionHeader, currentLocation && styles.nearbySectionHeader, fontScale > 1.3 && { flexDirection: "column", alignItems: "flex-start" }]}>
             <View style={currentLocation ? styles.nearbyTitleBlock : styles.sectionTitleBlock}>
@@ -251,14 +292,14 @@ export default function HomeScreen() {
           ) : error ? (
             <View style={styles.stateWrap}><StateView actionLabel="Noch einmal" kind="error" message={error} onAction={() => void load()} title="Kurz den Faden verloren." /></View>
           ) : topSpots.length ? (
-            <HomeSpotRail spots={topSpots} moods={spotMoods} moodCounts={moodCounts} openingStatuses={openingStatuses} location={currentLocation} label="Orte entdecken" />
+            <HomeSpotRail spots={topSpots} moods={spotMoods} moodCounts={moodCounts} openingStatuses={openingStatuses} location={currentLocation} label="Orte entdecken" onVisibleArtworkReady={reportHomeReady ? onVisibleArtworkReady : undefined} />
           ) : (
             <View style={styles.stateWrap}><StateView kind="empty" title={currentLocation ? "Noch keine Orte in deiner Nähe" : "Noch keine Orte hier"} message={currentLocation ? `Im Umkreis von ${HOME_NEARBY_RADIUS_KM} km gibt es gerade keine freigegebenen Orte auf Backyrd.` : `Sobald es in ${city} Neues zu entdecken gibt, findest du es hier.`} /></View>
           )}
 
-          <HomeMomentsSection city={city} revision={momentRevision} />
+          <HomeMomentsSection city={city} revision={momentRevision} onInitialContentReady={reportHomeReady ? setMomentsReadyCity : undefined} />
 
-          <HomeEventsSection />
+          <HomeEventsSection onInitialContentReady={reportHomeReady ? onEventsReady : undefined} />
 
           {!loading && !error ? (
             <View>

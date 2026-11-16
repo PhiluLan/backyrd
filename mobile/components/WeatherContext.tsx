@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { AppState, Linking, Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { useFocusEffect } from "expo-router";
@@ -7,7 +7,7 @@ import { AppText } from "./foundation/AppText";
 import { supabase } from "../lib/supabase";
 import { backyrdTheme as theme } from "../theme/backyrd";
 
-export function WeatherContext({ city, actorId, revision }: { city: string; actorId: string; revision: number }) {
+export function WeatherContext({ city, actorId, revision, onInitialContentReady }: { city: string; actorId: string; revision: number; onInitialContentReady?: (city: string) => void }) {
   const [entry, setEntry] = useState<{ city: string; actorId: string; data: WeatherData | null; pending: boolean } | null>(null);
   const [logoFailed, setLogoFailed] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -34,6 +34,9 @@ export function WeatherContext({ city, actorId, revision }: { city: string; acto
   }, [city, actorId, revision, retry]));
   const current = entry?.city === city && entry.actorId === actorId ? entry : null;
   const weather = current?.data ? parseWeatherContext(current.data, city) : null;
+  useEffect(() => {
+    if (current && !current.pending) onInitialContentReady?.(city);
+  }, [city, current, onInitialContentReady]);
   return <View style={styles.root}>
     <View style={styles.heading}><AppText role="meta" tone="secondary">Wetter in {city}</AppText>
       {!current?.pending ? <Pressable accessibilityRole="button" accessibilityLabel="Wetter aktualisieren" onPress={() => setRetry(x => x + 1)} style={styles.action}><AppText role="caption" tone="secondary">Aktualisieren</AppText></Pressable> : null}</View>
