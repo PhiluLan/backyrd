@@ -197,7 +197,7 @@ const sectionCopy: Record<string, {title:string;description:string;icon:string}>
 
 /** Product authoring uses the same typed editors as the local Founder workflow,
  * but only server-authorized keys and the Product append-only RPCs. */
-export function WorldProductCorrection({ client, rebuild, prepareDiscovery, search, addressPicker: AddressPicker, initialSpotId, surface = "ADMIN", FieldEditor }: ProductCorrectionProps & {
+export function WorldProductCorrection({ client, prepareDiscovery, search, addressPicker: AddressPicker, initialSpotId, surface = "ADMIN", FieldEditor }: ProductCorrectionProps & {
   FieldEditor: ComponentType<ProductFieldInputProps>;
 }) {
   const [spotId, setSpotId] = useState("");
@@ -381,7 +381,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
     if (!validated.ok) throw new Error(validated.message);
     if (field.attributeKey === "state.current" && !validUntil) throw new Error("Der aktuelle Zustand benötigt ein Gültig-bis-Datum.");
     const key = `product-correction:${crypto.randomUUID()}`;
-    const { error } = await client.rpc(detail.actor.role === "ADMIN" ? "world_product_admin_submit_claim_v1" : "world_product_owner_submit_claim_v1", {
+    const { data, error } = await client.rpc("world_product_save_and_publish_claim_v1", {
       p_spot_id: detail.spotId,
       p_attribute_key: field.attributeKey,
       p_knowledge_state: knowledgeState,
@@ -394,15 +394,10 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
       p_idempotency_key: key,
     });
     if (error) throw new Error(safeRpcMessage(error));
-    let result: { manifestHash?: string; readerSnapshot?: unknown; openConflicts?: unknown[] };
-    try {
-      result = await rebuild(detail.spotId, `${key}:rebuild`) as typeof result;
-    } catch {
-      throw new Error("Die Angabe wurde gespeichert, aber die Datenvorschau konnte nicht bestätigt werden. Bitte lade den Spot neu.");
-    }
-    if (!result?.manifestHash || !result.readerSnapshot) throw new Error("Die Angabe wurde gespeichert, aber der World-Reader hat die Datenvorschau nicht bestätigt. Bitte lade den Spot neu.");
+    const result = data as { manifestHash?: string } | null;
+    if (!result?.manifestHash) throw new Error("Die Aktualisierung der Spotdaten konnte nicht bestätigt werden. Bitte lade den Spot neu.");
     const refreshed = await readDetail(detail.spotId);
-    if (refreshed.manifest?.manifestHash !== result.manifestHash) throw new Error("Die Angabe wurde gespeichert, aber Datenvorschau und Spot-Ansicht stimmen nicht überein. Bitte lade den Spot neu.");
+    if (refreshed.manifest?.manifestHash !== result.manifestHash) throw new Error("Der Spot wurde inzwischen erneut bearbeitet. Bitte lade den Spot neu.");
     setDetail(refreshed);
     if (field.attributeKey === "experience.profile") {
       const persisted = refreshed.answers[field.attributeKey];

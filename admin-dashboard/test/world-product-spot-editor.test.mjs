@@ -29,12 +29,11 @@ test("Product edits remain append-only, role-scoped and reader-verified", async 
   assert.doesNotMatch(product, /openConflicts\.some\([^)]*BLOCKING/);
   assert.match(product, /Prüfnotizen sind keine Liste fehlender Antworten und verhindern das Speichern nicht/);
   assert.match(product, /validateAuthoringSubmission/);
-  assert.match(product, /world_product_admin_submit_claim_v1/);
-  assert.match(product, /world_product_owner_submit_claim_v1/);
+  assert.match(product, /world_product_save_and_publish_claim_v1/);
   assert.match(product, /p_supersedes_claim_id/);
-  assert.match(product, /await rebuild\(detail\.spotId/);
+  assert.doesNotMatch(product, /await rebuild\(detail\.spotId/);
   assert.match(product, /refreshed\.manifest\?\.manifestHash !== result\.manifestHash/);
-  assert.match(product, /Die Angabe wurde gespeichert, aber die Datenvorschau/);
+  assert.match(product, /Aktualisierung der Spotdaten konnte nicht bestätigt werden/);
 });
 
 test("Admin maintenance has its own OFF switch while owner writes retain Decision authority", async () => {
@@ -58,7 +57,7 @@ test("the live Decision route reads the current validated World pointer after Ad
     source("../../supabase/migrations/20260919073307_decision_product_activation_lease_v1.sql"),
     source("../../packages/world-knowledge-authoring-ui/src/ProductCorrection.tsx"),
   ]);
-  assert.match(product, /await rebuild\(detail\.spotId/);
+  assert.doesNotMatch(product, /await rebuild\(detail\.spotId/);
   assert.match(route, /world_product_rebuild_spot_v1/);
   assert.match(route, /detail\.manifest\.manifestHash !== rebuilt\?\.manifestHash/);
   assert.match(sql, /from world_knowledge_private\.current_projection_pointers p/);
