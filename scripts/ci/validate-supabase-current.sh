@@ -209,6 +209,7 @@ node "$repo_root/scripts/ci/database-gate-receipt.mjs" record \
 if ! node "$repo_root/scripts/ci/validate-database-release.mjs" \
   --base-sha "${base_sha:-HEAD}" --head-sha HEAD \
   --actual-public-acl "$actual_acl" --actual-application-schema "$actual_schema"; then
+  cat "$snapshot_output"
   printf 'Database execution passed. Release evidence failed; reuse receipt %s after fixing evidence instead of restarting Clean Boot.\n' "$gate_receipt_output" >&2
   printf 'Resume: node scripts/ci/database-gate-receipt.mjs resume-evidence --receipt %q --base-sha %q --head-sha HEAD --supabase-cli-version %q --database-image %q\n' "$gate_receipt_output" "${base_sha:-HEAD}" "$($supabase_cli --version)" "$db_image" >&2
   exit 1

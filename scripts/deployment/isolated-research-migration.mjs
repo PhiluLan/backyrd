@@ -74,6 +74,24 @@ export const NUKNUK_ACTIVITY_MIGRATION = Object.freeze({
   path: "supabase/migrations/20261116123311_nuknuk_request_activity_v1.sql",
   sha256: "9e6dfd03da110315fb61f2868b85eae7d35351a3c3a495c9fdcca658c2299496",
 });
+export const NUKNUK_ACTIVITY_RESTORE_PATH = "delivery/recovery/nuknuk-activity-restore-v1.json";
+export function verifyNuknukActivityRestore(receipt, bytes) {
+  if (receipt?.path !== NUKNUK_ACTIVITY_RESTORE_PATH
+    || !Number.isSafeInteger(receipt.runId) || receipt.runId < 1
+    || createHash("sha256").update(bytes).digest("hex") !== receipt.sha256) {
+    throw new Error("nuknuk_activity_restore_receipt_invalid");
+  }
+  const report = JSON.parse(bytes.toString());
+  if (report.version !== "backyrd-backup-restore-drill-v1" || report.status !== "PASS"
+    || report.foreignKeysValidated !== true || report.proposedIntegrityRepair
+    || report.sourceType !== "VERIFIED_AWS_ARCHIVE" || !/^[0-9a-f]{64}$/.test(report.sourceArchiveSha256 ?? "")
+    || !/^[0-9a-f]{40}$/.test(report.sourceMainSha ?? "") || !Number.isFinite(Date.parse(report.sourceCreatedAt))
+    || report.productionWrites !== 0 || report.productionCutoverTested !== false
+    || ["sourceSchemaAndRowsComparedBeforeAnyRepair", "schemaAndAclMatch", "allCopiedRowsMatch",
+      "sequencesMatch", "allMediaBytesMatch", "bucketControlsRestored", "databaseServicesStopped",
+      "outboundNetworkDisabled", "independentDatabaseAndMediaTargets", "disposableTargetsRemoved"]
+      .some(key => report[key] !== true)) throw new Error("nuknuk_activity_restore_evidence_invalid");
+}
 const nuknukActivityFunctions = ["decision-admin-diagnostic", "decision-v13"];
 export function nuknukActivityAppliedReceipt(state, read, isAncestor) {
   return exactResearchReceipt(state, read, isAncestor, NUKNUK_ACTIVITY_MIGRATION, "nuknukActivityRelease");

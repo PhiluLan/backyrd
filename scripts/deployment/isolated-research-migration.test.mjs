@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,writeFileSync,existsSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {RESEARCH_MIGRATION as target,VOLTA_MIGRATIONS as volta,DEFERRED_BOOKING_MIGRATIONS as deferred,scopeResearchMigrations,scopeVoltaMigrations,researchAppliedReceipt,voltaAppliedReceipt,prepareResearchMigrationWorkspace} from './isolated-research-migration.mjs';
 const base='a'.repeat(40);
@@ -217,4 +218,39 @@ test('Social release applies only pinned SQL and two JWT-protected function name
  prepareResearchMigrationWorkspace({...accepted,baseSha:base,deployFunctions:[...slugs],authConfig:null},root,output);
  assert.equal(readFileSync(join(output,sql.path),'utf8'),readFileSync(join(root,sql.path),'utf8'));
  for(const item of deferred)assert.equal(existsSync(join(output,item.path)),false);
+});
+
+test('NukNuk activity delivery permits exactly its migration and both Decision functions', async () => {
+  const { NUKNUK_ACTIVITY_MIGRATION: migration, scopeNuknukActivityMigrations } = await import('./isolated-research-migration.mjs');
+  const functions = ['decision-admin-diagnostic', 'decision-v13'];
+  const request = {
+    pending: [...deferred, migration], baseSha: base, deployFunctions: functions, authDeploy: false,
+    scope: { contractVersion: 'backyrd.nuknuk-activity-delivery-scope@1.0', baseSha: base,
+      migrations: [migration], deferredMigrations: deferred, backupRunId: 1, executionAuthorized: false, functions },
+  };
+  assert.deepEqual(scopeNuknukActivityMigrations(request).pendingMigrations, [migration]);
+  assert.throws(() => scopeNuknukActivityMigrations({ ...request, pending: [...request.pending, target] }), /pending_scope_changed/);
+  assert.throws(() => scopeNuknukActivityMigrations({ ...request, authDeploy: true }), /scope_invalid/);
+  assert.throws(() => scopeNuknukActivityMigrations({ ...request, deployFunctions: [...functions, 'weather-context'] }), /scope_invalid/);
+});
+
+test('NukNuk activity recovery rejects changed bytes, non-isolated runs and production writes', async () => {
+  const { NUKNUK_ACTIVITY_RESTORE_PATH: path, verifyNuknukActivityRestore } = await import('./isolated-research-migration.mjs');
+  const report = {
+    version: 'backyrd-backup-restore-drill-v1', status: 'PASS', foreignKeysValidated: true,
+    sourceType: 'VERIFIED_AWS_ARCHIVE', sourceArchiveSha256: 'a'.repeat(64), sourceMainSha: base,
+    sourceCreatedAt: '2026-11-16T09:37:47Z', productionWrites: 0, productionCutoverTested: false,
+    sourceSchemaAndRowsComparedBeforeAnyRepair: true, schemaAndAclMatch: true, allCopiedRowsMatch: true,
+    sequencesMatch: true, allMediaBytesMatch: true, bucketControlsRestored: true, databaseServicesStopped: true,
+    outboundNetworkDisabled: true, independentDatabaseAndMediaTargets: true, disposableTargetsRemoved: true,
+  };
+  const pack = value => {
+    const bytes = Buffer.from(JSON.stringify(value));
+    return [{ path, runId: 1, sha256: createHash('sha256').update(bytes).digest('hex') }, bytes];
+  };
+  assert.doesNotThrow(() => verifyNuknukActivityRestore(...pack(report)));
+  assert.throws(() => verifyNuknukActivityRestore(...pack({ ...report, productionWrites: 1 })), /restore_evidence_invalid/);
+  assert.throws(() => verifyNuknukActivityRestore(...pack({ ...report, outboundNetworkDisabled: false })), /restore_evidence_invalid/);
+  const [receipt] = pack(report);
+  assert.throws(() => verifyNuknukActivityRestore(receipt, Buffer.from('{}')), /restore_receipt_invalid/);
 });
