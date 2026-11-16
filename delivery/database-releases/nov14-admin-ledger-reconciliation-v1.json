@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "nov14-admin-ledger-reconciliation-v1",
+  "previousEvidence": "nuknuk-request-activity-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "0828b7104a856cb5a76a1f630cb37e7b83701abdb0ad7e5895a199bdd958c482",
+    "applicationSchemaSha256": "ba647e1811a10d4f7b447d228e26f06a9c1ccd7eaa2d2b8e4243ddd45d72fae7"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261114135346_world_admin_missing_coordinates.sql",
+      "sha256": "e694d1f8b468c8e9d854dcee36f327ef5126ef8fafec497435f5e956990e3745"
+    },
+    {
+      "path": "supabase/migrations/20261114141446_world_admin_missing_opening_hours.sql",
+      "sha256": "fa0dac12ccd0e12e7609eda4a670779bdb1eee73583bed05aa6de39606af9d53"
+    },
+    {
+      "path": "supabase/migrations/20261114143944_world_admin_missing_contact_phone.sql",
+      "sha256": "ce6c40fd174820ebe9ac9a48e1b64cd03dbc600bfd9b246f39c7bec8f4136a82"
+    },
+    {
+      "path": "supabase/migrations/20261114144218_world_admin_apply_official_contact_phone.sql",
+      "sha256": "329b15836873e30a99b8eaf82aebe1f93a3eacd43a8fccb31c4942e8b7119967"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/nov14_admin_ledger_reconciliation_v1.sql",
+      "sha256": "d7d1d1ece0826bdc5070369bdee82e15715688d11ab90bb1773c6d220e3317b3"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "1e3a60dfa773e2cd8463115b6985c7f112e810bb19590a79395abc86483411b9",
+    "applicationSchemaSha256": "d2033712b8e7b1b3478d5c451d258cd75c1ee7e32d411750c2c4561fe25bbe66"
+  }
+}
