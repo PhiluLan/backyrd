@@ -5,6 +5,7 @@ import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 import { createAutomaticWorldResearchExport, WORLD_RESEARCH_SPOT_ID } from "@/lib/server/worldResearchExport";
 import { researchPipelineSummary, visibleResearchJobs } from "@/lib/server/worldResearchJobReview";
 
+import { RESEARCH_INBOX_CUTOVER } from "@/lib/researchInbox";
 import { WORLD_RESEARCH_MAX_JOBS } from "@/lib/worldResearchQueue";
 
 const noStore = { "cache-control": "no-store" };
@@ -46,7 +47,7 @@ export async function GET(request: Request) {
     const columns = jobId
       ? "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome,lease_expires_at,export_document,result_document,pipeline:export_document->pipeline"
       : "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome,lease_expires_at,pipeline:export_document->pipeline";
-    let query = service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id", authorization.userId);
+    let query = service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id", authorization.userId).gte("created_at", RESEARCH_INBOX_CUTOVER);
     query = jobId ? query.eq("id", jobId).limit(1)
       : query.not("export_document", "cs", '{"kind":"NUKNUK_RESEARCH_DRAFT"}').not("export_document", "cs", '{"kind":"ADMIN_RESEARCH_FOLLOWUP"}').order("created_at", { ascending: false }).limit(WORLD_RESEARCH_MAX_JOBS);
     const { data, error } = await query;

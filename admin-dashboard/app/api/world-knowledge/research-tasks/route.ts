@@ -4,7 +4,7 @@ import { AUTHORING_FIELDS, normalizeAutomatedWorldResearchBatch, parseWorldResea
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 import { readWorldResearchDetail, WORLD_RESEARCH_SPOT_ID } from "@/lib/server/worldResearchExport";
 import { assessNuknukDraftReview } from "@/lib/nuknukDraftImport";
-import { buildInboxSpot, resultsFromInboxRow, taskFingerprint, type InboxRow, type InboxDecision, type InboxSpot } from "@/lib/researchInbox";
+import { RESEARCH_INBOX_CUTOVER, buildInboxSpot, resultsFromInboxRow, taskFingerprint, type InboxRow, type InboxDecision, type InboxSpot } from "@/lib/researchInbox";
 import { persistResearchFollowups } from "@/lib/server/researchFollowups";
 import { acceptResearchTask } from "@/lib/server/researchTaskAcceptance";
 import { INBOX_AUTO_RESEARCH_KEYS, processSafeResearchDocument } from "@/lib/server/researchSafeImport";
@@ -45,7 +45,7 @@ export async function GET(request:Request) {
     // Paginate rather than silently hiding tasks behind the former last-30-jobs limit.
     const rows:InboxRow[]=[];
     for(let page=0;page<10;page++) {
-      let query=service.from("world_research_automation_jobs_v1").select(`${columns},provider_response_id`).eq("actor_id",auth.userId);
+      let query=service.from("world_research_automation_jobs_v1").select(`${columns},provider_response_id`).eq("actor_id",auth.userId).gte("created_at",RESEARCH_INBOX_CUTOVER);
       if(selected) query=query.eq("spot_id",selected);
       const result=await query.order("created_at",{ascending:false}).order("id").range(page*100,page*100+99);
       if(result.error)throw new Error("Die Aufgaben konnten nicht geladen werden. Bitte erneut versuchen.");
@@ -101,7 +101,7 @@ export async function POST(request:Request) {
         throw new Error("Ungültiger Rechercheauftrag.");
       const found=await service.from("world_research_automation_jobs_v1")
         .select(`${columns},provider_response_id`).eq("actor_id",auth.userId)
-        .eq("id",body.jobId).eq("spot_id",body.spotId).maybeSingle();
+        .eq("id",body.jobId).eq("spot_id",body.spotId).gte("created_at",RESEARCH_INBOX_CUTOVER).maybeSingle();
       if(found.error || !found.data)throw new Error("Der Rechercheauftrag wurde nicht gefunden.");
       const row=found.data as InboxRow;
       if(!canPrepareResearch(row))return Response.json({prepared:false},{headers});
@@ -135,7 +135,7 @@ export async function POST(request:Request) {
     if(!["keep","accept"].includes(String(body.action)) || typeof body.spotId!=="string" || !WORLD_RESEARCH_SPOT_ID.test(body.spotId) || typeof body.fingerprint!=="string" || body.fingerprint.length>200_000 || !Array.isArray(body.jobIds) || !body.jobIds.length || body.jobIds.length>100 || body.jobIds.some(id=>typeof id!=="string" || !WORLD_RESEARCH_SPOT_ID.test(id)))throw new Error("Bitte die Aufgabe neu öffnen.");
     const [detail,found]=await Promise.all([
       readWorldResearchDetail(actor,body.spotId),
-      service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id",auth.userId).eq("spot_id",body.spotId).in("id",body.jobIds),
+      service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id",auth.userId).eq("spot_id",body.spotId).gte("created_at",RESEARCH_INBOX_CUTOVER).in("id",body.jobIds),
     ]);
     if(found.error || found.data.length!==new Set(body.jobIds).size)throw new Error("Die Aufgabe wurde nicht gefunden.");
     if (found.data.some(row=>row.lease_expires_at && Date.parse(row.lease_expires_at)>Date.now()))

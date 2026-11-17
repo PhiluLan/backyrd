@@ -44,7 +44,10 @@ checks the quotation, spot identity and field semantics, and uses the existing
 audited import and read-back. Only approved spots, missing public fields on the
 allowlist, and unequivocal official primary evidence are eligible. Uncertain,
 conflicting and existing differently valued fields remain in the review flow.
-Older worker reports without uncertainty assessments remain reviewable.
+The operational Admin inbox and automatic job list show reports created from
+2026-11-17 16:49:31 UTC. Earlier reports remain in storage for audit. Their
+research tasks are no longer actionable in the inbox. New reports without
+uncertainty assessments stay in the manual review flow.
 
 Eligible fields are address/locality/country, public contact, complete regular
 and properly scoped kitchen schedules, and an explicitly fixed per-person CHF

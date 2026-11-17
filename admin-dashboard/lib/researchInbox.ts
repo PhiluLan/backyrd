@@ -1,5 +1,8 @@
 import type { ResearchResult } from "./nuknukResearchDraft";
 
+// Research reports present when the verified review inbox took over remain
+// available to audit, but no longer take up space in the operational queue.
+export const RESEARCH_INBOX_CUTOVER = "2026-11-17T16:49:31.000Z";
 export const FOLLOWUP_KIND = "ADMIN_RESEARCH_FOLLOWUP";
 export type InboxAnswer = { claimId?: string; knowledgeState?: string; value?: unknown; visibility?: string };
 export type InboxDecision = { fingerprint: string; claimId: string | null; actorId: string; at: string; outcome: "KEPT_PROFILE" | "LEFT_UNKNOWN" };
