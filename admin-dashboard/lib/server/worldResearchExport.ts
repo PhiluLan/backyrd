@@ -40,13 +40,14 @@ export async function createAutomaticWorldResearchExport(
   service: SupabaseClient,
   actorId: string,
   spotId: string,
+  options: { includeApprovedWebsite?: boolean } = {},
 ): Promise<WorldResearchBatchDocument> {
   const detail = await readApprovedResearchProfile(actor, spotId);
-  if (detail.manifest?.manifestHash) return buildResearchExport([detail]);
+  if (detail.manifest?.manifestHash && (!options.includeApprovedWebsite || detail.answers?.["contact.website"])) return buildResearchExport([detail]);
 
   const preparationError = `WORLD_RESEARCH_PROFILE_PREPARATION: ${detail.name}: Das World-Knowledge-Profil konnte nicht für die Recherche vorbereitet werden. Prüfe die Basisangaben unter «Profil & Angebote» und versuche es erneut.`;
   const { data: spot, error: spotError } = await actor.from("spots")
-    .select("name,address,city,lat,lng,updated_at").eq("id", spotId).eq("status", "approved").single();
+    .select("name,address,city,lat,lng,website,updated_at").eq("id", spotId).eq("status", "approved").single();
   if (spotError || !spot || spot.name !== detail.name) throw new Error(preparationError);
 
   // Switching to the canonical profile also switches the public opening-hours
@@ -68,6 +69,7 @@ export async function createAutomaticWorldResearchExport(
     "location.locality": spot.city?.trim() || null,
     "location.latitude": spot.lat,
     "location.longitude": spot.lng,
+    ...(options.includeApprovedWebsite ? { "contact.website": spot.website?.trim() || null } : {}),
   };
   for (const [key, value] of Object.entries(baseline)) {
     const existing = detail.answers?.[key];

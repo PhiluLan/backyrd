@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AdminPageHeader, SectionCard, StatusBadge } from "@/components/admin/AdminUi";
 import { supabase } from "@/lib/supabaseClient";
-import { authorizedWorldResearchJobs } from "@/lib/worldKnowledgeSession";
 import {
   spotCrawlerCategories, spotCrawlerDistricts, type CrawlerCandidate, type CrawlerOverview,
   type CrawlerSettings, type SavedCrawlerSettings,
@@ -26,6 +25,9 @@ const errors: Record<string, string> = {
   INVALID_SETTINGS: "Wähle mindestens eine Kategorie und ein Suchgebiet. Prüfe auch das Suchbudget.",
   RUN_ACTIVE: "Es läuft bereits eine Suche.",
   BUDGET_REACHED: "Für diesen Lauf reicht das verbleibende monatliche Suchbudget nicht.",
+  APPROVAL_CATEGORY_REQUIRED: "Wähle zuerst eine Backyrd-Kategorie für diesen Spot.",
+  APPROVAL_CHANGED: "Der Fund hat sich geändert. Prüfe die aktualisierten Angaben.",
+  APPROVAL_FAILED: "Die Freigabe konnte nicht bestätigt werden. Lade den aktuellen Stand und versuche es erneut.",
   SEARCH_NOT_CONFIGURED: "Der Suchdienst ist noch nicht eingerichtet.",
 };
 
@@ -52,6 +54,7 @@ export default function SpotCrawlerPage() {
   const [draft, setDraft] = useState<SavedCrawlerSettings | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [choices, setChoices] = useState<Record<number, string>>({});
+  const [confirmed, setConfirmed] = useState<Record<number, string>>({});
   const [cursor, setCursor] = useState(0);
   const [back, setBack] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
@@ -84,15 +87,16 @@ export default function SpotCrawlerPage() {
 
   const run = data?.overview.runs[0];
   const isRunning = run?.status === "FETCHING";
+  const researchRunning = data?.overview.rows.some(row => row.research_status === "QUEUED" || row.research_status === "RUNNING");
   useEffect(() => {
-    if (!isRunning) return;
+    if (!isRunning && !researchRunning) return;
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") {
         void load(cursor).catch((failure: Error) => setError(failure.message));
       }
     }, 4500);
     return () => window.clearInterval(timer);
-  }, [cursor, isRunning, load]);
+  }, [cursor, isRunning, load, researchRunning]);
 
   async function act(operation: () => Promise<string>) {
     if (busy) return;
@@ -113,24 +117,35 @@ export default function SpotCrawlerPage() {
     setDraft(current => current && { ...current, ...values });
   }
 
-  function reviewCandidate(row: CrawlerCandidate, action: "create" | "REVIEWED" | "REOPENED") {
+  function reviewCandidate(row: CrawlerCandidate, action: "DISMISSED" | "REOPENED") {
     void act(async () => {
-      const args = {
+      const { error: failure } = await supabase.rpc("admin_basel_place_source_review_v1", {
         p_key: "BASEL_WEB", p_source_id: row.source_id,
-        p_fingerprint: row.review_fingerprint, p_revision: row.review_revision,
-      };
-      const result = action === "create"
-        ? await supabase.rpc("admin_basel_place_source_create_spot_v1", {
-          ...args, p_category_id: row.category_id ?? choices[row.source_id] ?? null,
-        })
-        : await supabase.rpc("admin_basel_place_source_review_v1", { ...args, p_disposition: action });
-      if (result.error?.code === "40001") {
+        p_fingerprint: row.review_fingerprint, p_revision: row.review_revision, p_disposition: action,
+      });
+      if (failure?.code === "40001") {
         await load(cursor);
-        throw new Error("Der Fund hat sich geändert. Prüfe die aktualisierten Angaben.");
+        throw new Error(errors.APPROVAL_CHANGED);
       }
-      if (result.error) throw new Error("Die Auswahl konnte nicht gespeichert werden. Prüfe die Kategorie und mögliche Dubletten.");
-      if (action === "create") return `${row.facts.name} wurde in der Spotliste angelegt.`;
-      return action === "REVIEWED" ? `${row.facts.name} ist zur Prüfung vorgemerkt.` : "Der Fund ist wieder offen.";
+      if (failure) throw new Error("Die Entscheidung konnte nicht gespeichert werden.");
+      setConfirmed(current => ({ ...current, [row.source_id]: "" }));
+      return action === "DISMISSED" ? `${row.facts.name} wurde abgelehnt.` : `${row.facts.name} ist wieder offen.`;
+    });
+  }
+
+  function approveAndResearch(row: CrawlerCandidate) {
+    void act(async () => {
+      try {
+        const { researchQueued } = await crawlerRequest<{ spotId: string; researchQueued: boolean }>("/api/spot-crawler/approval",
+          row.imported_spot_id ? { action: "research", sourceId: row.source_id } : {
+            action: "approve", sourceId: row.source_id, fingerprint: row.review_fingerprint, revision: row.review_revision,
+            categoryId: row.category_id ?? choices[row.source_id] ?? null, confirmDistinct: confirmed[row.source_id] === row.review_fingerprint,
+          });
+        if (researchQueued) return `${row.facts.name} ist freigegeben. Die Recherche steht unter «Aufgaben & Recherche».`;
+        return `${row.facts.name} ist freigegeben. Die Recherche konnte noch nicht gestartet werden.`;
+      } finally {
+        setConfirmed(current => ({ ...current, [row.source_id]: "" }));
+      }
     });
   }
 
@@ -220,39 +235,48 @@ export default function SpotCrawlerPage() {
         {data && !data.overview.rows.length && <p>{isRunning ? "Die Suche läuft. Neue Funde erscheinen hier nach dem Abgleich." : "Hier erscheinen neue Funde nach dem Abgleich mit der Spotliste."}</p>}
         <div className={styles.results}>{data?.overview.rows.map(row => {
           const { facts } = row;
-          const canCreate = row.state === "NEW" && ["OPEN", "REVIEWED"].includes(row.review_state);
+          const awaitingDecision = ["OPEN", "REVIEWED", "EXISTING"].includes(row.review_state) && !row.imported_spot_id;
+          const needsConfirmation = row.state === "REVIEW" && row.can_confirm_distinct === true;
+          const canCreate = awaitingDecision && (row.state === "NEW" || needsConfirmation) && row.review_state !== "EXISTING";
+          const status = row.imported_spot_id ? "Freigegeben"
+            : row.review_state === "DISMISSED" ? "Abgelehnt"
+              : row.review_state === "EXISTING" || row.state === "MATCHED" ? "Bereits im Katalog"
+                : row.state === "NEW" ? "Neu" : "Ähnliche Orte gefunden";
           return <article className={styles.result} key={row.source_id}>
             <div className={styles.resultHeader}><div><h3>{facts.name}</h3><p>{spotCrawlerCategories[facts.category]} · {facts.address}</p></div>
-              <StatusBadge>{row.imported_spot_id ? "Angelegt" : row.review_state === "REVIEWED" ? "Zur Prüfung" : row.state === "NEW" ? "Neu" : "Möglicher Treffer"}</StatusBadge></div>
+              <StatusBadge>{status}</StatusBadge></div>
             {(facts.phone || facts.email) && <p>{[facts.phone, facts.email].filter(Boolean).join(" · ")}</p>}
             {facts.hours && <p>Öffnungszeiten laut Website · {facts.hours}</p>}
             {facts.price_hint && <p>Preisangabe laut Website · {facts.price_hint}</p>}
-            {row.spots.length > 0 && <p>Mögliche Dubletten: {row.spots.map(spot => spot.name).join(", ")}</p>}
+            {!row.imported_spot_id && row.spots.length > 0 && <p>Ähnliche oder nahe Spots · {row.spots.map(spot => spot.name).join(", ")}</p>}
+            {canCreate && needsConfirmation && <label className={styles.confirm}>
+              <input type="checkbox" checked={confirmed[row.source_id] === row.review_fingerprint} disabled={busy}
+                onChange={event => setConfirmed(current => ({ ...current, [row.source_id]: event.target.checked ? row.review_fingerprint : "" }))} />
+              Das ist ein eigenständiger Spot.
+            </label>}
+            {row.imported_spot_id && <p role="status">{row.research_status === "QUEUED" ? "Recherche eingereiht"
+              : row.research_status === "RUNNING" ? "Recherche läuft"
+                : row.research_status === "READY_FOR_REVIEW" ? "Rechercheergebnis verfügbar"
+                  : row.research_status === "FAILED" ? "Recherche fehlgeschlagen" : "Recherche ausstehend"}</p>}
             <div className={styles.actions}>
               <a className="bi-actionButton" href={facts.source_url} rel="noreferrer" target="_blank">Quelle prüfen ↗</a>
               {row.imported_spot_id && <>
                 <Link className="bi-actionButton" href={`/spots/${row.imported_spot_id}`}>Spot öffnen</Link>
-                <button type="button" className="bi-actionButton" disabled={busy} onClick={() => void act(async () => {
-                  if (!row.imported_spot_id) return "";
-                  try {
-                    await authorizedWorldResearchJobs({ auth: supabase.auth, spotIds: [row.imported_spot_id] });
-                  } catch {
-                    throw new Error("Die zusätzliche Recherche konnte nicht gestartet werden. Der Spot ist bereits angelegt.");
-                  }
-                  return `Die Recherche für ${facts.name} steht unter «Aufgaben & Recherche».`;
-                })}>Weitere Angaben recherchieren</button>
+                {row.research_status && row.research_status !== "FAILED" && <Link className="bi-actionButton" href="/world-knowledge">Aufgaben & Recherche</Link>}
+                {(!row.research_status || row.research_status === "FAILED") && <button type="button" className="bi-actionButton"
+                  disabled={busy} onClick={() => approveAndResearch(row)}>Recherche starten</button>}
               </>}
-              {row.review_state === "OPEN" && ["NEW", "REVIEW"].includes(row.state) && <button className="bi-actionButton" type="button"
-                disabled={busy} onClick={() => reviewCandidate(row, "REVIEWED")}>Zur Prüfung vormerken</button>}
-              {row.review_state === "REVIEWED" && <button className="bi-actionButton" type="button" disabled={busy}
+              {awaitingDecision && <button className="bi-actionButton" type="button"
+                disabled={busy} onClick={() => reviewCandidate(row, "DISMISSED")}>Ablehnen</button>}
+              {row.review_state === "DISMISSED" && <button className="bi-actionButton" type="button" disabled={busy}
                 onClick={() => reviewCandidate(row, "REOPENED")}>Wieder öffnen</button>}
               {canCreate && !row.category_id && <select aria-label={`Kategorie für ${facts.name}`} value={choices[row.source_id] ?? ""}
                 onChange={event => setChoices(current => ({ ...current, [row.source_id]: event.target.value }))}>
                 <option value="">Backyrd-Kategorie wählen</option>
                 {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
               </select>}
-              {canCreate && <button className="bi-primaryButton" type="button" disabled={busy || !(row.category_id ?? choices[row.source_id])}
-                onClick={() => reviewCandidate(row, "create")}>Spot anlegen</button>}
+              {canCreate && <button className="bi-primaryButton" type="button" disabled={busy || !(row.category_id ?? choices[row.source_id]) || (needsConfirmation && confirmed[row.source_id] !== row.review_fingerprint)}
+                onClick={() => approveAndResearch(row)}>Freigeben und recherchieren</button>}
             </div>
           </article>;
         })}</div>

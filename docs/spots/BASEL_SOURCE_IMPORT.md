@@ -160,12 +160,17 @@ werden. Telefon, E-Mail, Öffnungszeiten und Preisangaben werden in der
 Vorschau angezeigt, soweit strukturiert vorhanden. Fotos, Such-Snippets
 und Beschreibungen werden nicht übernommen.
 
-Funde laufen durch den bestehenden Dublettenabgleich. «Spot anlegen»
-verwendet den gleichen Admin-Import wie die Ortsimporte. «Weitere
-Angaben recherchieren» übergibt einen bereits angelegten Spot an den
-bestehenden Recherche-Workflow. Öffnungszeiten und Preise aus der
-Crawler-Vorschau brauchen diese Prüfung, bevor sie zu bestätigten
-Spot-Knowledge-Fakten werden. Bestehende Spots werden durch die Suche
+Funde laufen durch den bestehenden Dublettenabgleich. «Freigeben und
+recherchieren» legt den Spot als freigegeben an und reiht die Recherche in
+«Aufgaben & Recherche» ein. Treffer am gleichen Standort können nach
+ausdrücklicher Bestätigung als eigenständiger Spot übernommen werden.
+Namensgleiche Treffer bleiben gesperrt. «Ablehnen» speichert die
+Entscheidung und kann über «Wieder öffnen» rückgängig gemacht werden.
+Bei einer fehlgeschlagenen Übergabe bleibt der freigegebene Spot sichtbar
+und die Recherche kann am selben Eintrag erneut gestartet werden.
+Öffnungszeiten und Preise aus der Crawler-Vorschau brauchen die
+bestehende Prüfung, bevor sie zu bestätigten Spot-Knowledge-Fakten werden.
+Bestehende Spots werden durch die Suche
 nicht überschrieben. Kontinuierliche Änderungserkennung und
 Veranstaltungsimporte benötigen eigene Quellen- und Abgleichregeln.
 
