@@ -97,3 +97,11 @@ test("a queued provider poll is still active even without tasks",()=>{
  assert.equal(read("FAILED","provider-response").failed,true);
  assert.equal(read("READY_FOR_REVIEW","provider-response").researchStatus,null);
 });
+
+test("the operational inbox and job API exclude pre-cutover reports",async()=>{
+ const tasks=await readFile(new URL("../app/api/world-knowledge/research-tasks/route.ts",import.meta.url),"utf8");
+ const jobs=await readFile(new URL("../app/api/world-knowledge/research-jobs/route.ts",import.meta.url),"utf8");
+ assert.equal(tasks.split('.gte("created_at",RESEARCH_INBOX_CUTOVER)').length-1,3);
+ assert.ok(jobs.includes('.gte("created_at", RESEARCH_INBOX_CUTOVER)'));
+ assert.doesNotMatch(tasks,/\.delete\(/);
+});

@@ -1,24 +1,36 @@
 import type { ResearchResult } from "./nuknukResearchDraft";
 
+// Research reports present when the verified review inbox took over remain
+// available to audit, but no longer take up space in the operational queue.
+export const RESEARCH_INBOX_CUTOVER = "2026-11-17T16:49:31.000Z";
 export const FOLLOWUP_KIND = "ADMIN_RESEARCH_FOLLOWUP";
 export type InboxAnswer = { claimId?: string; knowledgeState?: string; value?: unknown; visibility?: string };
 export type InboxDecision = { fingerprint: string; claimId: string | null; actorId: string; at: string; outcome: "KEPT_PROFILE" | "LEFT_UNKNOWN" };
 export type InboxRow = {
   id: string; actor_id: string; spot_id: string; spot_name: string; status: string;
-  created_at: string; updated_at: string; reviewed_at: string | null; provider_response_id?: string | null;
-  export_document: { kind?: string; taskDecisions?: InboxDecision[]; pipeline?: { phase?: string; report?: { review?: Array<{attributeKey:string;reason?:string;explanation?:string}>; unresolved?: Array<{attributeKey:string;reason:string}>;errors?:string[] } } };
+  created_at: string; updated_at: string; reviewed_at: string | null; provider_response_id?: string | null; lease_expires_at?: string | null;
+  export_document: { kind?: string; taskDecisions?: InboxDecision[]; pipeline?: { phase?: string; report?: { stored?: string[]; review?: Array<{attributeKey:string;reason?:string;explanation?:string}>; unresolved?: Array<{attributeKey:string;reason:string}>;errors?:string[] } } };
   result_document?: unknown;
 };
 export type InboxTask = ResearchResult & { fingerprint: string; jobIds: string[]; claimId: string | null; currentValue?: unknown; kind: "REVIEW" | "MISSING" };
+export type StoredResearchField = { attributeKey: string; value: unknown };
 export type InboxSpot = { spotId: string; name: string; latestReportAt: string; updatedAt: string; tasks: InboxTask[]; researchStatus: "QUEUED" | "RUNNING" | null; failed: boolean; unavailable?: boolean; reports: number };
 export const stableInboxValue = (value: unknown): string => JSON.stringify(value, (_key,item:unknown) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a],[b])=>a.localeCompare(b))) : item);
 export const taskFingerprint = (result: ResearchResult) => stableInboxValue({attributeKey:result.attributeKey,value:result.value ?? null});
 
+function preparing(row: InboxRow): boolean {
+  return row.export_document.kind === "AUTOMATIC_RESEARCH_REVIEW" &&
+    row.export_document.pipeline?.phase !== "FINISHED" &&
+    !!row.lease_expires_at && Date.parse(row.lease_expires_at) > Date.now();
+}
+
 export function resultsFromInboxRow(row: InboxRow): ResearchResult[] {
+  if (preparing(row)) return [];
   const doc = row.result_document as { results?: ResearchResult[]; research?: {spots?: Array<{spotId:string;claims?: Array<{attributeKey:string;value:unknown;source?:{url:string;evidence:string;observedAt?:string};supportingSources?:Array<{url:string;evidence:string;observedAt?:string}>}>;unresolved?:Array<{attributeKey:string;reason:string}>}>} } | null;
   if(row.export_document.kind === FOLLOWUP_KIND || row.export_document.kind === "NUKNUK_RESEARCH_DRAFT") return doc?.results ?? [];
   const spot=doc?.research?.spots?.find(spot=>spot.spotId===row.spot_id);
-  const pipeline=row.export_document.pipeline;
+  const pipeline=row.export_document.kind === "AUTOMATIC_RESEARCH_REVIEW" && row.export_document.pipeline?.phase !== "FINISHED"
+    ? undefined : row.export_document.pipeline;
   const reviewed=pipeline?.report?.review;
   const claims=(spot?.claims ?? []).filter(claim=>!pipeline || reviewed?.some(item=>item.attributeKey===claim.attributeKey));
   return [...claims.map(claim=>({attributeKey:claim.attributeKey,status:"REQUIRES_REVIEW",value:claim.value,
@@ -61,7 +73,7 @@ export function buildInboxSpot(rows: InboxRow[], answers: Record<string,InboxAns
   }
   const latest=sorted[0];
   const execution=sorted.find(row=>![FOLLOWUP_KIND,"NUKNUK_RESEARCH_DRAFT"].includes(row.export_document.kind ?? ""));
-  const activeJob=sorted.find(row=>row.status==="QUEUED" || row.status==="RUNNING");
+  const activeJob=sorted.find(row=>row.status==="QUEUED" || row.status==="RUNNING" || preparing(row));
   const researchStatus=activeJob
     ? activeJob.status==="RUNNING" || activeJob.provider_response_id ? "RUNNING" : "QUEUED"
     : null;

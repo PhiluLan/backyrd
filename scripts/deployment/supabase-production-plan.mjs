@@ -590,7 +590,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   const analyticsPageviewsScope = authority?.analyticsPageviewsDeliveryScope ?? null;
   const boundedFunctionScope = analyticsPageviewsScope ?? nuknukActivityScope ?? codeOnlyScope;
   const functionReceipts = [boundedFunctionScope?.existingFunctionReceipt];
-  if (analyticsPageviewsScope) functionReceipts.push(analyticsPageviewsScope.decisionFunctionReceipt);
+  if (boundedFunctionScope?.decisionFunctionReceipt) functionReceipts.push(boundedFunctionScope.decisionFunctionReceipt);
   const codeOnlyDeferredFunctions = [];
   for (const receipt of functionReceipts.filter(Boolean)) {
     if (!/^[a-f0-9]{40}$/.test(receipt.sourceSha) || !Number.isSafeInteger(receipt.deploymentRunId)
@@ -678,10 +678,14 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     || functions.some(item=>item.deploy && item.verifyJwt !== true))) throw new Error("regional_decision_release_scope_conflict");
   if (codeOnlyScope) {
     const canonical = rows => rows.map(({path,sha256})=>({path,sha256})).sort((a,b)=>a.path.localeCompare(b.path));
+    const workerChange = functionChanges.find(change=>change.slug === "decision-engine-worker");
+    const workerOnly = codeOnlyScope.functions?.length === 1 && codeOnlyScope.functions[0] === "decision-engine-worker";
     if (codeOnlyScope.contractVersion !== "backyrd.code-only-delivery-scope@1.0"
       || !Array.isArray(codeOnlyScope.functions) || !codeOnlyScope.functions.length
       || new Set(codeOnlyScope.functions).size !== codeOnlyScope.functions.length
-      || codeOnlyScope.functions.some(slug=>!["decision-v13","decision-admin-diagnostic"].includes(slug))
+      || (workerOnly
+        ? !workerChange || workerChange.sourceSetHash !== codeOnlyScope.workerSourceSetHash
+        : codeOnlyScope.functions.some(slug=>!["decision-v13","decision-admin-diagnostic"].includes(slug)))
       || functionChanges.some(change=>!codeOnlyScope.functions.includes(change.slug))
       || functions.some(item=>item.deploy && item.verifyJwt !== true)
       || !Array.isArray(codeOnlyScope.deferredMigrations)

@@ -58,6 +58,7 @@ export function proveResearchEvidence(input: {
   page: PublicPage;
   claims: readonly WorldResearchClaim[];
   now?: number;
+  fixedAdmissionPrice?: boolean;
 }): {
   eligible: boolean;
   reason: string;

@@ -8,7 +8,8 @@ import {
   type SafeImportRepository,
 } from "./researchSafeImport";
 const table = "world_research_automation_jobs_v1";
-const kind = "CODEX_RESEARCH_PIPELINE";
+const manualKind = "CODEX_RESEARCH_PIPELINE";
+const inboxKind = "AUTOMATIC_RESEARCH_REVIEW";
 type Row = {
   id: string;
   actor_id: string;
@@ -19,7 +20,7 @@ type Row = {
   };
   result_document: WorldResearchBatchDocument;
 };
-function decode(row: Row): PipelineJob {
+function decode(row: Row, kind: string): PipelineJob {
   const m = row.export_document?.pipeline;
   if (
     row.export_document?.kind !== kind ||
@@ -43,7 +44,9 @@ export function safeImportRepository(
   actor: SupabaseClient,
   service: SupabaseClient,
   actorId: string,
+  inbox?: { jobId: string; updatedAt: string; exportDocument: Record<string, unknown> },
 ): SafeImportRepository {
+  const kind = inbox ? inboxKind : manualKind;
   const bound = (id: string) =>
     service
       .from(table)
@@ -75,7 +78,21 @@ export function safeImportRepository(
       const existing = await bound(job.id);
       if (existing.error)
         throw new Error("research_pipeline_queue_unavailable");
-      if (existing.data) return decode(existing.data as Row);
+      if (inbox) {
+        if (job.id !== inbox.jobId || !existing.data || existing.data.spot_id !== job.spotId)
+          throw new Error("research_pipeline_job_not_found");
+        if (existing.data.export_document?.kind === kind) return decode(existing.data as Row, kind);
+        const adopted = await service.from(table).update({
+          export_document: { ...inbox.exportDocument, kind, pipeline: job.metadata },
+          result_document: job.document,
+          updated_at: new Date().toISOString(),
+        }).eq("id",job.id).eq("actor_id",actorId).eq("spot_id",job.spotId).eq("updated_at",inbox.updatedAt)
+          .eq("status","READY_FOR_REVIEW").is("reviewed_at",null)
+          .select("id,actor_id,spot_id,export_document,result_document").maybeSingle();
+        if (adopted.error || !adopted.data) throw new Error("research_pipeline_job_changed");
+        return decode(adopted.data as Row, kind);
+      }
+      if (existing.data) return decode(existing.data as Row, kind);
       const inserted = await service
         .from(table)
         .insert({
@@ -90,11 +107,11 @@ export function safeImportRepository(
         })
         .select("id,actor_id,spot_id,export_document,result_document")
         .single();
-      if (!inserted.error && inserted.data) return decode(inserted.data as Row);
+      if (!inserted.error && inserted.data) return decode(inserted.data as Row, kind);
       const raced = await bound(job.id);
       if (raced.error || !raced.data)
         throw new Error("research_pipeline_job_creation_failed");
-      return decode(raced.data as Row);
+      return decode(raced.data as Row, kind);
     },
     async acquire(id, lease) {
       const now = new Date().toISOString();
@@ -117,7 +134,7 @@ export function safeImportRepository(
     },
     async checkpoint(job, lease) {
       await update(job, lease, {
-        export_document: { ...job.document, kind, pipeline: job.metadata },
+        export_document: { ...job.document, ...inbox?.exportDocument, kind, pipeline: job.metadata },
         lease_expires_at: new Date(Date.now() + 120000).toISOString(),
       });
     },
@@ -146,7 +163,7 @@ export function safeImportRepository(
     },
     async finish(job, lease, document) {
       await update(job, lease, {
-        export_document: { ...document, kind, pipeline: job.metadata },
+        export_document: { ...document, ...(inbox?.exportDocument.taskDecisions ? {taskDecisions:inbox.exportDocument.taskDecisions} : {}), kind, pipeline: job.metadata },
         result_document: document,
         lease_token: null,
         lease_expires_at: null,

@@ -1,21 +1,38 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
-import { AUTHORING_FIELDS, parseWorldResearchBatch } from "@backyrd/world-knowledge-core";
+import { AUTHORING_FIELDS, normalizeAutomatedWorldResearchBatch, parseWorldResearchBatch, type WorldResearchBatchDocument } from "@backyrd/world-knowledge-core";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 import { readWorldResearchDetail, WORLD_RESEARCH_SPOT_ID } from "@/lib/server/worldResearchExport";
 import { assessNuknukDraftReview } from "@/lib/nuknukDraftImport";
-import { buildInboxSpot, resultsFromInboxRow, taskFingerprint, type InboxRow, type InboxDecision, type InboxSpot } from "@/lib/researchInbox";
+import { RESEARCH_INBOX_CUTOVER, buildInboxSpot, resultsFromInboxRow, taskFingerprint, type InboxRow, type InboxDecision, type InboxSpot } from "@/lib/researchInbox";
 import { persistResearchFollowups } from "@/lib/server/researchFollowups";
 import { acceptResearchTask } from "@/lib/server/researchTaskAcceptance";
+import { INBOX_AUTO_RESEARCH_KEYS, processSafeResearchDocument } from "@/lib/server/researchSafeImport";
+import { safeImportRepository } from "@/lib/server/researchSafeImportRepository";
+import { readResearchPdf } from "@/lib/server/researchPdf";
 import { ResearchSaveError } from "@/lib/researchSaveFeedback";
+export const runtime = "nodejs";
+export const maxDuration = 120;
 const headers={"cache-control":"no-store"};
 function clients(request:Request) {
   const url=process.env.NEXT_PUBLIC_SUPABASE_URL!,anon=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,key=process.env.SUPABASE_SERVICE_ROLE_KEY;
   if(!url || !anon || !key)throw new Error("Die Aufgaben sind momentan nicht erreichbar.");
   return {service:createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}}),actor:createClient(url,anon,{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:request.headers.get("authorization")!}}})};
 }
-const columns="id,actor_id,spot_id,spot_name,status,created_at,updated_at,reviewed_at,export_document,result_document";
+const columns="id,actor_id,spot_id,spot_name,status,created_at,updated_at,reviewed_at,export_document,result_document,lease_expires_at";
 const allowed=new Set(AUTHORING_FIELDS.map(field=>field.attributeKey));
+function canPrepareResearch(row: InboxRow) {
+  const kind=row.export_document.kind;
+  return process.env.WORLD_RESEARCH_SAFE_IMPORT_ENABLED === "true" &&
+    row.status === "READY_FOR_REVIEW" && !row.reviewed_at &&
+    (kind === "AUTOMATIC_RESEARCH_REVIEW" || (!kind && !!row.provider_response_id)) &&
+    row.export_document.pipeline?.phase !== "FINISHED" &&
+    (!row.lease_expires_at || Date.parse(row.lease_expires_at)<=Date.now()) &&
+    !row.export_document.taskDecisions?.length &&
+    (row.result_document as {research?:{assessments?:{attributeKey:string;uncertainty:string}[]}} | null)?.research?.assessments?.some(
+      assessment=>assessment.uncertainty==="NONE" && INBOX_AUTO_RESEARCH_KEYS.has(assessment.attributeKey),
+    ) === true;
+}
 export async function GET(request:Request) {
   const auth=await authorizeAdminRequest(request);
   if(!auth.ok)return Response.json({error:auth.error},{status:auth.status,headers});
@@ -28,7 +45,7 @@ export async function GET(request:Request) {
     // Paginate rather than silently hiding tasks behind the former last-30-jobs limit.
     const rows:InboxRow[]=[];
     for(let page=0;page<10;page++) {
-      let query=service.from("world_research_automation_jobs_v1").select(`${columns},provider_response_id`).eq("actor_id",auth.userId);
+      let query=service.from("world_research_automation_jobs_v1").select(`${columns},provider_response_id`).eq("actor_id",auth.userId).gte("created_at",RESEARCH_INBOX_CUTOVER);
       if(selected) query=query.eq("spot_id",selected);
       const result=await query.order("created_at",{ascending:false}).order("id").range(page*100,page*100+99);
       if(result.error)throw new Error("Die Aufgaben konnten nicht geladen werden. Bitte erneut versuchen.");
@@ -55,7 +72,16 @@ export async function GET(request:Request) {
       const covered=(result:ReturnType<typeof resultsFromInboxRow>[number])=>assessNuknukDraftReview({version:"nuknuk-research-v1",spotId:selected,name:detail.name,canonicalWrite:false,importable:false,results:[{...result,status:"REQUIRES_REVIEW"}]},answers)[0]?.covered===true;
       const spot=buildInboxSpot(items,answers,covered);
       spot.tasks=spot.tasks.filter(task=>allowed.has(task.attributeKey));
-      return Response.json({spot:{...spot,name:detail.name,needsReview:spot.tasks.length>0}},{headers});
+      const automaticallyStored = [...new Set(items.flatMap(row=>
+        row.export_document.pipeline?.phase === "FINISHED" ? row.export_document.pipeline.report?.stored ?? [] : []
+      ))].flatMap(attributeKey=>{
+        const answer=answers[attributeKey];
+        if (!allowed.has(attributeKey) || answer?.visibility !== "PUBLIC" || answer.value === undefined) return [];
+        return [{attributeKey,value:answer.value}];
+      });
+      const latestWorkerReport=items.find(item=>item.provider_response_id);
+      const preparationJob=latestWorkerReport && canPrepareResearch(latestWorkerReport) ? latestWorkerReport.id : undefined;
+      return Response.json({spot:{...spot,name:detail.name,needsReview:spot.tasks.length>0,automaticallyStored,preparationJob}},{headers});
     } catch {
       throw new Error("Das Ortprofil konnte nicht abgeglichen werden. Bitte aktualisiere den Auftrag.");
     }
@@ -67,8 +93,39 @@ export async function POST(request:Request) {
   const text=await request.text();
   if(text.length>2_000_000)return Response.json({error:"Die Datei ist zu gross."},{status:413,headers});
   try {
-    const body=JSON.parse(text) as {action?:unknown;idempotencyKey?:unknown;document?:unknown;spotId?:unknown;fingerprint?:unknown;claimId?:unknown;jobIds?:unknown};
+    const body=JSON.parse(text) as {action?:unknown;idempotencyKey?:unknown;document?:unknown;jobId?:unknown;spotId?:unknown;fingerprint?:unknown;claimId?:unknown;jobIds?:unknown};
     const {service,actor}=clients(request);
+    if(body.action === "prepare") {
+      if (typeof body.jobId !== "string" || !WORLD_RESEARCH_SPOT_ID.test(body.jobId) ||
+          typeof body.spotId !== "string" || !WORLD_RESEARCH_SPOT_ID.test(body.spotId))
+        throw new Error("Ungültiger Rechercheauftrag.");
+      const found=await service.from("world_research_automation_jobs_v1")
+        .select(`${columns},provider_response_id`).eq("actor_id",auth.userId)
+        .eq("id",body.jobId).eq("spot_id",body.spotId).gte("created_at",RESEARCH_INBOX_CUTOVER).maybeSingle();
+      if(found.error || !found.data)throw new Error("Der Rechercheauftrag wurde nicht gefunden.");
+      const row=found.data as InboxRow;
+      if(!canPrepareResearch(row))return Response.json({prepared:false},{headers});
+      const document=normalizeAutomatedWorldResearchBatch(row.result_document as WorldResearchBatchDocument) as WorldResearchBatchDocument & {
+        research:WorldResearchBatchDocument["research"] & {assessments?: {attributeKey:string;uncertainty:string}[]}
+      };
+      const claims=new Set(document.research.spots[0]?.claims.map(claim=>claim.attributeKey));
+      if (!document.research.assessments) throw new Error("Die Quellenprüfung braucht eine Einschätzung pro Angabe.");
+      document.research.assessments=document.research.assessments.filter(assessment=>claims.has(assessment.attributeKey));
+      const exported=row.export_document as unknown as WorldResearchBatchDocument;
+      if (document.exportHash !== exported.exportHash || document.batch.spots.length !== 1 ||
+          document.batch.spots[0].spotId !== row.spot_id ||
+          JSON.stringify(document.research.instructions) !== JSON.stringify(exported.research.instructions))
+        throw new Error("Die Recherche gehört zu einem anderen Auftrag.");
+      const {report}=await processSafeResearchDocument(document,{
+        actorId:auth.userId,
+        inboxJobId:row.id,
+        readPdf:readResearchPdf,
+        repository:safeImportRepository(actor,service,auth.userId,{
+          jobId:row.id,updatedAt:row.updated_at,exportDocument:row.export_document,
+        }),
+      });
+      return Response.json({prepared:report.errors.length===0},{headers});
+    }
     if(body.action === "recover") {
       const document=parseWorldResearchBatch(body.document);
       for(const spot of document.batch.spots)await readWorldResearchDetail(actor,spot.spotId);
@@ -78,9 +135,11 @@ export async function POST(request:Request) {
     if(!["keep","accept"].includes(String(body.action)) || typeof body.spotId!=="string" || !WORLD_RESEARCH_SPOT_ID.test(body.spotId) || typeof body.fingerprint!=="string" || body.fingerprint.length>200_000 || !Array.isArray(body.jobIds) || !body.jobIds.length || body.jobIds.length>100 || body.jobIds.some(id=>typeof id!=="string" || !WORLD_RESEARCH_SPOT_ID.test(id)))throw new Error("Bitte die Aufgabe neu öffnen.");
     const [detail,found]=await Promise.all([
       readWorldResearchDetail(actor,body.spotId),
-      service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id",auth.userId).eq("spot_id",body.spotId).in("id",body.jobIds),
+      service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id",auth.userId).eq("spot_id",body.spotId).gte("created_at",RESEARCH_INBOX_CUTOVER).in("id",body.jobIds),
     ]);
     if(found.error || found.data.length!==new Set(body.jobIds).size)throw new Error("Die Aufgabe wurde nicht gefunden.");
+    if (found.data.some(row=>row.lease_expires_at && Date.parse(row.lease_expires_at)>Date.now()))
+      throw new Error("Die Quellenprüfung für diesen Auftrag läuft. Bitte aktualisiere die Aufgabe.");
     if(body.action === "accept")return Response.json(await acceptResearchTask(actor,service,auth.userId,found.data as InboxRow[],detail,{fingerprint:body.fingerprint,claimId:body.claimId,idempotencyKey:body.idempotencyKey}),{headers});
     for(const row of found.data as InboxRow[]) {
       const result=resultsFromInboxRow(row).find(item=>taskFingerprint(item)===body.fingerprint);

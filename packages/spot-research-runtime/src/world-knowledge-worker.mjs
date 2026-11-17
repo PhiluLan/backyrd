@@ -31,10 +31,10 @@ export function buildWorldResearchRequest(document, { model = "gpt-5.5" } = {}) 
   const schema = {
     type: "object", additionalProperties: false, required: ["claims", "unresolved"], properties: {
       claims: { type: "array", items: { type: "object", additionalProperties: false,
-        required: ["attributeKey", "knowledgeState", "valueJson", "sourceUrl", "evidence", "trust", "corroboratingUrl"],
+        required: ["attributeKey", "knowledgeState", "valueJson", "sourceUrl", "evidence", "trust", "corroboratingUrl", "uncertainty"],
         properties: { attributeKey: { type: "string", enum: fieldKeys }, knowledgeState: { type: "string", enum: [...states] },
           valueJson: { type: "string" }, sourceUrl: { type: "string" }, evidence: { type: "string" },
-          trust: { type: "string", enum: [...trusts] }, corroboratingUrl: { type: ["string", "null"] } } } },
+          trust: { type: "string", enum: [...trusts] }, corroboratingUrl: { type: ["string", "null"] }, uncertainty: { type: "string", enum: ["NONE", "MINOR", "MAJOR"] } } } },
       unresolved: { type: "array", items: { type: "object", additionalProperties: false,
         required: ["attributeKey", "reason"], properties: { attributeKey: { type: "string", enum: fieldKeys }, reason: { type: "string" } } } },
     },
@@ -47,12 +47,12 @@ export function buildWorldResearchRequest(document, { model = "gpt-5.5" } = {}) 
     "Nutze web_search aktiv: offizielle Startseite, Kontakt/Anfahrt/Impressum, Öffnungszeiten, Küchenzeiten, Angebot, Menü, Preise, Buchung, Hausregeln und Social-Links; prüfe tatsächlich geöffnete Zielseiten. Suche danach bei Bedarf unabhängige autoritative oder mehrfach bestätigte Sekundärquellen.",
     "Unterscheide Hauptkategorie und Hauptzweck von Bar, Club, Bistro, Shop und anderen Zusatzangeboten. Suche ausdrücklich nach getrennten Bereichen, Tickets, Alters- und Begleitregeln. Keine bereichsspezifische Regel auf den ganzen Spot übertragen. Service-Modell der Gastronomie ist kein Service-Modell eines Zoos, Hotels oder anderen übergeordneten Spots. Eventsaal- oder Raumkapazität ist keine allgemein unterstützte Gruppengröße des Spots. Bei Änderungen an einer Liste müssen bereits belegte Angebote erhalten bleiben, sofern ihre Entfernung nicht ausdrücklich belegt ist.",
     "Für Adresse, Land und öffentliche Spot-E-Mail die tatsächlich geöffnete offizielle Kontakt-, Anfahrts- oder Impressumsseite prüfen. Eine öffentlich angegebene Spot-E-Mail ist zulässig, aber keine private Personenkontaktadresse. Ist die offizielle Zielseite nicht nachweislich geöffnet, bleibt das Feld unresolved.",
-    "Prüfe reguläre Öffnungszeiten und Küchenzeiten getrennt. Gib alle belegten Wochentage und Zeitfenster gemäß valueSchema an; fehlender Tag ist unbekannt. Typische Tageszeiten nicht aus Öffnungszeiten ableiten.",
+    "Prüfe reguläre Öffnungszeiten und Küchenzeiten getrennt. Gib alle belegten Wochentage und Zeitfenster gemäß valueSchema an; fehlender Tag ist unbekannt. Für automatische Prüfung soll das Zitat den Namen des jeweiligen Betriebs und seinen Wochenplan zusammen nennen. Typische Tageszeiten nicht aus Öffnungszeiten ableiten.",
     "state.current gehört nur in unresolved: Der World-Recherche-Import kann eine Betriebszustandsänderung ohne editorseitige Gültigkeit nicht wirksam setzen. Koordinaten nie aus einer Adresse schätzen.",
     "Für jeden Katalogschlüssel genau ein Ergebnis: Claim, unresolved mit konkretem Grund oder weder noch, wenn der identische bestehende World-Wert bereits vorliegt. Unterschiedliche belegte Werte als Claim für Admin-Review ausgeben.",
     "Nur KNOWN_TRUE/KNOWN_FALSE bei Boolean; false ausschließlich mit explizitem negativem Beleg. Für andere Typen KNOWN_VALUE. Wert als gültige JSON-Zeichenkette in valueJson kodieren, exakt nach valueSchema/valueRules und erlaubten Enums.",
     "sourceUrl muss eine tatsächlich konsultierte öffentliche HTTPS-Zielseite sein. OFFICIAL_PRIMARY nur für den Betrieb selbst, AUTHORITATIVE_PRIMARY nur für Behörden/Register. CORROBORATED_SECONDARY braucht eine unabhängige zweite konsultierte URL in corroboratingUrl; beschreibe die Gegenprüfung sachlich im Beleg.",
-    "evidence ist eine konkrete kurze Paraphrase der dort belegten Tatsache, keine Kategoriefloskel, Werbung oder Personendaten. Nur bei contact.public_email darf evidence die exakt vorgeschlagene öffentliche Spot-E-Mail enthalten. Keine Vermutung aus Name, Kategorie, Snippet oder fehlender Erwähnung.",
+    "evidence ist ein kurzes wörtliches Zitat aus der geöffneten Seite, das den vorgeschlagenen Wert samt Geltungsbereich belegt. uncertainty ist NONE nur für eindeutige Angaben ohne Quellenkonflikt, sonst MINOR oder MAJOR. Keine Kategoriefloskeln, Werbung oder Personendaten. Nur bei contact.public_email darf evidence die exakt vorgeschlagene öffentliche Spot-E-Mail enthalten. Keine Vermutung aus Name, Kategorie, Snippet oder fehlender Erwähnung.",
     "Keine persönlichen Identitäten, Nutzerprofile, Secrets oder privaten Kontaktdaten. Wenn Beleg, Aktualität, Identität oder JSON-Struktur unsicher ist, unresolved. Gib ausschließlich das strukturierte Ergebnis zurück.",
   ].join(" ");
   return { model, background: true, store: true, reasoning: { effort: "high" }, instructions, input,
@@ -76,6 +76,7 @@ export function worldResearchResponseDocument(exportDocument, response, observed
   const catalog = new Set(exportDocument.fieldCatalog.map((field) => field.attributeKey));
   const seen = new Set();
   const claims = [];
+  const assessments = [];
   const unresolved = [];
   for (const item of proposed.claims) {
     if (!isObject(item) || !catalog.has(item.attributeKey) || seen.has(item.attributeKey)) throw new Error("world_research_claim_key_invalid");
@@ -130,6 +131,10 @@ export function worldResearchResponseDocument(exportDocument, response, observed
     }
     claims.push({ attributeKey: item.attributeKey, knowledgeState: item.knowledgeState, value,
       source: { url: source, evidence, observedAt, trust: item.trust } });
+    if (["NONE", "MINOR", "MAJOR"].includes(item.uncertainty)) {
+      assessments.push({attributeKey:item.attributeKey,uncertainty:item.uncertainty,
+        reason:"Einschätzung aus der Spot-Recherche; der Quellenbeleg wird unabhängig geprüft.",bindings:{}});
+    }
   }
   for (const item of proposed.unresolved) {
     if (!isObject(item) || !catalog.has(item.attributeKey) || seen.has(item.attributeKey) || !validText(item.reason, 500) || sensitive.test(item.reason)) throw new Error("world_research_unresolved_invalid");
@@ -142,6 +147,7 @@ export function worldResearchResponseDocument(exportDocument, response, observed
     unresolved.push({ attributeKey: field.attributeKey, reason: "Im Recherchelauf wurde hierfür kein hinreichend belegter Wert geliefert." });
   }
   return { ...exportDocument, research: { ...exportDocument.research,
+    ...(assessments.length ? { assessments } : {}),
     spots: [{ spotId: exportDocument.batch.spots[0].spotId, claims, unresolved }] } };
 }
 
