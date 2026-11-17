@@ -6,14 +6,14 @@ import { AdminPageHeader, EmptyState, ErrorState, FilterBar, LoadingState, Secti
 import { supabase } from "@/lib/supabaseClient";
 import { SpotForm } from "../SpotForm";
 
-type Facts = { name: string; lat: number; lng: number; category: "PLAYGROUND"; hours?: string; equipment: string[] };
+type Facts = { name: string; lat: number; lng: number; category: string; label?: string; address?: string; city?: string; phone?: string; website?: string; hours?: string; equipment: string[] };
 type State = "NEW" | "MATCHED" | "REVIEW" | "MISSING";
 type ReviewState = "OPEN" | "REVIEWED" | "DISMISSED" | "EXISTING";
 type ReviewAction = "REVIEWED" | "DISMISSED" | "REOPENED";
 type Filter = ReviewState | "ALL";
 type Row = {
   review_state: ReviewState; review_fingerprint: string; review_revision: string;
-  source_id: number; state: State; facts: Facts; previous_facts: Facts | null; checked_at: string;
+  category_id?: string | null; source_id: number; state: State; facts: Facts; previous_facts: Facts | null; checked_at: string;
   spots: { id: string; name: string; address: string | null; status: string; distance_m: number }[];
 };
 type Run = {
@@ -22,10 +22,15 @@ type Run = {
 };
 type Cadence = "DAILY" | "WEEKLY" | "MANUAL";
 type SourceSettings = { key: string; enabled: boolean; cadence: Cadence; revision: string; schedule_time_utc: string };
-type Preview = { category_id: string | null; runs: Run[]; rows: Row[]; source: SourceSettings };
+type Preview = { runs: Run[]; rows: Row[]; source: SourceSettings };
 type SettingsDraft = Pick<SourceSettings, "enabled" | "cadence">;
 
-const source = "https://data.bs.ch/explore/dataset/100462/";
+const sources = {
+  BASEL_PLAYGROUNDS: { label: "Spielplätze", dataset: "100462", credit: "Stadtgärtnerei Basel-Stadt", coverage: "Öffentliche Spielplätze" },
+  BASEL_POI: { label: "Kultur, Ausflug & Unterkunft", dataset: "100015", credit: "Geodaten Kanton Basel-Stadt", coverage: "Museen, Bühnen, Aussichtspunkte, Picknickplätze und Unterkünfte" },
+  BASEL_SPORT: { label: "Sportanlagen", dataset: "100151", credit: "Geodaten Kanton Basel-Stadt", coverage: "Sporthallen, Schwimmbäder, Eisbahnen, Skateanlagen und Sportplätze" },
+} as const;
+type SourceKey = keyof typeof sources;
 const labels: Record<State, string> = { NEW: "Neuer Vorschlag", MATCHED: "Bereits in Backyrd", REVIEW: "Zuordnung prüfen", MISSING: "Fehlt aktuell in der Quelle" };
 const reviewViews: readonly [Filter, string][] = [
   ["OPEN", "Offen"], ["REVIEWED", "Geprüft"], ["DISMISSED", "Ausgeblendet"], ["ALL", "Alle"],
@@ -39,6 +44,11 @@ function changes(row: Row) {
   const fields = [
     { label: "Name", before: before.name, after: facts.name },
     { label: "Koordinaten", before: `${before.lat}, ${before.lng}`, after: `${facts.lat}, ${facts.lng}` },
+    { label: "Adresse", before: before.address, after: facts.address },
+    { label: "Ort", before: before.city, after: facts.city },
+    { label: "Telefon", before: before.phone, after: facts.phone },
+    { label: "Website", before: before.website, after: facts.website },
+    { label: "Kategorie", before: before.label, after: facts.label },
     { label: "Öffnungszeiten", before: before.hours, after: facts.hours },
     { label: "Ausstattung", before: before.equipment.join(", "), after: facts.equipment.join(", ") },
   ];
@@ -77,6 +87,15 @@ function SourceControls({ settings, onSave }: {
 }
 
 export default function SpotImportPage() {
+  const [sourceKey, setSourceKey] = useState<SourceKey>("BASEL_PLAYGROUNDS");
+  return <SourceImport key={sourceKey} sourceKey={sourceKey} onSourceChange={setSourceKey} />;
+}
+
+function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onSourceChange: (key: SourceKey) => void }) {
+  const metadata = sources[sourceKey];
+  const source = `https://data.bs.ch/explore/dataset/${metadata.dataset}/`;
+  const sourceEntry = (row: Row) => sourceKey === "BASEL_POI"
+    ? `${source}?q=${encodeURIComponent(row.facts.name)}` : `${source}?refine.id=${row.source_id}`;
   const [preview, setPreview] = useState<Preview | null>(null);
   const [filter, setFilter] = useState<Filter>("OPEN");
   const [selected, setSelected] = useState<Row | null>(null);
@@ -90,16 +109,16 @@ export default function SpotImportPage() {
     else { setPreview(data as Preview); setError(""); }
   }, []);
   const reload = useCallback(async () => {
-    applyPreview(await supabase.rpc("admin_basel_spot_source_preview_v3"));
-  }, [applyPreview]);
+    applyPreview(await supabase.rpc("admin_basel_place_source_preview_v1", { p_key: sourceKey }));
+  }, [applyPreview, sourceKey]);
 
   useEffect(() => {
     const request = new AbortController();
-    void supabase.rpc("admin_basel_spot_source_preview_v3").abortSignal(request.signal).then(result => {
+    void supabase.rpc("admin_basel_place_source_preview_v1", { p_key: sourceKey }).abortSignal(request.signal).then(result => {
       if (!request.signal.aborted) applyPreview(result);
     });
     return () => request.abort();
-  }, [applyPreview]);
+  }, [applyPreview, sourceKey]);
 
   const fetching = preview?.runs[0]?.status === "FETCHING";
   useEffect(() => {
@@ -111,7 +130,7 @@ export default function SpotImportPage() {
   async function start() {
     setStarting(true);
     try {
-      const { error: failure } = await supabase.rpc("admin_basel_spot_source_start_v1");
+      const { error: failure } = await supabase.rpc("admin_basel_place_source_start_v1", { p_key: sourceKey });
       if (failure) throw failure;
       await reload();
     } catch (failure) {
@@ -151,7 +170,7 @@ export default function SpotImportPage() {
     setOpeningId(sourceId);
     setError("");
     try {
-      const { data, error: failure } = await supabase.rpc("admin_basel_spot_source_preview_v3", { p_source_id: sourceId });
+      const { data, error: failure } = await supabase.rpc("admin_basel_place_source_preview_v1", { p_key: sourceKey, p_source_id: sourceId });
       if (failure) throw failure;
       const row = (data as Preview).rows[0];
       if (row?.state !== "NEW") {
@@ -172,7 +191,8 @@ export default function SpotImportPage() {
     setReviewingId(row.source_id);
     setError("");
     try {
-      const { error: failure } = await supabase.rpc("admin_basel_spot_source_set_review_v1", {
+      const { error: failure } = await supabase.rpc("admin_basel_place_source_review_v1", {
+        p_key: sourceKey,
         p_source_id: row.source_id,
         p_fingerprint: row.review_fingerprint,
         p_revision: row.review_revision,
@@ -198,17 +218,24 @@ export default function SpotImportPage() {
   return (
     <div className="bi-page admin-page">
       <AdminPageHeader eyebrow="Spots" title="Ortsimporte"
-        description="Spielplätze aus Basel-Stadt finden, Änderungen prüfen und neue Spots vorbereitet öffnen."
+        description="Basler Ortsquellen abrufen, Änderungen prüfen und neue Spots vorbereitet öffnen."
         actions={<>
           <Link className="bi-actionButton" href="/spots">Zu den Spots</Link>
           <button className="bi-primaryButton" type="button" disabled={starting || fetching || !preview?.source.enabled}
             onClick={() => void start()}>{starting || fetching ? "Abruf läuft …" : "Jetzt abrufen"}</button>
         </>} />
+      <FilterBar>
+        <label>Quelle{" "}
+          <select aria-label="Quelle" value={sourceKey} onChange={event => onSourceChange(event.target.value as SourceKey)}>
+            {Object.entries(sources).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}
+          </select>
+        </label>
+      </FilterBar>
       {error ? <ErrorState message={error} onRetry={() => void reload()} /> : null}
       {!preview && !error ? <LoadingState /> : null}
       {preview ? <>
-        <SectionCard title="Open Data Basel-Stadt" description="Abdeckung: öffentliche Spielplätze im Kanton Basel-Stadt.">
-          <p><a href={source}>Spielen in Basel: Spielplätze</a> · Stadtgärtnerei Basel-Stadt · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></p>
+        <SectionCard title={metadata.label} description={metadata.coverage}>
+          <p><a href={source}>Datensatz aufrufen</a> · {metadata.credit} · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></p>
           <StatusBadge tone={preview.source.enabled ? "success" : "neutral"}>{preview.source.enabled ? "Aktiv" : "Ausgeschaltet"}</StatusBadge>
           <SourceControls key={preview.source.revision} settings={preview.source} onSave={saveSourceSettings} />
           {latest ? <p role="status">
@@ -221,12 +248,13 @@ export default function SpotImportPage() {
 
         {selected ? <SectionCard title={`Spot anlegen · ${selected.facts.name}`} description="Der Spot ist zum Prüfen vorausgefüllt. Öffnungszeiten und Ausstattung siehst du mit Quellenbeleg in der Übersicht.">
           <p><button className="bi-actionButton" type="button" onClick={() => setSelected(null)}>Zurück zu den Vorschlägen</button></p>
-          <p><a href={`${source}?refine.id=${selected.source_id}`}>Quelle ansehen</a> · Öffnungszeiten gemäss Quelle: {selected.facts.hours ?? "Keine Angabe"}</p>
-          <p>Beim Publizieren die Quelle im Spot-Knowledge angeben: Stadtgärtnerei Basel-Stadt, CC BY 4.0.</p>
+          <p><a href={sourceEntry(selected)}>Quelle ansehen</a> · Öffnungszeiten gemäss Quelle: {selected.facts.hours ?? "Keine Angabe"}</p>
+          <p>Beim Publizieren die Quelle im Spot-Knowledge angeben: {metadata.credit}, CC BY 4.0.</p>
           {selected.facts.equipment.length > 0 ? <p>Ausstattung: {selected.facts.equipment.join(", ")}</p> : null}
           <SpotForm key={selected.source_id} mode="create" initialValues={{
-            name: selected.facts.name, lat: selected.facts.lat, lng: selected.facts.lng, city: null, country: "Switzerland",
-            address: null, category_id: preview.category_id, header_photo_path: null, website: null, phone: null, email: null, price_level: null,
+            name: selected.facts.name, lat: selected.facts.lat, lng: selected.facts.lng, city: selected.facts.city ?? null, country: "Switzerland",
+            address: selected.facts.address ?? null, category_id: selected.category_id ?? null,
+            header_photo_path: null, website: selected.facts.website ?? null, phone: selected.facts.phone ?? null, email: null, price_level: null,
             google_place_id: null, google_photo_enabled: false, status: "pending",
           }} onSaved={() => { setSelected(null); void reload(); }} />
         </SectionCard> : <>
@@ -249,10 +277,12 @@ export default function SpotImportPage() {
                     {row.review_state === "REVIEWED" ? "Geprüft" : "Ausgeblendet"}
                   </StatusBadge></> : null}
                 </summary>
-                <p>Spielplatz · {row.facts.lat.toFixed(5)}, {row.facts.lng.toFixed(5)} · geprüft am {formatTime.format(new Date(row.checked_at))}</p>
+                <p>{row.facts.label ?? "Spielplatz"} · {row.facts.lat.toFixed(5)}, {row.facts.lng.toFixed(5)} · geprüft am {formatTime.format(new Date(row.checked_at))}</p>
                 <p>Öffnungszeiten gemäss Quelle: {row.facts.hours ?? "Keine Angabe"}</p>
+                {row.facts.address || row.facts.city ? <p>{[row.facts.address, row.facts.city].filter(Boolean).join(", ")}</p> : null}
+                {row.facts.phone ? <p>Telefon gemäss Quelle: {row.facts.phone}</p> : null}
                 {row.facts.equipment.length > 0 ? <p>Ausstattung: {row.facts.equipment.join(", ")}</p> : null}
-                <p><a href={`${source}?refine.id=${row.source_id}`}>Quelleneintrag ansehen</a></p>
+                <p><a href={sourceEntry(row)}>Quelleneintrag ansehen</a></p>
                 {changes(row).map(field => <p key={field.label}>{field.label}: {field.before || "Keine Angabe"} → {field.after || "Keine Angabe"}</p>)}
                 {row.spots.map(spot => <p key={spot.id}>
                   <Link href={`/spots/${spot.id}/edit`}>{spot.name}</Link> · {spot.address ?? "Keine Adresse"} · {spot.distance_m} m{spot.status === "archived" ? " · Archiviert" : ""}

@@ -160,6 +160,30 @@ begin
   if world_knowledge_private.basel_spot_source_dispatch_v1('2026-11-17 03:15Z') is null
     then raise exception 'daily source failed to dispatch'; end if;
 
+  -- Sources can run together. Identical numeric IDs and review decisions
+  -- remain independent between a playground feed and a sports feed.
+  update world_knowledge_private.basel_spot_source_runs_v1 set status='FAILED'
+    where source_key='BASEL_PLAYGROUNDS' and status='FETCHING';
+  insert into world_knowledge_private.basel_spot_source_runs_v1(source_key,request_id) values ('BASEL_SPORT',-107)
+    returning id into v_recheck;
+  perform world_knowledge_private.basel_spot_source_apply_v1(v_recheck,
+    '[{"id":910000001,"name":"Fiktives Basler Bad","kategorie":"Hallenbad","strasse":"Testweg 1","ort":"Basel","geo_point_2d":{"lat":47.551,"lon":7.59}}]');
+  v_result:=public.admin_basel_place_source_preview_v1('BASEL_SPORT',910000001)#>'{rows,0}';
+  if v_result#>>'{facts,category}' is distinct from 'SWIMMING_POOL'
+    or v_result#>>'{facts,address}' is distinct from 'Testweg 1'
+    or public.admin_basel_place_source_preview_v1('BASEL_PLAYGROUNDS',910000001)#>>'{rows,0,facts,category}' is distinct from 'PLAYGROUND'
+    then raise exception 'source identity or normalized fields were mixed'; end if;
+  perform public.admin_basel_place_source_review_v1('BASEL_SPORT',910000001,v_result->>'review_fingerprint',v_result->>'review_revision','DISMISSED');
+  if public.admin_basel_place_source_preview_v1('BASEL_PLAYGROUNDS',910000001)#>>'{rows,0,review_state}' is distinct from 'OPEN'
+    or public.admin_basel_place_source_preview_v1('BASEL_SPORT',910000001)#>>'{rows,0,review_state}' is distinct from 'DISMISSED'
+    then raise exception 'review state leaked across source identities'; end if;
+  begin
+    perform world_knowledge_private.basel_spot_normalize_v1('BASEL_POI','[{"ort":"79576 Weil am Rhein"}]');
+    raise exception 'outside-locality row accepted';
+  exception when raise_exception then
+    if sqlerrm <> 'basel_spot_source_outside_region' then raise; end if;
+  end;
+
   if has_function_privilege('anon','public.admin_basel_spot_source_settings_v1(text,boolean,text,text)','execute')
     or has_function_privilege('authenticated','world_knowledge_private.basel_spot_source_dispatch_v1(timestamptz)','execute')
     or has_table_privilege('authenticated','world_knowledge_private.spot_source_settings_v1','update')

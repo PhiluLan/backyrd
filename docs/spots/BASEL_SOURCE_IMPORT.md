@@ -1,21 +1,52 @@
 # Ortsimporte aus Basel-Stadt
 
 Unter **Admin → Spots → Ortsimporte** zeigt Backyrd den zuletzt erfolgreich
-geprüften Stand des öffentlichen Basler Spielplatzverzeichnisses. «Jetzt
-abrufen» fragt dieselbe Quelle sofort ab. Nach Anwenden der Migration ist die Quelle aktiv und der Abruf für montags
-um 03:15 UTC eingestellt. Der Sammler verarbeitet die Antworten im
+geprüften Stand der ausgewählten Basler Quelle. «Jetzt abrufen» fragt die
+ausgewählte Quelle sofort ab. Bei der Einrichtung sind die Quellen aktiv
+und der Abruf steht auf montags um 03:15 UTC. Der Sammler verarbeitet die Antworten im
 Zwei-Minuten-Takt. Der Job läuft in Supabase über pg_cron und pg_net.
 
-Die Quelle ist der Datensatz [100462](https://data.bs.ch/explore/dataset/100462/)
-der Stadtgärtnerei Basel-Stadt, lizenziert unter
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Der erste Abruf
-braucht kein externes Konto. Der Job übernimmt Name, Koordinaten,
-Öffnungszeiten im Wortlaut und die Ausstattung. Der Quelle fehlen
-Strassenadressen, Telefon, E-Mail und Preise. Diese Felder bleiben offen.
+## Angebundene Quellen
+
+Alle drei Feeds kommen von Open Data Basel-Stadt und stehen unter
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Der Import
+legt Vorschläge in der Admin-Arbeitsliste an. Der lokale Test mit
+Originaldaten ergab diese Rohzahlen vor dem Abgleich mit Backyrd.
+
+| Quelle | Abdeckung | Kandidaten beim Abruf |
+| --- | --- | ---: |
+| [Spielplätze](https://data.bs.ch/explore/dataset/100462/) | Spielplätze mit Koordinaten, Öffnungszeiten und Ausstattung | 67 |
+| [Basel Info Points of Interest](https://data.bs.ch/explore/dataset/100015/) | Museen und Ausstellungen, Veranstaltungsorte, Hotels, Hostels, Sehenswürdigkeiten, Aussichtspunkte und Picknickplätze | 159 |
+| [Sport- und Bewegungsanlagen](https://data.bs.ch/explore/dataset/100151/) | Sporthallen, Schwimmbäder, Eisbahnen, Skateanlagen, Sportplätze und weitere ausgewählte Sportanlagen | 166 |
+
+Die zwei neuen Feeds sind auf Basel, Riehen und Bettingen begrenzt. Sie
+liefern, wo vorhanden, zusätzlich Strassenadresse, Ort, Website und
+öffentliches Telefon. E-Mail, Eintrittspreise oder Öffnungszeiten werden
+nur gezeigt, wenn die Quelle diese Felder liefert. Die Quellengruppe für
+Theater, Konzerte und Vorträge wird als Veranstaltungsort vorgeschlagen.
+Sie ist keine Bestätigung eines konkreten Programms.
+
+## Quellen für die übrige Abdeckung
+
+| Backyrd-Bereich | Quelle und Aufgabe |
+| --- | --- |
+| Essen, Bars, Cafés, Nachtleben | [Overture Places](https://docs.overturemaps.org/guides/places/) für flächige Kandidatensuche, danach Betreiber-Websites für Angebot, Betriebsstatus, Küche, Preise, Öffnungszeiten und Tanzangebot. [Guidle Restaurants](https://www.stnet.ch/de/marketing/digital-marketing/daten-export/restaurants/) ist ein zusätzlicher Vertragsfeed. |
+| Shopping und Märkte, Wellness, Coworking und Gemeinschaft | Overture Places als Kandidatenquelle, offizielle Webseiten und direkte Owner-Angaben zur Bestätigung. Temporäre Marktstände und Pop-ups benötigen einen belegten Zeitraum. |
+| Kultur, Unterhaltung, Unterkunft und Veranstaltungsorte | Basel Info für die erste Abdeckung, Overture für Lücken. Das Programm kommt vom Betreiber oder einem freigegebenen Eventfeed. |
+| Aktivitäten, Sport, Natur und Sehenswürdigkeiten | Die drei kantonalen Feeds liefern eine erste Abdeckung. Overture kann gewerbliche Freizeitangebote und weitere Ziele ergänzen. Für Wege, Parks und Flächen sind eigene amtliche Geodaten sinnvoll. |
+| Specials und andere temporäre Orte | Offizielle Betreiberprogramme und der bestehende Event-Import für terminierte Angebote. Neue Veranstaltungsfeeds werden erst nach Prüfung der Nutzungsrechte aktiviert. |
+| Sonstiges | Kategorisiert geprüfte Ergänzungen über Betreiber und Admin, passend zur Backyrd-Entdeckung. |
+
+Overture ist als nächste breite Quelle identifiziert. Die technische
+Anbindung steht noch aus. Seine monatlichen GeoParquet-Veröffentlichungen
+benötigen einen regionalen Export und eine Zuordnung der Kategorien.
+Primärschlüssel und Quelle sollen aus den Overture-Daten erhalten bleiben.
+Der Import braucht eine Kategorie- und Lizenzprüfung sowie einen
+Abdeckungsreport gegen den Backyrd-Katalog.
 
 ## Quellen und Zeitplan einstellen
 
-Unter **Ortsimporte → Open Data Basel-Stadt** schaltest du die Quelle ein
+Unter **Ortsimporte** wählst du zuerst eine Quelle, schaltest sie ein
 oder aus und wählst **Täglich**, **Wöchentlich (Montag)** oder **Nur manuell**.
 Automatische Abrufe starten um 03:15 UTC. Wenn du die Quelle ausschaltest,
 startet auch «Jetzt abrufen» keinen neuen Lauf. Ein bereits begonnener
@@ -48,16 +79,19 @@ zurückholen.
   Koordinaten und eine eindeutig zuordenbare Kategorie sind vorausgefüllt.
   Vor dem Publizieren bestätigt ein Admin die Angaben im vorhandenen
   Spot- und Spot-Knowledge-Workflow und übernimmt den Quellenlink mit dem
-  Hinweis «Stadtgärtnerei Basel-Stadt, CC BY 4.0» bei der Veröffentlichung.
+  Hinweis der jeweiligen Quellenangabe und «CC BY 4.0» bei der Veröffentlichung.
   Die Vorschau selbst schreibt weder
   in den öffentlichen Katalog noch ins Spot-Knowledge.
 - Änderungen zeigen die früheren und die aktuellen Angaben der Quelle.
   Fehlende Datensätze werden erst nach einem vollständigen Abruf markiert
   und führen zu keiner Löschung oder Archivierung. Ein fehlgeschlagener
   oder unvollständiger Abruf lässt den letzten vollständigen Stand stehen.
-- Der Abruf ist für diese erste Quelle auf 100 Zeilen begrenzt. Überschreitet
-  die Quelle diese Grenze, meldet der Job einen unvollständigen Abruf. Vor
-  einer Erhöhung müssen Abdeckung und Pagination geprüft werden.
+- Das Spielplatzverzeichnis ist auf 100 Zeilen begrenzt. Die beiden anderen
+  Feeds nutzen einen gefilterten Export mit maximal je 500 Zeilen.
+  Basel Info liefert keine Orts-ID. Die abgeleitete Identität kann sich
+  bei Umbenennungen, Adressänderungen oder Koordinatenänderungen an
+  Picknickplätzen ändern. Solche Einträge werden erneut zur Prüfung
+  angezeigt. Automatische Löschungen gibt es keine.
 
 ## Inbetriebnahme und Prüfung
 
