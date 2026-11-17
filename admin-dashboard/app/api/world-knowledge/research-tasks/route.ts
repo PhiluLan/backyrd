@@ -24,7 +24,7 @@ export async function GET(request:Request) {
     // Paginate rather than silently hiding tasks behind the former last-30-jobs limit.
     const rows:InboxRow[]=[];
     for(let page=0;page<10;page++) {
-      const result=await service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id",auth.userId).order("created_at",{ascending:false}).order("id").range(page*100,page*100+99);
+      const result=await service.from("world_research_automation_jobs_v1").select(`${columns},provider_response_id`).eq("actor_id",auth.userId).order("created_at",{ascending:false}).order("id").range(page*100,page*100+99);
       if(result.error)throw new Error("Die Aufgaben konnten nicht geladen werden. Bitte erneut versuchen.");
       rows.push(...result.data as InboxRow[]);
       if(result.data.length<100)break;
