@@ -665,6 +665,17 @@
       "deploymentRunId": 44091617983,
       "certificationRunId": 44090594471,
       "manifestHash": "fd60dfc1ecea1a4796992c2e81d3b27ef19e01509bd4b002a40eeda56a0325d5"
+    },
+    "spotCategoryApprovalRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "migration": {
+        "path": "supabase/migrations/20261117142302_fix_uncategorized_spot_approval.sql",
+        "sha256": "ded8ac95fb5d6218cc3320259ce7228bbaa29655d95194844d083ebfa0d7a5f0"
+      },
+      "sourceSha": "c24b1f3693f867a10dd11d73ed8bdb49416eac52",
+      "deploymentRunId": 44105792495,
+      "certificationRunId": 44104732636,
+      "manifestHash": "505441ea11cce4c85a9510277f8378698695f22052167928bb8ce23832f2d961"
     }
   },
   "mobile": {
