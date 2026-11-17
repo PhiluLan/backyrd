@@ -14,6 +14,9 @@ declare
   v_bad bigint;
   v_actor uuid := gen_random_uuid();
   v_result jsonb;
+  v_prior jsonb;
+  v_snapshot jsonb;
+  v_recheck bigint;
   v_count integer;
   v_initial jsonb := '{"total_count":3,"results":[
     {"id":910000001,"spielplatz_name":"Backyrd Import Fixture","oeffnungszeiten":"07:00–23:00","spielgeraete_liste":["Rutsche"],"geo_point_2d":{"lat":47.551,"lon":7.59}},
@@ -57,6 +60,14 @@ begin
     or has_table_privilege('authenticated','world_knowledge_private.basel_spot_source_rows_v1','select')
     or has_function_privilege('authenticated','world_knowledge_private.basel_spot_source_apply_v1(bigint,jsonb)','execute')
     then raise exception 'unexpected role grants'; end if;
+  begin
+    perform public.admin_basel_spot_source_set_review_v1(910000001,'x','0','DISMISSED');
+    raise exception 'review unexpectedly writable without admin';
+  exception when insufficient_privilege then null;
+  end;
+  if has_function_privilege('anon','public.admin_basel_spot_source_set_review_v1(integer,text,text,text)','execute')
+    or has_table_privilege('authenticated','world_knowledge_private.basel_spot_source_reviews_v1','update')
+    then raise exception 'unexpected review grants'; end if;
 
   insert into auth.users(id) values(v_actor);
   insert into public.profiles(id,is_admin) values(v_actor,true) on conflict(id) do update set is_admin=true;
@@ -71,6 +82,44 @@ begin
   if public.admin_basel_spot_source_preview_v1(910000002)#>>'{rows,0,state}' is distinct from 'MISSING'
     or public.admin_basel_spot_source_preview_v1(910000003)#>>'{rows,0,state}' is distinct from 'REVIEW'
     then raise exception 'missing or nearby candidate did not receive the expected status'; end if;
+
+  v_prior:=public.admin_basel_spot_source_preview_v2(910000001)#>'{rows,0}';
+  if v_prior->>'review_state' is distinct from 'OPEN' then raise exception 'changed source should be open'; end if;
+  perform public.admin_basel_spot_source_set_review_v1(910000001,v_prior->>'review_fingerprint',v_prior->>'review_revision','REVIEWED');
+  v_result:=public.admin_basel_spot_source_preview_v2(910000001)#>'{rows,0}';
+  if v_result->>'review_state' is distinct from 'REVIEWED' then raise exception 'review was not saved'; end if;
+
+  begin
+    perform public.admin_basel_spot_source_set_review_v1(910000001,v_prior->>'review_fingerprint',v_prior->>'review_revision','DISMISSED');
+    raise exception 'parallel write overrode saved review';
+  exception when serialization_failure then null;
+  end;
+
+  -- A fresh successful pull of the same fields does not reopen saved work.
+  v_snapshot:=jsonb_set(jsonb_set(v_initial #- '{results,1}', '{total_count}', '2'),'{results,0,oeffnungszeiten}','"08:00–22:00"');
+  insert into world_knowledge_private.basel_spot_source_runs_v1(request_id) values (-105) returning id into v_recheck;
+  perform world_knowledge_private.basel_spot_source_apply_v1(v_recheck,v_snapshot);
+  if public.admin_basel_spot_source_preview_v2(910000001)#>>'{rows,0,review_state}' is distinct from 'REVIEWED'
+    then raise exception 'unchanged pull reopened reviewed work'; end if;
+  perform public.admin_basel_spot_source_set_review_v1(910000001,v_result->>'review_fingerprint',v_result->>'review_revision','REOPENED');
+  v_prior:=public.admin_basel_spot_source_preview_v2(910000001)#>'{rows,0}';
+  if v_prior->>'review_state' is distinct from 'OPEN' then raise exception 'undo did not reopen'; end if;
+  perform public.admin_basel_spot_source_set_review_v1(910000001,v_prior->>'review_fingerprint',v_prior->>'review_revision','DISMISSED');
+  if public.admin_basel_spot_source_preview_v2(910000001)#>>'{rows,0,review_state}' is distinct from 'DISMISSED'
+    then raise exception 'dismissed work still open'; end if;
+
+  insert into world_knowledge_private.basel_spot_source_runs_v1(request_id) values (-106) returning id into v_recheck;
+  perform world_knowledge_private.basel_spot_source_apply_v1(v_recheck,
+    jsonb_set(v_snapshot,'{results,0,oeffnungszeiten}','"09:00–18:00"'));
+  if public.admin_basel_spot_source_preview_v2(910000001)#>>'{rows,0,review_state}' is distinct from 'OPEN'
+    then raise exception 'new source details were hidden by previous review'; end if;
+
+  v_prior:=public.admin_basel_spot_source_preview_v2(910000003)#>'{rows,0}';
+  perform public.admin_basel_spot_source_set_review_v1(910000003,v_prior->>'review_fingerprint',v_prior->>'review_revision','DISMISSED');
+  update public.spots set status='archived' where name='Nachbar Backyrd Import Fixture';
+  if public.admin_basel_spot_source_preview_v2(910000003)#>>'{rows,0,review_state}' is distinct from 'OPEN'
+    then raise exception 'changed candidate catalog status did not reopen the proposal'; end if;
+
 end;
 $$;
 

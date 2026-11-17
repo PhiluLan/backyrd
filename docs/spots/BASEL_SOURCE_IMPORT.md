@@ -15,6 +15,15 @@ Strassenadressen, Telefon, E-Mail und Preise. Diese Felder bleiben offen.
 
 ## Prüfen und übernehmen
 
+«Offen» zeigt neue, geänderte und unklare Vorschläge. Ohne Änderung
+eindeutig zugeordnete Spots stehen unter «Alle». «Als geprüft markieren»
+und «Ausblenden» entfernen den aktuellen Vorschlag aus «Offen». Die
+Status bleiben beim nächsten Abruf und auch für andere Admins erhalten.
+Ändern sich die Angaben oder die möglichen Zuordnungen, erscheint der
+Vorschlag erneut. Mit «In die Arbeitsliste» lässt er sich jederzeit
+zurückholen.
+
+
 - Ein eindeutiger Name innerhalb von 150 Metern ohne weiteren Kandidaten
   wird einem vorhandenen Spot zugeordnet. Andere Namens- oder Nähetreffer
   (bis 45 Meter) werden zur Prüfung angezeigt. Archivierte Kandidaten zählen

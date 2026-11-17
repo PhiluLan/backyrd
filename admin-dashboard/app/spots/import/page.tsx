@@ -8,7 +8,11 @@ import { SpotForm } from "../SpotForm";
 
 type Facts = { name: string; lat: number; lng: number; category: "PLAYGROUND"; hours?: string; equipment: string[] };
 type State = "NEW" | "MATCHED" | "REVIEW" | "MISSING";
+type ReviewState = "OPEN" | "REVIEWED" | "DISMISSED" | "EXISTING";
+type ReviewAction = "REVIEWED" | "DISMISSED" | "REOPENED";
+type Filter = ReviewState | "ALL";
 type Row = {
+  review_state: ReviewState; review_fingerprint: string; review_revision: string;
   source_id: number; state: State; facts: Facts; previous_facts: Facts | null; checked_at: string;
   spots: { id: string; name: string; address: string | null; status: string; distance_m: number }[];
 };
@@ -20,6 +24,9 @@ type Preview = { category_id: string | null; runs: Run[]; rows: Row[] };
 
 const source = "https://data.bs.ch/explore/dataset/100462/";
 const labels: Record<State, string> = { NEW: "Neuer Vorschlag", MATCHED: "Bereits in Backyrd", REVIEW: "Zuordnung prüfen", MISSING: "Fehlt aktuell in der Quelle" };
+const reviewViews: readonly [Filter, string][] = [
+  ["OPEN", "Offen"], ["REVIEWED", "Geprüft"], ["DISMISSED", "Ausgeblendet"], ["ALL", "Alle"],
+];
 const formatTime = new Intl.DateTimeFormat("de-CH", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Zurich" });
 
 function changes(row: Row) {
@@ -36,10 +43,11 @@ function changes(row: Row) {
 
 export default function SpotImportPage() {
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [filter, setFilter] = useState<State | "ALL">("ALL");
+  const [filter, setFilter] = useState<Filter>("OPEN");
   const [selected, setSelected] = useState<Row | null>(null);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
+  const [reviewingId, setReviewingId] = useState<number | null>(null);
   const [openingId, setOpeningId] = useState<number | null>(null);
 
   const applyPreview = useCallback(({ data, error: failure }: { data: unknown; error: unknown }) => {
@@ -47,12 +55,12 @@ export default function SpotImportPage() {
     else { setPreview(data as Preview); setError(""); }
   }, []);
   const reload = useCallback(async () => {
-    applyPreview(await supabase.rpc("admin_basel_spot_source_preview_v1"));
+    applyPreview(await supabase.rpc("admin_basel_spot_source_preview_v2"));
   }, [applyPreview]);
 
   useEffect(() => {
     const request = new AbortController();
-    void supabase.rpc("admin_basel_spot_source_preview_v1").abortSignal(request.signal).then(result => {
+    void supabase.rpc("admin_basel_spot_source_preview_v2").abortSignal(request.signal).then(result => {
       if (!request.signal.aborted) applyPreview(result);
     });
     return () => request.abort();
@@ -82,7 +90,7 @@ export default function SpotImportPage() {
     setOpeningId(sourceId);
     setError("");
     try {
-      const { data, error: failure } = await supabase.rpc("admin_basel_spot_source_preview_v1", { p_source_id: sourceId });
+      const { data, error: failure } = await supabase.rpc("admin_basel_spot_source_preview_v2", { p_source_id: sourceId });
       if (failure) throw failure;
       const row = (data as Preview).rows[0];
       if (row?.state !== "NEW") {
@@ -99,8 +107,33 @@ export default function SpotImportPage() {
     }
   }
 
+  async function setReview(row: Row, disposition: ReviewAction) {
+    setReviewingId(row.source_id);
+    setError("");
+    try {
+      const { error: failure } = await supabase.rpc("admin_basel_spot_source_set_review_v1", {
+        p_source_id: row.source_id,
+        p_fingerprint: row.review_fingerprint,
+        p_revision: row.review_revision,
+        p_disposition: disposition,
+      });
+      if (failure?.code === "40001") {
+        await reload();
+        setError("Der Eintrag wurde inzwischen geändert. Bitte prüfe den aktuellen Stand.");
+      } else if (failure) {
+        setError("Die Auswahl konnte nicht gespeichert werden.");
+      } else {
+        await reload();
+      }
+    } catch {
+      setError("Die Auswahl konnte nicht gespeichert werden.");
+    } finally {
+      setReviewingId(null);
+    }
+  }
+
   const latest = preview?.runs?.[0];
-  const rows = preview?.rows.filter(row => filter === "ALL" || row.state === filter) ?? [];
+  const rows = preview?.rows.filter(row => filter === "ALL" || row.review_state === filter) ?? [];
   return (
     <div className="bi-page admin-page">
       <AdminPageHeader eyebrow="Spots" title="Ortsimporte"
@@ -135,20 +168,23 @@ export default function SpotImportPage() {
           }} onSaved={() => { setSelected(null); void reload(); }} />
         </SectionCard> : <>
           <FilterBar resultLabel={`${rows.length} Einträge`}>
-            <label>Status{" "}
-              <select value={filter} onChange={event => setFilter(event.target.value as State | "ALL")}>
-                <option value="ALL">Alle</option>
-                {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            <label>Ansicht{" "}
+              <select value={filter} onChange={event => setFilter(event.target.value as Filter)}>
+                {reviewViews.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </label>
           </FilterBar>
-          {rows.length === 0 ? <EmptyState title="Keine Einträge in dieser Ansicht" description="Starte einen Abruf oder ändere den Filter." />
+          {rows.length === 0 ? <EmptyState title={filter === "OPEN" ? "Keine offenen Vorschläge" : "Keine Einträge in dieser Ansicht"}
+              description={filter === "OPEN" ? "Neue oder geänderte Vorschläge siehst du beim nächsten erfolgreichen Abruf hier." : "In dieser Ansicht sind gerade keine Vorschläge."} />
             : <SectionCard title="Vorschläge">
               {rows.map(row => <details key={row.source_id}>
                 <summary>
                   <strong>{row.facts.name}</strong>{" "}
                   <StatusBadge tone={row.state === "REVIEW" ? "warning" : row.state === "NEW" ? "info" : "neutral"}>{labels[row.state]}</StatusBadge>
                   {row.previous_facts ? <> <StatusBadge tone="info">Quellenänderung</StatusBadge></> : null}
+                  {row.review_state === "REVIEWED" || row.review_state === "DISMISSED" ? <> <StatusBadge>
+                    {row.review_state === "REVIEWED" ? "Geprüft" : "Ausgeblendet"}
+                  </StatusBadge></> : null}
                 </summary>
                 <p>Spielplatz · {row.facts.lat.toFixed(5)}, {row.facts.lng.toFixed(5)} · geprüft am {formatTime.format(new Date(row.checked_at))}</p>
                 <p>Öffnungszeiten gemäss Quelle: {row.facts.hours ?? "Keine Angabe"}</p>
@@ -158,7 +194,16 @@ export default function SpotImportPage() {
                 {row.spots.map(spot => <p key={spot.id}>
                   <Link href={`/spots/${spot.id}/edit`}>{spot.name}</Link> · {spot.address ?? "Keine Adresse"} · {spot.distance_m} m{spot.status === "archived" ? " · Archiviert" : ""}
                 </p>)}
-                {row.state === "NEW" ? <p><button className="bi-actionButton" type="button" disabled={openingId !== null} onClick={() => void openDraft(row.source_id)}>{openingId === row.source_id ? "Wird geprüft …" : "Spot-Editor öffnen"}</button></p> : null}
+                <div className="admin-pageActions" aria-busy={reviewingId === row.source_id}>
+                  {row.review_state === "OPEN" ? <>
+                    <button className="bi-actionButton" type="button" disabled={reviewingId !== null}
+                      onClick={() => void setReview(row, "REVIEWED")}>Als geprüft markieren</button>
+                    <button className="bi-actionButton" type="button" disabled={reviewingId !== null}
+                      onClick={() => void setReview(row, "DISMISSED")}>Ausblenden</button>
+                  </> : <button className="bi-actionButton" type="button" disabled={reviewingId !== null}
+                    onClick={() => void setReview(row, "REOPENED")}>In die Arbeitsliste</button>}
+                </div>
+                {row.state === "NEW" && row.review_state === "OPEN" ? <p><button className="bi-actionButton" type="button" disabled={openingId !== null} onClick={() => void openDraft(row.source_id)}>{openingId === row.source_id ? "Wird geprüft …" : "Spot-Editor öffnen"}</button></p> : null}
               </details>)}
             </SectionCard>}
         </>}
