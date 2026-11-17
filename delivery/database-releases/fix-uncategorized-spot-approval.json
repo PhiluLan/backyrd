@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "fix-uncategorized-spot-approval",
+  "previousEvidence": "simplify-basel-place-import",
+  "previousFingerprints": {
+    "publicAclSha256": "11ff176ad7dd46355b41706d144ddcc23bb28895966df459a1c460493fcbddab",
+    "applicationSchemaSha256": "69f0fee3e91a67a5657895959d2c89a2e4461543f3a46e62538c5fa57d9301d4"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261117142302_fix_uncategorized_spot_approval.sql",
+      "sha256": "ded8ac95fb5d6218cc3320259ce7228bbaa29655d95194844d083ebfa0d7a5f0"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/admin_spot_basics_persistence_v1.sql",
+      "sha256": "40004b2e88edfed193f622cf1d107b6bd203b95a4283fd41609f96285e7ad436"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "11ff176ad7dd46355b41706d144ddcc23bb28895966df459a1c460493fcbddab",
+    "applicationSchemaSha256": "ed2bc2d35f75e6b410a6ad53d0251ac5ff5dbfc3763ea11d1be9f6fb0ad4ece1"
+  }
+}

@@ -28,9 +28,13 @@ begin
  ('00000000-0000-0000-0000-000000000000',other_owner,'authenticated','authenticated','basics-other@invalid','','{}','{}',now(),now());
  update public.profiles set is_admin=true where id=founder;
  insert into public.admin_users(user_id,role) values(founder,'super_admin');
- select id into category_id from public.categories order by name limit 1;
+ insert into public.categories(name)
+ select 'Unterkunft / Hotel' where not exists(select 1 from public.categories where name='Unterkunft / Hotel');
+ select id into strict category_id from public.categories where name='Unterkunft / Hotel';
  insert into public.spots(id,name,address,city,country,lat,lng,status,category_id,data_origin,owner_id,website,phone,email)
  values(spot_id,'Basis Persistence Spot','Teststrasse 1','Basel','Switzerland',47.55,7.59,'approved',category_id,'REAL',owner_id,'https://old.invalid','old-phone','old@invalid.test');
+ insert into public.spots(id,name,lat,lng,status,data_origin)
+ values(pg_temp.basics_uuid('basics-hotel'),'Approval Fixture',47.56,7.6,'pending','REAL');
  insert into public.backyrd_gold_authoring_owner_allowlist_v1(user_id,reason) values(owner_id,'basis persistence security test');
 end $$;
 
@@ -77,6 +81,38 @@ begin
  perform pg_temp.basics_assert(pg_temp.basics_spot(v_spot)->>'email'='museum@example.test','failed save changed the row');
 end $$;
 
+-- backyrd:authorization-positive
+do $$
+declare
+ v_hotel uuid:=pg_temp.basics_uuid('basics-hotel');
+ v_category uuid:=(select id from public.categories where name='Unterkunft / Hotel');
+ v_result jsonb;
+begin
+ begin
+   perform public.backyrd_admin_save_spot_basics_v1(v_hotel,'{"status":"approved"}',pg_temp.basics_uuid('basics-hotel-missing-category'));
+   raise exception 'approval without a category unexpectedly succeeded';
+ exception when invalid_parameter_value then
+   perform pg_temp.basics_assert(sqlerrm='spot_approval_category_required','approval returned the wrong category error');
+ end;
+ perform pg_temp.basics_assert(pg_temp.basics_spot(v_hotel)->>'status'='pending','failed approval changed the status');
+ begin
+   perform public.backyrd_admin_save_spot_basics_v1(v_hotel,jsonb_build_object(
+     'category_id',v_category,'status','invalid-status','name','Unsaved Fixture'
+   ),pg_temp.basics_uuid('basics-hotel-failed-status'));
+   raise exception 'invalid status unexpectedly succeeded';
+ exception when invalid_text_representation then null;
+ end;
+ perform pg_temp.basics_assert(pg_temp.basics_spot(v_hotel)->>'category_id' is null,'failed save left the staged category behind');
+ perform pg_temp.basics_assert(pg_temp.basics_active_value(v_hotel,'identity.name') is null,'failed save left a canonical fact behind');
+ v_result:=public.backyrd_admin_save_spot_basics_v1(v_hotel,jsonb_build_object(
+   'category_id',v_category,'status','approved','name','Approval Fixture Hotel','website','https://hotel.example'
+ ),pg_temp.basics_uuid('basics-hotel-approve'));
+ perform pg_temp.basics_assert(v_result#>>'{spot,status}'='approved','first save with category did not approve the spot');
+ perform pg_temp.basics_assert(v_result#>>'{spot,category_id}'=v_category::text,'saved category was not returned');
+ perform pg_temp.basics_assert(pg_temp.basics_active_value(v_hotel,'identity.name')='"Approval Fixture Hotel"'::jsonb,'approval skipped canonical fact reconciliation');
+end $$;
+
+-- backyrd:authorization-negative
 -- Owner and cross-owner callers cannot enter the Founder/Admin write boundary.
 select pg_temp.basics_actor(pg_temp.basics_uuid('basics-owner'));
 do $$ begin

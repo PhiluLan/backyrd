@@ -141,6 +141,8 @@ function spotSaveErrorMessage(failure: Record<string, unknown>): string {
   if (raw.includes("spot_website_invalid")) return "Bitte gib eine vollständige Website-Adresse mit https:// ein.";
   if (raw.includes("spot_email_invalid")) return "Bitte prüfe die E-Mail-Adresse.";
   if (raw.includes("spot_price_level_invalid")) return "Bitte wähle ein gültiges Preisniveau.";
+  if (raw.includes("spot_approval_category_required")) return "Wähle eine Kategorie, bevor du den Spot freigibst.";
+  if (raw.includes("canonical_place_type_unknown")) return "Wähle unter Kategorie eine passende Ortsart und speichere erneut.";
   if (raw.includes("spot_category_invalid")) return "Bitte wähle eine gültige Kategorie.";
   return raw || "Die Angaben konnten nicht gespeichert werden. Bitte versuche es erneut.";
 }
@@ -747,10 +749,10 @@ export function SpotForm({
         <div className="by-formGrid3">
           <Field label="Kategorie">
             <select
-              value={(values.category_id ?? "") as any}
-              onChange={(e) =>
-                handleChange("category_id", (e.target.value || null) as any)
-              }
+              aria-label="Kategorie"
+              required={!canonicalKnowledgeManaged && values.status === "approved"}
+              value={values.category_id ?? ""}
+              onChange={event => handleChange("category_id", event.target.value || null)}
               className="by-select"
             >
               <option value="">– wählen –</option>
