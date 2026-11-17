@@ -10,7 +10,7 @@ export type InboxRow = {
   result_document?: unknown;
 };
 export type InboxTask = ResearchResult & { fingerprint: string; jobIds: string[]; claimId: string | null; currentValue?: unknown; kind: "REVIEW" | "MISSING" };
-export type InboxSpot = { spotId: string; name: string; updatedAt: string; tasks: InboxTask[]; running: boolean; failed: boolean; unavailable?: boolean; reports: number };
+export type InboxSpot = { spotId: string; name: string; latestReportAt: string; updatedAt: string; tasks: InboxTask[]; running: boolean; failed: boolean; unavailable?: boolean; reports: number };
 export const stableInboxValue = (value: unknown): string => JSON.stringify(value, (_key,item:unknown) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a],[b])=>a.localeCompare(b))) : item);
 export const taskFingerprint = (result: ResearchResult) => stableInboxValue({attributeKey:result.attributeKey,value:result.value ?? null});
 
@@ -61,7 +61,7 @@ export function buildInboxSpot(rows: InboxRow[], answers: Record<string,InboxAns
   }
   const latest=sorted[0];
   const execution=sorted.find(row=>![FOLLOWUP_KIND,"NUKNUK_RESEARCH_DRAFT"].includes(row.export_document.kind ?? ""));
-  return {spotId:latest.spot_id,name:latest.spot_name,updatedAt:sorted.reduce((latest,row)=>row.updated_at>latest?row.updated_at:latest,latest.updated_at),tasks:[...tasks.values()],reports:rows.length,
+  return {spotId:latest.spot_id,name:latest.spot_name,latestReportAt:latest.created_at,updatedAt:sorted.reduce((latest,row)=>row.updated_at>latest?row.updated_at:latest,latest.updated_at),tasks:[...tasks.values()],reports:rows.length,
     running:rows.some(row=>["QUEUED","RUNNING"].includes(row.status)),
     failed:!!execution && !execution.reviewed_at && (execution.status === "FAILED" || !!execution.export_document.pipeline?.report?.errors?.length)};
 }
