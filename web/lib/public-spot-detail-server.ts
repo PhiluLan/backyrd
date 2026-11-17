@@ -11,13 +11,14 @@ export async function getPublicSpotDetailServer(spotId: string) {
   if (error) return null;
   if (!data) return null;
 
-  const [{ data: moodProfile, error: moodError }, { data: worldProfile, error: worldError }] = await Promise.all([client
-    .from("backyrd_spot_mood_profile_public_v1")
-    .select(
-      "concept_key,label,canonical_label,concept_contributors,eligible_contributors,percentage,evidence_state,rank",
-    )
-    .eq("spot_id", spotId)
-    .order("rank", { ascending: true }), client.rpc("spot_detail_product_profile_v1", { p_spot_id: spotId, p_surface: "WEB" })]);
+  const [{ data: moodProfile, error: moodError }, { data: worldProfile, error: worldError }, { data: sourceCredit }] = await Promise.all([
+    client.from("backyrd_spot_mood_profile_public_v1")
+      .select("concept_key,label,canonical_label,concept_contributors,eligible_contributors,percentage,evidence_state,rank")
+      .eq("spot_id", spotId)
+      .order("rank", { ascending: true }),
+    client.rpc("spot_detail_product_profile_v1", { p_spot_id: spotId, p_surface: "WEB" }),
+    client.rpc("spot_place_source_credit_v1", { p_spot_id: spotId }).maybeSingle<NonNullable<PublicSpotDetailDTO["source_credit"]>>(),
+  ]);
 
   // The public detail page remains available while the forward migration is
   // being applied. Once the governed projection exists it becomes the sole
@@ -28,6 +29,7 @@ export async function getPublicSpotDetailServer(spotId: string) {
     ...(data as PublicSpotDetailDTO),
     mood_count: (await loadSpotMoodCounts([spotId], client).catch(() => ({} as Record<string, number>)))[spotId] ?? null,
     top_moods: moodProfile ?? [],
+    source_credit: sourceCredit,
     world_profile: worldError
       ? null
       : (worldProfile as PublicSpotDetailDTO["world_profile"]),

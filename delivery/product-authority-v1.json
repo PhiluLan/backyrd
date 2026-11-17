@@ -75,8 +75,8 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261117112737_world_research_configurable_batches_v1.sql",
-        "sha256": "66b6f47cc90157164f6a907225569ea23d418a536955323eee95d52f43d114f7"
+        "path": "supabase/migrations/20261117124338_simplify_basel_place_import.sql",
+        "sha256": "bf978b80a708c9213f63949c42429ded325aa25f1459f789871f8875f10cc96b"
       }
     ],
     "executionAuthorized": false,
@@ -265,13 +265,13 @@
     }
   },
   "analyticsPageviewsDeliveryScope": {
-    "contractVersion": "backyrd.world-research-batches-delivery-scope@1.0",
+    "contractVersion": "backyrd.basel-place-import-create-delivery-scope@1.0",
     "executionAuthorized": false,
     "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
     "migrations": [
       {
-        "path": "supabase/migrations/20261117112737_world_research_configurable_batches_v1.sql",
-        "sha256": "66b6f47cc90157164f6a907225569ea23d418a536955323eee95d52f43d114f7"
+        "path": "supabase/migrations/20261117124338_simplify_basel_place_import.sql",
+        "sha256": "bf978b80a708c9213f63949c42429ded325aa25f1459f789871f8875f10cc96b"
       }
     ],
     "deferredMigrations": [
@@ -293,7 +293,7 @@
       }
     ],
     "functions": [],
-    "backupRunId": 43878789183,
+    "backupRunId": 44067100413,
     "restoreDrill": {
       "runId": 43878789183,
       "artifactId": 14231428566,

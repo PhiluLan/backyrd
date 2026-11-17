@@ -6,16 +6,16 @@ import { AdminPageHeader, EmptyState, ErrorState, FilterBar, LoadingState, Secti
 import { WorldResearchBatchSizeSelect } from "@/components/admin/WorldResearchBatchSizeSelect";
 import { useWorldResearchBatchSize } from "@/lib/useWorldResearchBatchSize";
 import { supabase } from "@/lib/supabaseClient";
-import { SpotForm } from "../SpotForm";
 
 type Facts = { name: string; lat: number; lng: number; category: string; label?: string; address?: string; city?: string; phone?: string; website?: string; hours?: string; equipment: string[]; external_id?: string; attribution?: string[] };
 type State = "NEW" | "MATCHED" | "REVIEW" | "MISSING";
-type ReviewState = "OPEN" | "REVIEWED" | "DISMISSED" | "EXISTING";
-type ReviewAction = "REVIEWED" | "DISMISSED" | "REOPENED";
+type ReviewState = "OPEN" | "REVIEWED" | "DISMISSED" | "EXISTING" | "IMPORTED";
+type ReviewAction = "REVIEWED" | "REOPENED";
+type Category = { id: string; name: string };
 type Filter = ReviewState | "ALL";
 type Row = {
   review_state: ReviewState; review_fingerprint: string; review_revision: string;
-  category_id?: string | null; source_id: number; state: State; facts: Facts; previous_facts: Facts | null; checked_at: string;
+  imported_spot_id?: string | null; category_id?: string | null; source_id: number; state: State; facts: Facts; previous_facts: Facts | null; checked_at: string;
   spots: { id: string; name: string; address: string | null; status: string; distance_m: number }[];
 };
 type Run = {
@@ -36,7 +36,7 @@ const sources = {
 type SourceKey = keyof typeof sources;
 const labels: Record<State, string> = { NEW: "Neuer Vorschlag", MATCHED: "Bereits in Backyrd", REVIEW: "Zuordnung prüfen", MISSING: "Fehlt aktuell in der Quelle" };
 const reviewViews: readonly [Filter, string][] = [
-  ["OPEN", "Offen"], ["REVIEWED", "Geprüft"], ["DISMISSED", "Ausgeblendet"], ["ALL", "Alle"],
+  ["OPEN", "Offen"], ["REVIEWED", "Zum Prüfen"], ["IMPORTED", "Angelegt"], ["DISMISSED", "Ausgeblendet"], ["ALL", "Alle"],
 ];
 const cadenceLabels: Record<Cadence, string> = { DAILY: "Täglich", WEEKLY: "Wöchentlich (Montag)", MANUAL: "Nur manuell" };
 const overtureCategoryLabels: Readonly<Record<string, string>> = { RESTAURANT: "Restaurant", CAFE: "Café", BAR: "Bar", NIGHTCLUB: "Club" };
@@ -110,11 +110,23 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
   const [uploading, setUploading] = useState(false);
   const cursor = pages.at(-1) ?? 0;
   const [filter, setFilter] = useState<Filter>("OPEN");
-  const [selected, setSelected] = useState<Row | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryChoices, setCategoryChoices] = useState<Record<number, string>>({});
+  const [created, setCreated] = useState<{ id: string; name: string } | null>(null);
+  const [heldName, setHeldName] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
   const [reviewingId, setReviewingId] = useState<number | null>(null);
-  const [openingId, setOpeningId] = useState<number | null>(null);
+  const [creatingId, setCreatingId] = useState<number | null>(null);
+  const busy = reviewingId !== null || creatingId !== null;
+
+  useEffect(() => {
+    const request = new AbortController();
+    void supabase.from("categories").select("id,name").order("name").abortSignal(request.signal).then(({ data }) => {
+      if (data && !request.signal.aborted) setCategories(data);
+    });
+    return () => request.abort();
+  }, []);
 
   const applyPreview = useCallback(({ data, error: failure }: { data: unknown; error: unknown }) => {
     if (failure) setError("Die Importübersicht konnte nicht geladen werden.");
@@ -212,30 +224,44 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
     }
   }
 
-  async function openDraft(sourceId: number) {
-    setOpeningId(sourceId);
+  async function createSpot(row: Row) {
+    if (busy) return;
+    setCreatingId(row.source_id);
     setError("");
+    setCreated(null);
+    setHeldName(null);
     try {
-      const { data, error: failure } = await supabase.rpc("admin_basel_place_source_preview_v1", { p_key: sourceKey, p_source_id: sourceId });
-      if (failure) throw failure;
-      const row = (data as Preview).rows[0];
-      if (row?.state !== "NEW") {
+      const { data, error: failure } = await supabase.rpc("admin_basel_place_source_create_spot_v1", {
+        p_key: sourceKey,
+        p_source_id: row.source_id,
+        p_fingerprint: row.review_fingerprint,
+        p_revision: row.review_revision,
+        p_category_id: row.category_id ?? categoryChoices[row.source_id] ?? null,
+      });
+      if (failure?.code === "40001") {
         await reload();
-        setError("Der Vorschlag hat sich geändert. Prüfe seine Zuordnung in der Übersicht.");
-        return;
+        setError("Der Vorschlag hat sich geändert. Prüfe die aktuellen Angaben und mögliche Duplikate.");
+      } else if (failure?.message === "spot_import_category_required") {
+        setError("Bitte wähle eine Backyrd-Kategorie für diesen Spot.");
+      } else if (failure || typeof data !== "string") {
+        setError("Die Übernahme konnte nicht bestätigt werden. Lade die Liste neu oder versuche es erneut.");
+      } else {
+        setCreated({ id: data, name: row.facts.name });
+        await reload();
       }
-      setSelected(row);
-      window.scrollTo({ top: 0 });
     } catch {
-      setError("Der Vorschlag konnte nicht erneut geprüft werden.");
+      setError("Die Übernahme konnte nicht bestätigt werden. Lade die Liste neu oder versuche es erneut.");
     } finally {
-      setOpeningId(null);
+      setCreatingId(null);
     }
   }
 
   async function setReview(row: Row, disposition: ReviewAction) {
+    if (busy) return;
     setReviewingId(row.source_id);
     setError("");
+    setCreated(null);
+    setHeldName(null);
     try {
       const { error: failure } = await supabase.rpc("admin_basel_place_source_review_v1", {
         p_key: sourceKey,
@@ -250,6 +276,7 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
       } else if (failure) {
         setError("Die Auswahl konnte nicht gespeichert werden.");
       } else {
+        if (disposition === "REVIEWED") setHeldName(row.facts.name);
         await reload();
       }
     } catch {
@@ -264,7 +291,7 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
   return (
     <div className="bi-page admin-page">
       <AdminPageHeader eyebrow="Spots" title="Ortsimporte"
-        description="Basler Ortsquellen abrufen, Änderungen prüfen und neue Spots vorbereitet öffnen."
+        description="Grundangaben aus Ortsquellen prüfen und neue Spots direkt übernehmen."
         actions={<>
           <Link className="bi-actionButton" href="/spots">Zu den Spots</Link>
           <Link className="bi-actionButton" href="/world-knowledge">Zur Spot-Recherche</Link>
@@ -282,6 +309,8 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
         <FilterBar><WorldResearchBatchSizeSelect size={researchSize} onChange={setResearchSize} /></FilterBar>
       </SectionCard>
       {error ? <ErrorState message={error} onRetry={() => void reload()} /> : null}
+      {created ? <p className="by-alert" role="status"><strong>{created.name}</strong> ist freigegeben. <Link href={`/spots/${created.id}/edit`}>Spot öffnen</Link></p> : null}
+      {heldName ? <p className="by-alert" role="status"><strong>{heldName}</strong> liegt jetzt unter «Zum Prüfen».</p> : null}
       {!preview && !error ? <LoadingState /> : null}
       {preview ? <>
         <SectionCard title={metadata.label} description={metadata.coverage}>
@@ -304,18 +333,6 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
           </p> : <p>{manualSnapshot ? "Der erste Import steht noch aus." : "Der erste Abruf steht noch aus."}</p>}
         </SectionCard>
 
-        {selected ? <SectionCard title={`Spot anlegen · ${selected.facts.name}`} description="Der Spot ist zum Prüfen vorausgefüllt. Öffnungszeiten und Ausstattung siehst du mit Quellenbeleg in der Übersicht.">
-          <p><button className="bi-actionButton" type="button" onClick={() => setSelected(null)}>Zurück zu den Vorschlägen</button></p>
-          <p><a href={sourceEntry(selected)}>Quelle ansehen</a> · Öffnungszeiten gemäss Quelle: {selected.facts.hours ?? "Keine Angabe"}</p>
-          <p>Beim Publizieren den Quellenbeleg im Spot-Knowledge hinterlegen. {selected.facts.attribution?.join(", ") || metadata.credit} · <a href={license}>Lizenzhinweise</a></p>
-          {selected.facts.equipment.length > 0 ? <p>Ausstattung: {selected.facts.equipment.join(", ")}</p> : null}
-          <SpotForm key={selected.source_id} mode="create" initialValues={{
-            name: selected.facts.name, lat: selected.facts.lat, lng: selected.facts.lng, city: selected.facts.city ?? null, country: "Switzerland",
-            address: selected.facts.address ?? null, category_id: selected.category_id ?? null,
-            header_photo_path: null, website: selected.facts.website ?? null, phone: selected.facts.phone ?? null, email: null, price_level: null,
-            google_place_id: null, google_photo_enabled: false, status: "pending",
-          }} onSaved={() => { setSelected(null); void reload(); }} />
-        </SectionCard> : <>
           <FilterBar resultLabel={`${rows.length} Einträge${manualSnapshot ? " auf dieser Seite" : ""}`}>
             {manualSnapshot ? <>
               <button className="bi-actionButton" type="button" disabled={pages.length <= 1} onClick={() => { setPreview(null); setPages(pages.slice(0, -1)); }}>Zurück</button>
@@ -337,36 +354,56 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
               {rows.map(row => <details key={row.source_id}>
                 <summary>
                   <strong>{row.facts.name}</strong>{" "}
-                  <StatusBadge tone={row.state === "REVIEW" ? "warning" : row.state === "NEW" ? "info" : "neutral"}>{labels[row.state]}</StatusBadge>
+                  {row.review_state !== "IMPORTED" ? <StatusBadge tone={row.state === "REVIEW" ? "warning" : row.state === "NEW" ? "info" : "neutral"}>{labels[row.state]}</StatusBadge> : null}
                   {row.previous_facts ? <> <StatusBadge tone="info">Quellenänderung</StatusBadge></> : null}
-                  {row.review_state === "REVIEWED" || row.review_state === "DISMISSED" ? <> <StatusBadge>
-                    {row.review_state === "REVIEWED" ? "Geprüft" : "Ausgeblendet"}
-                  </StatusBadge></> : null}
+                  {row.review_state === "REVIEWED" ? <> <StatusBadge tone="warning">Zum Prüfen</StatusBadge></> : null}
+                  {row.review_state === "DISMISSED" ? <> <StatusBadge>Ausgeblendet</StatusBadge></> : null}
+                  {row.review_state === "IMPORTED" ? <> <StatusBadge tone="success">Angelegt</StatusBadge></> : null}
                 </summary>
-                <p>{row.facts.label ?? (manualSnapshot ? overtureCategoryLabels[row.facts.category] ?? row.facts.category : "Spielplatz")} · {row.facts.lat.toFixed(5)}, {row.facts.lng.toFixed(5)} · geprüft am {formatTime.format(new Date(row.checked_at))}</p>
+                <p>{row.facts.label ?? overtureCategoryLabels[row.facts.category] ?? row.facts.category} · {row.facts.lat.toFixed(5)}, {row.facts.lng.toFixed(5)} · geprüft am {formatTime.format(new Date(row.checked_at))}</p>
                 <p>Öffnungszeiten gemäss Quelle: {row.facts.hours ?? "Keine Angabe"}</p>
                 {row.facts.address || row.facts.city ? <p>{[row.facts.address, row.facts.city].filter(Boolean).join(", ")}</p> : null}
                 {row.facts.phone ? <p>Telefon gemäss Quelle: {row.facts.phone}</p> : null}
+                {row.facts.website ? <p>Website gemäss Quelle: {row.facts.website}</p> : null}
                 {row.facts.equipment.length > 0 ? <p>Ausstattung: {row.facts.equipment.join(", ")}</p> : null}
                 <p><a href={sourceEntry(row)}>{manualSnapshot ? "Datensatz ansehen" : "Quelleneintrag ansehen"}</a>{row.facts.external_id ? <> · GERS-ID {row.facts.external_id}</> : null}</p>
-                {row.facts.attribution?.length ? <p>Quelle: {row.facts.attribution.join(", ")}</p> : null}
+                <p>{row.facts.attribution?.join(", ") || metadata.credit} · <a href={license}>Lizenzhinweise</a></p>
                 {changes(row).map(field => <p key={field.label}>{field.label}: {field.before || "Keine Angabe"} → {field.after || "Keine Angabe"}</p>)}
-                {row.spots.map(spot => <p key={spot.id}>
+                {row.spots.filter(spot => spot.id !== row.imported_spot_id).map(spot => <p key={spot.id}>
                   <Link href={`/spots/${spot.id}/edit`}>{spot.name}</Link> · {spot.address ?? "Keine Adresse"} · {spot.distance_m} m{spot.status === "archived" ? " · Archiviert" : ""}
                 </p>)}
-                <div className="admin-pageActions" aria-busy={reviewingId === row.source_id}>
-                  {row.review_state === "OPEN" ? <>
-                    <button className="bi-actionButton" type="button" disabled={reviewingId !== null}
-                      onClick={() => void setReview(row, "REVIEWED")}>Als geprüft markieren</button>
-                    <button className="bi-actionButton" type="button" disabled={reviewingId !== null}
-                      onClick={() => void setReview(row, "DISMISSED")}>Ausblenden</button>
-                  </> : <button className="bi-actionButton" type="button" disabled={reviewingId !== null}
-                    onClick={() => void setReview(row, "REOPENED")}>In die Arbeitsliste</button>}
+                {row.state === "NEW" && !row.category_id && (row.review_state === "OPEN" || row.review_state === "REVIEWED") ? (
+                  <p><label>Backyrd-Kategorie{" "}
+                    <select value={categoryChoices[row.source_id] ?? ""} disabled={busy}
+                      onChange={event => setCategoryChoices({ ...categoryChoices, [row.source_id]: event.target.value })}>
+                      <option value="">Bitte auswählen</option>
+                      {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                    </select>
+                  </label></p>
+                ) : null}
+                <div className="admin-pageActions" aria-busy={reviewingId === row.source_id || creatingId === row.source_id}>
+                  {row.imported_spot_id ? (
+                    <Link className="bi-actionButton" href={`/spots/${row.imported_spot_id}/edit`}>Spot öffnen</Link>
+                  ) : null}
+                  {row.review_state === "OPEN" ? (
+                    <button className="bi-actionButton" type="button" disabled={busy}
+                      onClick={() => void setReview(row, "REVIEWED")}>{reviewingId === row.source_id ? "Speichert …" : "On hold"}</button>
+                  ) : null}
+                  {row.review_state === "REVIEWED" || row.review_state === "DISMISSED" ? (
+                    <button className="bi-actionButton" type="button" disabled={busy}
+                      onClick={() => void setReview(row, "REOPENED")}>Zurück zu Offen</button>
+                  ) : null}
+                  {row.state === "NEW" && (row.review_state === "OPEN" || row.review_state === "REVIEWED") ? (
+                    <button className="bi-primaryButton" type="button"
+                      disabled={busy || !(row.category_id ?? categoryChoices[row.source_id])}
+                      onClick={() => void createSpot(row)}>{creatingId === row.source_id ? "Wird angelegt …" : "Spot anlegen"}</button>
+                  ) : null}
                 </div>
-                {row.state === "NEW" && row.review_state === "OPEN" ? <p><button className="bi-actionButton" type="button" disabled={openingId !== null} onClick={() => void openDraft(row.source_id)}>{openingId === row.source_id ? "Wird geprüft …" : "Spot-Editor öffnen"}</button></p> : null}
+                {row.state === "NEW" && (row.review_state === "OPEN" || row.review_state === "REVIEWED") ? (
+                  <p>Der Spot erscheint sofort als freigegeben in der Spotliste.</p>
+                ) : null}
               </details>)}
             </SectionCard>}
-        </>}
       </> : null}
     </div>
   );
