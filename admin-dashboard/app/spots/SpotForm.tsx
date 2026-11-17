@@ -8,15 +8,15 @@ import type { Spot, SpotStatus } from "@/types/spots";
 type SpotFormValues = Omit<Spot, "id" | "created_at" | "created_by">;
 
 type SpotBasicsSaveResponse = {
-  spot: SpotFormValues;
+  spot: Spot;
   readiness: unknown;
 };
 
 interface SpotFormProps {
   mode: "create" | "edit";
-  initialValues?: SpotFormValues & { opening_hours?: any[] };
+  initialValues?: SpotFormValues;
   spotId?: string;
-  onSaved?: () => void;
+  onSaved?: (savedSpot?: Spot) => void;
   /**
    * Existing approved spots are edited through World Knowledge. In that mode
    * this form owns only lifecycle and media; it must not write a second copy
@@ -109,11 +109,6 @@ function parseTagInput(value: string): string[] {
     .filter(Boolean);
 }
 
-function tagsToText(value: unknown): string {
-  if (!Array.isArray(value)) return "";
-  return value.filter(Boolean).join(", ");
-}
-
 function cleanNullableText(value: string): string | null {
   const trimmed = value.trim();
   return trimmed.length ? trimmed : null;
@@ -166,11 +161,6 @@ function createEmptyOpeningHours(): OpeningHoursByDay {
     acc[day] = [];
     return acc;
   }, {} as OpeningHoursByDay);
-}
-
-function normalizeTime(value: string | null | undefined): string | null {
-  if (!value) return null;
-  return String(value).slice(0, 5);
 }
 
 function loadGoogleScript(apiKey: string): Promise<void> {
@@ -314,33 +304,6 @@ export function SpotForm({
   }, [values.header_photo_path]);
 
   useEffect(() => {
-    if (canonicalKnowledgeManaged) return;
-    if (!initialValues?.opening_hours) return;
-
-    const next = createEmptyOpeningHours();
-
-    const sortedRows = [...initialValues.opening_hours].sort((a: any, b: any) => {
-      const aIdx = typeof a.idx === "number" ? a.idx : 9999;
-      const bIdx = typeof b.idx === "number" ? b.idx : 9999;
-      return aIdx - bIdx;
-    });
-
-    for (const row of sortedRows) {
-      const day = row.day_of_week;
-      if (!day || !DAYS_OF_WEEK.includes(day)) continue;
-
-      const open = normalizeTime(row.open_time);
-      const close = normalizeTime(row.close_time);
-
-      if (!open || !close) continue;
-
-      next[day].push(createOpeningSlot(open, close));
-    }
-
-    setOpeningHours(next);
-  }, [canonicalKnowledgeManaged, initialValues]);
-
-  useEffect(() => {
     if (!spotId) return;
 
     async function loadGallery() {
@@ -355,74 +318,6 @@ export function SpotForm({
 
     void loadGallery();
   }, [spotId]);
-
-  useEffect(() => {
-    if (canonicalKnowledgeManaged) return;
-    if (!spotId) return;
-
-    async function loadContentAndIntelligence() {
-      const { data: descriptionData, error: descriptionError } = await supabase
-        .from("spot_descriptions")
-        .select(
-          "admin_description, admin_keywords, owner_description, owner_keywords, enriched_description, enriched_keywords",
-        )
-        .eq("spot_id", spotId)
-        .maybeSingle();
-
-      if (!descriptionError && descriptionData) {
-        setAdminDescription(
-          (descriptionData.admin_description ||
-            descriptionData.owner_description ||
-            descriptionData.enriched_description ||
-            "") as string,
-        );
-        setAdminKeywords(
-          tagsToText(
-            descriptionData.admin_keywords ||
-              descriptionData.owner_keywords ||
-              descriptionData.enriched_keywords ||
-              [],
-          ),
-        );
-      }
-
-      const { data: intelligenceData, error: intelligenceError } =
-        await supabase.rpc("get_spot_intelligence_v1", { p_spot_id: spotId });
-
-      if (
-        !intelligenceError &&
-        Array.isArray(intelligenceData) &&
-        intelligenceData[0]
-      ) {
-        const row = intelligenceData[0];
-        setIntelligence({
-          best_for: tagsToText(row.best_for),
-          occasion_tags: tagsToText(row.occasion_tags),
-          atmosphere_tags: tagsToText(row.atmosphere_tags),
-          avoid_if_tags: tagsToText(row.avoid_if_tags),
-          good_for_time: tagsToText(row.good_for_time),
-          noise_level: row.noise_level || "",
-          crowd_type: tagsToText(row.crowd_type),
-          dress_code: row.dress_code || "",
-          reservation_recommended:
-            row.reservation_recommended === true
-              ? "true"
-              : row.reservation_recommended === false
-                ? "false"
-                : "",
-          average_duration_minutes: row.average_duration_minutes
-            ? String(row.average_duration_minutes)
-            : "",
-          signature_items: tagsToText(row.signature_items),
-          special_notes: row.special_notes || "",
-          admin_notes: row.admin_notes || "",
-          is_verified: Boolean(row.is_verified),
-        });
-      }
-    }
-
-    void loadContentAndIntelligence();
-  }, [canonicalKnowledgeManaged, spotId]);
 
   function handleChange<K extends keyof SpotFormValues>(
     key: K,
@@ -663,6 +558,7 @@ export function SpotForm({
     setSuccess(null);
 
     let savedSpotId = spotId ?? null;
+    let savedSpot: Spot | undefined;
 
     const newPhotoCount=(headerFile?1:0)+galleryFiles.length;
     const normalized = normalizeSpotFormValues(values);
@@ -708,12 +604,13 @@ export function SpotForm({
           throw new Error("Der gespeicherte Spot konnte nicht bestätigt werden.");
         }
         const confirmed = data as SpotBasicsSaveResponse;
+        savedSpot = confirmed.spot;
         setValues(normalizeSpotFormValues(confirmed.spot));
       }
 
       if (!savedSpotId) throw new Error("Spot ID fehlt nach dem Speichern.");
 
-      if (!canonicalKnowledgeManaged) {
+      if (mode === "create" && !canonicalKnowledgeManaged) {
         await upsertAdminContent(savedSpotId);
         await upsertIntelligence(savedSpotId);
         await upsertOpeningHours(savedSpotId);
@@ -739,10 +636,10 @@ export function SpotForm({
         setUploadingPhoto(false);
       }
 
-      if (!canonicalKnowledgeManaged) await refreshSpotMl(savedSpotId);
+      if (mode === "create" && !canonicalKnowledgeManaged) await refreshSpotMl(savedSpotId);
 
       setSuccess(canonicalKnowledgeManaged ? newPhotoCount ? `${newPhotoCount} ${newPhotoCount===1?"Bild":"Bilder"} und Verwaltungsangaben gespeichert.` : "Verwaltungsangaben gespeichert. Es waren keine neuen Bilder ausgewählt." : "Gespeichert");
-      onSaved?.();
+      onSaved?.(savedSpot);
     } catch (err: unknown) {
       const failure = err && typeof err === "object" ? err as Record<string, unknown> : {};
       console.error("SpotForm save failed:", {
@@ -931,6 +828,7 @@ export function SpotForm({
           </Field>
         </div>
 
+        {mode === "create" ? <>
         <div className="by-panel by-section" style={{ padding: 14 }}>
           <div className="by-h3">Beschreibung</div>
           <div className="by-muted by-small">
@@ -1268,6 +1166,7 @@ export function SpotForm({
             })}
           </div>
         </div>
+        </> : null}
         </div>
 
         {canonicalKnowledgeManaged ? (

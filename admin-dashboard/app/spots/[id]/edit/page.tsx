@@ -18,15 +18,6 @@ type EditSpotPageProps = {
   params: Promise<{ id: string }>;
 };
 
-interface OpeningHourRow {
-  id: string;
-  spot_id: string;
-  day_of_week: string;
-  open_time: string | null;
-  close_time: string | null;
-  idx: number;
-}
-
 const subscribeHash = (listener: () => void) => { window.addEventListener("hashchange", listener); return () => window.removeEventListener("hashchange", listener); };
 const readHash = () => window.location.hash;
 const serverHash = () => "";
@@ -41,9 +32,12 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
 
   const hash = useSyncExternalStore(subscribeHash, readHash, serverHash);
   const [selectedView,setEditorView]=useState<"profile"|"media"|"events"|null>(null);
-  const editorView = selectedView ?? (hash === "#events" ? "events" : "profile");
   const [spot, setSpot] = useState<Spot | null>(null);
-  const [openingHours, setOpeningHours] = useState<OpeningHourRow[]>([]);
+  const isDraft = spot?.status === "pending";
+  const requestedView = selectedView ?? (hash === "#events" ? "events" : "profile");
+  const editorView = requestedView === "events" || spot?.status === "approved"
+    ? requestedView
+    : isDraft ? "profile" : "media";
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [archiveConfirmation, setArchiveConfirmation] = useState(false);
@@ -61,16 +55,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
 
         if (spotError || !spotData) throw spotError;
 
-        const { data: hoursData, error: hoursError } = await supabase
-          .from("spot_hours")
-          .select("*")
-          .eq("spot_id", spotId)
-          .order("idx");
-
-        if (hoursError) throw hoursError;
-
         setSpot(spotData as Spot);
-        setOpeningHours((hoursData ?? []) as OpeningHourRow[]);
       } catch (err: unknown) {
         console.error(err);
         setError(err instanceof Error ? err.message : "Fehler beim Laden.");
@@ -147,7 +132,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
           <button
             type="button"
             className="spot-editor-delete"
-            hidden={editorView!=="media"}
+            hidden={editorView !== (isDraft ? "profile" : "media")}
             onClick={() => setArchiveConfirmation(true)}
             disabled={deleting}
           >
@@ -164,8 +149,14 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
       </div>
 
       <nav className="spot-editor-tabs" aria-label="Spot-Bereiche">
-        <button type="button" aria-pressed={editorView==="profile"} onClick={()=>setEditorView("profile")}>Profil & Angebote</button>
-        <button type="button" aria-pressed={editorView==="media"} onClick={()=>setEditorView("media")}>Bilder & Verwaltung</button>
+        {spot.status === "approved" || isDraft ? (
+          <button type="button" aria-pressed={editorView === "profile"} onClick={() => setEditorView("profile")}>
+            {isDraft ? "Spot-Angaben & Bilder" : "Profil & Angebote"}
+          </button>
+        ) : null}
+        {!isDraft ? (
+          <button type="button" aria-pressed={editorView === "media"} onClick={() => setEditorView("media")}>Bilder & Verwaltung</button>
+        ) : null}
         <button type="button" aria-pressed={editorView==="events"} onClick={()=>setEditorView("events")}>Events & Veranstaltungen</button>
         <details className="spot-editor-more"><summary>Weitere Aktionen</summary><div><Link href="/spots/presentation">App-Darstellung verwalten</Link><Link href={`/spots/${spotId}`}>Spot-Übersicht öffnen</Link><Link href={`/spots/${spotId}/owner`}>Owner-Zugang verwalten</Link></div></details>
       </nav>
@@ -186,7 +177,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
         </div>
       ) : null}
 
-      <div id="spot-understanding" className="spot-editor-anchor" hidden={editorView!=="profile"}>
+      {spot.status === "approved" ? <div id="spot-understanding" className="spot-editor-anchor" hidden={editorView!=="profile"}>
         <WorldProductCorrection
           initialSpotId={spotId}
           client={worldAuthoringClient}
@@ -195,18 +186,22 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
           addressPicker={WorldAddressPicker}
           rebuild={(id, idempotencyKey) => authorizedWorldKnowledgePost({ auth: supabase.auth, body: { action: "product-rebuild", spotId: id, idempotencyKey } })}
         />
-      </div>
+      </div> : null}
       <div id="events" hidden={editorView!=="events"}><SpotEvents key={spotId} spotId={spotId} admin rpc={eventRpc} formatTags={EVENT_DECISION_TAGS}/></div>
-      <div id="spot-information" className="spot-editor-anchor" hidden={editorView!=="media"}><SpotForm
-        mode="edit"
-        spotId={spotId}
-        initialValues={{
-          ...spot,
-          opening_hours: openingHours,
-        }}
-        canonicalKnowledgeManaged
-        onSaved={() => router.refresh()}
-      /></div>
+      <div id="spot-information" className="spot-editor-anchor" hidden={editorView === "events" || (spot.status === "approved" && editorView !== "media")}>
+        {isDraft ? <p className="by-muted">Hier kannst du die Basisangaben und Bilder bearbeiten. Nach der Freigabe findest du weitere Angaben unter «Profil &amp; Angebote».</p> : null}
+        <SpotForm
+          key={spotId}
+          mode="edit"
+          spotId={spotId}
+          initialValues={spot}
+          canonicalKnowledgeManaged={!isDraft}
+          onSaved={(savedSpot) => {
+            if (savedSpot) setSpot(savedSpot);
+            router.refresh();
+          }}
+        />
+      </div>
     </div>
   );
 }

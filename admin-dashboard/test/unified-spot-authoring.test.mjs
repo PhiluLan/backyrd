@@ -15,10 +15,17 @@ test("approved spot editing presents World Knowledge before non-semantic operati
   assert.match(page, /canonicalKnowledgeManaged/);
 });
 
+test("pending imported spots use the Admin form before World Knowledge is available", () => {
+  assert.match(page, /const isDraft = spot\?\.status === "pending"/);
+  assert.match(page, /spot\.status === "approved" \? <div id="spot-understanding"/);
+  assert.match(page, /canonicalKnowledgeManaged=\{!isDraft\}/);
+  assert.match(page, /if \(savedSpot\) setSpot\(savedSpot\)/);
+});
+
 test("compatibility mode cannot write a second copy of semantic facts", () => {
   assert.match(form, /const payload: Partial<SpotFormValues> = canonicalKnowledgeManaged/);
-  assert.match(form, /if \(!canonicalKnowledgeManaged\) \{\s*await upsertAdminContent/);
-  assert.match(form, /if \(!canonicalKnowledgeManaged\) await refreshSpotMl/);
+  assert.match(form, /if \(mode === "create" && !canonicalKnowledgeManaged\) \{\s*await upsertAdminContent/);
+  assert.match(form, /if \(mode === "create" && !canonicalKnowledgeManaged\) await refreshSpotMl/);
   assert.match(form, /hidden=\{canonicalKnowledgeManaged\}/);
   assert.match(form, /Hier verwaltest du Bilder und den Veröffentlichungsstatus/);
 });
