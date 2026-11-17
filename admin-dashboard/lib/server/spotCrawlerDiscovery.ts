@@ -7,8 +7,9 @@ import type { CrawlerCategory, CrawlerFacts, CrawlerSettings } from "../spotCraw
 
 type JsonRecord = Record<string, unknown>;
 type Address = { street: string; postalCode: string };
+type VisibleAddress = Address & { alternatePostalCodes: string[] };
 type Coordinates = { lat: number; lng: number; coordinates_source?: string };
-type Evidence = Omit<CrawlerFacts, "external_id" | "lat" | "lng"> & { postalCode: string; coordinates?: Coordinates };
+type Evidence = Omit<CrawlerFacts, "external_id" | "lat" | "lng"> & { postalCode: string; alternatePostalCodes?: string[]; coordinates?: Coordinates };
 const record = (value: unknown): JsonRecord | null =>
   value !== null && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : null;
 const values = (value: unknown): unknown[] => Array.isArray(value) ? value : [value];
@@ -61,30 +62,67 @@ function point(lat: unknown, lng: unknown): Coordinates | undefined {
   return a >= 47.519 && a <= 47.599 && b >= 7.554 && b <= 7.635 ? { lat:a, lng:b } : undefined;
 }
 
+type VenueIdentity = Pick<CrawlerFacts, "name" | "category" | "website">;
+
+function visibleText(html: string) {
+  return html.replace(/<[^>]*>/gu, "").replace(/&(?:nbsp|#160);/giu, " ")
+    .replace(/&(?:amp|#38);/giu, "&").replace(/&(?:eacute|#233);/giu, "é")
+    .replace(/&([aou])uml;/giu, (_, vowel: string) => ({ a: "ä", o: "ö", u: "ü", A: "Ä", O: "Ö", U: "Ü" })[vowel] ?? vowel);
+}
+
+function venueCategory(text: string): CrawlerCategory | undefined {
+  if (/(?:^|[^\p{L}])(?:caf[eé]|kaffeebar|kaffeehaus|coffee shop|specialty coffee)(?![\p{L}])|café(?:$|\s)/iu.test(text)) return "CAFE";
+  if (/\b(?:restaurant|bistro|brasserie|ristorante|pizzeria)\b/iu.test(text)) return "RESTAURANT";
+  if (/\b(?:bar|weinbar|cocktailbar)\b/iu.test(text)) return "BAR";
+  if (/\b(?:nachtclub|nightclub)\b/iu.test(text)) return "NIGHTCLUB";
+}
+
 function visiblePlace(body: string, pageUrl: string) {
   const html = visibleSourceHtml(body)
     .replace(/<(script|style|svg|noscript)\b[^>]*>[\s\S]*?<\/\1>/giu, "");
-  const visible = html.replace(/<(?:br\b[^>]*|\/(?:p|div|address|li|section|footer|h[1-6]))>/giu, "\n")
-    .replace(/<[^>]*>/gu, "").replace(/&(?:nbsp|#160);/giu, " ");
-  const found = [...visible.matchAll(/(?:^|\n)[ \t]*([\p{L}][\p{L} '.’–-]{2,65} \d{1,4}[a-z]?(?:[-–]\d{1,4}[a-z]?)?)[, \t\n]+(40\d{2})[ \t]+Basel\b/gimu)];
-  const addresses = new Map(found.map(([,street,postalCode]) =>
-    [normalize(street) + postalCode, {street:street.trim(), postalCode}]));
-  const address = addresses.size === 1 ? addresses.values().next().value : undefined;
-  const title = clean(html.match(/<title\b[^>]*>([^<]*)<\/title>/iu)?.[1], 180);
-  const titleName = title.split(/[|–—,]| - /u)[0]?.trim().replace(/\s+Basel$/iu, "");
-  // The page title must itself describe one venue. A generic term in prose
-  // or in a directory's list of businesses is not identity evidence.
-  const category: CrawlerCategory | undefined = !titleName ? undefined
-    : /\b(?:café|cafe|kaffeebar|coffee shop)\b|café(?:$|\s)/iu.test(titleName) ? "CAFE"
-    : /\b(?:restaurant|bistro|brasserie|ristorante|pizzeria)\b/iu.test(titleName) ? "RESTAURANT"
-    : /\b(?:bar|weinbar|cocktailbar)\b/iu.test(titleName) ? "BAR"
-    : /\b(?:nachtclub|nightclub)\b/iu.test(titleName) ? "NIGHTCLUB" : undefined;
-  const distinctName = titleName && !/^(?:[0-9]|restaurant$|bistro$|café$|cafe$|bar$|nachtclub$|nightclub$)/iu.test(titleName);
-  const singleVenue = new URL(pageUrl).pathname.replace(/\/$/u,"") === "";
-  return { address, identity: singleVenue && distinctName && category ? {name:titleName, category} : undefined };
+  const textLines = (body: string) => visibleText(body.replace(/<title\b[^>]*>[\s\S]*?<\/title>/giu, "").replace(/<(?:br\b[^>]*|\/(?:p|div|address|li|section|footer|h[1-6]))>/giu, "\n"))
+    .replace(/[^\S\r\n]+/gu, " ").replace(/\n +/gu, "\n");
+  const visible = textLines(html);
+  const main = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/iu)?.[1];
+  function addressesFrom(text: string) {
+    return [...text.matchAll(/(?:^|\n)[ \t]*([\p{L}][\p{L} .’'–-]{2,65} \d{1,4}[a-z]?(?:[-–]\d{1,4}[a-z]?)?)[, \t\n]+(?:CH[ \t]*[-–]?[ \t]*)?(40\d{2})[, \t]+Basel\b/gimu)]
+      .map(match => ({ street: match[1], postalCode: match[2], preceding: text.slice(Math.max(0, match.index - 200), match.index).trim().split("\n").at(-1) ?? "" }));
+  }
+  const primaryAddresses = main ? addressesFrom(textLines(main)) : [];
+  const pageAddresses = primaryAddresses.length ? primaryAddresses : addressesFrom(visible);
+  const venueAddresses = pageAddresses.filter(item => !/\b(?:AG|GmbH|Sàrl|Ltd)\.?$/u.test(item.preceding));
+  // Branch pages can repeat their operator's legal address in the footer.
+  // Keep the venue address only when the residual evidence is unambiguous.
+  const found = venueAddresses.length ? venueAddresses : pageAddresses;
+  const streets = new Set(found.map(item => normalize(item.street)));
+  const postalCodes = [...new Set(found.map(item => item.postalCode))];
+  const address: VisibleAddress | undefined = streets.size === 1 && postalCodes.length <= 2
+    ? { street: found[0].street, postalCode: postalCodes[0], alternatePostalCodes: postalCodes.slice(1) } : undefined;
+  const title = clean(visibleText(html.match(/<title\b[^>]*>([^<]*)<\/title>/iu)?.[1] ?? ""), 180);
+
+  // A descriptive heading may name one branch even if the site title starts
+  // with generic words (e.g. "Kontakt") or only names the parent business.
+  const headings = [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/giu)]
+    .map(([, text]) => clean(visibleText(text), 140)).filter(Boolean);
+  const displayName = (text: string) => text.split(/[|–—,]| - /u)[0]?.trim().replace(/\s+(?:in\s+)?Basel$/iu, "") ?? "";
+  function namedVenue(name: string, category: CrawlerCategory | undefined): VenueIdentity | undefined {
+    if (!category || name.length < 3 || name.split(/\s+/u).length > 7
+      || /^(?:best[esn]* |die |unser[e]?[nm]? |welche |willkommen|home$|startseite$|über uns$|kontakt$|kaffee$|restaurant$|bistro$|café$|cafe$|bar$|nachtclub$|nightclub$|specialty coffee$)/iu.test(name)) return;
+    return { name, category, website: pageUrl };
+  }
+  const headingIdentities = headings.flatMap(heading => namedVenue(displayName(heading), venueCategory(heading)) ?? []);
+  const category = venueCategory(title);
+  const primary = namedVenue(displayName(title), category);
+  const namedAddress = address ? found.map(item => displayName(item.preceding)).find(name => {
+    const brand = normalize(name).replace(/\b(cafe|kaffeehaus|restaurant|bar|bistro)\b/gu, "").trim();
+    return brand.length >= 3 && normalize(title).includes(brand) && venueCategory(name) !== undefined;
+  }) : undefined;
+  const linkedIdentity = namedAddress ? namedVenue(namedAddress, venueCategory(namedAddress)) : undefined;
+  const identity = primary ?? (headings.length === 1 ? headingIdentities[0] : undefined) ?? linkedIdentity;
+  return { address, identity, visible, ambiguous: streets.size > 1 };
 }
 
-export function readCrawlerEvidence(page: PublicPage, categories: readonly CrawlerCategory[]): Evidence[] {
+export function readCrawlerEvidence(page: PublicPage, categories: readonly CrawlerCategory[], referringVenue?: VenueIdentity): Evidence[] {
   if (typeof page.body !== "string" || !/html/iu.test(page.contentType)) return [];
   const visible = visiblePlace(page.body, page.url);
   const structured = jsonLd(page.body);
@@ -112,25 +150,39 @@ export function readCrawlerEvidence(page: PublicPage, categories: readonly Crawl
     const hours = values(node.openingHours).map(item => clean(item, 120)).filter(Boolean).slice(0, 14).join("; ");
     return [{ name, category, postalCode, address:street, website, source_url:page.url, observed_at:page.observedAt,
       ...(coordinates ? {coordinates} : {}),
+      ...(postal?.alternatePostalCodes.length ? { alternatePostalCodes: postal.alternatePostalCodes } : {}),
       ...(/^\+?[0-9][0-9 ()/.-]{5,38}$/u.test(phone) ? {phone} : {}),
       ...(/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/iu.test(email) ? {email} : {}),
       ...(hours ? {hours} : {}),
       ...(clean(node.priceRange, 80) ? {price_hint:clean(node.priceRange, 80)} : {}),
     }];
   });
-  if (venues.length || !visible.identity || !visible.address || !categories.includes(visible.identity.category)) return extracted;
-  return [{...visible.identity, postalCode:visible.address.postalCode,address:visible.address.street,
-    website:page.url,source_url:page.url,observed_at:page.observedAt}];
+  const sameVenue = referringVenue && host(referringVenue.website) === host(page.url)
+    && normalize(visible.visible).includes(normalize(referringVenue.name));
+  const fallback = visible.identity ?? (sameVenue ? referringVenue : undefined);
+  const declaredAddress = record(venues[0]?.address);
+  const declaredCity = normalize(clean(declaredAddress?.addressLocality, 80));
+  const declaredWebsite = clean(venues[0]?.url, 1100);
+  if (extracted.length || venues.length > 1 || (declaredCity && declaredCity !== "basel")
+    || (declaredWebsite && (!sourceUrl(declaredWebsite) || host(declaredWebsite) !== host(page.url)))
+    || !fallback || !visible.address || !categories.includes(fallback.category)) return extracted;
+  return [{ ...fallback, postalCode: visible.address.postalCode, alternatePostalCodes: visible.address.alternatePostalCodes,
+    address: visible.address.street, source_url: page.url, observed_at: page.observedAt }];
 }
 
 /** Deterministic rotation across category, district and query wording. */
 export function planCrawlerQueries(settings: CrawlerSettings, runId: number): string[] {
   const terms: Record<CrawlerCategory, string[]> = {
-    RESTAURANT:["Restaurant", "Neueröffnung Restaurant", "Bistro"], CAFE:["Café", "neues Café", "Kaffeebar"],
+    RESTAURANT:["Restaurant", "Neueröffnung Restaurant", "Bistro"], CAFE:["Café", "neues Café", "Kaffeebar", "Specialty Coffee", "Kaffeehaus", "Café Brunch", "Espressobar", "Café Kontakt"],
     BAR:["Bar", "neue Cocktailbar", "Weinbar"], NIGHTCLUB:["Club", "Nachtclub", "Tanzen Club"],
   };
-  const queries = settings.districts.flatMap(district => settings.categories.flatMap(category =>
-    terms[category].map(term => `${term} ${district === "Basel" ? "Basel" : `Basel ${district}`} Öffnungszeiten`)));
+  const hasCitywideCafe = settings.districts.includes("Basel") && settings.categories.includes("CAFE");
+  const neighborhoods = ["Kleinbasel", "Gundeldingen", "Altstadt", "St. Johann", "Bachletten", "Clara", "Matthäus", "Iselin"];
+  const queries = [...new Set([
+    ...settings.districts.flatMap(district => settings.categories.flatMap(category =>
+      terms[category].map(term => `${term} Basel${district === "Basel" ? "" : ` ${district}`} Öffnungszeiten`))),
+    ...(hasCitywideCafe ? neighborhoods.flatMap(district => [`Café Basel ${district} Kontakt`, `Kaffeebar Basel ${district} Öffnungszeiten`]) : []),
+  ])];
   const offset = queries.length ? (runId * 7) % queries.length : 0;
   return [...queries.slice(offset), ...queries.slice(0, offset)].slice(0, settings.searches);
 }
@@ -193,12 +245,25 @@ export async function crawlSpotPages(urls: string[], settings: CrawlerSettings, 
   const load = options.load ?? fetchPublicSource;
   const locate = options.locate ?? lookupAddress;
   const robots = new Map<string, Promise<string | null>>();
-  const attempts = new Set<string>();
+  const pages = new Map<string, Promise<PublicPage | undefined>>();
   let pagesChecked = 0;
   const candidates = new Map<string, CrawlerFacts>();
-  async function read(url: string) {
-    if (Date.now() >= options.deadline || attempts.size >= 48 || attempts.has(url)) return;
-    attempts.add(url);
+  const located = new Map<string, Promise<Coordinates | undefined>>();
+
+  function geocode(street: string, postalCode: string) {
+    const key = `${normalize(street)}|${postalCode}`;
+    const pending = located.get(key);
+    if (pending) return pending;
+    const result = locate({ street, postalCode }).catch(() => undefined);
+    located.set(key, result);
+    return result;
+  }
+  function read(url: string) {
+    if (!pages.has(url) && pages.size < 48 && Date.now() < options.deadline) pages.set(url, fetchPage(url));
+    return pages.get(url);
+  }
+
+  async function fetchPage(url: string) {
     const parsed = new URL(url);
     const origin = parsed.origin;
     if (!robots.has(origin)) {
@@ -219,22 +284,28 @@ export async function crawlSpotPages(urls: string[], settings: CrawlerSettings, 
   for (let offset=0; offset<links.length && Date.now()<options.deadline; offset+=6) {
     await Promise.all(links.slice(offset,offset+6).map(async (url) => {
       try {
-        let page=await read(url);
+        const page = await read(url);
         if (!page) return;
-        let evidence=readCrawlerEvidence(page,settings.categories);
+        let evidence = readCrawlerEvidence(page, settings.categories);
         if (!evidence.length) {
-          const contact=discoverResearchLinks(page).find(link=>/kontakt|contact|anfahrt|location/iu.test(link.label+" "+link.url) && host(link.url)===host(url));
-          const next=contact && sourceUrl(contact.url);
-          if (next) page=await read(next);
-          if (page) evidence=readCrawlerEvidence(page,settings.categories);
+          const mainVenue = typeof page.body === "string" ? visiblePlace(page.body, page.url) : undefined;
+          const contact = mainVenue?.ambiguous ? undefined : discoverResearchLinks(page).find(link =>
+            /kontakt|contact|anfahrt|location/iu.test(link.label+" "+link.url) && host(link.url) === host(url)
+            && !/^\/(?:policies|legal)(?:\/|$)/iu.test(new URL(link.url).pathname));
+          const next = contact && sourceUrl(contact.url);
+          const contactPage = next ? await read(next) : undefined;
+          if (contactPage) evidence = readCrawlerEvidence(contactPage, settings.categories, mainVenue?.identity);
         }
         for (const found of evidence.slice(0,3)) {
           if(Date.now()>=options.deadline)break;
-          const {postalCode,coordinates,...facts}=found;
-          const id=createHash("sha256").update(`${normalize(facts.name)}|${normalize(facts.address)}|${postalCode}`).digest("hex");
-          if (candidates.has(id)) continue;
-          const position=coordinates ?? await locate({street:facts.address,postalCode}).catch(()=>undefined);
-          if (position) candidates.set(id,{...facts,...position,external_id:id});
+          const { postalCode, alternatePostalCodes, coordinates, ...facts } = found;
+          const positions = coordinates ? [{ postalCode, position: coordinates }] : (await Promise.all(
+            [postalCode, ...(alternatePostalCodes ?? [])].map(async code =>
+              ({ postalCode: code, position: await geocode(facts.address, code) })),
+          )).filter(item => item.position);
+          if (positions.length !== 1 || !positions[0].position) continue;
+          const id = createHash("sha256").update(`${normalize(facts.name)}|${normalize(facts.address)}|${positions[0].postalCode}`).digest("hex");
+          candidates.set(id, { ...facts, ...positions[0].position, external_id: id });
         }
       } catch { /* A single unavailable or disallowed site is not a failed run. */ }
     }));
@@ -259,5 +330,5 @@ export async function discoverCrawlerSpots(settings: CrawlerSettings, runId: num
   const interleaved=Array.from({length:10},(_,rank)=>urls.flatMap(result=>result[rank]??[])).flat();
   const discovered=await crawlSpotPages(interleaved,settings,{deadline});
   if (!discovered.pagesChecked && interleaved.length) throw new Error("SOURCES_UNAVAILABLE");
-  return discovered;
+  return { ...discovered, searchResponses: urls.length, distinctSearchLinks: new Set(interleaved).size };
 }

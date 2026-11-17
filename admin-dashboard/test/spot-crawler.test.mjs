@@ -109,3 +109,28 @@ test("open candidates skip a page of processed finds and history preserves the e
   const history = await route.GET(new Request("https://example.org/api/spot-crawler?view=history"));
   assert.deepEqual((await history.json()).overview.rows, [approved, duplicate, rejected]);
 });
+
+
+test("a Basel café search uses the configured budget and looks across neighbourhoods", () => {
+  const queries = planCrawlerQueries({ ...settings, categories: ["CAFE"], districts: ["Basel"], searches: 12 }, 2);
+  assert.equal(new Set(queries).size, 12);
+  assert.ok(queries.some(query => query.includes("Kleinbasel") || query.includes("Clara")));
+  assert.ok(queries.every(query => query.includes("Basel")));
+});
+
+test("branch evidence keeps the branch address separate from the parent office", () => {
+  const html = "<title>Café Blüte – Specialty Coffee | Kaffeebetrieb</title><main>"
+    + "<h2>Café Blüte</h2><p>Klybeckstrasse 69, 4057 Basel</p>"
+    + "<p>Kaffeebetrieb AG</p><p>Güterstrasse 140<br>4053 Basel</p></main>";
+  const found = readCrawlerEvidence(page(website + "filiale",html),["CAFE"]);
+  assert.equal(found[0].address,"Klybeckstrasse 69");
+  assert.equal(found[0].name,"Café Blüte");
+  const corporateAddress = readCrawlerEvidence(page(website + "kontakt",
+    "<title>Kontakt | Kaffeebetrieb</title><p>Kaffeebetrieb AG</p><p>Güterstrasse 140<br>4053 Basel</p>"),
+    ["CAFE"], {name:"Café Blüte",category:"CAFE",website:website+"filiale"});
+  assert.deepEqual(corporateAddress,[]);
+  const inferred = readCrawlerEvidence(page(website + "kontakt",
+    "<title>Kaffee | Moment | Basel</title><p>Moment Caf&eacute;</p><p>B&auml;umleingasse 4</p><p>4051 Basel</p>"), ["CAFE"]);
+  assert.equal(inferred[0].name,"Moment Café");
+  assert.equal(inferred[0].address,"Bäumleingasse 4");
+});
