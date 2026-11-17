@@ -75,8 +75,8 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261117112737_world_research_configurable_batches_v1.sql",
-        "sha256": "66b6f47cc90157164f6a907225569ea23d418a536955323eee95d52f43d114f7"
+        "path": "supabase/migrations/20261117124338_simplify_basel_place_import.sql",
+        "sha256": "bf978b80a708c9213f63949c42429ded325aa25f1459f789871f8875f10cc96b"
       }
     ],
     "executionAuthorized": false,
