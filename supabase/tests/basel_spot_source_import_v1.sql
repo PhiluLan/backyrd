@@ -120,6 +120,58 @@ begin
   if public.admin_basel_spot_source_preview_v2(910000003)#>>'{rows,0,review_state}' is distinct from 'OPEN'
     then raise exception 'changed candidate catalog status did not reopen the proposal'; end if;
 
+  v_result:=public.admin_basel_spot_source_preview_v3()->'source';
+  if v_result->>'cadence' is distinct from 'WEEKLY' or v_result->>'enabled' is distinct from 'true'
+    then raise exception 'wrong initial source settings'; end if;
+  if world_knowledge_private.basel_spot_source_dispatch_v1('2026-11-17 03:15Z') is not null
+    or world_knowledge_private.basel_spot_source_dispatch_v1('2026-11-16 03:15Z') is null
+    then raise exception 'weekly source ran outside Monday or did not run on Monday'; end if;
+
+  perform public.admin_basel_spot_source_settings_v1('BASEL_PLAYGROUNDS',true,'MANUAL',v_result->>'revision');
+  v_prior:=public.admin_basel_spot_source_preview_v3()->'source';
+  if v_prior->>'cadence' is distinct from 'MANUAL'
+    or world_knowledge_private.basel_spot_source_dispatch_v1('2026-11-16 03:15Z') is not null
+    or public.admin_basel_spot_source_start_v1() is null
+    then raise exception 'manual schedule did not block cron or blocked manual start'; end if;
+
+  begin
+    perform public.admin_basel_spot_source_settings_v1('BASEL_PLAYGROUNDS',true,'DAILY',v_result->>'revision');
+    raise exception 'allowing stale settings write';
+  exception when serialization_failure then null;
+  end;
+  begin
+    perform public.admin_basel_spot_source_settings_v1('UNREGISTERED',true,'DAILY',v_prior->>'revision');
+    raise exception 'unregistered source was accepted';
+  exception when invalid_parameter_value then null;
+  end;
+
+  perform public.admin_basel_spot_source_settings_v1('BASEL_PLAYGROUNDS',false,'MANUAL',v_prior->>'revision');
+  v_result:=public.admin_basel_spot_source_preview_v3()->'source';
+  if v_result->>'enabled' is distinct from 'false'
+    or world_knowledge_private.basel_spot_source_dispatch_v1('2026-11-16 03:15Z') is not null
+    then raise exception 'paused source ran automatically'; end if;
+  begin
+    perform public.admin_basel_spot_source_start_v1();
+    raise exception 'paused source accepted manual start';
+  exception when object_not_in_prerequisite_state then null;
+  end;
+
+  perform public.admin_basel_spot_source_settings_v1('BASEL_PLAYGROUNDS',true,'DAILY',v_result->>'revision');
+  if world_knowledge_private.basel_spot_source_dispatch_v1('2026-11-17 03:15Z') is null
+    then raise exception 'daily source failed to dispatch'; end if;
+
+  if has_function_privilege('anon','public.admin_basel_spot_source_settings_v1(text,boolean,text,text)','execute')
+    or has_function_privilege('authenticated','world_knowledge_private.basel_spot_source_dispatch_v1(timestamptz)','execute')
+    or has_table_privilege('authenticated','world_knowledge_private.spot_source_settings_v1','update')
+    then raise exception 'unexpected settings grants'; end if;
+  perform set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',true);
+  perform set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+  begin
+    perform public.admin_basel_spot_source_settings_v1('BASEL_PLAYGROUNDS',false,'MANUAL','4');
+    raise exception 'non-admin could edit source settings';
+  exception when insufficient_privilege then null;
+  end;
+
 end;
 $$;
 

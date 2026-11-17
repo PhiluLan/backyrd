@@ -20,13 +20,17 @@ type Run = {
   id: number; status: "FETCHING" | "COMPLETE" | "FAILED"; started_at: string; finished_at: string | null;
   source_count: number | null; outcome: "FETCH_FAILED" | "SNAPSHOT_REJECTED" | null;
 };
-type Preview = { category_id: string | null; runs: Run[]; rows: Row[] };
+type Cadence = "DAILY" | "WEEKLY" | "MANUAL";
+type SourceSettings = { key: string; enabled: boolean; cadence: Cadence; revision: string; schedule_time_utc: string };
+type Preview = { category_id: string | null; runs: Run[]; rows: Row[]; source: SourceSettings };
+type SettingsDraft = Pick<SourceSettings, "enabled" | "cadence">;
 
 const source = "https://data.bs.ch/explore/dataset/100462/";
 const labels: Record<State, string> = { NEW: "Neuer Vorschlag", MATCHED: "Bereits in Backyrd", REVIEW: "Zuordnung prüfen", MISSING: "Fehlt aktuell in der Quelle" };
 const reviewViews: readonly [Filter, string][] = [
   ["OPEN", "Offen"], ["REVIEWED", "Geprüft"], ["DISMISSED", "Ausgeblendet"], ["ALL", "Alle"],
 ];
+const cadenceLabels: Record<Cadence, string> = { DAILY: "Täglich", WEEKLY: "Wöchentlich (Montag)", MANUAL: "Nur manuell" };
 const formatTime = new Intl.DateTimeFormat("de-CH", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Zurich" });
 
 function changes(row: Row) {
@@ -39,6 +43,37 @@ function changes(row: Row) {
     { label: "Ausstattung", before: before.equipment.join(", "), after: facts.equipment.join(", ") },
   ];
   return fields.filter(field => field.before !== field.after);
+}
+
+function SourceControls({ settings, onSave }: {
+  settings: SourceSettings;
+  onSave: (draft: SettingsDraft) => Promise<void>;
+}) {
+  const [enabled, setEnabled] = useState(settings.enabled);
+  const [cadence, setCadence] = useState(settings.cadence);
+  const [saving, setSaving] = useState(false);
+  const changed = enabled !== settings.enabled || cadence !== settings.cadence;
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!changed || saving) return;
+    setSaving(true);
+    try { await onSave({ enabled, cadence }); }
+    finally { setSaving(false); }
+  }
+
+  return <form onSubmit={event => void submit(event)}>
+    <FilterBar>
+      <label><input type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} disabled={saving} /> Quelle aktiv</label>
+      <label>Abruf{" "}
+        <select aria-label="Abruf" value={cadence} onChange={event => setCadence(event.target.value as Cadence)} disabled={saving}>
+          {Object.entries(cadenceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+      </label>
+      <button className="bi-actionButton" type="submit" disabled={!changed || saving}>{saving ? "Speichert …" : "Einstellungen speichern"}</button>
+    </FilterBar>
+    <p>Automatische Abrufe starten um {settings.schedule_time_utc} UTC. Eine ausgeschaltete Quelle pausiert auch manuelle Abrufe.</p>
+  </form>;
 }
 
 export default function SpotImportPage() {
@@ -55,12 +90,12 @@ export default function SpotImportPage() {
     else { setPreview(data as Preview); setError(""); }
   }, []);
   const reload = useCallback(async () => {
-    applyPreview(await supabase.rpc("admin_basel_spot_source_preview_v2"));
+    applyPreview(await supabase.rpc("admin_basel_spot_source_preview_v3"));
   }, [applyPreview]);
 
   useEffect(() => {
     const request = new AbortController();
-    void supabase.rpc("admin_basel_spot_source_preview_v2").abortSignal(request.signal).then(result => {
+    void supabase.rpc("admin_basel_spot_source_preview_v3").abortSignal(request.signal).then(result => {
       if (!request.signal.aborted) applyPreview(result);
     });
     return () => request.abort();
@@ -79,10 +114,36 @@ export default function SpotImportPage() {
       const { error: failure } = await supabase.rpc("admin_basel_spot_source_start_v1");
       if (failure) throw failure;
       await reload();
-    } catch {
-      setError("Der Abruf konnte nicht gestartet werden.");
+    } catch (failure) {
+      if (failure && typeof failure === "object" && "code" in failure && failure.code === "55000") {
+        await reload();
+        setError("Diese Quelle ist ausgeschaltet.");
+      } else {
+        setError("Der Abruf konnte nicht gestartet werden.");
+      }
     } finally {
       setStarting(false);
+    }
+  }
+
+  async function saveSourceSettings(draft: SettingsDraft) {
+    const settings = preview?.source;
+    if (!settings) return;
+    setError("");
+    try {
+      const { error: failure } = await supabase.rpc("admin_basel_spot_source_settings_v1", {
+        p_source_key: settings.key, p_enabled: draft.enabled, p_cadence: draft.cadence, p_revision: settings.revision,
+      });
+      if (failure?.code === "40001") {
+        await reload();
+        setError("Die Einstellungen wurden inzwischen geändert. Bitte prüfe den aktuellen Stand.");
+      } else if (failure) {
+        setError("Die Einstellungen konnten nicht gespeichert werden.");
+      } else {
+        await reload();
+      }
+    } catch {
+      setError("Die Einstellungen konnten nicht gespeichert werden.");
     }
   }
 
@@ -90,7 +151,7 @@ export default function SpotImportPage() {
     setOpeningId(sourceId);
     setError("");
     try {
-      const { data, error: failure } = await supabase.rpc("admin_basel_spot_source_preview_v2", { p_source_id: sourceId });
+      const { data, error: failure } = await supabase.rpc("admin_basel_spot_source_preview_v3", { p_source_id: sourceId });
       if (failure) throw failure;
       const row = (data as Preview).rows[0];
       if (row?.state !== "NEW") {
@@ -140,14 +201,16 @@ export default function SpotImportPage() {
         description="Spielplätze aus Basel-Stadt finden, Änderungen prüfen und neue Spots vorbereitet öffnen."
         actions={<>
           <Link className="bi-actionButton" href="/spots">Zu den Spots</Link>
-          <button className="bi-primaryButton" type="button" disabled={starting || fetching}
+          <button className="bi-primaryButton" type="button" disabled={starting || fetching || !preview?.source.enabled}
             onClick={() => void start()}>{starting || fetching ? "Abruf läuft …" : "Jetzt abrufen"}</button>
         </>} />
       {error ? <ErrorState message={error} onRetry={() => void reload()} /> : null}
       {!preview && !error ? <LoadingState /> : null}
       {preview ? <>
-        <SectionCard title="Open Data Basel-Stadt">
+        <SectionCard title="Open Data Basel-Stadt" description="Abdeckung: öffentliche Spielplätze im Kanton Basel-Stadt.">
           <p><a href={source}>Spielen in Basel: Spielplätze</a> · Stadtgärtnerei Basel-Stadt · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></p>
+          <StatusBadge tone={preview.source.enabled ? "success" : "neutral"}>{preview.source.enabled ? "Aktiv" : "Ausgeschaltet"}</StatusBadge>
+          <SourceControls key={preview.source.revision} settings={preview.source} onSave={saveSourceSettings} />
           {latest ? <p role="status">
             {formatTime.format(new Date(latest.started_at))} · {latest.status === "FETCHING" ? "Abruf läuft"
               : latest.status === "COMPLETE" ? `${latest.source_count} Einträge geprüft`

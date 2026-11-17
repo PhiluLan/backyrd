@@ -2,8 +2,8 @@
 
 Unter **Admin → Spots → Ortsimporte** zeigt Backyrd den zuletzt erfolgreich
 geprüften Stand des öffentlichen Basler Spielplatzverzeichnisses. «Jetzt
-abrufen» fragt dieselbe Quelle sofort ab. Nach Anwenden der Migration läuft
-der Abruf montags um 03:15 UTC. Der Sammler verarbeitet die Antworten im
+abrufen» fragt dieselbe Quelle sofort ab. Nach Anwenden der Migration ist die Quelle aktiv und der Abruf für montags
+um 03:15 UTC eingestellt. Der Sammler verarbeitet die Antworten im
 Zwei-Minuten-Takt. Der Job läuft in Supabase über pg_cron und pg_net.
 
 Die Quelle ist der Datensatz [100462](https://data.bs.ch/explore/dataset/100462/)
@@ -12,6 +12,22 @@ der Stadtgärtnerei Basel-Stadt, lizenziert unter
 braucht kein externes Konto. Der Job übernimmt Name, Koordinaten,
 Öffnungszeiten im Wortlaut und die Ausstattung. Der Quelle fehlen
 Strassenadressen, Telefon, E-Mail und Preise. Diese Felder bleiben offen.
+
+## Quellen und Zeitplan einstellen
+
+Unter **Ortsimporte → Open Data Basel-Stadt** schaltest du die Quelle ein
+oder aus und wählst **Täglich**, **Wöchentlich (Montag)** oder **Nur manuell**.
+Automatische Abrufe starten um 03:15 UTC. Wenn du die Quelle ausschaltest,
+startet auch «Jetzt abrufen» keinen neuen Lauf. Ein bereits begonnener
+Abruf wird zu Ende verarbeitet. Vorschläge und Prüfstatus bleiben
+weiterhin sichtbar. Beim erneuten Einschalten gilt der gespeicherte Takt.
+
+Eine neue Anbindung braucht einen stabilen Quellenschlüssel, einen festen
+API-Endpunkt, eine dokumentierte Lizenz und eine Zuordnung der gelieferten
+Felder zu Backyrd. Die Anbindung und Tests gehören in den Code und die
+Datenbankmigration. Im Admin stellen wir die vorhandenen Anbindungen zur
+Auswahl. Ein beliebiger Link wird durch die Einstellungen nicht zu einer
+neuen Importquelle.
 
 ## Prüfen und übernehmen
 
@@ -48,8 +64,7 @@ zurückholen.
 Die Migration gehört durch den üblichen Supabase-Releasepfad. Danach ist
 der Admin auf derselben Version zu veröffentlichen. Durch «Jetzt abrufen»
 kann der erste Lauf sofort ausgelöst und sein Ergebnis binnen weniger
-Minuten in der Vorschau geprüft werden. Die wöchentliche Abfrage beginnt
-nach Installation der Migration. Zur Fehlerdiagnose dienen die letzten
+Minuten in der Vorschau geprüft werden. Der eingestellte Zeitplan greift nach Installation der Migration. Zur Fehlerdiagnose dienen die letzten
 Abrufe im Admin und die beiden gleichnamigen Cron-Jobs im Supabase Dashboard.
 
 Die SQL-Prüfung läuft in einer Transaktion gegen eine isolierte
