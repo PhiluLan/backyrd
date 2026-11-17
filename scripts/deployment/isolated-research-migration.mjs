@@ -127,6 +127,14 @@ export const BASEL_PLACE_SOURCES_MIGRATION = Object.freeze({
   path: "supabase/migrations/20261117085800_basel_place_sources_v1.sql",
   sha256: "9411fad4efb485d9571e3466b2e22721b9800cb3ab1e3df0c0a06451ef068f30",
 });
+export const BASEL_OVERTURE_SCOPE = "backyrd.basel-overture-delivery-scope@1.0";
+export const BASEL_OVERTURE_MIGRATION = Object.freeze({
+  path: "supabase/migrations/20261117095706_basel_overture_place_source_v1.sql",
+  sha256: "4d42014c0b7b6846e8da08b72626b633fb7bf1d3d4ebf15cfdb7f1cd6526a6d8",
+});
+export function baselOvertureAppliedReceipt(state, read, isAncestor) {
+  return exactResearchReceipt(state, read, isAncestor, BASEL_OVERTURE_MIGRATION, "baselOvertureRelease");
+}
 export function baselPlaceSourcesAppliedReceipt(state, read, isAncestor) {
   return exactResearchReceipt(state, read, isAncestor, BASEL_PLACE_SOURCES_MIGRATION, "baselPlaceSourcesRelease");
 }
@@ -136,20 +144,21 @@ export function spotSearchFreshnessAppliedReceipt(state, read, isAncestor) {
 export function analyticsPageviewsAppliedReceipt(state, read, isAncestor) {
   return exactResearchReceipt(state, read, isAncestor, ANALYTICS_PAGEVIEWS_MIGRATION, "analyticsPageviewsRelease");
 }
-export function scopeAnalyticsPageviewsMigrations({ pending, scope, baseSha, deployFunctions, authDeploy, retiredFunctions, appliedAnalyticsPageviews, appliedSpotSearchFreshness, appliedBaselPlaceSources }) {
-  const isSpotSearch = scope?.contractVersion === SPOT_SEARCH_FRESHNESS_SCOPE;
-  const isBaselSources = scope?.contractVersion === BASEL_PLACE_SOURCES_SCOPE;
-  const target = isBaselSources ? BASEL_PLACE_SOURCES_MIGRATION
-    : isSpotSearch ? SPOT_SEARCH_FRESHNESS_MIGRATION : ANALYTICS_PAGEVIEWS_MIGRATION;
-  if ((!isBaselSources && !isSpotSearch && scope?.contractVersion !== ANALYTICS_PAGEVIEWS_SCOPE)
-    || ((isSpotSearch || isBaselSources) && !appliedAnalyticsPageviews)
-    || (isBaselSources && !appliedSpotSearchFreshness) || scope.executionAuthorized !== false
+export function scopeAnalyticsPageviewsMigrations({ pending, scope, baseSha, deployFunctions, authDeploy, retiredFunctions, appliedAnalyticsPageviews, appliedSpotSearchFreshness, appliedBaselPlaceSources, appliedBaselOverture }) {
+  const targets = {
+    [ANALYTICS_PAGEVIEWS_SCOPE]: [ANALYTICS_PAGEVIEWS_MIGRATION, appliedAnalyticsPageviews, true],
+    [SPOT_SEARCH_FRESHNESS_SCOPE]: [SPOT_SEARCH_FRESHNESS_MIGRATION, appliedSpotSearchFreshness, appliedAnalyticsPageviews],
+    [BASEL_PLACE_SOURCES_SCOPE]: [BASEL_PLACE_SOURCES_MIGRATION, appliedBaselPlaceSources, appliedAnalyticsPageviews && appliedSpotSearchFreshness],
+    [BASEL_OVERTURE_SCOPE]: [BASEL_OVERTURE_MIGRATION, appliedBaselOverture, appliedAnalyticsPageviews && appliedSpotSearchFreshness && appliedBaselPlaceSources],
+  };
+  const entry = Object.hasOwn(targets, scope?.contractVersion) ? targets[scope.contractVersion] : null;
+  const [target, applied, prerequisite] = entry ?? [];
+  if (!prerequisite || scope.executionAuthorized !== false
     || scope.baseSha !== baseSha || !equal(scope.migrations, [target])
     || !equal(scope.deferredMigrations, DEFERRED_BOOKING_MIGRATIONS)
     || !equal(scope.functions, []) || deployFunctions.length || authDeploy || retiredFunctions.length
     || !Number.isSafeInteger(scope.backupRunId) || scope.backupRunId < 1
     || !hasNuknukActivityRestoreIdentity(scope.restoreDrill)) throw new Error("analytics_pageviews_delivery_scope_invalid");
-  const applied = isBaselSources ? appliedBaselPlaceSources : isSpotSearch ? appliedSpotSearchFreshness : appliedAnalyticsPageviews;
   const selected = applied ? [] : [target];
   if (!equal(canonicalRows(pending), canonicalRows([...DEFERRED_BOOKING_MIGRATIONS, ...selected]))) {
     throw new Error("analytics_pageviews_pending_scope_changed");
@@ -289,11 +298,11 @@ export function prepareResearchMigrationWorkspace(plan,root,output) {
     ? scopeNuknukActivityMigrations({ pending: [...plan.pendingMigrations, ...(plan.deferredMigrations ?? [])],
       scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,
       authDeploy: plan.authConfig?.deploy === true, appliedNuknukActivity: plan.appliedNuknukActivity })
-    : [ANALYTICS_PAGEVIEWS_SCOPE, SPOT_SEARCH_FRESHNESS_SCOPE, BASEL_PLACE_SOURCES_SCOPE].includes(plan.isolatedResearchScope?.contractVersion)
+    : [ANALYTICS_PAGEVIEWS_SCOPE, SPOT_SEARCH_FRESHNESS_SCOPE, BASEL_PLACE_SOURCES_SCOPE, BASEL_OVERTURE_SCOPE].includes(plan.isolatedResearchScope?.contractVersion)
     ? scopeAnalyticsPageviewsMigrations({ pending: [...plan.pendingMigrations, ...plan.deferredMigrations],
       scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,
       authDeploy: plan.authConfig?.deploy === true, retiredFunctions: plan.retiredFunctions,
-      appliedAnalyticsPageviews: plan.appliedAnalyticsPageviews, appliedSpotSearchFreshness: plan.appliedSpotSearchFreshness, appliedBaselPlaceSources: plan.appliedBaselPlaceSources })
+      appliedAnalyticsPageviews: plan.appliedAnalyticsPageviews, appliedSpotSearchFreshness: plan.appliedSpotSearchFreshness, appliedBaselPlaceSources: plan.appliedBaselPlaceSources, appliedBaselOverture: plan.appliedBaselOverture })
     : plan.isolatedVoltaScope
     ? scopeVoltaMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedVoltaScope,
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,
