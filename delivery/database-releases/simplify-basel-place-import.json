@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "simplify-basel-place-import",
+  "previousEvidence": "world-research-configurable-batches-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "fe453b93e79d90c1835e6e2128a5ed00088c6619f957e0c5846318bf530be566",
+    "applicationSchemaSha256": "b2fe7576c9ee557d5536bf5ebfb530f6c5c85e52be62c242f3849bb246bfe7b0"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261117124338_simplify_basel_place_import.sql",
+      "sha256": "bf978b80a708c9213f63949c42429ded325aa25f1459f789871f8875f10cc96b"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/basel_place_source_create_spot_v1.sql",
+      "sha256": "3620c3dd0469577004d01e015b16ec593860ae3f3558dd54dd9fe29342462f84"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "11ff176ad7dd46355b41706d144ddcc23bb28895966df459a1c460493fcbddab",
+    "applicationSchemaSha256": "69f0fee3e91a67a5657895959d2c89a2e4461543f3a46e62538c5fa57d9301d4"
+  }
+}
