@@ -16,7 +16,7 @@
   "tests": [
     {
       "path": "supabase/tests/basel_spot_source_import_v1.sql",
-      "sha256": "e57c859c0536c07b8334235e4e680bb5895dfabacb37f73b89f64629424556e3"
+      "sha256": "e9c46207dc317b0bac12bfe898d4afbb23573b15a7a20ef97161f11ec785c296"
     }
   ],
   "fingerprints": {
