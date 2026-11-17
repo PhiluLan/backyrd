@@ -1,0 +1,20 @@
+.page, .form, .results { display: grid; gap: 1rem; min-width: 0; }
+.layout { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); align-items: start; }
+.form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.form legend { font-weight: 650; margin-bottom: .45rem; }
+.options, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.options label { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .65rem; border: 1px solid #7775; border-radius: .6rem; cursor: pointer; }
+.options input { accent-color: #ff4086; }
+.form small { display: block; margin-top: .4rem; }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: .75rem; }
+.controls label { display: grid; gap: .35rem; font-size: .9rem; }
+.controls :is(input, select), .actions select { background: transparent; border: 1px solid #7777; color: inherit; padding: .55rem .65rem; border-radius: .55rem; min-height: 2.65rem; max-width: 100%; }
+.runs { display: grid; list-style: none; gap: .75rem; margin: 0 0 1rem; padding: 0; }
+.runs li, .resultHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.runs li { border-bottom: 1px solid #7775; padding-bottom: .75rem; }
+.runs li span { display: block; }
+.notice, .result { margin: 0; border: 1px solid #7775; border-radius: .75rem; padding: .8rem 1rem; }
+.notice { border-inline-start: 3px solid #ff4086; }
+.result h3, .result p { margin: 0 0 .4rem; }
+.result .actions, .results + .actions { margin-top: .65rem; }
+@media (max-width: 840px) { .layout { grid-template-columns: minmax(0, 1fr); } }

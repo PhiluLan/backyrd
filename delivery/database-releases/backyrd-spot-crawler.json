@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "backyrd-spot-crawler",
+  "previousEvidence": "fix-uncategorized-spot-approval",
+  "previousFingerprints": {
+    "publicAclSha256": "11ff176ad7dd46355b41706d144ddcc23bb28895966df459a1c460493fcbddab",
+    "applicationSchemaSha256": "ed2bc2d35f75e6b410a6ad53d0251ac5ff5dbfc3763ea11d1be9f6fb0ad4ece1"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261117180300_backyrd_spot_crawler.sql",
+      "sha256": "578bdb613c58f8a6cbd3f3f14d4770cdb60a0c4397ada3eb5ade36a89bd79368"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/backyrd_spot_crawler.sql",
+      "sha256": "83ac55ae5fb541e76d3ab16c1d0eedf49e0b3c7c2dc44af980fac0c1ef70c1ce"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "96c3ec3ee37b99f47c44bbf42059715f89b57bd805d08adb0d05413cfff4711b",
+    "applicationSchemaSha256": "35f146c8a3f297be4a67f32faee80824809cedc7503da4f6083c501b2edea5fd"
+  }
+}

@@ -142,3 +142,53 @@ psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 \
   -f supabase/tests/basel_spot_source_import_v1.sql \
   -f supabase/tests/basel_place_source_create_spot_v1.sql
 ```
+
+## Backyrd Crawler
+
+**Admin → Backyrd Crawler** startet eine aktive Websuche nach Restaurants,
+Cafés, Bars und Clubs im Pilotgebiet Basel. Suchgebiete gewichten die
+Suchanfragen. Alle Funde brauchen eine Basler Adresse und Koordinaten.
+Die Einstellung 10 bis 50 begrenzt neue Funde pro Lauf. Die effektive
+Anzahl hängt von Quellen, Suchbudget und Dubletten ab.
+
+Brave liefert URLs. Der Crawler prüft die Regeln der Betreiberseite in
+`robots.txt` und liest die Fakten auf der Seite selbst. Er übernimmt
+Name, Typ und Adresse aus den Ortsdaten der Seite. Bei klarer Identität
+kann er eine einzelne sichtbare Postadresse ergänzen. Fehlen Koordinaten,
+muss die Adresse exakt im amtlichen Gebäudeadressverzeichnis gefunden
+werden. Telefon, E-Mail, Öffnungszeiten und Preisangaben werden in der
+Vorschau angezeigt, soweit strukturiert vorhanden. Fotos, Such-Snippets
+und Beschreibungen werden nicht übernommen.
+
+Funde laufen durch den bestehenden Dublettenabgleich. «Spot anlegen»
+verwendet den gleichen Admin-Import wie die Ortsimporte. «Weitere
+Angaben recherchieren» übergibt einen bereits angelegten Spot an den
+bestehenden Recherche-Workflow. Öffnungszeiten und Preise aus der
+Crawler-Vorschau brauchen diese Prüfung, bevor sie zu bestätigten
+Spot-Knowledge-Fakten werden. Bestehende Spots werden durch die Suche
+nicht überschrieben. Kontinuierliche Änderungserkennung und
+Veranstaltungsimporte benötigen eigene Quellen- und Abgleichregeln.
+
+### Betrieb
+
+1. Die Migration über den kanonischen Supabase-Release und das Admin
+   über seinen regulären Deployment-Weg bereitstellen.
+2. Im serverseitigen Admin-Deployment `BRAVE_SEARCH_API_KEY` setzen.
+   Die Startschaltfläche bleibt deaktiviert, solange der Schlüssel fehlt.
+3. Für geplante Läufe im Admin-Deployment `CRON_SECRET` setzen und
+   denselben Wert über die reguläre Vault-Oberfläche unter
+   `backyrd_spot_crawler_cron_secret` hinterlegen. Mindestens 32 Zeichen
+   verwenden. Supabase prüft den Plan alle 15 Minuten. Die Uhrzeit
+   richtet sich nach Europa/Zürich. Die Einstellung «Manuell» startet
+   keinen geplanten Auftrag.
+4. Im Admin eine manuelle Suche starten und nach dem Abschluss
+   Fundliste, Quellen und Spot-Handoff kontrollieren. Bei 0 Funden
+   Suchgebiet oder Kategorie ändern.
+
+Der Standardrahmen reserviert USD 0,005 je geplanter Brave-Abfrage und
+sperrt weitere Läufe am Monatslimit von USD 10. Auch fehlgeschlagene
+Aufträge behalten ihre Reservierung. Für einen Pilotlauf mit zwölf
+Abfragen sind das höchstens USD 0,06 nach diesem Rechenmodell.
+[Brave-Preise](https://brave.com/search/api/). Der Betrag betrifft
+Websuchabfragen. Das Budget der optionalen späteren Spot-Recherche
+läuft über den bereits bestehenden Recherchebetrieb.
