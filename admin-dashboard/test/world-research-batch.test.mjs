@@ -78,7 +78,7 @@ test("research export starts from canonical World values, never old Spot attribu
 
 test("automated research remains admin-only, proposal-only and uses the same preview", () => {
   assert.match(jobsRoute, /authorizeAdminRequest\(request\)/);
-  assert.match(jobsRoute, /createAdminWorldResearchExport\(actor, \[spotId\]\)/);
+  assert.match(jobsRoute, /createAutomaticWorldResearchExport\(actor, service, authorization.userId, spotId\)/);
   assert.match(jobsRoute, /parseWorldResearchBatch\(normalizeAutomatedWorldResearchBatch\(row\.result_document/);
   assert.doesNotMatch(jobsRoute, /world_product_admin_import_research_spot_v2|world_product_rebuild_spot_v1/);
   assert.match(panel, /await loadPreview\(result\.document, \{\}, false, \{\}\)/);

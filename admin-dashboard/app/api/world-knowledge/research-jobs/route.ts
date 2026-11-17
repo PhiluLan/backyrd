@@ -2,7 +2,7 @@ import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { normalizeAutomatedWorldResearchBatch, parseWorldResearchBatch, type WorldResearchBatchDocument } from "@backyrd/world-knowledge-core";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
-import { createAdminWorldResearchExport, WORLD_RESEARCH_SPOT_ID } from "@/lib/server/worldResearchExport";
+import { createAutomaticWorldResearchExport, WORLD_RESEARCH_SPOT_ID } from "@/lib/server/worldResearchExport";
 import { researchPipelineSummary, visibleResearchJobs } from "@/lib/server/worldResearchJobReview";
 
 import { WORLD_RESEARCH_MAX_JOBS } from "@/lib/worldResearchQueue";
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     const documents: WorldResearchBatchDocument[] = [];
     for (let offset = 0; offset < spotIds.length; offset += 5) {
       const group = (spotIds as string[]).slice(offset, offset + 5);
-      documents.push(...await Promise.all(group.map((spotId) => createAdminWorldResearchExport(actor, [spotId]))));
+      documents.push(...await Promise.all(group.map((spotId) => createAutomaticWorldResearchExport(actor, service, authorization.userId, spotId))));
     }
     const { data: jobs, error } = await service.rpc("world_research_automation_enqueue_batch_v1", {
       p_actor_id: authorization.userId, p_documents: documents,

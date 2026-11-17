@@ -50,3 +50,34 @@ test('yes and no retain their actual knowledge state when accepted',async()=>{
 test('an unconfirmed projection never becomes a successful acceptance',async()=>{
  const f=fixture();await assert.rejects(acceptResearchTask(f.actor,{rpc:async()=>({error:{message:'offline'}})},'admin',[f.row],f.detail,f.input),error=>error.saveState==='SAVED_UNVERIFIED');
 });
+
+test("automatic research initializes a fresh approved spot with its public identity before export", async () => {
+  const {createAutomaticWorldResearchExport}=await import(pathToFileURL(join(dir,"worldResearchExport.mjs")).href);
+  const called=[];
+  const detail={spotId:id,name:"Fixture Hotel",status:"approved",actor:{role:"ADMIN"},answers:{},
+    manifest:null};
+  const catalog={name:detail.name,city:"Basel",updated_at:"2026-11-16T12:00:00Z"};
+  const actor={
+    from(table){
+      assert.equal(table,"spots");
+      return {select(){return this;},eq(){return this;},async single(){return {data:catalog};}};
+    },
+    async rpc(name, args){
+      called.push(name);
+      if(name==="world_product_authoring_detail_v1") return {data:structuredClone(detail)};
+      assert.equal(name,"world_product_save_and_publish_claim_v1");
+      assert.equal(args.p_attribute_key,"identity.name");
+      assert.equal(args.p_value,catalog.name);
+      detail.answers["identity.name"]={claimId:id,knowledgeState:"KNOWN_VALUE",value:catalog.name,visibility:"PUBLIC"};
+      detail.manifest={manifestHash:"a".repeat(64),worldSnapshot:{spotId:id}};
+      return {data:detail.manifest};
+    },
+  };
+  const service={async rpc(){assert.fail("A spot without identity must start from its published name");}};
+  const document=await createAutomaticWorldResearchExport(actor,service,"admin",id);
+  assert.equal(document.batch.spots[0].locality,"Basel");
+  assert.equal(document.batch.spots[0].manifestHash,detail.manifest.manifestHash);
+  assert.deepEqual(Object.keys(document.batch.spots[0].existingValues),["identity.name"]);
+  await createAutomaticWorldResearchExport(actor,service,"admin",id);
+  assert.equal(called.filter(name=>name==="world_product_save_and_publish_claim_v1").length,1);
+});
