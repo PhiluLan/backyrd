@@ -1,3 +1,11 @@
+export const WORLD_RESEARCH_BATCH_SIZES = [10, 20, 30, 40, 50] as const;
+export type WorldResearchBatchSize = typeof WORLD_RESEARCH_BATCH_SIZES[number];
+export const WORLD_RESEARCH_MAX_JOBS = WORLD_RESEARCH_BATCH_SIZES[WORLD_RESEARCH_BATCH_SIZES.length - 1]!;
+
+export function isWorldResearchBatchSize(value: unknown): value is WorldResearchBatchSize {
+  return WORLD_RESEARCH_BATCH_SIZES.some((size) => size === value);
+}
+
 export type WorldResearchQueueSpot = Readonly<{
   spotId: string;
   name: string;
@@ -9,7 +17,7 @@ export type WorldResearchQueueSpot = Readonly<{
 export type WorldResearchQueue = Readonly<{
   contractVersion: "backyrd.world-research-queue@1.0";
   page: number;
-  pageSize: 10;
+  pageSize: WorldResearchBatchSize;
   total: number;
   exported: number;
   imported: number;
@@ -27,12 +35,12 @@ export function parseWorldResearchQueue(value: unknown): WorldResearchQueue {
   if (!exactKeys(result, ["contractVersion", "page", "pageSize", "total", "exported", "imported", "spots"])
     || result.contractVersion !== "backyrd.world-research-queue@1.0"
     || !Number.isSafeInteger(result.page) || (result.page as number) < 1
-    || result.pageSize !== 10 || !Number.isSafeInteger(result.total) || (result.total as number) < 0
+    || !isWorldResearchBatchSize(result.pageSize) || !Number.isSafeInteger(result.total) || (result.total as number) < 0
     || !Number.isSafeInteger(result.exported) || (result.exported as number) < 0
     || !Number.isSafeInteger(result.imported) || (result.imported as number) < 0
     || (result.exported as number) > (result.total as number)
     || (result.imported as number) > (result.total as number)
-    || !Array.isArray(result.spots) || result.spots.length > 10) throw new Error("world_research_queue_invalid");
+    || !Array.isArray(result.spots) || result.spots.length > result.pageSize) throw new Error("world_research_queue_invalid");
   const seen = new Set<string>();
   for (const item of result.spots) {
     if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("world_research_queue_spot_invalid");

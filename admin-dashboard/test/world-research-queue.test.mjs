@@ -24,6 +24,6 @@ test("export progress cannot be mistaken for completed research", () => {
   assert.match(exportRoute, /body\.recordExport === true/);
   assert.match(panel, /„Exportiert“ heißt noch nicht recherchiert/);
   assert.match(panel, /spot\.importedAt \? "Angaben übernommen" : spot\.exportedAt \? "Exportiert · Import offen" : "Noch offen"/);
-  assert.match(panel, /Vorherige 10/);
-  assert.match(panel, /Nächste 10/);
+  assert.match(panel, /Vorherige \{queue\.pageSize\}/);
+  assert.match(panel, /Nächste \{queue\.pageSize\}/);
 });

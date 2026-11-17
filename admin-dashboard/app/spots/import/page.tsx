@@ -264,6 +264,7 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
         description="Basler Ortsquellen abrufen, Änderungen prüfen und neue Spots vorbereitet öffnen."
         actions={<>
           <Link className="bi-actionButton" href="/spots">Zu den Spots</Link>
+          <Link className="bi-actionButton" href="/world-knowledge">Zur Spot-Recherche</Link>
           {!manualSnapshot ? <button className="bi-primaryButton" type="button" disabled={starting || fetching || !preview?.source.enabled}
             onClick={() => void start()}>{starting || fetching ? "Abruf läuft …" : "Jetzt abrufen"}</button> : null}
         </>} />
