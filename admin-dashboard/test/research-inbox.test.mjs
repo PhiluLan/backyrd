@@ -85,3 +85,15 @@ test("a report note about an already stored offering profile is not an invented 
  assert.equal(buildInboxSpot([source],{},()=>false).tasks.length,1);
  assert.equal(source.result_document.results.length,1);
 });
+
+test("a queued provider poll is still active even without tasks",()=>{
+ const job={export_document:{},result_document:null};
+ const read=(status,provider_response_id)=>buildInboxSpot([row("start",[],{...job,status,provider_response_id})],{},()=>false);
+ assert.equal(read("QUEUED",null).researchStatus,"QUEUED");
+ const polling=read("QUEUED","provider-response");
+ assert.equal(polling.researchStatus,"RUNNING");
+ assert.equal(polling.tasks.length,0);
+ assert.equal(read("RUNNING",null).researchStatus,"RUNNING");
+ assert.equal(read("FAILED","provider-response").failed,true);
+ assert.equal(read("READY_FOR_REVIEW","provider-response").researchStatus,null);
+});
