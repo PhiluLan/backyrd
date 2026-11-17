@@ -119,10 +119,10 @@ export async function authorizedWorldKnowledgeSpotSearch(input: { auth: WorldKno
   return result;
 }
 
-export async function authorizedWorldResearchQueue(input: { auth: WorldKnowledgeBrowserAuth; page: number; fetcher?: typeof fetch }): Promise<unknown> {
+export async function authorizedWorldResearchQueue(input: { auth: WorldKnowledgeBrowserAuth; page: number; size?: number; fetcher?: typeof fetch }): Promise<unknown> {
   const fetcher = input.fetcher ?? fetch;
   if (!Number.isSafeInteger(input.page) || input.page < 1) throw new Error("WORLD_RESEARCH_PAGE_INVALID");
-  const path = `/api/world-knowledge/research-queue?page=${input.page}`;
+  const path = `/api/world-knowledge/research-queue?page=${input.page}${input.size === undefined ? "" : `&size=${input.size}`}`;
   const send = async (forceRefresh: boolean) => {
     const token = await accessToken(input.auth, forceRefresh);
     return fetcher(path, { method: "GET", headers: { authorization: `Bearer ${token}` }, cache: "no-store" });

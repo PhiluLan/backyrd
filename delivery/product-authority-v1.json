@@ -75,8 +75,8 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261117095706_basel_overture_place_source_v1.sql",
-        "sha256": "4d42014c0b7b6846e8da08b72626b633fb7bf1d3d4ebf15cfdb7f1cd6526a6d8"
+        "path": "supabase/migrations/20261117112737_world_research_configurable_batches_v1.sql",
+        "sha256": "66b6f47cc90157164f6a907225569ea23d418a536955323eee95d52f43d114f7"
       }
     ],
     "executionAuthorized": false,
@@ -265,13 +265,13 @@
     }
   },
   "analyticsPageviewsDeliveryScope": {
-    "contractVersion": "backyrd.basel-overture-delivery-scope@1.0",
+    "contractVersion": "backyrd.world-research-batches-delivery-scope@1.0",
     "executionAuthorized": false,
     "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
     "migrations": [
       {
-        "path": "supabase/migrations/20261117095706_basel_overture_place_source_v1.sql",
-        "sha256": "4d42014c0b7b6846e8da08b72626b633fb7bf1d3d4ebf15cfdb7f1cd6526a6d8"
+        "path": "supabase/migrations/20261117112737_world_research_configurable_batches_v1.sql",
+        "sha256": "66b6f47cc90157164f6a907225569ea23d418a536955323eee95d52f43d114f7"
       }
     ],
     "deferredMigrations": [

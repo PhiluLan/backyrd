@@ -5,6 +5,8 @@ import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 import { createAdminWorldResearchExport, WORLD_RESEARCH_SPOT_ID } from "@/lib/server/worldResearchExport";
 import { researchPipelineSummary, visibleResearchJobs } from "@/lib/server/worldResearchJobReview";
 
+import { WORLD_RESEARCH_MAX_JOBS } from "@/lib/worldResearchQueue";
+
 const noStore = { "cache-control": "no-store" };
 const UUID = WORLD_RESEARCH_SPOT_ID;
 type JobRow = {
@@ -46,7 +48,7 @@ export async function GET(request: Request) {
       : "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome,lease_expires_at,pipeline:export_document->pipeline";
     let query = service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id", authorization.userId);
     query = jobId ? query.eq("id", jobId).limit(1)
-      : query.not("export_document", "cs", '{"kind":"NUKNUK_RESEARCH_DRAFT"}').not("export_document", "cs", '{"kind":"ADMIN_RESEARCH_FOLLOWUP"}').order("created_at", { ascending: false }).limit(30);
+      : query.not("export_document", "cs", '{"kind":"NUKNUK_RESEARCH_DRAFT"}').not("export_document", "cs", '{"kind":"ADMIN_RESEARCH_FOLLOWUP"}').order("created_at", { ascending: false }).limit(WORLD_RESEARCH_MAX_JOBS);
     const { data, error } = await query;
     if (error) throw new Error("WORLD_RESEARCH_JOBS_UNAVAILABLE");
     const rows = (data ?? []) as unknown as JobRow[];
@@ -78,21 +80,21 @@ export async function POST(request: Request) {
   if (Number(request.headers.get("content-length") ?? 0) > 4_000) return Response.json({ error: "WORLD_RESEARCH_REQUEST_TOO_LARGE" }, { status: 413, headers: noStore });
   const body = await request.json().catch(() => null) as null | { spotIds?: unknown };
   const spotIds = body?.spotIds;
-  if (!Array.isArray(spotIds) || spotIds.length < 1 || spotIds.length > 10
+  if (!Array.isArray(spotIds) || spotIds.length < 1 || spotIds.length > WORLD_RESEARCH_MAX_JOBS
     || spotIds.some((id) => typeof id !== "string" || !UUID.test(id)) || new Set(spotIds).size !== spotIds.length) {
     return Response.json({ error: "WORLD_RESEARCH_SELECTION_INVALID" }, { status: 400, headers: noStore });
   }
   try {
     const { actor, service } = clients(request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "");
-    const jobs = [];
-    for (const spotId of spotIds as string[]) {
-      const document = await createAdminWorldResearchExport(actor, [spotId]);
-      const { data, error } = await service.rpc("world_research_automation_enqueue_v1", {
-        p_actor_id: authorization.userId, p_spot_id: spotId, p_export_document: document,
-      });
-      if (error) throw new Error(error.message);
-      jobs.push({ spotId, ...data as { jobId: string; status: string; reused: boolean } });
+    const documents: WorldResearchBatchDocument[] = [];
+    for (let offset = 0; offset < spotIds.length; offset += 5) {
+      const group = (spotIds as string[]).slice(offset, offset + 5);
+      documents.push(...await Promise.all(group.map((spotId) => createAdminWorldResearchExport(actor, [spotId]))));
     }
+    const { data: jobs, error } = await service.rpc("world_research_automation_enqueue_batch_v1", {
+      p_actor_id: authorization.userId, p_documents: documents,
+    });
+    if (error) throw new Error(error.message);
     return Response.json({ jobs }, { status: 202, headers: noStore });
   } catch (cause) {
     return Response.json({ error: cause instanceof Error ? cause.message : "WORLD_RESEARCH_START_FAILED" }, { status: 409, headers: noStore });
