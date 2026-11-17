@@ -62,8 +62,7 @@ wird gemeinsam geprüft und transaktional vorgemerkt. Die Liste zeigt bis zu
 50 Einträge pro Seite. Filter beziehen sich auf die angezeigte Seite.
 Identische Wiederholungen bleiben ohne Änderungen. Beim Upload älterer,
 abweichender gleichversionierter oder auffallend kurzer Folgestände bleibt der
-vorherige Stand erhalten. Freigabe und Veröffentlichung erfolgen über den
-etablierten Spot-Editor.
+vorherige Stand erhalten. Neue Vorschläge können direkt in der Liste als freigegebene Spots übernommen werden.
 
 Overture veröffentlicht GeoParquet. Der Monatsstand wird für diese
 Anbindung manuell erzeugt und eingespielt. Die Abrufzeiten der kantonalen
@@ -94,26 +93,28 @@ neuen Importquelle.
 
 ## Prüfen und übernehmen
 
-«Offen» zeigt neue, geänderte und unklare Vorschläge. Ohne Änderung
-eindeutig zugeordnete Spots stehen unter «Alle». «Als geprüft markieren»
-und «Ausblenden» entfernen den aktuellen Vorschlag aus «Offen». Die
-Status bleiben beim nächsten Abruf und auch für andere Admins erhalten.
-Ändern sich die Angaben oder die möglichen Zuordnungen, erscheint der
-Vorschlag erneut. Mit «In die Arbeitsliste» lässt er sich jederzeit
-zurückholen.
+«Offen» zeigt neue, geänderte und unklare Vorschläge. Ein Klick auf den
+Eintrag zeigt seine Grunddaten und die Quelle. «On hold» verschiebt ihn
+nach «Zum Prüfen», wo er bearbeitet oder nach «Offen» zurückgeholt werden
+kann. Bisher als geprüft markierte Vorschläge bleiben dort auffindbar.
+Ändern sich Angaben oder mögliche Zuordnungen, erscheint ein
+zurückgestellter Vorschlag erneut unter «Offen».
 
-
+- «Spot anlegen» speichert einen neuen, eindeutigen Vorschlag direkt als
+  freigegebenen Spot. Name, vorhandene Adresse, Ort, Koordinaten, Kategorie,
+  Website und Telefon werden aus der gespeicherten Quelle übernommen.
+  Wenn keine eindeutige Kategorie zugeordnet ist, wählt der Admin sie im
+  aufgeklappten Eintrag. Öffnungszeiten als Freitext und Ausstattung bleiben
+  als Quellenangaben erhalten. Der Import interpretiert sie nicht als
+  bestätigte strukturierte Spot-Knowledge-Angaben.
+- Der verwendete Quellenstand und der neue Spot werden gemeinsam
+  gespeichert. Wiederholungen geben denselben Spot zurück. Der Link bleibt
+  unter «Angelegt» verfügbar. Die öffentlichen Spot-Details zeigen die
+  Herkunft der übernommenen Grundangaben und die Lizenz.
 - Ein eindeutiger Name innerhalb von 150 Metern ohne weiteren Kandidaten
   wird einem vorhandenen Spot zugeordnet. Andere Namens- oder Nähetreffer
-  (bis 45 Meter) werden zur Prüfung angezeigt. Archivierte Kandidaten zählen
-  mit, damit dieselben Orte nicht versehentlich neu angelegt werden.
-- Ein neuer Vorschlag lässt sich im bestehenden Spot-Editor öffnen. Name,
-  Koordinaten und eine eindeutig zuordenbare Kategorie sind vorausgefüllt.
-  Vor dem Publizieren bestätigt ein Admin die Angaben im vorhandenen
-  Spot- und Spot-Knowledge-Workflow und übernimmt den Quellenlink mit dem
-  Hinweis der jeweiligen Quellenangabe und «CC BY 4.0» bei der Veröffentlichung.
-  Die Vorschau selbst schreibt weder
-  in den öffentlichen Katalog noch ins Spot-Knowledge.
+  (bis 45 Meter) werden zur Prüfung angezeigt. Archivierte Kandidaten
+  zählen mit. Bestehende Spots lassen sich über die Links bearbeiten.
 - Änderungen zeigen die früheren und die aktuellen Angaben der Quelle.
   Fehlende Datensätze werden erst nach einem vollständigen Abruf markiert
   und führen zu keiner Löschung oder Archivierung. Ein fehlgeschlagener
@@ -138,5 +139,6 @@ Supabase-Instanz und rollt alle Testzeilen zurück.
 
 ```sh
 psql "$LOCAL_DATABASE_URL" -v ON_ERROR_STOP=1 \
-  -f supabase/tests/basel_spot_source_import_v1.sql
+  -f supabase/tests/basel_spot_source_import_v1.sql \
+  -f supabase/tests/basel_place_source_create_spot_v1.sql
 ```
