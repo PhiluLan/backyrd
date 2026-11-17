@@ -4,7 +4,7 @@ import { AUTHORING_FIELDS, parseWorldResearchBatch } from "@backyrd/world-knowle
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 import { readWorldResearchDetail, WORLD_RESEARCH_SPOT_ID } from "@/lib/server/worldResearchExport";
 import { assessNuknukDraftReview } from "@/lib/nuknukDraftImport";
-import { buildInboxSpot, resultsFromInboxRow, taskFingerprint, type InboxRow, type InboxDecision } from "@/lib/researchInbox";
+import { buildInboxSpot, resultsFromInboxRow, taskFingerprint, type InboxRow, type InboxDecision, type InboxSpot } from "@/lib/researchInbox";
 import { persistResearchFollowups } from "@/lib/server/researchFollowups";
 import { acceptResearchTask } from "@/lib/server/researchTaskAcceptance";
 import { ResearchSaveError } from "@/lib/researchSaveFeedback";
@@ -20,11 +20,17 @@ export async function GET(request:Request) {
   const auth=await authorizeAdminRequest(request);
   if(!auth.ok)return Response.json({error:auth.error},{status:auth.status,headers});
   try {
+    const selected=new URL(request.url).searchParams.get("spotId");
+    if(selected!==null && !WORLD_RESEARCH_SPOT_ID.test(selected)) {
+      return Response.json({error:"Ungültiger Ort."},{status:400,headers});
+    }
     const {service,actor}=clients(request);
     // Paginate rather than silently hiding tasks behind the former last-30-jobs limit.
     const rows:InboxRow[]=[];
     for(let page=0;page<10;page++) {
-      const result=await service.from("world_research_automation_jobs_v1").select(`${columns},provider_response_id`).eq("actor_id",auth.userId).order("created_at",{ascending:false}).order("id").range(page*100,page*100+99);
+      let query=service.from("world_research_automation_jobs_v1").select(`${columns},provider_response_id`).eq("actor_id",auth.userId);
+      if(selected) query=query.eq("spot_id",selected);
+      const result=await query.order("created_at",{ascending:false}).order("id").range(page*100,page*100+99);
       if(result.error)throw new Error("Die Aufgaben konnten nicht geladen werden. Bitte erneut versuchen.");
       rows.push(...result.data as InboxRow[]);
       if(result.data.length<100)break;
@@ -32,22 +38,27 @@ export async function GET(request:Request) {
     }
     const grouped=new Map<string,InboxRow[]>();
     for(const row of rows)grouped.set(row.spot_id,[...(grouped.get(row.spot_id) ?? []),row]);
-    const spots=[];
-    const entries=[...grouped];
-    for(let index=0;index<entries.length;index+=4) {
-      const checked=await Promise.all(entries.slice(index,index+4).map(async([spotId,items])=>{
-      try {
-        const detail=await readWorldResearchDetail(actor,spotId);
-        const answers=detail.answers ?? {};
-        const covered=(result:ReturnType<typeof resultsFromInboxRow>[number])=>assessNuknukDraftReview({version:"nuknuk-research-v1",spotId,name:detail.name,canonicalWrite:false,importable:false,results:[{...result,status:"REQUIRES_REVIEW"}]},answers)[0]?.covered===true;
-        const spot=buildInboxSpot(items,answers,covered);
-        spot.tasks=spot.tasks.filter(task=>allowed.has(task.attributeKey));spot.name=detail.name;
-        return spot;
-      } catch { return {...buildInboxSpot(items,{},()=>false),unavailable:true}; }
-      }));
-      spots.push(...checked);
+    const summarize=(spot:InboxSpot)=>{
+      const {tasks,...summary}=spot;
+      return {...summary,needsReview:tasks.some(task=>allowed.has(task.attributeKey))};
+    };
+    if(!selected) {
+      const spots=[...grouped.values()].map(items=>summarize(buildInboxSpot(items,{},()=>false)));
+      return Response.json({spots,checkedAt:new Date().toISOString()},{headers});
     }
-    return Response.json({spots,checkedAt:new Date().toISOString()},{headers});
+
+    const items=grouped.get(selected);
+    if(!items) return Response.json({error:"Der Recherchebericht wurde nicht gefunden."},{status:404,headers});
+    try {
+      const detail=await readWorldResearchDetail(actor,selected);
+      const answers=detail.answers ?? {};
+      const covered=(result:ReturnType<typeof resultsFromInboxRow>[number])=>assessNuknukDraftReview({version:"nuknuk-research-v1",spotId:selected,name:detail.name,canonicalWrite:false,importable:false,results:[{...result,status:"REQUIRES_REVIEW"}]},answers)[0]?.covered===true;
+      const spot=buildInboxSpot(items,answers,covered);
+      spot.tasks=spot.tasks.filter(task=>allowed.has(task.attributeKey));
+      return Response.json({spot:{...spot,name:detail.name,needsReview:spot.tasks.length>0}},{headers});
+    } catch {
+      throw new Error("Das Ortprofil konnte nicht abgeglichen werden. Bitte aktualisiere den Auftrag.");
+    }
   } catch(cause){return Response.json({error:cause instanceof Error?cause.message:"Die Aufgaben konnten nicht geladen werden."},{status:503,headers});}
 }
 export async function POST(request:Request) {
@@ -65,8 +76,10 @@ export async function POST(request:Request) {
       return Response.json({saved:true,message:"Offene Angaben sind jetzt in deinen Aufgaben. Die Profile wurden nicht verändert."},{headers});
     }
     if(!["keep","accept"].includes(String(body.action)) || typeof body.spotId!=="string" || !WORLD_RESEARCH_SPOT_ID.test(body.spotId) || typeof body.fingerprint!=="string" || body.fingerprint.length>200_000 || !Array.isArray(body.jobIds) || !body.jobIds.length || body.jobIds.length>100 || body.jobIds.some(id=>typeof id!=="string" || !WORLD_RESEARCH_SPOT_ID.test(id)))throw new Error("Bitte die Aufgabe neu öffnen.");
-    const detail=await readWorldResearchDetail(actor,body.spotId);
-    const found=await service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id",auth.userId).eq("spot_id",body.spotId).in("id",body.jobIds);
+    const [detail,found]=await Promise.all([
+      readWorldResearchDetail(actor,body.spotId),
+      service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id",auth.userId).eq("spot_id",body.spotId).in("id",body.jobIds),
+    ]);
     if(found.error || found.data.length!==new Set(body.jobIds).size)throw new Error("Die Aufgabe wurde nicht gefunden.");
     if(body.action === "accept")return Response.json(await acceptResearchTask(actor,service,auth.userId,found.data as InboxRow[],detail,{fingerprint:body.fingerprint,claimId:body.claimId,idempotencyKey:body.idempotencyKey}),{headers});
     for(const row of found.data as InboxRow[]) {
