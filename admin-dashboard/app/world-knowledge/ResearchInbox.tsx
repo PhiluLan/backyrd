@@ -5,10 +5,17 @@ import { ResearchTaskReview } from "./ResearchTaskReview";
 
 import styles from "./ResearchInbox.module.css";
 type Snapshot={spots:InboxSpot[];checkedAt:string};
+type InboxTab = "recent" | "older" | "done";
+const recentWindow = 7 * 24 * 60 * 60 * 1000;
+const pageSize = 20;
+const reportDate = new Intl.DateTimeFormat("de-CH", { dateStyle: "medium", timeZone: "Europe/Zurich" });
 export function ResearchInbox({request,post,onTools}:{request(body?:unknown):Promise<unknown>;post(body:unknown):Promise<unknown>;onTools():void}) {
   const [snapshot,setSnapshot]=useState<Snapshot|null>(null);
   const [error,setError]=useState("");const [notice,setNotice]=useState("");
-  const [busy,setBusy]=useState(false);const [tab,setTab]=useState<"open"|"done">("open");
+  const [busy,setBusy]=useState(false);
+  const [tab, setTab] = useState<InboxTab>("recent");
+  const [search, setSearch] = useState("");
+  const [visibleCount, setVisibleCount] = useState(pageSize);
   const [selected,setSelected]=useState<string|null>(null);
   const [reviewEditing,setReviewEditing]=useState(false);
   const [activeTask,setActiveTask]=useState<string|null>(null);
@@ -30,7 +37,22 @@ export function ResearchInbox({request,post,onTools}:{request(body?:unknown):Pro
     const timer=setInterval(visible,30_000);window.addEventListener("focus",visible);document.addEventListener("visibilitychange",visible);window.addEventListener("backyrd:spot-profile-updated",visible);
     return()=>{invalidate();clearInterval(timer);window.removeEventListener("focus",visible);document.removeEventListener("visibilitychange",visible);window.removeEventListener("backyrd:spot-profile-updated",visible);};
   },[refresh,invalidate]);
-  const spots=snapshot?.spots ?? [],pending=spots.filter(spot=>spot.tasks.length || spot.running || spot.failed || spot.unavailable),done=spots.filter(spot=>!pending.includes(spot));
+  const spots = snapshot?.spots ?? [];
+  const groups: Record<InboxTab, InboxSpot[]> = { recent: [], older: [], done: [] };
+  const cutoff = snapshot ? Date.parse(snapshot.checkedAt) - recentWindow : 0;
+  for (const item of spots) {
+    const open = item.tasks.length > 0 || item.running || item.failed || item.unavailable;
+    if (!open) groups.done.push(item);
+    else if (Date.parse(item.latestReportAt) >= cutoff) groups.recent.push(item);
+    else groups.older.push(item);
+  }
+  const query = search.trim().toLocaleLowerCase("de-CH");
+  const results = groups[tab].filter(item => item.name.toLocaleLowerCase("de-CH").includes(query));
+  const selectTab = (next: InboxTab) => {
+    setTab(next);
+    setSelected(null);
+    setVisibleCount(pageSize);
+  };
   const spot=spots.find(item=>item.spotId===selected);
   const recover=async(file:File)=>{
     if(file.size>2_000_000){setError("Bitte eine Recherchedatei bis 2 MB wählen.");return;}
@@ -47,12 +69,56 @@ export function ResearchInbox({request,post,onTools}:{request(body?:unknown):Pro
   return <section className={styles.shell}>
     <header className={styles.header}><span className={styles.eyebrow}>WISSEN & QUALITÄT</span><h1>{spot?spot.name:"Deine Aufgaben"}</h1><p>{spot?"Eine Angabe nach der anderen: prüfen, entscheiden, weiter.":"Hier siehst du, welche Angaben du prüfen oder ergänzen kannst."}</p><div className={styles.actions}><button onClick={()=>void refresh()} disabled={busy || reviewEditing}>{busy?"Wird aktualisiert …":"Aktualisieren"}</button><button disabled={reviewEditing} onClick={onTools}>Neue Recherche</button></div>{snapshot && <small>Mit den Profilen abgeglichen: {new Date(snapshot.checkedAt).toLocaleTimeString("de-CH",{hour:"2-digit",minute:"2-digit"})}</small>}</header>
     {error ? <div role="alert" className={`${styles.error} ${styles.toast}`}><span>{error}</span><button aria-label="Meldung schliessen" onClick={()=>setError("")}>×</button></div> : notice && <div role="status" aria-atomic="true" className={`${styles.success} ${styles.toast}`}><span>{notice}</span><button aria-label="Meldung schliessen" onClick={()=>setNotice("")}>×</button></div>}
-    {!spot && <nav className={styles.tabs} aria-label="Aufgaben anzeigen"><button disabled={reviewEditing} aria-pressed={tab==="open"} onClick={()=>{setTab("open");setSelected(null);}}>Offen {snapshot?`(${pending.length})`:""}</button><button disabled={reviewEditing} aria-pressed={tab==="done"} onClick={()=>{setTab("done");setSelected(null);}}>Erledigt {snapshot?`(${done.length})`:""}</button></nav>}
+    {!spot && (
+      <nav className={styles.tabs} aria-label="Aufgaben anzeigen">
+        <button disabled={reviewEditing} aria-pressed={tab === "recent"} onClick={() => selectTab("recent")}>Aktuell {snapshot ? `(${groups.recent.length})` : ""}</button>
+        <button disabled={reviewEditing} aria-pressed={tab === "older"} onClick={() => selectTab("older")}>Älter {snapshot ? `(${groups.older.length})` : ""}</button>
+        <button disabled={reviewEditing} aria-pressed={tab === "done"} onClick={() => selectTab("done")}>Erledigt {snapshot ? `(${groups.done.length})` : ""}</button>
+      </nav>
+    )}
     {!snapshot && !error && <p role="status">Deine Aufgaben werden mit den aktuellen Profilen abgeglichen …</p>}
     {snapshot && <>
-      {!spot && <><p className={styles.summary}>{tab==="open" ? `${pending.reduce((n,item)=>n+item.tasks.filter(task=>task.kind==="REVIEW").length,0)} Vorschläge prüfen · ${pending.reduce((n,item)=>n+item.tasks.filter(task=>task.kind==="MISSING").length,0)} Angaben ergänzen` : "Diese Berichte brauchen aktuell keine weitere Entscheidung."}</p>
-      {(tab==="open"?pending:done).length===0 && <section className={styles.empty}><h2>{tab==="open"?"Alles erledigt.":"Noch keine erledigten Berichte."}</h2><p>{tab==="open"?"Zu den geladenen Rechercheberichten ist momentan nichts zu prüfen oder zu ergänzen.":"Abgeschlossene Aufgaben findest du später hier."}</p></section>}
-      <div className={styles.list}>{(tab==="open"?pending:done).map(item=><article className={styles.card} key={item.spotId}><div><h2>{item.name}</h2><p>{item.unavailable?"Profil konnte nicht abgeglichen werden":item.running?"Recherche läuft …":item.failed?"Verarbeitung noch nicht vollständig bestätigt":item.tasks.length?`${item.tasks.filter(task=>task.kind==="REVIEW").length} prüfen · ${item.tasks.filter(task=>task.kind==="MISSING").length} ergänzen`:"Keine offene Entscheidung"}</p><small>Letzte Änderung: {new Date(item.updatedAt).toLocaleString("de-CH",{dateStyle:"short",timeStyle:"short"})}</small></div><button disabled={reviewEditing} className={styles.primary} onClick={()=>open(item.spotId)}>{tab==="open"?"Aufgaben ansehen":"Ansehen"} <span aria-hidden="true">→</span></button></article>)}</div>
+      {!spot && <>
+        <p className={styles.summary}>{tab === "recent"
+          ? "Offene Aufgaben zu Spots mit einem Recherchebericht aus den letzten 7 Tagen."
+          : tab === "older" ? "Offene Aufgaben aus früheren Rechercheberichten."
+            : "Diese Berichte brauchen aktuell keine weitere Entscheidung."}</p>
+        <label className={styles.search}>
+          Spot suchen
+          <input type="search" value={search} onChange={event => {
+            setSearch(event.target.value);
+            setVisibleCount(pageSize);
+          }} />
+        </label>
+        {results.length === 0 ? (
+          <section className={styles.empty}>
+            <h2>{query ? "Keine passenden Spots" : tab === "done" ? "Noch keine erledigten Berichte" : "Hier ist nichts offen"}</h2>
+            {tab === "recent" && !query && groups.older.length > 0 &&
+              <button onClick={() => selectTab("older")}>Ältere offene Aufgaben ansehen</button>}
+          </section>
+        ) : (
+          <>
+            <div className={styles.list}>{results.slice(0, visibleCount).map(item => {
+              const reviewCount = item.tasks.filter(task => task.kind === "REVIEW").length;
+              return <article className={styles.card} key={item.spotId}>
+                <div>
+                  <h2>{item.name}</h2>
+                  <p>{item.unavailable ? "Profil konnte nicht abgeglichen werden" : item.running ? "Recherche läuft …"
+                    : item.failed ? "Verarbeitung noch nicht vollständig bestätigt" : item.tasks.length
+                      ? `${reviewCount} prüfen · ${item.tasks.length - reviewCount} ergänzen` : "Keine offene Entscheidung"}</p>
+                  <small>Letzter Recherchebericht vom {reportDate.format(new Date(item.latestReportAt))}</small>
+                </div>
+                <button disabled={reviewEditing} className={styles.primary} onClick={() => open(item.spotId)}>
+                  {tab === "done" ? "Ansehen" : "Aufgaben ansehen"} <span aria-hidden="true">→</span>
+                </button>
+              </article>;
+            })}</div>
+            {results.length > visibleCount && <div className={styles.more}>
+              <span>{visibleCount} von {results.length} Spots</span>
+              <button onClick={() => setVisibleCount(count => count + pageSize)}>Weitere Spots anzeigen</button>
+            </div>}
+          </>
+        )}
       </>}
       {spot && <section className={styles.detail} ref={detailRef} tabIndex={-1} aria-label={`Aufgaben für ${spot.name}`}>
         <div className={styles.detailHeading}><button disabled={reviewEditing} onClick={()=>{setSelected(null);setActiveTask(null);setNotice("");}}>← Alle Orte</button><a href={`/spots/${spot.spotId}/edit`}>Ortprofil öffnen ↗</a></div>
