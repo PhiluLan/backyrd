@@ -23,8 +23,10 @@ test("research provenance is private, immutable and admin-only", () => {
   assert.match(migration, /world_research_existing_value_conflict/);
 });
 
-test("Admin UI limits the workflow to ten and requires preview before import", () => {
-  assert.match(panel, /current\.length < 10/);
+test("Admin UI respects the selected research size and requires preview before import", () => {
+  assert.match(panel, /current\.length < batchSize/);
+  assert.match(panel, /const FILE_EXPORT_SPOT_LIMIT = 10/);
+  assert.match(panel, /selected\.length > FILE_EXPORT_SPOT_LIMIT/);
   assert.match(panel, /Recherche-Datei herunterladen/);
   assert.match(panel, /JSON prüfen/);
   assert.match(panel, /preview\.mode !== "PREVIEW"/);
@@ -71,7 +73,7 @@ test("research export starts from canonical World values, never old Spot attribu
   assert.match(exportHelper, /detail\.answers/);
   assert.match(exportHelper, /entry\[1\]\.visibility === "PUBLIC"/);
   assert.doesNotMatch(exportBranch, /\.from\("spots"\)|legacy|spot\.address|spot\.description/);
-  assert.match(panel, /nicht alte Spot-Felder/);
+  assert.match(panel, /Der Export enthält den aktuellen World-Stand/);
 });
 
 test("automated research remains admin-only, proposal-only and uses the same preview", () => {
