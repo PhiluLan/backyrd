@@ -32,6 +32,11 @@ export const BASIC_RESEARCH_KEYS = AUTHORING_STEPS.find(
 export const COMPLETE_RESEARCH_KEYS = AUTHORING_FIELDS.map(
   (field) => field.attributeKey,
 ).filter((key) => key !== "state.current");
+export const INBOX_AUTO_RESEARCH_KEYS = new Set([
+  "location.address_line1", "location.locality", "location.country_code",
+  "contact.website", "contact.phone", "contact.public_email",
+  "hours.regular", "hours.kitchen", "operation.price_options",
+]);
 type AssessedDocument = WorldResearchBatchDocument & {
   research: WorldResearchBatchDocument["research"] & {
     assessments?: ResearchAssessment[];
@@ -160,12 +165,14 @@ export async function processSafeResearchDocument(
     fetchPage = fetchPublicSource,
     now = () => Date.now(),
     readPdf,
+    inboxJobId,
   }: {
     actorId: string;
     repository: SafeImportRepository;
     fetchPage?: typeof fetchPublicSource;
     now?: () => number;
     readPdf?: (body: Uint8Array) => Promise<string>;
+    inboxJobId?: string;
   },
 ): Promise<{ report: PipelineReport; document: WorldResearchBatchDocument }> {
   const parsed = parseWorldResearchBatch(input);
@@ -182,6 +189,7 @@ export async function processSafeResearchDocument(
     rawResearch?.assessments,
     claims,
   );
+  const certain = new Set(assessments?.filter(item=>item.uncertainty==="NONE").map(item=>item.attributeKey));
   const policy = assessments ? RESEARCH_EVIDENCE_POLICY : SAFE_RESEARCH_POLICY;
   if (
     !assessments &&
@@ -215,7 +223,7 @@ export async function processSafeResearchDocument(
   )
     throw new Error("research_pipeline_identity_changed");
   let job = await repository.createOrRead({
-    id: document.batch.batchId,
+    id: inboxJobId ?? document.batch.batchId,
     actorId,
     spotId: exported.spotId,
     document,
@@ -319,8 +327,11 @@ export async function processSafeResearchDocument(
               ),
               claims: claims.filter(
                 (claim) =>
-                  !detail.answers?.[claim.attributeKey] ||
-                  !equal(detail.answers[claim.attributeKey].value, claim.value),
+                  inboxJobId
+                    ? INBOX_AUTO_RESEARCH_KEYS.has(claim.attributeKey) &&
+                      certain.has(claim.attributeKey) && !detail.answers?.[claim.attributeKey]
+                    : !detail.answers?.[claim.attributeKey] ||
+                      !equal(detail.answers[claim.attributeKey].value, claim.value),
               ),
               fetchPage,
               readPdf,
@@ -331,6 +342,19 @@ export async function processSafeResearchDocument(
         accepted: ReviewedResearchClaim[] = [];
       for (const claim of claims) {
         const current = detail.answers?.[claim.attributeKey];
+        if (inboxJobId && (!INBOX_AUTO_RESEARCH_KEYS.has(claim.attributeKey) || !certain.has(claim.attributeKey) ||
+          (current && !(current.visibility === "PUBLIC" && current.knowledgeState === "KNOWN_VALUE" && equal(current.value, claim.value))) ||
+          claim.source.trust !== "OFFICIAL_PRIMARY")) {
+          decisions.push({attributeKey:claim.attributeKey,outcome:"REVIEW",reason:"FIELD_REQUIRES_REVIEW"});
+          continue;
+        }
+        if (inboxJobId && claim.attributeKey.startsWith("hours.") &&
+          (!Array.isArray(claim.value) || claim.value.length !== 7 ||
+           !claim.source.evidence.toLocaleLowerCase("de-CH").includes(detail.name.toLocaleLowerCase("de-CH")) ||
+           (claim.attributeKey === "hours.kitchen" && detail.answers?.["classification.primary_category"]?.value !== "EAT"))) {
+          decisions.push({attributeKey:claim.attributeKey,outcome:"REVIEW",reason:"SCHEDULE_SCOPE_AMBIGUOUS"});
+          continue;
+        }
         if (
           assessments?.find((a) => a.attributeKey === claim.attributeKey)
             ?.uncertainty !== "MAJOR" &&
@@ -410,6 +434,7 @@ export async function processSafeResearchDocument(
             page,
             claims,
             now: now(),
+            fixedAdmissionPrice: !!inboxJobId,
           });
           decisions.push({
             attributeKey: claim.attributeKey,

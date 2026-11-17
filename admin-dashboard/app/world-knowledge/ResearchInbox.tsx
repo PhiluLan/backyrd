@@ -1,11 +1,13 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { InboxSpot } from "@/lib/researchInbox";
+import type { InboxSpot, StoredResearchField } from "@/lib/researchInbox";
 import { ResearchTaskReview } from "./ResearchTaskReview";
+import { ResearchFieldEditor } from "./ResearchFieldEditor";
+import { ResearchValue, researchFieldLabel } from "./ResearchValue";
 
 import styles from "./ResearchInbox.module.css";
 type SpotSummary=Omit<InboxSpot,"tasks"> & {needsReview:boolean};
-type SpotDetail=InboxSpot & {needsReview:boolean};
+type SpotDetail=InboxSpot & {needsReview:boolean;automaticallyStored?:StoredResearchField[];preparationJob?:string};
 type Snapshot={spots:SpotSummary[];checkedAt:string};
 type InboxTab = "recent" | "older" | "done";
 const recentWindow = 7 * 24 * 60 * 60 * 1000;
@@ -25,6 +27,9 @@ export function ResearchInbox({request,post,onTools}:{request(body?:unknown,spot
   const [selected,setSelected]=useState<string|null>(null);
   const [spotDetail,setSpotDetail]=useState<SpotDetail|null>(null);
   const [detailError,setDetailError]=useState("");
+  const [preparing,setPreparing]=useState(false);
+  const [editingStored,setEditingStored]=useState<string|null>(null);
+  const preparedJobs=useRef(new Set<string>());
   const selectedRef=useRef<string|null>(null);
   const detailsRevision=useRef(0);
   const verifiedSummaries=useRef(new Map<string,{needsReview:boolean;updatedAt:string}>());
@@ -54,10 +59,29 @@ export function ResearchInbox({request,post,onTools}:{request(body?:unknown,spot
   const loadDetail=useCallback(async(spotId:string)=>{
     const revision=++detailsRevision.current;
     try {
-      const result=await request(undefined,spotId) as {spot:SpotDetail};
+      let result=await request(undefined,spotId) as {spot:SpotDetail};
+      if(selectedRef.current!==spotId || detailsRevision.current!==revision)return;
+      let preparationFailed=false;
+      const jobId=result.spot?.preparationJob;
+      if(jobId && !preparedJobs.current.has(jobId)) {
+        preparedJobs.current.add(jobId);
+        setPreparing(true);
+        try {
+          const prepared=await request({action:"prepare",spotId,jobId}) as {prepared:boolean};
+          preparationFailed=!prepared.prepared;
+          result=await request(undefined,spotId) as {spot:SpotDetail};
+        } catch {
+          preparationFailed=true;
+          preparedJobs.current.delete(jobId);
+        } finally {
+          if(selectedRef.current===spotId && detailsRevision.current===revision)setPreparing(false);
+        }
+      }
       if(selectedRef.current!==spotId || detailsRevision.current!==revision)return;
       if(!result.spot || result.spot.spotId!==spotId)throw new Error("Ungültiger Recherchebericht.");
-      setSpotDetail(result.spot);setDetailError("");updateSummary(result.spot);
+      setSpotDetail(result.spot);
+      setDetailError(preparationFailed?"Die automatische Übernahme konnte nicht bestätigt werden. Prüfe die offenen Angaben wie gewohnt.":"");
+      updateSummary(result.spot);
     } catch {
       if(selectedRef.current===spotId && detailsRevision.current===revision) {
         setDetailError("Die Aufgaben für diesen Ort konnten nicht aktualisiert werden. Bitte versuche es erneut.");
@@ -71,7 +95,7 @@ export function ResearchInbox({request,post,onTools}:{request(body?:unknown,spot
   },[loadDetail,refresh]);
   const close=()=>{
     selectedRef.current=null;detailsRevision.current++;setSelected(null);setSpotDetail(null);
-    setDetailError("");setActiveTask(null);setNotice("");
+    setDetailError("");setPreparing(false);setEditingStored(null);setActiveTask(null);setNotice("");
   };
   useEffect(()=>{
     void Promise.resolve().then(()=>refresh());
@@ -112,7 +136,7 @@ export function ResearchInbox({request,post,onTools}:{request(body?:unknown,spot
   const task=detail?.tasks.find(item=>item.fingerprint===activeTask) ?? detail?.tasks[0];
   const taskIndex=detail?.tasks.findIndex(item=>item.fingerprint===task?.fingerprint) ?? -1;
   const researchStatus=detail?.researchStatus;
-  const shouldPauseRefresh=reviewEditing || (!!selected && (!researchStatus || !!task));
+  const shouldPauseRefresh=reviewEditing || preparing || (!!selected && (!researchStatus || !!task));
   useEffect(()=>{pauseRefresh.current=shouldPauseRefresh;},[shouldPauseRefresh]);
   const jumpToTask=(fingerprint:string)=>{setActiveTask(fingerprint);focusTask();};
   const decided=(message:string)=>{
@@ -126,7 +150,7 @@ export function ResearchInbox({request,post,onTools}:{request(body?:unknown,spot
     if(!next || remaining.some(item=>item.attributeKey===task.attributeKey))void loadDetail(detail.spotId);
   };
   return <section className={styles.shell}>
-    <header className={styles.header}><span className={styles.eyebrow}>WISSEN & QUALITÄT</span><h1>{spot?spot.name:"Deine Aufgaben"}</h1><p>{spot?"Eine Angabe nach der anderen: prüfen, entscheiden, weiter.":"Hier siehst du, welche Angaben du prüfen oder ergänzen kannst."}</p><div className={styles.actions}><button onClick={refreshVisible} disabled={busy || reviewEditing}>{busy?"Wird aktualisiert …":"Aktualisieren"}</button><button disabled={reviewEditing} onClick={onTools}>Neue Recherche</button></div>{snapshot && <small>Übersicht geladen um {new Date(snapshot.checkedAt).toLocaleTimeString("de-CH",{hour:"2-digit",minute:"2-digit"})}</small>}</header>
+    <header className={styles.header}><span className={styles.eyebrow}>WISSEN & QUALITÄT</span><h1>{spot?spot.name:"Deine Aufgaben"}</h1><p>{spot?"Eine Angabe nach der anderen: prüfen, entscheiden, weiter.":"Hier siehst du, welche Angaben du prüfen oder ergänzen kannst."}</p><div className={styles.actions}><button onClick={refreshVisible} disabled={busy || reviewEditing || preparing}>{busy?"Wird aktualisiert …":"Aktualisieren"}</button><button disabled={reviewEditing || preparing} onClick={onTools}>Neue Recherche</button></div>{snapshot && <small>Übersicht geladen um {new Date(snapshot.checkedAt).toLocaleTimeString("de-CH",{hour:"2-digit",minute:"2-digit"})}</small>}</header>
     {error ? <div role="alert" className={`${styles.error} ${styles.toast}`}><span>{error}</span><button aria-label="Meldung schliessen" onClick={()=>setError("")}>×</button></div> : notice && <div role="status" aria-atomic="true" className={`${styles.success} ${styles.toast}`}><span>{notice}</span><button aria-label="Meldung schliessen" onClick={()=>setNotice("")}>×</button></div>}
     {!spot && (
       <nav className={styles.tabs} aria-label="Aufgaben anzeigen">
@@ -181,7 +205,7 @@ export function ResearchInbox({request,post,onTools}:{request(body?:unknown,spot
       {spot && <section className={styles.detail} ref={detailRef} tabIndex={-1} aria-label={`Aufgaben für ${spot.name}`}>
         <div className={styles.detailHeading}><button disabled={reviewEditing} onClick={close}>← Alle Orte</button><a href={`/spots/${spot.spotId}/edit`}>Ortprofil öffnen ↗</a></div>
         {detailError && <p className={styles.error} role="alert">{detailError}</p>}
-        {!detail && !detailError && <p role="status">Ortprofil wird abgeglichen …</p>}
+        {!detail && !detailError && <p role="status">{preparing?"Eindeutige Angaben werden mit den Quellen abgeglichen …":"Ortprofil wird abgeglichen …"}</p>}
         {detail && <>
           {researchStatus && <div className={styles.pending} role="status">
             <h3>{researchStatusTitle[researchStatus]}</h3>
@@ -193,13 +217,36 @@ export function ResearchInbox({request,post,onTools}:{request(body?:unknown,spot
             {task ? "Die Recherche wurde nicht vollständig abgeschlossen. Die gefundenen Angaben kannst du trotzdem prüfen."
               : "Die Recherche wurde nicht vollständig abgeschlossen. Es liegen keine Angaben zur Prüfung vor."}
           </p>}
-          {task?<><div className={styles.taskProgress}><strong>Aufgabe {taskIndex+1} von {detail.tasks.length}</strong><span>{detail.tasks.length} noch offen</span></div>
+          {!!detail.automaticallyStored?.length && <section className={styles.stored} aria-label="Automatisch übernommen">
+            <h3>Automatisch übernommen</h3>
+            {detail.automaticallyStored.map(field=>{
+              const label=researchFieldLabel(field.attributeKey);
+              const editing=editingStored===field.attributeKey;
+              return <div className={styles.storedField} key={field.attributeKey}>
+                <div className={styles.storedHeading}>
+                  <h4>{label}</h4>
+                  <button type="button" aria-label={`${label} bearbeiten`} title={`${label} bearbeiten`} disabled={reviewEditing || preparing}
+                    onClick={()=>{setEditingStored(field.attributeKey);setReviewEditing(true);}}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                      <path d="m15 5 4 4M4 20l4-.8L20 7a2.8 2.8 0 0 0-4-4L4.8 16z"/>
+                    </svg>
+                  </button>
+                </div>
+                {editing ? <ResearchFieldEditor spotId={spot.spotId} result={{attributeKey:field.attributeKey,status:"STORED"}} post={post}
+                  onClose={()=>{setEditingStored(null);setReviewEditing(false);}}
+                  onSaved={()=>{setEditingStored(null);setReviewEditing(false);setNotice("Änderung im Ortprofil gespeichert.");void loadDetail(spot.spotId);}}/>
+                  : <ResearchValue attributeKey={field.attributeKey} value={field.value}/>}
+              </div>;
+            })}
+          </section>}
+          {task && !editingStored && !!detail.automaticallyStored?.length && <h3>Offene Fragen</h3>}
+          {task && !editingStored?<><div className={styles.taskProgress}><strong>Aufgabe {taskIndex+1} von {detail.tasks.length}</strong><span>{detail.tasks.length} noch offen</span></div>
             <ResearchTaskReview key={`${spot.spotId}:${task.fingerprint}:${task.claimId ?? "none"}`} spotId={spot.spotId} task={task} request={request} post={post} onDecision={decided} onEditingChange={setReviewEditing}/>
             <nav className={styles.taskNavigation} aria-label="Zwischen Aufgaben wechseln"><button disabled={reviewEditing || taskIndex<=0} onClick={()=>jumpToTask(detail.tasks[taskIndex-1].fingerprint)}>← Vorherige</button><button disabled={reviewEditing} onClick={()=>{if(taskIndex+1<detail.tasks.length)jumpToTask(detail.tasks[taskIndex+1].fingerprint);else close();setNotice("Die vorige Frage bleibt offen. Du kannst sie später weiterprüfen.");}}>Später prüfen →</button></nav>
-          </>:!researchStatus && !spot.failed && <div className={styles.success}><h3>Keine offenen Aufgaben</h3><p>Für diesen Ort liegt derzeit nichts zur Prüfung vor.</p><button onClick={close}>Zurück zur Übersicht</button></div>}
+          </>:!task && !researchStatus && !spot.failed && <div className={styles.success}><h3>Keine offenen Aufgaben</h3><p>Für diesen Ort liegt derzeit nichts zur Prüfung vor.</p><button onClick={close}>Zurück zur Übersicht</button></div>}
         </>}
       </section>}
     </>}
-    <details className={styles.recovery}><summary>Offene Angaben aus einem früheren Bericht nachtragen</summary><p>Falls ein früherer Dateiimport seine offenen Fragen noch nicht hier abgelegt hat: Lade den ursprünglichen Bericht. Profilangaben werden dabei nicht verändert.</p><label>Recherchedatei auswählen<input disabled={busy || reviewEditing} type="file" accept=".json,application/json" onChange={event=>{const file=event.target.files?.[0];if(file)void recover(file);event.target.value="";}}/></label></details>
+    <details className={styles.recovery}><summary>Offene Angaben aus einem früheren Bericht nachtragen</summary><p>Falls ein früherer Dateiimport seine offenen Fragen noch nicht hier abgelegt hat: Lade den ursprünglichen Bericht. Profilangaben werden dabei nicht verändert.</p><label>Recherchedatei auswählen<input disabled={busy || reviewEditing || preparing} type="file" accept=".json,application/json" onChange={event=>{const file=event.target.files?.[0];if(file)void recover(file);event.target.value="";}}/></label></details>
   </section>;
 }

@@ -13,3 +13,10 @@
 .pending{margin-top:22px;padding:20px 22px;border:1px solid #625463;border-radius:18px;background:#241e27}
 .pending h3{margin:0 0 8px;font-size:clamp(20px,4vw,24px)}
 .pending p{margin:0;color:#d0c7d2;line-height:1.6}
+
+.stored{display:grid;gap:12px;margin:20px 0 28px}
+.stored h3,.stored h4{margin:0}
+.storedField{padding:14px 16px;background:#211c25;border:1px solid #483d4a;border-radius:14px}
+.storedHeading{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.storedHeading button{width:44px;min-height:44px;padding:0;display:grid;place-items:center;color:#ff89bd}
+.storedField>p{margin:2px 0 0}

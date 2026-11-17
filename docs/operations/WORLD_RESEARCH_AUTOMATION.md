@@ -34,6 +34,25 @@ response. The unchanged World import parser is the final contract authority
 when the Admin opens the proposal. Model output is not treated as proof:
 the Admin must inspect the linked target page, value, evidence and conflicts.
 
+## Verified fields in the Admin inbox
+
+When safe import is enabled, opening a new worker report in the authenticated
+Admin inbox starts independent evidence verification for that report. The
+worker supplies a short quotation and an uncertainty label. The label alone
+confers no authority. The verifier re-fetches the canonical official website,
+checks the quotation, spot identity and field semantics, and uses the existing
+audited import and read-back. Only approved spots, missing public fields on the
+allowlist, and unequivocal official primary evidence are eligible. Uncertain,
+conflicting and existing differently valued fields remain in the review flow.
+Older worker reports without uncertainty assessments remain reviewable.
+
+Eligible fields are address/locality/country, public contact, complete regular
+and properly scoped kitchen schedules, and an explicitly fixed per-person CHF
+admission price. Package, age-dependent, variable and unscoped prices remain
+reviewable. Confirmed fields appear above the questions with the existing field
+editor. Publication requires the existing Admin authoring authority and
+`WORLD_RESEARCH_SAFE_IMPORT_ENABLED` in the Admin server.
+
 ## Operational controls
 
 - Apply the forward migration through the normal, explicitly authorized

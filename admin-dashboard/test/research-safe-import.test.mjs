@@ -960,3 +960,46 @@ test("an explicitly uncertain identical existing value remains actionable withou
   assert.equal(f.calls.includes("import"), false);
   assert.equal(f.answers["contact.public_email"].value, "info@example.org");
 });
+
+test("opening a worker report publishes only certain, independently proved, allowed blank fields", async () => {
+  const email = {
+    ...claim("contact.public_email", "info@example.org"),
+    source: {...originalSource,evidence:"info@example.org"},
+  };
+  const description = claim("description.highlight", "Traditionsrestaurant in Basel.");
+  const proposedPhone = {
+    ...claim("contact.phone", "+41610000000"),
+    source: {...originalSource,evidence:"+41 61 000 00 00"},
+  };
+  const f = fixture([email, description, proposedPhone]);
+  f.document.research.assessments = [email,description,proposedPhone].map(({attributeKey})=>({
+    attributeKey, uncertainty:attributeKey==="contact.phone"?"MINOR":"NONE",
+    reason:"Test der unabhängig geprüften Quellenangaben.",bindings:{},
+  }));
+  const inboxJobId = "33333333-3333-4333-8333-333333333333";
+  const {report} = await processSafeResearchDocument(f.document,{
+    actorId:"admin",repository:f.repository,fetchPage:f.fetchPage,now,inboxJobId,
+  });
+  assert.deepEqual(report.errors,[]);
+  assert.equal(report.jobId,inboxJobId);
+  assert.deepEqual(report.stored,["contact.public_email"]);
+  assert.ok(report.review.some(result=>result.attributeKey==="description.highlight"));
+  assert.ok(report.review.some(result=>result.attributeKey==="contact.phone"));
+});
+
+test("automatic admission requires an exact and unqualified per-person CHF tariff in the quote", async () => {
+  const {proveResearchEvidence}=await import("../../packages/spot-research-runtime/src/research-evidence-policy.mjs");
+  const value=[{purposes:["ADMISSION"],allOfferingsCovered:false,basis:"PER_PERSON",currency:"CHF",min:25,max:25,
+    minimumAge:null,maximumAge:null,mandatoryFeesIncluded:false,conditions:{days:[],dayparts:[],area:null}}];
+  const prove=(quote)=>{
+    const page={url:site,text:quote,format:"HTML",observedAt:at,hash:"source-hash"};
+    const candidate={...claim("operation.price_options",value),source:{...originalSource,evidence:quote}};
+    return proveResearchEvidence({claim:candidate,assessment:{uncertainty:"NONE",reason:"Der Beleg wird geprüft.",bindings:{}},
+      evidence:{pages:new Map([[site.replace(/\/$/u,""),page]]),failures:[]},website:site,page,claims:[candidate],now:now(),fixedAdmissionPrice:true});
+  };
+  const exact=prove("Eintritt CHF 25 pro Person");
+  assert.equal(exact.eligible,true,exact.reason);
+  assert.equal(prove("Eintritt ab CHF 25 pro Person").eligible,false);
+  assert.equal(prove("Eintritt CHF 25 pro Person am Wochenende").eligible,false);
+  assert.equal(prove("Eintritt CHF 125 pro Person").eligible,false);
+});

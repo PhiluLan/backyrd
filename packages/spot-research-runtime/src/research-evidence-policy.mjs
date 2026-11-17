@@ -1273,6 +1273,7 @@ export function proveResearchEvidence({
   page,
   claims,
   now = Date.now(),
+  fixedAdmissionPrice = false,
 }) {
   const hold = (reason) => ({
     eligible: false,
@@ -1382,6 +1383,21 @@ export function proveResearchEvidence({
         current?.value,
         evidence,
       );
+  } else if (fixedAdmissionPrice && claim.attributeKey === "operation.price_options") {
+    const [price] = claim.value;
+    // A single, explicitly scoped ticket has a deterministic meaning. Keep
+    // estimates, ranges, age tariffs and complex offers in human review.
+    const quote = meaningSources[0]?.evidence ?? "";
+    const amount = /(?:\bCHF\s*(\d+(?:[.,]\d{1,2})?)(?![\d.,])|(\d+(?:[.,]\d{1,2})?)\s*CHF\b)/giu;
+    const amounts = [...quote.matchAll(amount)];
+    const candidate = amounts[0] && Number((amounts[0][1] ?? amounts[0][2]).replace(",", "."));
+    if (claim.value.length !== 1 || !price || price.min !== price.max || candidate !== price.min ||
+      amounts.length !== 1 || price.currency !== "CHF" || price.basis !== "PER_PERSON" ||
+      price.purposes.length !== 1 || price.purposes[0] !== "ADMISSION" || price.allOfferingsCovered ||
+      price.minimumAge !== null || price.maximumAge !== null || price.mandatoryFeesIncluded ||
+      Object.values(price.conditions).some((value) => Array.isArray(value) ? value.length : value != null && value !== "") ||
+      !/^(?:eintritt(?:spreis)?|admission)[\s:–-]+(?:CHF\s*\d+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?\s*CHF)\s+(?:pro person|per person)[.!]?$/iu.test(quote.trim()))
+      reason = "STRUCTURED_VALUE_REQUIRES_SCOPED_EVIDENCE";
   } else if (claim.attributeKey.startsWith("hours.")) {
     if (!["hours.regular", "hours.kitchen"].includes(claim.attributeKey))
       reason = "DATED_EXCEPTION_REQUIRES_SPECIFIC_RULE";
