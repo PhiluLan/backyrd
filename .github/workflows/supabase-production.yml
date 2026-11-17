@@ -166,7 +166,7 @@ jobs:
             gh run download "$restore_run" --name backyrd-restore-drill-receipt --dir "$RUNNER_TEMP/verified-restore-proof"
             test "$(sha256sum "$RUNNER_TEMP/verified-restore-proof/backyrd-restore-drill-report.json" | cut -d ' ' -f1)" = "$(jq -r '.isolatedResearchScope.restoreDrill.sha256' supabase-production-plan.json)"
           fi
-          if jq -e '(.isolatedResearchScope.contractVersion | IN("backyrd.nuknuk-activity-delivery-scope@1.0", "backyrd.admin-analytics-pageviews-delivery-scope@1.0", "backyrd.spot-search-freshness-delivery-scope@1.0")) and (.pendingMigrations | length) == 1' supabase-production-plan.json >/dev/null; then
+          if jq -e '(.isolatedResearchScope.contractVersion | IN("backyrd.nuknuk-activity-delivery-scope@1.0", "backyrd.admin-analytics-pageviews-delivery-scope@1.0", "backyrd.spot-search-freshness-delivery-scope@1.0", "backyrd.basel-place-sources-delivery-scope@1.0")) and (.pendingMigrations | length) == 1' supabase-production-plan.json >/dev/null; then
             restore_run="$(jq -r '.isolatedResearchScope.restoreDrill.runId' supabase-production-plan.json)"
             artifact_id="$(jq -r '.isolatedResearchScope.restoreDrill.artifactId' supabase-production-plan.json)"
             artifact_digest="$(jq -r '.isolatedResearchScope.restoreDrill.artifactDigest' supabase-production-plan.json)"

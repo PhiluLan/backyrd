@@ -1,27 +1,71 @@
--- Preserve the existing playground runs, candidates and moderation history.
-insert into world_knowledge_private.spot_source_settings_v1(source_key,enabled)
-values ('BASEL_POI',true),('BASEL_SPORT',true);
+-- Official Basel source previews. Publishing a place remains in the spot editor.
+create table world_knowledge_private.spot_source_settings_v1 (
+  source_key text primary key,
+  enabled boolean not null default true,
+  cadence text not null default 'WEEKLY' check (cadence in ('DAILY','WEEKLY','MANUAL')),
+  revision bigint not null default 1,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id) on delete set null
+);
+alter table world_knowledge_private.spot_source_settings_v1 enable row level security;
+revoke all on world_knowledge_private.spot_source_settings_v1 from public, anon, authenticated;
 
-alter table world_knowledge_private.basel_spot_source_runs_v1
-  add column source_key text not null default 'BASEL_PLAYGROUNDS' references world_knowledge_private.spot_source_settings_v1(source_key),
-  add unique (source_key,id);
-drop index world_knowledge_private.basel_spot_source_single_fetch_v1;
+insert into world_knowledge_private.spot_source_settings_v1(source_key)
+values ('BASEL_PLAYGROUNDS'), ('BASEL_POI'), ('BASEL_SPORT');
+
+create table world_knowledge_private.basel_spot_source_runs_v1 (
+  id bigint generated always as identity primary key,
+  source_key text not null default 'BASEL_PLAYGROUNDS'
+    references world_knowledge_private.spot_source_settings_v1(source_key),
+  request_id bigint unique not null,
+  started_at timestamptz not null default now(),
+  finished_at timestamptz,
+  status text not null default 'FETCHING' check (status in ('FETCHING','COMPLETE','FAILED')),
+  source_count integer,
+  outcome text,
+  unique (source_key,id)
+);
+
 create unique index basel_spot_source_inflight_v2
   on world_knowledge_private.basel_spot_source_runs_v1(source_key) where status='FETCHING';
 
-alter table world_knowledge_private.basel_spot_source_reviews_v1 drop constraint basel_spot_source_reviews_v1_source_id_fkey,
-  drop constraint basel_spot_source_reviews_v1_pkey,
-  add column source_key text not null default 'BASEL_PLAYGROUNDS';
-alter table world_knowledge_private.basel_spot_source_rows_v1 drop constraint basel_spot_source_rows_v1_pkey,
-  drop constraint basel_spot_source_rows_v1_last_seen_run_id_fkey,
-  add column source_key text not null default 'BASEL_PLAYGROUNDS',
-  add primary key(source_key,source_id),
-  add foreign key(source_key,last_seen_run_id) references world_knowledge_private.basel_spot_source_runs_v1(source_key,id);
 create index basel_spot_source_runs_by_source_v2
   on world_knowledge_private.basel_spot_source_runs_v1(source_key,id desc);
-alter table world_knowledge_private.basel_spot_source_reviews_v1
-  add primary key(source_key,source_id),
-  add foreign key(source_key,source_id) references world_knowledge_private.basel_spot_source_rows_v1(source_key,source_id);
+
+create table world_knowledge_private.basel_spot_source_rows_v1 (
+  source_key text not null default 'BASEL_PLAYGROUNDS',
+  source_id integer check (source_id > 0),
+  facts jsonb not null,
+  previous_facts jsonb,
+  last_seen_run_id bigint not null,
+  changed_at timestamptz not null,
+  primary key (source_key,source_id),
+  foreign key (source_key,last_seen_run_id) references world_knowledge_private.basel_spot_source_runs_v1(source_key,id)
+);
+
+alter table world_knowledge_private.basel_spot_source_runs_v1 enable row level security;
+alter table world_knowledge_private.basel_spot_source_rows_v1 enable row level security;
+revoke all on world_knowledge_private.basel_spot_source_runs_v1,
+  world_knowledge_private.basel_spot_source_rows_v1 from public, anon, authenticated;
+
+create table world_knowledge_private.basel_spot_source_reviews_v1 (
+  source_key text not null default 'BASEL_PLAYGROUNDS',
+  source_id integer not null,
+  disposition text not null check (disposition in ('REVIEWED','DISMISSED','REOPENED')),
+  fingerprint text not null,
+  revision bigint not null default 1,
+  reviewed_by uuid references auth.users(id) on delete set null,
+  reviewed_at timestamptz not null default now(),
+  primary key (source_key,source_id),
+  foreign key (source_key,source_id) references world_knowledge_private.basel_spot_source_rows_v1(source_key,source_id)
+);
+alter table world_knowledge_private.basel_spot_source_reviews_v1 enable row level security;
+revoke all on world_knowledge_private.basel_spot_source_reviews_v1 from public, anon, authenticated;
+
+create function world_knowledge_private.basel_spot_source_name_v1(p_name text)
+returns text language sql immutable set search_path='' as $$
+  select trim(regexp_replace(regexp_replace(lower(trim(p_name)), '^spielplatz[[:space:]]+', ''), '[^[:alnum:]]+', ' ', 'g'))
+$$;
 
 create function world_knowledge_private.basel_spot_source_request_v1(p_key text)
 returns table(endpoint text, params jsonb) language sql immutable set search_path='' as $$
@@ -101,7 +145,7 @@ begin
 end;
 $$;
 
-create or replace function world_knowledge_private.basel_spot_source_apply_v1(p_run bigint, p_body jsonb)
+create function world_knowledge_private.basel_spot_source_apply_v1(p_run bigint, p_body jsonb)
 returns integer language plpgsql set search_path='' as $$
 declare v_count integer; v_key text;
 begin
@@ -163,7 +207,7 @@ begin
 end;
 $$;
 
-create or replace function world_knowledge_private.basel_spot_source_collect_v1()
+create function world_knowledge_private.basel_spot_source_collect_v1()
 returns void language plpgsql set search_path='' as $$
 declare
   v_run world_knowledge_private.basel_spot_source_runs_v1;
@@ -297,7 +341,7 @@ begin
 end;
 $$;
 
-create or replace function public.admin_basel_spot_source_settings_v1(
+create function public.admin_basel_spot_source_settings_v1(
   p_source_key text, p_enabled boolean, p_cadence text, p_revision text
 )
 returns void language plpgsql security definer set search_path='' as $$
@@ -391,22 +435,51 @@ begin
 end;
 $$;
 
--- Keep the existing public entry points scoped to the playground source.
-create or replace function world_knowledge_private.basel_spot_source_start_v1()
+-- Playground-specific entry points.
+create function world_knowledge_private.basel_spot_source_start_v1()
 returns bigint language sql set search_path='' as $$
   select world_knowledge_private.basel_spot_source_start_v2('BASEL_PLAYGROUNDS')
 $$;
-create or replace function public.admin_basel_spot_source_preview_v1(p_source_id integer default null)
+create function public.admin_basel_spot_source_preview_v1(p_source_id integer default null)
 returns jsonb language sql stable security definer set search_path='' as $$
   select world_knowledge_private.basel_spot_source_raw_preview_v1('BASEL_PLAYGROUNDS',p_source_id)
 $$;
-create or replace function public.admin_basel_spot_source_preview_v2(p_source_id integer default null)
+create function public.admin_basel_spot_source_preview_v2(p_source_id integer default null)
 returns jsonb language sql stable security definer set search_path='' as $$
   select public.admin_basel_place_source_preview_v1('BASEL_PLAYGROUNDS',p_source_id)-'source'
 $$;
-create or replace function public.admin_basel_spot_source_set_review_v1(p_source_id integer,p_fingerprint text,p_revision text,p_disposition text)
+create function public.admin_basel_spot_source_set_review_v1(p_source_id integer,p_fingerprint text,p_revision text,p_disposition text)
 returns void language sql security definer set search_path='' as $$
   select public.admin_basel_place_source_review_v1('BASEL_PLAYGROUNDS',p_source_id,p_fingerprint,p_revision,p_disposition)
+$$;
+
+create function world_knowledge_private.basel_spot_source_dispatch_v1(p_scheduled_at timestamptz default null)
+returns bigint language sql set search_path='' as $$
+  select world_knowledge_private.basel_spot_source_dispatch_v2('BASEL_PLAYGROUNDS',p_scheduled_at)
+$$;
+
+create function public.admin_basel_spot_source_start_v1()
+returns bigint language plpgsql security definer set search_path='' as $$
+begin
+  if (select public.admin_is_admin_v1()) is not true then
+    raise exception 'admin_required' using errcode='42501';
+  end if;
+  return world_knowledge_private.basel_spot_source_dispatch_v1();
+end;
+$$;
+
+create function public.admin_basel_spot_source_preview_v3(p_source_id integer default null)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare v_preview jsonb;
+begin
+  v_preview:=public.admin_basel_spot_source_preview_v2(p_source_id);
+  return v_preview || jsonb_build_object('source',(
+    select jsonb_build_object(
+      'key',source_key,'enabled',enabled,'cadence',cadence,'revision',revision::text,
+      'schedule_time_utc','03:15')
+    from world_knowledge_private.spot_source_settings_v1 where source_key='BASEL_PLAYGROUNDS'
+  ));
+end;
 $$;
 
 revoke all on function world_knowledge_private.basel_spot_source_request_v1(text),
@@ -418,5 +491,28 @@ revoke all on function world_knowledge_private.basel_spot_source_request_v1(text
 grant execute on function public.admin_basel_place_source_preview_v1(text,integer),public.admin_basel_place_source_start_v1(text),
   public.admin_basel_place_source_review_v1(text,integer,text,text,text) to authenticated;
 
+revoke all on function world_knowledge_private.basel_spot_source_start_v1(),
+  world_knowledge_private.basel_spot_source_apply_v1(bigint,jsonb),
+  world_knowledge_private.basel_spot_source_collect_v1(),
+  world_knowledge_private.basel_spot_source_name_v1(text) from public, anon, authenticated;
+revoke all on function public.admin_basel_spot_source_start_v1(),
+  public.admin_basel_spot_source_preview_v1(integer) from public, anon, authenticated;
+grant execute on function public.admin_basel_spot_source_start_v1(),
+  public.admin_basel_spot_source_preview_v1(integer) to authenticated;
+
+revoke all on function public.admin_basel_spot_source_preview_v2(integer),
+  public.admin_basel_spot_source_set_review_v1(integer,text,text,text) from public, anon, authenticated;
+grant execute on function public.admin_basel_spot_source_preview_v2(integer),
+  public.admin_basel_spot_source_set_review_v1(integer,text,text,text) to authenticated;
+
+revoke all on function world_knowledge_private.basel_spot_source_dispatch_v1(timestamptz),
+  public.admin_basel_spot_source_preview_v3(integer),
+  public.admin_basel_spot_source_settings_v1(text,boolean,text,text) from public, anon, authenticated;
+grant execute on function public.admin_basel_spot_source_preview_v3(integer),
+  public.admin_basel_spot_source_settings_v1(text,boolean,text,text) to authenticated;
+
 select cron.schedule('backyrd-basel-spot-source-schedule-v1','15 3 * * *',
   'select world_knowledge_private.basel_spot_source_dispatch_v2(source_key,now()) from world_knowledge_private.spot_source_settings_v1 order by source_key');
+
+select cron.schedule('backyrd-basel-spot-source-collect-v1','*/2 * * * *',
+  'select world_knowledge_private.basel_spot_source_collect_v1()');

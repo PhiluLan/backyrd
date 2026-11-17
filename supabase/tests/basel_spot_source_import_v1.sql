@@ -49,6 +49,7 @@ begin
   end;
   update world_knowledge_private.basel_spot_source_runs_v1 set status='FAILED' where id=v_bad;
 
+  -- backyrd:authorization-negative
   -- Admin RPC is intentionally callable via the authenticated API, but denies non-admins.
   begin
     perform public.admin_basel_spot_source_preview_v1();
@@ -69,6 +70,7 @@ begin
     or has_table_privilege('authenticated','world_knowledge_private.basel_spot_source_reviews_v1','update')
     then raise exception 'unexpected review grants'; end if;
 
+  -- backyrd:authorization-positive
   insert into auth.users(id) values(v_actor);
   insert into public.profiles(id,is_admin) values(v_actor,true) on conflict(id) do update set is_admin=true;
   perform set_config('request.jwt.claim.sub',v_actor::text,true);

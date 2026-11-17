@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "basel-spot-source-import-v1",
+  "previousEvidence": "spot-search-freshness-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "d9aa8af5072bd56c8c78306b2f88ac30acd25b432cc252f743a80ebd408f02ff",
+    "applicationSchemaSha256": "56c6fc737ff71541d6baa73ed89aec41f8945dfc400f0e497756d9bcb87847e8"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261117085800_basel_place_sources_v1.sql",
+      "sha256": "9411fad4efb485d9571e3466b2e22721b9800cb3ab1e3df0c0a06451ef068f30"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/basel_spot_source_import_v1.sql",
+      "sha256": "e57c859c0536c07b8334235e4e680bb5895dfabacb37f73b89f64629424556e3"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "0a55298ecfb63d825f52a4374ffeac03492fd76eca8c125823cc4789b72af2e2",
+    "applicationSchemaSha256": "4c8602a74677eabe13a67e2b539feeb3274f435bdaacc02ac690be512d3c6f51"
+  }
+}
