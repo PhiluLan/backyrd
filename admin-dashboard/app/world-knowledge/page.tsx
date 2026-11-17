@@ -10,7 +10,7 @@ import { WorldResearchBatchPanel } from "./WorldResearchBatchPanel";
 
 const searchSpots = (query: string) => authorizedWorldKnowledgeSpotSearch({ auth: supabase.auth, query }) as Promise<ProductAdminSpotSearch>;
 
-const tasks=(body?:unknown)=>authorizedWorldResearchTasks({auth:supabase.auth,body});
+const tasks=(body?:unknown,spotId?:string)=>authorizedWorldResearchTasks({auth:supabase.auth,body,spotId});
 const post=(body:unknown)=>authorizedWorldResearchBatchPost({auth:supabase.auth,body});
 export default function AdminSpotResearchPage() {
   const [tools,setTools]=useState(false);

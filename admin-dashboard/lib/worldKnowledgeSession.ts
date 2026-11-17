@@ -179,8 +179,9 @@ export async function authorizedWorldResearchDrafts(input: { auth: WorldKnowledg
   return result;
 }
 
-export async function authorizedWorldResearchTasks(input:{auth:WorldKnowledgeBrowserAuth;body?:unknown;fetcher?:typeof fetch}):Promise<unknown> {
-  const send=async(forceRefresh:boolean)=>(input.fetcher ?? fetch)("/api/world-knowledge/research-tasks",{method:input.body?"POST":"GET",cache:"no-store",headers:{authorization:`Bearer ${await accessToken(input.auth,forceRefresh)}`,...(input.body?{"content-type":"application/json"}:{})},...(input.body?{body:JSON.stringify(input.body)}:{})});
+export async function authorizedWorldResearchTasks(input:{auth:WorldKnowledgeBrowserAuth;body?:unknown;spotId?:string;fetcher?:typeof fetch}):Promise<unknown> {
+  const url=input.spotId?`/api/world-knowledge/research-tasks?spotId=${encodeURIComponent(input.spotId)}`:"/api/world-knowledge/research-tasks";
+  const send=async(forceRefresh:boolean)=>(input.fetcher ?? fetch)(url,{method:input.body?"POST":"GET",cache:"no-store",headers:{authorization:`Bearer ${await accessToken(input.auth,forceRefresh)}`,...(input.body?{"content-type":"application/json"}:{})},...(input.body?{body:JSON.stringify(input.body)}:{})});
   let response=await send(false);let result=await response.json() as {error?:string;saveState?:string};
   if(response.status===401 && ["invalid_session","authentication_required"].includes(result.error ?? "")){response=await send(true);result=await response.json() as {error?:string;saveState?:string};}
   if(!response.ok && result.saveState === "SAVED_UNVERIFIED")throw new ResearchSaveError(result.error ?? "Die Angabe ist gespeichert; das Profil konnte noch nicht bestätigt werden.","SAVED_UNVERIFIED");

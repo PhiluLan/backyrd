@@ -122,24 +122,26 @@ test('unsupported structures are visibly unready rather than displayed as databa
 });
 
 const {ResearchTaskReview}=await compile('ResearchTaskReview');
-test('the complete review explains the task, proposed value, existing value, source and consequences',()=>{
+test('review puts the comparison and actions first and keeps evidence collapsed',()=>{
  const task={attributeKey:'hours.special',kind:'REVIEW',fingerprint:'fixture',claimId:null,jobIds:['fixture'],status:'REQUIRES_REVIEW',reason:'Die Website nennt Betriebsferien.',value:[{date:'2026-12-24',status:'CLOSED',intervals:[]},{date:'2026-12-25',status:'CLOSED',intervals:[]}],citations:[{url:'https://example.org/ferien',evidence:'Am 24. und 25. Dezember geschlossen.'}]};
  const html=renderToStaticMarkup(createElement(ResearchTaskReview,{spotId:'fixture',task,request(){throw Error('must not write on render');},post(){},onDecision(){},onEditingChange(){}}));
- for(const phrase of ['Das ist deine Aufgabe','Warum sollst du das prüfen?','Das wird vorgeschlagen','So steht es bisher im Profil','Hier kannst du es nachprüfen','example.org öffnen','Ich habe den Vorschlag geprüft','So übernehmen &amp; speichern','Ändern','Vorschlag ablehnen','24. Dezember 2026 bis 25. Dezember 2026 geschlossen'])assert.ok(html.includes(phrase),phrase);
- for(const code of ['CLOSED','intervals','fingerprint','jobIds'])assert.ok(!html.includes(code),code);
- assert.ok(html.includes('disabled=""'));
+ for(const phrase of ['Vorschlag','Aktuell im Profil','Recherche &amp; Belege','example.org öffnen','Geprüft übernehmen','Ändern','Ablehnen','24. Dezember 2026 bis 25. Dezember 2026 geschlossen'])assert.ok(html.includes(phrase),phrase);
+ for(const code of ['CLOSED','intervals','fingerprint','jobIds','Warum sollst du das prüfen?'])assert.ok(!html.includes(code),code);
+ assert.match(html,/<details[^>]*><summary>Recherche &amp; Belege/);
+ assert.doesNotMatch(html,/<details[^>]* open/);
+ assert.ok(html.indexOf('Geprüft übernehmen')<html.indexOf('Recherche &amp; Belege'));
 });
 test('a missing fact is an invitation to add or leave unknown, never a fictitious proposed answer',()=>{
  const task={attributeKey:'accessibility.accessible_toilet',kind:'MISSING',fingerprint:'missing',claimId:null,jobIds:[],status:'UNKNOWN',reason:'Die offizielle Website nennt dazu keine Angabe.'};
  const html=renderToStaticMarkup(createElement(ResearchTaskReview,{spotId:'fixture',task,request(){},post(){},onDecision(){},onEditingChange(){}}));
- for(const phrase of ['Angabe hinzufügen','Ohne Angabe abschliessen','Du musst nichts erraten','kein vollständiger Quellenbeleg'])assert.ok(html.includes(phrase),phrase);
- assert.ok(!html.includes('Das wird vorgeschlagen'));assert.ok(!html.includes('So übernehmen'));
+ for(const phrase of ['Angabe ergänzen','Ohne Angabe abschliessen','Recherche &amp; Belege'])assert.ok(html.includes(phrase),phrase);
+ assert.ok(!html.includes('>Vorschlag</h4>'));assert.ok(!html.includes('Geprüft übernehmen'));
 });
 
 test('temporary conditions require editing the expiry before a direct save is offered',()=>{
  const task={attributeKey:'state.current',kind:'REVIEW',fingerprint:'fixture',claimId:null,jobIds:[],status:'REQUIRES_REVIEW',value:{kind:'TEMPORARILY_CLOSED',scope:null},citations:[]};
  const html=renderToStaticMarkup(createElement(ResearchTaskReview,{spotId:'fixture',task,request(){},post(){},onDecision(){},onEditingChange(){}}));
- assert.match(html,/Enddatum/);assert.ok(!html.includes('So übernehmen &amp; speichern'));
+ assert.match(html,/Enddatum/);assert.ok(!html.includes('Geprüft übernehmen'));
 });
 test('discovery descriptions preserve scoped absences, source quotes, prices and conditions',()=>{
  const value={contractVersion:'backyrd.world-knowledge.discovery-profile@1.0',description:'Pizza jeden Abend. Keine Lieferung.',reviewed:false,offerings:[{id:'pizza',name:'Pizza',description:'Im Restaurant',price:{min:17,max:23,currency:'CHF',basis:'PER_PERSON',mandatoryFeesIncluded:false}}],assertions:[{id:'delivery',kind:'FEATURE',concepts:['Lieferung'],offeringId:'pizza',state:'ABSENT',evidence:'Keine Lieferung.',conditions:'Nur vor Ort',validFrom:'2026-10-27T00:00:00.000Z',validUntil:'2026-12-31T00:00:00.000Z'}]};
