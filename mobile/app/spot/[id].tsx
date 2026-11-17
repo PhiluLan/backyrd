@@ -280,7 +280,7 @@ export default function SpotDetailScreen() {
   });
 
   const [spot, setSpot] = useState<any>(null);
-  const [sourceCredit, setSourceCredit] = useState<{ credit: string; source_url: string; license_url: string } | null>(null);
+  const [sourceCredit, setSourceCredit] = useState<{ credit: string; source_url: string; license_url: string | null } | null>(null);
   const [legacyAddress, setLegacyAddress] = useState<string | null>(null);
   const [photos, setPhotos] = useState<any[]>([]);
   const [galleryPhotos,setGalleryPhotos]=useState<SpotGalleryPhoto[]>([]);
@@ -938,7 +938,7 @@ export default function SpotDetailScreen() {
             <Text style={styles.disclosureSub}>
               Grundangaben von{" "}
               <Text accessibilityRole="link" onPress={() => void openWebsite(sourceCredit.source_url)}>{sourceCredit.credit}</Text>
-              {" · "}<Text accessibilityRole="link" onPress={() => void openWebsite(sourceCredit.license_url)}>Lizenz</Text>
+              {sourceCredit.license_url && <>{" · "}<Text accessibilityRole="link" onPress={() => void openWebsite(sourceCredit.license_url ?? "")}>Lizenz</Text></>}
             </Text>
           ) : null}
 

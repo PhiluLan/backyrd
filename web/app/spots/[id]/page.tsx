@@ -348,7 +348,7 @@ export default async function SpotDetailPage({
                     <dt className="b-label">Quelle der Grundangaben</dt>
                     <dd style={{ margin: "6px 0 0" }}>
                       <a href={data.source_credit.source_url}>{data.source_credit.credit}</a>
-                      {" · "}<a href={data.source_credit.license_url}>Lizenz</a>
+                      {data.source_credit.license_url && <>{" · "}<a href={data.source_credit.license_url}>Lizenz</a></>}
                     </dd>
                   </div>
                 ) : null}
