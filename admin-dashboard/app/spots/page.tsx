@@ -111,7 +111,7 @@ export default function SpotsPage() {
 
   return (
     <div className="bi-page admin-page">
-      <AdminPageHeader eyebrow="Spots · gemeinsame Wahrheit" title="Orte verwalten" description="Spots finden, Profile bearbeiten und veröffentlichte Angaben verwalten." actions={<><DateRangeSelector value={preset} onChange={setPreset}/><Link href="/spots/presentation" className="bi-actionButton">Detail-Darstellung</Link><Link href="/spots/new" className="bi-primaryButton">Neuen Spot anlegen</Link></>} />
+      <AdminPageHeader eyebrow="Spots · gemeinsame Wahrheit" title="Orte verwalten" description="Spots finden, Profile bearbeiten und veröffentlichte Angaben verwalten." actions={<><DateRangeSelector value={preset} onChange={setPreset}/><Link href="/spots/presentation" className="bi-actionButton">Detail-Darstellung</Link><Link href="/spots/import" className="bi-actionButton">Ortsimporte</Link><Link href="/spots/new" className="bi-primaryButton">Neuen Spot anlegen</Link></>} />
       {error ? <ErrorState message={error} /> : null}
       {params.get("archiviert") === "1" ? <div className="by-alert by-alertOk" role="status">Spot archiviert. Reviews und historische Daten bleiben erhalten.</div> : null}
       {loading ? <LoadingState label="Spots werden geladen …" /> : null}

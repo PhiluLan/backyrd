@@ -6,7 +6,7 @@ import { cpSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync }
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProductionPlan, parseSupabaseFunctionConfig } from "../deployment/supabase-production-plan.mjs";
-import { BETA_SOCIAL_MIGRATION, BETA_SECURITY_MIGRATIONS, NUKNUK_ACTIVITY_MIGRATION, ANALYTICS_PAGEVIEWS_SCOPE, ANALYTICS_PAGEVIEWS_MIGRATION, SPOT_SEARCH_FRESHNESS_SCOPE, SPOT_SEARCH_FRESHNESS_MIGRATION, hasNuknukActivityRestoreIdentity } from "../deployment/isolated-research-migration.mjs";
+import { BETA_SOCIAL_MIGRATION, BETA_SECURITY_MIGRATIONS, NUKNUK_ACTIVITY_MIGRATION, ANALYTICS_PAGEVIEWS_SCOPE, ANALYTICS_PAGEVIEWS_MIGRATION, SPOT_SEARCH_FRESHNESS_SCOPE, SPOT_SEARCH_FRESHNESS_MIGRATION, BASEL_PLACE_SOURCES_SCOPE, BASEL_PLACE_SOURCES_MIGRATION, hasNuknukActivityRestoreIdentity } from "../deployment/isolated-research-migration.mjs";
 import { isExactProductAdditiveSet, isExactPreappliedPriorityReceipt } from "./product-additive-migration-scope.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -196,10 +196,13 @@ function verifiedArchiveRecovery(plan, additive, migrations) {
   const scope = plan.isolatedResearchScope;
   const analytics = scope?.contractVersion === ANALYTICS_PAGEVIEWS_SCOPE;
   const spotSearch = scope?.contractVersion === SPOT_SEARCH_FRESHNESS_SCOPE;
-  return (analytics || spotSearch || scope?.contractVersion === "backyrd.nuknuk-activity-delivery-scope@1.0")
+  const baselSources = scope?.contractVersion === BASEL_PLACE_SOURCES_SCOPE;
+  const target = baselSources ? BASEL_PLACE_SOURCES_MIGRATION : spotSearch ? SPOT_SEARCH_FRESHNESS_MIGRATION
+    : analytics ? ANALYTICS_PAGEVIEWS_MIGRATION : NUKNUK_ACTIVITY_MIGRATION;
+  return (analytics || spotSearch || baselSources || scope?.contractVersion === "backyrd.nuknuk-activity-delivery-scope@1.0")
     && scope.executionAuthorized === false && !plan.authDeploy && !plan.authConfig?.deploy
-    && JSON.stringify(plan.deployFunctions) === JSON.stringify(analytics || spotSearch ? [] : ["decision-admin-diagnostic", "decision-v13"])
-    && JSON.stringify(migrations) === JSON.stringify([spotSearch ? SPOT_SEARCH_FRESHNESS_MIGRATION : analytics ? ANALYTICS_PAGEVIEWS_MIGRATION : NUKNUK_ACTIVITY_MIGRATION])
+    && JSON.stringify(plan.deployFunctions) === JSON.stringify(analytics || spotSearch || baselSources ? [] : ["decision-admin-diagnostic", "decision-v13"])
+    && JSON.stringify(migrations) === JSON.stringify([target])
     && JSON.stringify(scope.migrations) === JSON.stringify(migrations)
     && additive?.restoreDrillStatus === "ISOLATED_DATABASE_AND_MEDIA_RESTORE_PASS"
     && hasNuknukActivityRestoreIdentity(scope.restoreDrill)

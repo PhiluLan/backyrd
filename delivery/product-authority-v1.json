@@ -75,8 +75,8 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261116175436_publish_spot_search_changes.sql",
-        "sha256": "f34d770c56ee2c4a7224bbcf0b34f9ba3640b24d7e0e3882b51f759cd97593f3"
+        "path": "supabase/migrations/20261117085800_basel_place_sources_v1.sql",
+        "sha256": "9411fad4efb485d9571e3466b2e22721b9800cb3ab1e3df0c0a06451ef068f30"
       }
     ],
     "executionAuthorized": false,
@@ -265,13 +265,13 @@
     }
   },
   "analyticsPageviewsDeliveryScope": {
-    "contractVersion": "backyrd.spot-search-freshness-delivery-scope@1.0",
+    "contractVersion": "backyrd.basel-place-sources-delivery-scope@1.0",
     "executionAuthorized": false,
     "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
     "migrations": [
       {
-        "path": "supabase/migrations/20261116175436_publish_spot_search_changes.sql",
-        "sha256": "f34d770c56ee2c4a7224bbcf0b34f9ba3640b24d7e0e3882b51f759cd97593f3"
+        "path": "supabase/migrations/20261117085800_basel_place_sources_v1.sql",
+        "sha256": "9411fad4efb485d9571e3466b2e22721b9800cb3ab1e3df0c0a06451ef068f30"
       }
     ],
     "deferredMigrations": [
@@ -293,7 +293,7 @@
       }
     ],
     "functions": [],
-    "backupRunId": 43841442993,
+    "backupRunId": 43878789183,
     "restoreDrill": {
       "runId": 43878789183,
       "artifactId": 14231428566,

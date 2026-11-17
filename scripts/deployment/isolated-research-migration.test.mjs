@@ -293,3 +293,27 @@ test('Spot search release selects only its migration after verified Analytics de
   assert.throws(() => scopeAnalyticsPageviewsMigrations({ ...request, pending: [...request.pending, ANALYTICS_PAGEVIEWS_MIGRATION] }), /pending_scope_changed/);
   assert.deepEqual(scopeAnalyticsPageviewsMigrations({ ...request, pending: deferred, appliedSpotSearchFreshness: { migration } }).pendingMigrations, []);
 });
+
+test('Basel place sources require the verified spot search release and exact migration bytes', async () => {
+  const {
+    BASEL_PLACE_SOURCES_SCOPE, BASEL_PLACE_SOURCES_MIGRATION: migration, SPOT_SEARCH_FRESHNESS_MIGRATION,
+    ANALYTICS_PAGEVIEWS_MIGRATION, scopeAnalyticsPageviewsMigrations,
+  } = await import('./isolated-research-migration.mjs');
+  const request = {
+    pending: [...deferred, migration], baseSha: base, deployFunctions: [], retiredFunctions: [],
+    authDeploy: false, appliedAnalyticsPageviews: { migration: ANALYTICS_PAGEVIEWS_MIGRATION },
+    appliedSpotSearchFreshness: { migration: SPOT_SEARCH_FRESHNESS_MIGRATION },
+    scope: {
+      contractVersion: BASEL_PLACE_SOURCES_SCOPE, baseSha: base, migrations: [migration],
+      deferredMigrations: deferred, backupRunId: 1, executionAuthorized: false, functions: [],
+      restoreDrill: { runId: 1, artifactId: 2, artifactDigest: 'sha256:' + 'a'.repeat(64) },
+    },
+  };
+  assert.deepEqual(scopeAnalyticsPageviewsMigrations(request).pendingMigrations, [migration]);
+  assert.throws(() => scopeAnalyticsPageviewsMigrations({ ...request, appliedSpotSearchFreshness: null }), /scope_invalid/);
+  assert.throws(() => scopeAnalyticsPageviewsMigrations({ ...request, deployFunctions: ['decision-v13'] }), /scope_invalid/);
+  assert.throws(() => scopeAnalyticsPageviewsMigrations({
+    ...request, pending: [...deferred, { ...migration, sha256: '0'.repeat(64) }],
+  }), /pending_scope_changed/);
+  assert.deepEqual(scopeAnalyticsPageviewsMigrations({ ...request, pending: deferred, appliedBaselPlaceSources: { migration } }).pendingMigrations, []);
+});
