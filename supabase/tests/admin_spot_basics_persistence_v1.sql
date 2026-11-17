@@ -28,7 +28,9 @@ begin
  ('00000000-0000-0000-0000-000000000000',other_owner,'authenticated','authenticated','basics-other@invalid','','{}','{}',now(),now());
  update public.profiles set is_admin=true where id=founder;
  insert into public.admin_users(user_id,role) values(founder,'super_admin');
- select id into category_id from public.categories order by name limit 1;
+ insert into public.categories(name)
+ select 'Unterkunft / Hotel' where not exists(select 1 from public.categories where name='Unterkunft / Hotel');
+ select id into strict category_id from public.categories where name='Unterkunft / Hotel';
  insert into public.spots(id,name,address,city,country,lat,lng,status,category_id,data_origin,owner_id,website,phone,email)
  values(spot_id,'Basis Persistence Spot','Teststrasse 1','Basel','Switzerland',47.55,7.59,'approved',category_id,'REAL',owner_id,'https://old.invalid','old-phone','old@invalid.test');
  insert into public.spots(id,name,lat,lng,status,data_origin)
