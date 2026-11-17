@@ -170,8 +170,11 @@ Bei einer fehlgeschlagenen Übergabe bleibt der freigegebene Spot sichtbar
 und die Recherche kann am selben Eintrag erneut gestartet werden.
 Öffnungszeiten und Preise aus der Crawler-Vorschau brauchen die
 bestehende Prüfung, bevor sie zu bestätigten Spot-Knowledge-Fakten werden.
-Bestehende Spots werden durch die Suche
-nicht überschrieben. Kontinuierliche Änderungserkennung und
+«Suche starten» speichert geänderte Einstellungen vor dem Abruf.
+«Offene Funde» zeigt die Einträge, die als Spot freigegeben werden können.
+Freigegebene, abgelehnte und als Dubletten erkannte Funde bleiben im
+«Verlauf» mit Links zum Spot und zur Recherche, sobald vorhanden.
+Bestehende Spots werden durch die Suche nicht überschrieben. Kontinuierliche Änderungserkennung und
 Veranstaltungsimporte benötigen eigene Quellen- und Abgleichregeln.
 
 ### Betrieb

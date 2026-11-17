@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminPageHeader, SectionCard, StatusBadge } from "@/components/admin/AdminUi";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  spotCrawlerCategories, spotCrawlerDistricts, type CrawlerCandidate, type CrawlerOverview,
+  sameCrawlerSettings, isOpenCrawlerCandidate, spotCrawlerCategories, spotCrawlerDistricts,
+  type CrawlerCandidate, type CrawlerOverview, type CrawlerView,
   type CrawlerSettings, type SavedCrawlerSettings,
 } from "@/lib/spotCrawler";
 import styles from "./page.module.css";
@@ -50,34 +51,32 @@ function toggle<T>(values: T[], value: T) {
 }
 
 export default function SpotCrawlerPage() {
-  const [data, setData] = useState<CrawlerPageData | null>(null);
+  const [data, setData] = useState<(CrawlerPageData & { listing: string }) | null>(null);
+  const requestVersion = useRef(0);
   const [draft, setDraft] = useState<SavedCrawlerSettings | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [choices, setChoices] = useState<Record<number, string>>({});
   const [confirmed, setConfirmed] = useState<Record<number, string>>({});
+  const [view, setView] = useState<CrawlerView>("open");
   const [cursor, setCursor] = useState(0);
   const [back, setBack] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [feedbackTarget, setFeedbackTarget] = useState<"page" | "search">("page");
 
-  const load = useCallback(async (after: number, resetSettings = false) => {
-    const result = await crawlerRequest<CrawlerPageData>(`/api/spot-crawler?after=${after}`);
-    setData(result);
+  const load = useCallback(async (after: number, filter: CrawlerView, resetSettings = false) => {
+    const version = ++requestVersion.current;
+    const result = await crawlerRequest<CrawlerPageData>(`/api/spot-crawler?after=${after}&view=${filter}`);
+    if (version !== requestVersion.current) return;
+    setData({ ...result, listing: `${filter}:${after}` });
     setDraft(current => !current || resetSettings ? result.settings : current);
   }, []);
 
   useEffect(() => {
-    let disposed = false;
-    void crawlerRequest<CrawlerPageData>(`/api/spot-crawler?after=${cursor}`).then(result => {
-      if (disposed) return;
-      setData(result);
-      setDraft(current => current ?? result.settings);
-    }).catch((failure: Error) => {
-      if (!disposed) setError(failure.message);
-    });
-    return () => { disposed = true; };
-  }, [cursor]);
+    void Promise.resolve().then(() => load(cursor, view)).catch((failure: Error) => setError(failure.message));
+    return () => { requestVersion.current += 1; };
+  }, [cursor, load, view]);
 
   useEffect(() => {
     void supabase.from("categories").select("id,name").order("name").then(result => {
@@ -91,21 +90,22 @@ export default function SpotCrawlerPage() {
   useEffect(() => {
     if (!isRunning && !researchRunning) return;
     const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") {
-        void load(cursor).catch((failure: Error) => setError(failure.message));
+      if (!busy && document.visibilityState === "visible") {
+        void load(cursor, view).catch((failure: Error) => setError(failure.message));
       }
     }, 4500);
     return () => window.clearInterval(timer);
-  }, [cursor, isRunning, load, researchRunning]);
+  }, [busy, cursor, isRunning, load, researchRunning, view]);
 
-  async function act(operation: () => Promise<string>) {
+  async function act(operation: () => Promise<string>, target: "page" | "search" = "page") {
     if (busy) return;
     setBusy(true);
+    setFeedbackTarget(target);
     setError("");
     setMessage("");
     try {
       setMessage(await operation());
-      await load(cursor);
+      await load(cursor, view);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Die Aktion ist fehlgeschlagen.");
     } finally {
@@ -124,7 +124,7 @@ export default function SpotCrawlerPage() {
         p_fingerprint: row.review_fingerprint, p_revision: row.review_revision, p_disposition: action,
       });
       if (failure?.code === "40001") {
-        await load(cursor);
+        await load(cursor, view);
         throw new Error(errors.APPROVAL_CHANGED);
       }
       if (failure) throw new Error("Die Entscheidung konnte nicht gespeichert werden.");
@@ -149,23 +149,46 @@ export default function SpotCrawlerPage() {
     });
   }
 
-  const changed = JSON.stringify(data?.settings) !== JSON.stringify(draft);
+  const changed = Boolean(data && draft && !sameCrawlerSettings(data.settings, draft));
+  const overview = data?.listing === `${view}:${cursor}` ? data.overview : undefined;
+
+  async function saveSettings(settings: SavedCrawlerSettings) {
+    const response = await crawlerRequest<{ settings: SavedCrawlerSettings }>("/api/spot-crawler",
+      { action: "save", settings, revision: settings.revision });
+    setDraft(response.settings);
+    setData(current => current && { ...current, settings: response.settings });
+  }
+
+  function selectView(nextView: CrawlerView) {
+    if (view === nextView) return;
+    setView(nextView);
+    setCursor(0);
+    setBack([]);
+  }
+
+  const feedback = <>
+    {error && <p role="alert" className={styles.notice}>{error}</p>}
+    {message && <p role="status" className={styles.notice}>{message}</p>}
+  </>;
   return (
     <div className={styles.page}>
       <AdminPageHeader title="Backyrd Crawler" description="Entdeckt neue Basler Orte im Web und sammelt belegte Funde für die Spotliste." />
-      {error && <p role="alert" className={styles.notice}>{error}</p>}
-      {message && <p role="status" className={styles.notice}>{message}</p>}
+      {feedbackTarget === "page" && feedback}
       <div className={styles.layout}>
         <SectionCard title="Suche einstellen">
           {!draft ? <p>Die Einstellungen werden geladen.</p> : (
             <form className={styles.form} onSubmit={event => {
               event.preventDefault();
+              const submitter = (event.nativeEvent as SubmitEvent).submitter;
+              const start = submitter?.getAttribute("value") === "start";
+              if ((start && (isRunning || !data?.searchConfigured)) || (!start && !changed)) return;
               void act(async () => {
-                const response = await crawlerRequest<{ settings: SavedCrawlerSettings }>("/api/spot-crawler",
-                  { action: "save", settings: draft, revision: draft.revision });
-                setDraft(response.settings);
-                return "Einstellungen gespeichert.";
-              });
+                if (changed) await saveSettings(draft);
+                if (!start) return "Einstellungen gespeichert.";
+                await crawlerRequest("/api/spot-crawler", { action: "start" });
+                selectView("open");
+                return "Die Websuche wurde gestartet.";
+              }, "search");
             }}>
               <fieldset><legend>Kategorien</legend>
                 <div className={styles.options}>{categoryKeys.map(key => (
@@ -206,14 +229,11 @@ export default function SpotCrawlerPage() {
               {!data?.searchConfigured && <p className={styles.notice}>Der Suchdienst ist noch nicht eingerichtet.</p>}
               {!data?.scheduleConfigured && draft.schedule !== "MANUAL" && <p className={styles.notice}>Der Zeitplan wartet auf die Aktivierung des Server-Takts.</p>}
               <div className={styles.actions}>
-                <button type="submit" className="bi-actionButton" disabled={busy || !changed}>Speichern</button>
-                <button type="button" className="bi-primaryButton" disabled={busy || changed || isRunning || !data?.searchConfigured}
-                  onClick={() => void act(async () => {
-                    await crawlerRequest("/api/spot-crawler", { action: "start" });
-                    return "Die Websuche wurde gestartet.";
-                  })}>Suche starten</button>
+                <button type="submit" value="start" className="bi-primaryButton" disabled={busy || isRunning || !data?.searchConfigured}>Suche starten</button>
+                <button type="submit" value="save" className="bi-actionButton" disabled={busy || !changed}>Speichern</button>
               </div>
-              {changed && <small>Speichere deine Einstellungen vor dem Start.</small>}
+              {isRunning && <small>Eine Suche läuft bereits. Danach kannst du eine neue starten.</small>}
+              {feedbackTarget === "search" && feedback}
             </form>
           )}
         </SectionCard>
@@ -226,22 +246,32 @@ export default function SpotCrawlerPage() {
               <StatusBadge tone={item.status === "FAILED" ? "danger" : item.status === "COMPLETE" ? "success" : "info"}>{statusLabels[item.status]}</StatusBadge></li>
           ))}</ul> : <p>Noch kein Suchlauf vorhanden.</p>}
           <button className="bi-actionButton" type="button" disabled={busy} onClick={() => void act(async () => {
-            await load(cursor, true);
+            await load(cursor, view, true);
             return "Aktueller Stand geladen.";
           })}>Aktualisieren</button>
         </SectionCard>
       </div>
       <SectionCard title="Gefundene Orte">
-        {data && !data.overview.rows.length && <p>{isRunning ? "Die Suche läuft. Neue Funde erscheinen hier nach dem Abgleich." : "Hier erscheinen neue Funde nach dem Abgleich mit der Spotliste."}</p>}
-        <div className={styles.results}>{data?.overview.rows.map(row => {
+        <div className={styles.actions} role="group" aria-label="Funde anzeigen">
+          <button type="button" className={view === "open" ? "bi-primaryButton" : "bi-actionButton"} aria-pressed={view === "open"}
+            disabled={busy} onClick={() => selectView("open")}>Offene Funde</button>
+          <button type="button" className={view === "history" ? "bi-primaryButton" : "bi-actionButton"} aria-pressed={view === "history"}
+            disabled={busy} onClick={() => selectView("history")}>Verlauf</button>
+        </div>
+        {!overview && !error && <p>Funde werden geladen.</p>}
+        {overview && !overview.rows.length && <p>{overview.next_after !== null ? "Auf dieser Seite sind keine passenden Funde."
+          : view === "history" ? "Der Verlauf ist leer."
+            : isRunning ? "Die Suche läuft. Neue Funde erscheinen hier nach dem Abgleich." : "Keine offenen Funde."}</p>}
+        <div className={styles.results}>{overview?.rows.map(row => {
           const { facts } = row;
           const awaitingDecision = ["OPEN", "REVIEWED", "EXISTING"].includes(row.review_state) && !row.imported_spot_id;
           const needsConfirmation = row.state === "REVIEW" && row.can_confirm_distinct === true;
-          const canCreate = awaitingDecision && (row.state === "NEW" || needsConfirmation) && row.review_state !== "EXISTING";
+          const canCreate = isOpenCrawlerCandidate(row);
           const status = row.imported_spot_id ? "Freigegeben"
             : row.review_state === "DISMISSED" ? "Abgelehnt"
               : row.review_state === "EXISTING" || row.state === "MATCHED" ? "Bereits im Katalog"
-                : row.state === "NEW" ? "Neu" : "Ähnliche Orte gefunden";
+                : row.state === "MISSING" ? "Nicht mehr in der Quelle"
+                  : row.state === "NEW" ? "Neu" : needsConfirmation ? "Ähnliche Orte gefunden" : "Mögliche Dublette";
           return <article className={styles.result} key={row.source_id}>
             <div className={styles.resultHeader}><div><h3>{facts.name}</h3><p>{spotCrawlerCategories[facts.category]} · {facts.address}</p></div>
               <StatusBadge>{status}</StatusBadge></div>
@@ -285,10 +315,10 @@ export default function SpotCrawlerPage() {
             setCursor(back.at(-1) ?? 0);
             setBack(previous => previous.slice(0, -1));
           }}>Zurück</button>}
-          {typeof data?.overview.next_after === "number" && <button className="bi-actionButton" type="button" disabled={busy} onClick={() => {
-            if (data.overview.next_after === null) return;
+          {typeof overview?.next_after === "number" && <button className="bi-actionButton" type="button" disabled={busy} onClick={() => {
+            if (overview.next_after === null) return;
             setBack(previous => [...previous, cursor]);
-            setCursor(data.overview.next_after);
+            setCursor(overview.next_after);
           }}>Weitere Funde</button>}
         </div>
       </SectionCard>

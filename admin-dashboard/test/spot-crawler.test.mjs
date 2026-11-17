@@ -6,13 +6,18 @@ import ts from "typescript";
 import * as sourceRuntime from "../../packages/spot-research-runtime/src/nuknuk-sources.mjs";
 
 const nativeRequire = createRequire(import.meta.url);
-const loaded = { exports: {} };
-const input = readFileSync(new URL("../lib/server/spotCrawlerDiscovery.ts", import.meta.url), "utf8");
-const { outputText } = ts.transpileModule(input, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
-new Function("module", "exports", "require", outputText)(loaded, loaded.exports,
-  id => id.endsWith("nuknuk-sources.mjs") ? sourceRuntime : nativeRequire(id));
+function load(relative, resolve = nativeRequire) {
+  const loaded = { exports: {} };
+  const input = readFileSync(new URL(relative, import.meta.url), "utf8");
+  const { outputText } = ts.transpileModule(input, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
+  new Function("module", "exports", "require", outputText)(loaded, loaded.exports, resolve);
+  return loaded.exports;
+}
 
-const { crawlSpotPages, planCrawlerQueries, readCrawlerEvidence, robotsPermits } = loaded.exports;
+const { crawlSpotPages, planCrawlerQueries, readCrawlerEvidence, robotsPermits } = load(
+  "../lib/server/spotCrawlerDiscovery.ts", id => id.endsWith("nuknuk-sources.mjs") ? sourceRuntime : nativeRequire(id),
+);
+const crawler = load("../lib/spotCrawler.ts");
 const page = (url, body) => ({ url, body, contentType: "text/html", observedAt: "2026-11-17T10:00:00Z" });
 const settings = { categories: ["CAFE", "BAR"], districts: ["Basel", "Clara"], searches: 4, limit: 10 };
 const website = "https://venue.example/";
@@ -63,4 +68,44 @@ test("checks robots, avoids directory pages, deduplicates and resolves a specifi
   assert.equal(result.pagesChecked, 2);
   assert.equal(result.candidates.length, 1);
   assert.equal(result.candidates[0].external_id.length, 64);
+});
+
+
+test("settings order and revision do not block a new search", () => {
+  const saved = { ...settings, schedule: "MANUAL", time: "08:00", monthBudgetCents: 1000, revision: "1" };
+  const reversed = Object.fromEntries(Object.entries(saved).reverse());
+  const same = { ...reversed, categories: [...saved.categories].reverse(), revision: "2" };
+  assert.equal(crawler.sameCrawlerSettings(saved, same), true);
+  assert.equal(crawler.sameCrawlerSettings(saved, { ...same, limit: 20 }), false);
+  assert.equal(crawler.sameCrawlerSettings(saved, { ...same, districts: ["Basel", "Altstadt"] }), false);
+});
+
+test("open candidates skip a page of processed finds and history preserves the existing records", async () => {
+  const approved = { source_id: 1, imported_spot_id: "spot", review_state: "IMPORTED", state: "REVIEW" };
+  const duplicate = { source_id: 2, review_state: "REVIEWED", state: "REVIEW", can_confirm_distinct: false };
+  const rejected = { source_id: 3, review_state: "DISMISSED", state: "NEW" };
+  const separateVenue = { source_id: 4, review_state: "OPEN", state: "REVIEW", can_confirm_distinct: true };
+  const saved = { ...settings, schedule: "MANUAL", time: "08:00", monthBudgetCents: 1000, revision: "1" };
+  const cursors = [];
+  const actor = {
+    rpc: async (name, { p_after }) => {
+      assert.equal(name, "admin_backyrd_spot_crawler_preview_v1");
+      cursors.push(p_after);
+      return { data: p_after === 0
+        ? { rows: [approved, duplicate, rejected], next_after: 3, runs: [] }
+        : { rows: [separateVenue], next_after: null, runs: [] } };
+    },
+  };
+  const route = load("../app/api/spot-crawler/route.ts", id => ({
+    "next/server": {},
+    "@/lib/server/adminAuthorization": { authorizeAdminRequest: async () => ({ ok: true, client: actor }) },
+    "@/lib/server/spotCrawlerJobs": { crawlerService: () => ({ rpc: async () => ({ data: saved }) }) },
+    "@/lib/spotCrawler": crawler,
+  })[id]);
+  const open = await route.GET(new Request("https://example.org/api/spot-crawler"));
+  assert.equal(open.status, 200);
+  assert.deepEqual((await open.json()).overview.rows, [separateVenue]);
+  assert.deepEqual(cursors, [0, 3]);
+  const history = await route.GET(new Request("https://example.org/api/spot-crawler?view=history"));
+  assert.deepEqual((await history.json()).overview.rows, [approved, duplicate, rejected]);
 });
