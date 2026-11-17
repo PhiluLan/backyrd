@@ -274,7 +274,7 @@
       "deferredMigrationCount": 4,
       "authChanged": false,
       "adminDiagnosticQuotaApplied": false,
-      "note": "Audited code-only release of Decision v218 and Admin diagnostic v13. Global shipped SQL baseline stays unchanged because four Booking migrations remain deferred. Real authenticated diagnostic confirms Volta Br\u00e4u and Alchemist with no unknown or failed mandatory facts. No learning or Spot writes. Admin test quota and calendar expiry removed; JWT/Admin/runtime controls remain. Presentation follow-up: selected-offer reason labels Volta offer as F\u00fchrung, which is not a suitable bar recommendation explanation."
+      "note": "Audited code-only release of Decision v218 and Admin diagnostic v13. Global shipped SQL baseline stays unchanged because four Booking migrations remain deferred. Real authenticated diagnostic confirms Volta Bräu and Alchemist with no unknown or failed mandatory facts. No learning or Spot writes. Admin test quota and calendar expiry removed; JWT/Admin/runtime controls remain. Presentation follow-up: selected-offer reason labels Volta offer as Führung, which is not a suitable bar recommendation explanation."
     },
     "regionalDecisionRelease": {
       "status": "APPLIED_AND_VERIFIED",
@@ -676,6 +676,17 @@
       "deploymentRunId": 44105792495,
       "certificationRunId": 44104732636,
       "manifestHash": "505441ea11cce4c85a9510277f8378698695f22052167928bb8ce23832f2d961"
+    },
+    "spotCrawlerRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "migration": {
+        "path": "supabase/migrations/20261117180300_backyrd_spot_crawler.sql",
+        "sha256": "578bdb613c58f8a6cbd3f3f14d4770cdb60a0c4397ada3eb5ade36a89bd79368"
+      },
+      "sourceSha": "588b5f0232c3ff0b1932ccebb712b2e455fbd0e2",
+      "deploymentRunId": 44151765630,
+      "certificationRunId": 44150752173,
+      "manifestHash": "eff90fa805ef3b617b22369c66bbd959dd96d3093cbcb0ef3a0caaeb6b7751f7"
     }
   },
   "mobile": {
