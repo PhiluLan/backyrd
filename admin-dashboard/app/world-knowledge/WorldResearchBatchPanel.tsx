@@ -67,6 +67,7 @@ export function WorldResearchBatchPanel(props: {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [automationEnabled, setAutomationEnabled] = useState(false);
   const [jobsError, setJobsError] = useState("");
+  const [startFeedback, setStartFeedback] = useState<{ message: string; error?: boolean } | null>(null);
   const queueRequest = props.queue;
   const jobsGet = props.jobsGet;
   const draftsGet = props.draftsGet;
@@ -203,10 +204,30 @@ export function WorldResearchBatchPanel(props: {
     if (queue) void props.queue(queuePage, batchSize).then((value) => setQueue(parseWorldResearchQueue(value))).catch(() => setQueueError("Export erstellt; der Fortschritt konnte nicht aktualisiert werden."));
   });
   const startAutomatic = () => run(async () => {
-    const response = await props.jobsStart(selected.map((spot) => spot.spotId)) as { jobs: Array<{ jobId: string }> };
-    const refreshed = await props.jobsGet() as ResearchJobsResponse;
-    setJobs(refreshed.jobs);
-    setMessage(`${response.jobs.length} Rechercheaufträge in der Warteschlange erfasst. Die Vorschläge erscheinen nach Abschluss zur Prüfung.`);
+    setStartFeedback({ message: "Rechercheauftrag wird vorbereitet …" });
+    try {
+      const response = await props.jobsStart(selected.map((spot) => spot.spotId)) as {
+        jobs: Array<{ jobId: string; reused?: boolean }>;
+      };
+      if (!Array.isArray(response.jobs) || response.jobs.length !== selected.length || response.jobs.some(job => !job?.jobId)) {
+        throw new Error("Der Start konnte nicht bestätigt werden. Prüfe «Deine Aufgaben», bevor du erneut startest.");
+      }
+      const reused = response.jobs.filter(job => job.reused).length;
+      const title = response.jobs.length === 1
+        ? reused ? `Für ${selected[0].name} ist bereits eine Recherche erfasst.` : `Recherche für ${selected[0].name} wurde in die Warteschlange aufgenommen.`
+        : `${response.jobs.length} Rechercheaufträge sind erfasst${reused ? `, davon ${reused} bereits laufend oder in der Warteschlange` : ""}.`;
+      setStartFeedback({ message: `${title} Den Status findest du unter «Deine Aufgaben → Aktuell».` });
+      void props.jobsGet().then(result => setJobs((result as ResearchJobsResponse).jobs)).catch(() => {});
+    } catch (cause) {
+      const code = cause instanceof Error ? cause.message : "";
+      const preparationPrefix = "WORLD_RESEARCH_PROFILE_PREPARATION: ";
+      const message = code.startsWith(preparationPrefix) ? code.slice(preparationPrefix.length)
+        : code === "world_research_automation_daily_limit" ? "Das Tageslimit für die automatische Recherche ist erreicht."
+        : code === "world_research_automation_spot_busy" ? "Mindestens ein ausgewählter Spot wird bereits recherchiert."
+        : code === "WORLD_RESEARCH_AUTOMATION_DISABLED" ? "Die automatische Recherche ist momentan ausgeschaltet."
+        : "Der Start konnte nicht bestätigt werden. Prüfe «Deine Aufgaben», bevor du erneut startest.";
+      setStartFeedback({ message, error: true });
+    }
   });
   const parse = () => { try { return JSON.parse(json) as unknown; } catch { throw new Error("Das eingefügte JSON ist nicht gültig."); } };
   const loadPreview = async (document: unknown, choices: typeof confirmations, preserveReviews: boolean, declinedKeys = declined) => {
@@ -362,7 +383,9 @@ export function WorldResearchBatchPanel(props: {
           <button className={styles.secondary} disabled={queueBusy || busy} onClick={() => setSelected(queue.spots.slice(0, batchSize))}>Auch bereits übernommene Spots auswählen</button>
         </div></div>}
         {queueError && <p className={styles.error} role="alert">{queueError}</p>}
-        <div className={styles.search}><input aria-label="Spot suchen" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Anderen Spot nach Namen suchen" onKeyDown={(event) => { if (event.key === "Enter") void search(); }} /><button disabled={busy} onClick={() => void search()}>Suchen</button></div>{!!results.length && <div className={styles.results}>{results.map((spot) => <label key={spot.spotId}><input type="checkbox" checked={selected.some((item) => item.spotId === spot.spotId)} disabled={!selected.some((item) => item.spotId === spot.spotId) && selected.length >= batchSize} onChange={() => toggle(spot)} /><span><b>{spot.name}</b><small>{spot.city ?? "Ort nicht gepflegt"}</small></span></label>)}</div>}{!!selected.length && <div className={styles.chips}>{selected.map((spot) => <button key={spot.spotId} onClick={() => toggle(spot)} aria-label={`${spot.name} entfernen`}>{spot.name} <span aria-hidden="true">×</span></button>)}</div>}<button className={styles.primary} disabled={busy || !selected.length || !automationEnabled} onClick={() => void startAutomatic()}>Recherche automatisch starten</button><button className={styles.secondary} disabled={busy || !selected.length || selected.length > FILE_EXPORT_SPOT_LIMIT} onClick={() => void exportBatch()}>Recherche-Datei herunterladen <span aria-hidden="true">↗</span></button>{selected.length > FILE_EXPORT_SPOT_LIMIT && <p className={styles.note}>Für eine Recherche-Datei kannst du bis zu {FILE_EXPORT_SPOT_LIMIT} Spots auswählen.</p>}<p className={styles.note}>Die automatische Nuknuk-Recherche liefert zunächst Vorschläge. Für extern recherchierte Dateien nutzt du unten die sichere Übernahme mit erneuter Quellenprüfung.</p>{jobsError && <p className={styles.error} role="alert">{jobsError}</p>}{!automationEnabled && !jobsError && <p className={styles.note}>Automatische Recherche ist noch nicht freigeschaltet. Die manuelle Datei bleibt verfügbar.</p>}</div>}
+        <div className={styles.search}><input aria-label="Spot suchen" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Anderen Spot nach Namen suchen" onKeyDown={(event) => { if (event.key === "Enter") void search(); }} /><button disabled={busy} onClick={() => void search()}>Suchen</button></div>{!!results.length && <div className={styles.results}>{results.map((spot) => <label key={spot.spotId}><input type="checkbox" checked={selected.some((item) => item.spotId === spot.spotId)} disabled={!selected.some((item) => item.spotId === spot.spotId) && selected.length >= batchSize} onChange={() => toggle(spot)} /><span><b>{spot.name}</b><small>{spot.city ?? "Ort nicht gepflegt"}</small></span></label>)}</div>}{!!selected.length && <div className={styles.chips}>{selected.map((spot) => <button key={spot.spotId} onClick={() => toggle(spot)} aria-label={`${spot.name} entfernen`}>{spot.name} <span aria-hidden="true">×</span></button>)}</div>}<button className={styles.primary} disabled={busy || !selected.length || !automationEnabled} onClick={() => void startAutomatic()}>Recherche automatisch starten</button>
+        {startFeedback && <p className={startFeedback.error ? styles.error : styles.message} role={startFeedback.error ? "alert" : "status"}>{startFeedback.message}</p>}
+        <button className={styles.secondary} disabled={busy || !selected.length || selected.length > FILE_EXPORT_SPOT_LIMIT} onClick={() => void exportBatch()}>Recherche-Datei herunterladen <span aria-hidden="true">↗</span></button>{selected.length > FILE_EXPORT_SPOT_LIMIT && <p className={styles.note}>Für eine Recherche-Datei kannst du bis zu {FILE_EXPORT_SPOT_LIMIT} Spots auswählen.</p>}<p className={styles.note}>Die automatische Nuknuk-Recherche liefert zunächst Vorschläge. Für extern recherchierte Dateien nutzt du unten die sichere Übernahme mit erneuter Quellenprüfung.</p>{jobsError && <p className={styles.error} role="alert">{jobsError}</p>}{!automationEnabled && !jobsError && <p className={styles.note}>Automatische Recherche ist noch nicht freigeschaltet. Die manuelle Datei bleibt verfügbar.</p>}</div>}
       {props.pipeline && !json && <ResearchPipelinePanel spot={selected.length === 1 ? selected[0] : null} post={props.pipeline} onProcessed={async()=>{setJobs((await props.jobsGet() as ResearchJobsResponse).jobs);setJobsError("");}} openReview={jobId=>void openJob(jobId)} />}
       {!props.inboxManaged && !!jobs.length && !json && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>↻</span><h3>Rechercheaufträge</h3></div></div><div className={styles.queueList}>{jobs.map((job) => <div key={job.jobId}><strong>{job.spotName}</strong><p>{job.pipeline?.state === "PROCESSING" ? "Quellenprüfung und Speicherung laufen …" : job.pipeline ? `${job.pipeline.stored} automatisch gespeichert · ${job.pipeline.review} Angaben zur Prüfung${job.pipeline.errors.length ? " · Verarbeitung unvollständig" : ""}` : job.status === "READY_FOR_REVIEW" ? "Vorschlag zur Prüfung bereit" : job.status === "RUNNING" ? "Recherche läuft" : job.status === "QUEUED" ? "Wartet auf Recherche" : `Recherche fehlgeschlagen: ${job.failureCode ?? "unbekannter Fehler"}`}</p>{job.status === "READY_FOR_REVIEW" && (job.pipeline?.errors.length && props.pipeline ? <button className={styles.secondary} disabled={busy} onClick={()=>void run(async()=>{const result=await props.pipeline!({action:"resume",jobId:job.jobId}) as {report:{errors:string[];stored:string[]}};setMessage(result.report.errors.length?"Die Verarbeitung ist noch nicht bestätigt. Der Auftrag bleibt erhalten.":`${result.report.stored.length} Angaben im Profil bestätigt. Offene Vorschläge bleiben zur Prüfung erhalten.`);setJobs((await props.jobsGet() as ResearchJobsResponse).jobs);})}>Verarbeitung fortsetzen</button> : <button className={styles.secondary} disabled={busy || job.pipeline?.state === "PROCESSING"} onClick={() => void openJob(job.jobId)}>{job.pipeline?.state === "PROCESSING" ? "Verarbeitung läuft" : "Vorschlag prüfen"}</button>)}</div>)}</div></div>}
       {!preview && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>02</span><h3>Recherche einfügen</h3></div></div>
