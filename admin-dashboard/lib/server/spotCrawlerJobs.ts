@@ -25,14 +25,20 @@ export async function finishCrawlerRun(service: ReturnType<typeof crawlerService
   const key=process.env.BRAVE_SEARCH_API_KEY;
   let candidates: Awaited<ReturnType<typeof discoverCrawlerSpots>>["candidates"]=[];
   let reason: string|null=null;
+  let diagnostics: {searchResponses: number; distinctSearchLinks: number; pagesChecked: number} | undefined;
   try {
     if (!key) throw new Error("SEARCH_NOT_CONFIGURED");
-    candidates=(await discoverCrawlerSpots(run.settings,run.id,key)).candidates.slice(0,100);
+    const result = await discoverCrawlerSpots(run.settings, run.id, key);
+    candidates = result.candidates.slice(0, 100);
+    diagnostics = { searchResponses: result.searchResponses, distinctSearchLinks: result.distinctSearchLinks, pagesChecked: result.pagesChecked };
   } catch(error) {
     const code=error instanceof Error ? error.message : "";
     reason=["SEARCH_NOT_CONFIGURED","SEARCH_RATE_LIMIT","SEARCH_UNAVAILABLE","SOURCES_UNAVAILABLE","RUN_TIME_LIMIT"].includes(code)?code:"CRAWL_FAILED";
   }
   const result=await service.rpc("backyrd_spot_crawler_finish_v1",{p_run:run.id,p_candidates:candidates,p_outcome:reason});
+  if (!result.error) {
+    console.info("Crawler run finished", { runId: run.id, ...diagnostics, eligibleCandidates: candidates.length, newCandidates: result.data, reason });
+  }
   if (result.error) {
     console.error("Crawler result could not be recorded", {runId:run.id,code:result.error.code});
     await service.rpc("backyrd_spot_crawler_finish_v1",{p_run:run.id,p_candidates:[],p_outcome:"RESULT_NOT_SAVED"});

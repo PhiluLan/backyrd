@@ -151,6 +151,11 @@ Suchanfragen. Alle Funde brauchen eine Basler Adresse und Koordinaten.
 Die Einstellung 10 bis 50 begrenzt neue Funde pro Lauf. Die effektive
 Anzahl hängt von Quellen, Suchbudget und Dubletten ab.
 
+Die stadtweite Café-Suche variiert Suchbegriffe und Quartiere innerhalb
+der eingestellten Zahl Websuchen. Die Server-Protokolle erfassen für
+jeden Lauf die Anzahl Suchantworten, geprüfter Seiten, belegter
+Kandidaten und neuer Funde nach dem Abgleich.
+
 Brave liefert URLs. Der Crawler prüft die Regeln der Betreiberseite in
 `robots.txt` und liest die Fakten auf der Seite selbst. Er übernimmt
 Name, Typ und Adresse aus den Ortsdaten der Seite. Bei klarer Identität
