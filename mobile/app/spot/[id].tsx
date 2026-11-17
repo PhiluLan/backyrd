@@ -280,6 +280,7 @@ export default function SpotDetailScreen() {
   });
 
   const [spot, setSpot] = useState<any>(null);
+  const [sourceCredit, setSourceCredit] = useState<{ credit: string; source_url: string; license_url: string } | null>(null);
   const [legacyAddress, setLegacyAddress] = useState<string | null>(null);
   const [photos, setPhotos] = useState<any[]>([]);
   const [galleryPhotos,setGalleryPhotos]=useState<SpotGalleryPhoto[]>([]);
@@ -523,6 +524,11 @@ export default function SpotDetailScreen() {
         }
         : spotRow;
       setSpot(canonicalSpot);
+      setSourceCredit(null);
+      void supabase.rpc("spot_place_source_credit_v1", { p_spot_id: id })
+        .maybeSingle<NonNullable<typeof sourceCredit>>().then(({ data }) => {
+          if (active) setSourceCredit(data);
+        });
       setLegacyAddress(spotRow?.address ?? null);
       setPhotos(canonicalPhotos);
 
@@ -928,6 +934,13 @@ export default function SpotDetailScreen() {
           </View>
 
           <SpotExperience profile={productProfile?.experienceProfile}/>
+          {sourceCredit ? (
+            <Text style={styles.disclosureSub}>
+              Grundangaben von{" "}
+              <Text accessibilityRole="link" onPress={() => void openWebsite(sourceCredit.source_url)}>{sourceCredit.credit}</Text>
+              {" · "}<Text accessibilityRole="link" onPress={() => void openWebsite(sourceCredit.license_url)}>Lizenz</Text>
+            </Text>
+          ) : null}
 
           {showHours ? (
             <View style={styles.detailLineGroup}>
