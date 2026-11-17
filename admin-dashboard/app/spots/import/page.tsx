@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AdminPageHeader, EmptyState, ErrorState, FilterBar, LoadingState, SectionCard, StatusBadge } from "@/components/admin/AdminUi";
+import { WorldResearchBatchSizeSelect } from "@/components/admin/WorldResearchBatchSizeSelect";
+import { useWorldResearchBatchSize } from "@/lib/useWorldResearchBatchSize";
 import { supabase } from "@/lib/supabaseClient";
 import { SpotForm } from "../SpotForm";
 
@@ -97,6 +99,7 @@ export default function SpotImportPage() {
 
 function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onSourceChange: (key: SourceKey) => void }) {
   const metadata = sources[sourceKey];
+  const [researchSize, setResearchSize] = useWorldResearchBatchSize();
   const manualSnapshot = sourceKey === "BASEL_OVERTURE";
   const source = manualSnapshot ? "https://docs.overturemaps.org/guides/places/" : `https://data.bs.ch/explore/dataset/${metadata.dataset}/`;
   const license = manualSnapshot ? "https://docs.overturemaps.org/attribution/" : "https://creativecommons.org/licenses/by/4.0/";
@@ -275,6 +278,9 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
           </select>
         </label>
       </FilterBar>
+      <SectionCard title="Spot-Recherche" description="Diese Einstellung gilt für den automatischen Recherche-Durchlauf. Beim Quellenabruf wird der gesamte Datensatz eingelesen.">
+        <FilterBar><WorldResearchBatchSizeSelect size={researchSize} onChange={setResearchSize} /></FilterBar>
+      </SectionCard>
       {error ? <ErrorState message={error} onRetry={() => void reload()} /> : null}
       {!preview && !error ? <LoadingState /> : null}
       {preview ? <>

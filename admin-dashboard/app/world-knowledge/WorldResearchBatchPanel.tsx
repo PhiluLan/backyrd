@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProductAdminSpotSearch } from "@backyrd/world-knowledge-authoring-ui";
-import { isWorldResearchBatchSize, parseWorldResearchQueue, WORLD_RESEARCH_BATCH_SIZES, type WorldResearchBatchSize, type WorldResearchQueue } from "@/lib/worldResearchQueue";
+import { parseWorldResearchQueue, type WorldResearchBatchSize, type WorldResearchQueue } from "@/lib/worldResearchQueue";
+import { useWorldResearchBatchSize } from "@/lib/useWorldResearchBatchSize";
+import { WorldResearchBatchSizeSelect } from "@/components/admin/WorldResearchBatchSizeSelect";
 import { findResearchPlaces, type ResearchPlace } from "./WorldAddressPicker";
 import { refreshResearchDocument } from "./researchBatchRefresh.mjs";
 import { ResearchValue, researchGapReason, researchFieldLabel } from "./ResearchValue";
@@ -19,7 +21,6 @@ type ResearchJobsResponse = { enabled: boolean; jobs: ResearchJob[] };
 type StoredDraft = { draftId: string; spotId: string; spotName: string; version: string; createdAt: string; archivedAt?:string|null };
 
 const FILE_EXPORT_SPOT_LIMIT = 10;
-const RESEARCH_BATCH_SIZE_KEY = "backyrd.admin.spot-research.batch-size";
 
 export function WorldResearchBatchPanel(props: {
   inboxManaged?: boolean;
@@ -37,7 +38,7 @@ export function WorldResearchBatchPanel(props: {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Spot[]>([]);
   const [selected, setSelected] = useState<Spot[]>([]);
-  const [batchSize, setBatchSize] = useState<WorldResearchBatchSize>(10);
+  const [batchSize, setBatchSize] = useWorldResearchBatchSize();
   const [json, setJson] = useState("");
   const [nuknukDraft, setNuknukDraft] = useState<NuknukDraft | null>(null);
   const [storedDrafts, setStoredDrafts] = useState<StoredDraft[]>([]);
@@ -148,35 +149,13 @@ export function WorldResearchBatchPanel(props: {
     return () => { active = false; window.clearInterval(timer); };
   }, [jobsGet]);
 
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      try {
-        const saved = Number(window.localStorage.getItem(RESEARCH_BATCH_SIZE_KEY));
-        if (isWorldResearchBatchSize(saved)) {
-          setBatchSize(saved);
-          setSelected((current) => current.slice(0, saved));
-        }
-      } catch {
-        // The current session still works when browser storage is unavailable.
-      }
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-
-  const changeBatchSize = (size: number) => {
-    if (!isWorldResearchBatchSize(size)) return;
+  const changeBatchSize = (size: WorldResearchBatchSize) => {
     setBatchSize(size);
     setQueue(null);
     setQueuePage(1);
     setQueueError("");
     setSelected([]);
     setResults([]);
-
-    try {
-      window.localStorage.setItem(RESEARCH_BATCH_SIZE_KEY, String(size));
-    } catch {
-      // Keep the selection usable when browser storage is unavailable.
-    }
   };
 
   useEffect(() => {
@@ -376,14 +355,7 @@ export function WorldResearchBatchPanel(props: {
     <nav className={styles.steps} aria-label="Fortschritt"><span className={!json ? styles.activeStep : ""}>1 <b>Auswählen</b></span><span className={json && !preview ? styles.activeStep : ""}>2 <b>Prüfen</b></span><span className={preview || completion ? styles.activeStep : ""}>3 <b>Übernehmen</b></span></nav>
     {completion ? <div className={styles.outcome} role="status"><span className={styles.outcomeIcon} aria-hidden="true">✓</span><h3>{completion.archived ? "Prüfung abgeschlossen." : completion.imported > 0 ? "Angaben gespeichert." : "Profilabgleich abgeschlossen."}</h3>{completion.archive && <p>{completion.archive}</p>}<p>{completion.imported > 0 ? `${completion.imported} ${completion.imported === 1 ? "Angabe" : "Angaben"} für ${completion.spots} ${completion.spots === 1 ? "Spot" : "Spots"} übernommen und mit dem gespeicherten Profil abgeglichen.` : "Es gab in diesem Schritt keine neuen Angaben zu übernehmen; bestehendes Wissen bleibt unverändert."}</p>{completion.unresolved > 0 && <p>{completion.unresolved} {completion.unresolved === 1 ? "Angabe bleibt" : "Angaben bleiben"} offen. Der Spot ist dadurch nicht automatisch vollständig ausgefüllt.</p>}{savedDraftId && <button className={styles.primary} onClick={()=>void openStoredDraft(savedDraftId)}>Verbleibende Angaben prüfen</button>}<button className={styles.secondary} onClick={startNewBatch}>Zur Rechercheübersicht</button></div> : <>
       {!json && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>01</span><h3>Welche Spots?</h3></div><span>{selected.length} von {batchSize} ausgewählt</span></div>
-        <label className={styles.batchSize}>
-          <span>Spots pro Durchlauf</span>
-          <select value={batchSize} disabled={busy || queueBusy} onChange={(event) => changeBatchSize(Number(event.target.value))}>
-            {WORLD_RESEARCH_BATCH_SIZES.map((size) =>
-              <option key={size} value={size}>{size}</option>
-            )}
-          </select>
-        </label>
+        <WorldResearchBatchSizeSelect className={styles.batchSize} size={batchSize} onChange={changeBatchSize} disabled={busy || queueBusy} />
         <p>Die Einstellung bestimmt, wie viele Spots du in einem Durchlauf auswählst. Du startest die Recherche separat. Der Export enthält den aktuellen World-Stand.</p>
         {queue && <div className={styles.queue} aria-label="Alphabetische Recherche-Blöcke"><div className={styles.queueTop}><div><strong>Block {queuePage} von {Math.max(1, Math.ceil(queue.total / queue.pageSize))}</strong><small>{queue.total ? `${(queuePage - 1) * queue.pageSize + 1}–${Math.min(queuePage * queue.pageSize, queue.total)} von ${queue.total} freigegebenen Spots` : "Keine freigegebenen Spots"}</small></div><span>{queue.imported} mit übernommenen Angaben · {queue.total - queue.imported} ohne Import · {queue.exported} exportiert</span></div><p>„Exportiert“ heißt noch nicht recherchiert. „Übernommen“ heißt: Mindestens eine recherchierte Angabe wurde in World Knowledge gespeichert – nicht, dass alle Felder vollständig sind. Bereits übernommene Spots sind zunächst abgewählt.</p><div className={styles.queueList}>{queue.spots.map((spot) => <label key={spot.spotId}><input type="checkbox" checked={selected.some((item) => item.spotId === spot.spotId)} disabled={busy || queueBusy || !selected.some((item) => item.spotId === spot.spotId) && selected.length >= batchSize} onChange={() => toggle(spot)} /><span><b>{spot.name}</b><small>{spot.city ?? "Ort nicht gepflegt"}</small></span><em className={spot.importedAt ? styles.done : spot.exportedAt ? styles.exported : styles.open}>{spot.importedAt ? "Angaben übernommen" : spot.exportedAt ? "Exportiert · Import offen" : "Noch offen"}</em></label>)}</div><div className={styles.queueActions}><button disabled={queueBusy || busy || queuePage <= 1} onClick={() => void loadQueue(queuePage - 1)}>Vorherige {queue.pageSize}</button><button disabled={queueBusy || busy || queuePage >= Math.ceil(queue.total / queue.pageSize)} onClick={() => void loadQueue(queuePage + 1)}>Nächste {queue.pageSize}</button></div><div className={styles.batchActions}>
           <button className={styles.secondary} disabled={queueBusy || busy} onClick={() => setSelected(queue.spots.filter((spot) => !spot.importedAt).slice(0, batchSize))}>Offene Spots auswählen</button>
