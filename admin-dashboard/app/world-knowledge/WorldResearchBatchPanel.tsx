@@ -18,6 +18,9 @@ type ResearchJob = { pipeline?:{state:string;stored:number;review:number;errors:
 type ResearchJobsResponse = { enabled: boolean; jobs: ResearchJob[] };
 type StoredDraft = { draftId: string; spotId: string; spotName: string; version: string; createdAt: string; archivedAt?:string|null };
 
+const MAX_RESEARCH_BATCH_SIZE = 10;
+const RESEARCH_BATCH_SIZE_KEY = "backyrd.admin.spot-research.batch-size";
+
 export function WorldResearchBatchPanel(props: {
   inboxManaged?: boolean;
   search(query: string): Promise<ProductAdminSpotSearch>;
@@ -34,6 +37,8 @@ export function WorldResearchBatchPanel(props: {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Spot[]>([]);
   const [selected, setSelected] = useState<Spot[]>([]);
+  const [batchSize, setBatchSize] = useState(MAX_RESEARCH_BATCH_SIZE);
+  const batchSizeRef = useRef(MAX_RESEARCH_BATCH_SIZE);
   const [json, setJson] = useState("");
   const [nuknukDraft, setNuknukDraft] = useState<NuknukDraft | null>(null);
   const [storedDrafts, setStoredDrafts] = useState<StoredDraft[]>([]);
@@ -145,12 +150,39 @@ export function WorldResearchBatchPanel(props: {
   }, [jobsGet]);
 
   useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        const saved = Number(window.localStorage.getItem(RESEARCH_BATCH_SIZE_KEY));
+        if (Number.isInteger(saved) && saved >= 1 && saved <= MAX_RESEARCH_BATCH_SIZE) {
+          batchSizeRef.current = saved;
+          setBatchSize(saved);
+          setSelected((current) => current.slice(0, saved));
+        }
+      } catch {
+        // The current session still works when browser storage is unavailable.
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  const changeBatchSize = (size: number) => {
+    batchSizeRef.current = size;
+    setBatchSize(size);
+    setSelected((current) => current.slice(0, size));
+    try {
+      window.localStorage.setItem(RESEARCH_BATCH_SIZE_KEY, String(size));
+    } catch {
+      // Keep the selection usable when browser storage is unavailable.
+    }
+  };
+
+  useEffect(() => {
     let active = true;
     queueRequest(1).then((value) => {
       if (!active) return;
       const parsed = parseWorldResearchQueue(value);
       setQueue(parsed);
-      setSelected(parsed.spots.filter((spot) => !spot.importedAt));
+      setSelected(parsed.spots.filter((spot) => !spot.importedAt).slice(0, batchSizeRef.current));
     }).catch(() => { if (active) setQueueError("Die alphabetische Recherche-Liste ist noch nicht verfügbar."); });
     return () => { active = false; };
   }, [queueRequest]);
@@ -160,7 +192,7 @@ export function WorldResearchBatchPanel(props: {
     try {
       const next = parseWorldResearchQueue(await props.queue(page));
       if (page > 1 && next.spots.length === 0) throw new Error("Leerer Recherche-Block");
-      setQueue(next); setQueuePage(page); setSelected(next.spots.filter((spot) => !spot.importedAt)); setResults([]); setQuery("");
+      setQueue(next); setQueuePage(page); setSelected(next.spots.filter((spot) => !spot.importedAt).slice(0, batchSizeRef.current)); setResults([]); setQuery("");
     } catch { setQueueError("Dieser Recherche-Block konnte nicht geladen werden. Bitte erneut versuchen."); }
     finally { setQueueBusy(false); }
   };
@@ -175,7 +207,7 @@ export function WorldResearchBatchPanel(props: {
     setPreview(null);
     setSelected((current) => current.some((item) => item.spotId === spot.spotId)
       ? current.filter((item) => item.spotId !== spot.spotId)
-      : current.length < 10 ? [...current, spot] : current);
+      : current.length < batchSize ? [...current, spot] : current);
   };
   const exportBatch = () => run(async () => {
     importedFields.current.clear();setSavedDraftId(null);setDraftReview(null);
@@ -340,10 +372,22 @@ export function WorldResearchBatchPanel(props: {
     {nuknukDraft ? <NuknukDraftPreview key={savedDraftId ?? nuknukDraft.spotId} draft={nuknukDraft} reviewState={draftReview} archived={draftArchived} onComplete={completeDraft} onReviewRefresh={refreshDraftReview} post={props.post} onRecover={recoverDraft} onClose={() => { setNuknukDraft(null); setSavedDraftId(null); }} onSave={() => void saveDraft()} saved={!!savedDraftId} saving={draftSaving} error={draftsError || message} onPrepare={prepareDraft} preparing={busy} /> : <>
     <nav className={styles.steps} aria-label="Fortschritt"><span className={!json ? styles.activeStep : ""}>1 <b>Auswählen</b></span><span className={json && !preview ? styles.activeStep : ""}>2 <b>Prüfen</b></span><span className={preview || completion ? styles.activeStep : ""}>3 <b>Übernehmen</b></span></nav>
     {completion ? <div className={styles.outcome} role="status"><span className={styles.outcomeIcon} aria-hidden="true">✓</span><h3>{completion.archived ? "Prüfung abgeschlossen." : completion.imported > 0 ? "Angaben gespeichert." : "Profilabgleich abgeschlossen."}</h3>{completion.archive && <p>{completion.archive}</p>}<p>{completion.imported > 0 ? `${completion.imported} ${completion.imported === 1 ? "Angabe" : "Angaben"} für ${completion.spots} ${completion.spots === 1 ? "Spot" : "Spots"} übernommen und mit dem gespeicherten Profil abgeglichen.` : "Es gab in diesem Schritt keine neuen Angaben zu übernehmen; bestehendes Wissen bleibt unverändert."}</p>{completion.unresolved > 0 && <p>{completion.unresolved} {completion.unresolved === 1 ? "Angabe bleibt" : "Angaben bleiben"} offen. Der Spot ist dadurch nicht automatisch vollständig ausgefüllt.</p>}{savedDraftId && <button className={styles.primary} onClick={()=>void openStoredDraft(savedDraftId)}>Verbleibende Angaben prüfen</button>}<button className={styles.secondary} onClick={startNewBatch}>Zur Rechercheübersicht</button></div> : <>
-      {!json && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>01</span><h3>Welche Spots?</h3></div><span>{selected.length} von 10 ausgewählt</span></div><p>Wähle bis zu zehn Spots. Der Export enthält den aktuellen World-Stand, nicht alte Spot-Felder.</p>
-        {queue && <div className={styles.queue} aria-label="Alphabetische Recherche-Blöcke"><div className={styles.queueTop}><div><strong>Block {queuePage} von {Math.max(1, Math.ceil(queue.total / 10))}</strong><small>{queue.total ? `${(queuePage - 1) * 10 + 1}–${Math.min(queuePage * 10, queue.total)} von ${queue.total} freigegebenen Spots` : "Keine freigegebenen Spots"}</small></div><span>{queue.imported} mit übernommenen Angaben · {queue.total - queue.imported} ohne Import · {queue.exported} exportiert</span></div><p>„Exportiert“ heißt noch nicht recherchiert. „Übernommen“ heißt: Mindestens eine recherchierte Angabe wurde in World Knowledge gespeichert – nicht, dass alle Felder vollständig sind. Bereits übernommene Spots sind zunächst abgewählt.</p><div className={styles.queueList}>{queue.spots.map((spot) => <label key={spot.spotId}><input type="checkbox" checked={selected.some((item) => item.spotId === spot.spotId)} disabled={busy || queueBusy || !selected.some((item) => item.spotId === spot.spotId) && selected.length >= 10} onChange={() => toggle(spot)} /><span><b>{spot.name}</b><small>{spot.city ?? "Ort nicht gepflegt"}</small></span><em className={spot.importedAt ? styles.done : spot.exportedAt ? styles.exported : styles.open}>{spot.importedAt ? "Angaben übernommen" : spot.exportedAt ? "Exportiert · Import offen" : "Noch offen"}</em></label>)}</div><div className={styles.queueActions}><button disabled={queueBusy || busy || queuePage <= 1} onClick={() => void loadQueue(queuePage - 1)}>Vorherige 10</button><button disabled={queueBusy || busy || queuePage >= Math.ceil(queue.total / 10)} onClick={() => void loadQueue(queuePage + 1)}>Nächste 10</button></div><button className={styles.secondary} disabled={queueBusy || busy} onClick={() => setSelected([...queue.spots])}>Auch bereits übernommene Spots auswählen</button></div>}
+      {!json && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>01</span><h3>Welche Spots?</h3></div><span>{selected.length} von {batchSize} ausgewählt</span></div>
+        <label className={styles.batchSize}>
+          <span>Spots pro Durchlauf</span>
+          <select value={batchSize} disabled={busy || queueBusy} onChange={(event) => changeBatchSize(Number(event.target.value))}>
+            {Array.from({ length: MAX_RESEARCH_BATCH_SIZE }, (_, index) => index + 1).map((size) =>
+              <option key={size} value={size}>{size}</option>
+            )}
+          </select>
+        </label>
+        <p>Die Einstellung bestimmt, wie viele Spots du in einem Durchlauf auswählst. Du startest die Recherche separat.</p>
+        {queue && <div className={styles.queue} aria-label="Alphabetische Recherche-Blöcke"><div className={styles.queueTop}><div><strong>Block {queuePage} von {Math.max(1, Math.ceil(queue.total / 10))}</strong><small>{queue.total ? `${(queuePage - 1) * 10 + 1}–${Math.min(queuePage * 10, queue.total)} von ${queue.total} freigegebenen Spots` : "Keine freigegebenen Spots"}</small></div><span>{queue.imported} mit übernommenen Angaben · {queue.total - queue.imported} ohne Import · {queue.exported} exportiert</span></div><p>„Exportiert“ heißt noch nicht recherchiert. „Übernommen“ heißt: Mindestens eine recherchierte Angabe wurde in World Knowledge gespeichert – nicht, dass alle Felder vollständig sind. Bereits übernommene Spots sind zunächst abgewählt.</p><div className={styles.queueList}>{queue.spots.map((spot) => <label key={spot.spotId}><input type="checkbox" checked={selected.some((item) => item.spotId === spot.spotId)} disabled={busy || queueBusy || !selected.some((item) => item.spotId === spot.spotId) && selected.length >= batchSize} onChange={() => toggle(spot)} /><span><b>{spot.name}</b><small>{spot.city ?? "Ort nicht gepflegt"}</small></span><em className={spot.importedAt ? styles.done : spot.exportedAt ? styles.exported : styles.open}>{spot.importedAt ? "Angaben übernommen" : spot.exportedAt ? "Exportiert · Import offen" : "Noch offen"}</em></label>)}</div><div className={styles.queueActions}><button disabled={queueBusy || busy || queuePage <= 1} onClick={() => void loadQueue(queuePage - 1)}>Vorherige 10</button><button disabled={queueBusy || busy || queuePage >= Math.ceil(queue.total / 10)} onClick={() => void loadQueue(queuePage + 1)}>Nächste 10</button></div><div className={styles.batchActions}>
+          <button className={styles.secondary} disabled={queueBusy || busy} onClick={() => setSelected(queue.spots.filter((spot) => !spot.importedAt).slice(0, batchSize))}>Offene Spots auswählen</button>
+          <button className={styles.secondary} disabled={queueBusy || busy} onClick={() => setSelected(queue.spots.slice(0, batchSize))}>Auch bereits übernommene Spots auswählen</button>
+        </div></div>}
         {queueError && <p className={styles.error} role="alert">{queueError}</p>}
-        <div className={styles.search}><input aria-label="Spot suchen" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Anderen Spot nach Namen suchen" onKeyDown={(event) => { if (event.key === "Enter") void search(); }} /><button disabled={busy} onClick={() => void search()}>Suchen</button></div>{!!results.length && <div className={styles.results}>{results.map((spot) => <label key={spot.spotId}><input type="checkbox" checked={selected.some((item) => item.spotId === spot.spotId)} disabled={!selected.some((item) => item.spotId === spot.spotId) && selected.length >= 10} onChange={() => toggle(spot)} /><span><b>{spot.name}</b><small>{spot.city ?? "Ort nicht gepflegt"}</small></span></label>)}</div>}{!!selected.length && <div className={styles.chips}>{selected.map((spot) => <button key={spot.spotId} onClick={() => toggle(spot)} aria-label={`${spot.name} entfernen`}>{spot.name} <span aria-hidden="true">×</span></button>)}</div>}<button className={styles.primary} disabled={busy || !selected.length || !automationEnabled} onClick={() => void startAutomatic()}>Recherche automatisch starten</button><button className={styles.secondary} disabled={busy || !selected.length} onClick={() => void exportBatch()}>Recherche-Datei herunterladen <span aria-hidden="true">↗</span></button><p className={styles.note}>Die automatische Nuknuk-Recherche liefert zunächst Vorschläge. Für extern recherchierte Dateien nutzt du unten die sichere Übernahme mit erneuter Quellenprüfung.</p>{jobsError && <p className={styles.error} role="alert">{jobsError}</p>}{!automationEnabled && !jobsError && <p className={styles.note}>Automatische Recherche ist noch nicht freigeschaltet. Die manuelle Datei bleibt verfügbar.</p>}</div>}
+        <div className={styles.search}><input aria-label="Spot suchen" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Anderen Spot nach Namen suchen" onKeyDown={(event) => { if (event.key === "Enter") void search(); }} /><button disabled={busy} onClick={() => void search()}>Suchen</button></div>{!!results.length && <div className={styles.results}>{results.map((spot) => <label key={spot.spotId}><input type="checkbox" checked={selected.some((item) => item.spotId === spot.spotId)} disabled={!selected.some((item) => item.spotId === spot.spotId) && selected.length >= batchSize} onChange={() => toggle(spot)} /><span><b>{spot.name}</b><small>{spot.city ?? "Ort nicht gepflegt"}</small></span></label>)}</div>}{!!selected.length && <div className={styles.chips}>{selected.map((spot) => <button key={spot.spotId} onClick={() => toggle(spot)} aria-label={`${spot.name} entfernen`}>{spot.name} <span aria-hidden="true">×</span></button>)}</div>}<button className={styles.primary} disabled={busy || !selected.length || !automationEnabled} onClick={() => void startAutomatic()}>Recherche automatisch starten</button><button className={styles.secondary} disabled={busy || !selected.length} onClick={() => void exportBatch()}>Recherche-Datei herunterladen <span aria-hidden="true">↗</span></button><p className={styles.note}>Die automatische Nuknuk-Recherche liefert zunächst Vorschläge. Für extern recherchierte Dateien nutzt du unten die sichere Übernahme mit erneuter Quellenprüfung.</p>{jobsError && <p className={styles.error} role="alert">{jobsError}</p>}{!automationEnabled && !jobsError && <p className={styles.note}>Automatische Recherche ist noch nicht freigeschaltet. Die manuelle Datei bleibt verfügbar.</p>}</div>}
       {props.pipeline && !json && <ResearchPipelinePanel spot={selected.length === 1 ? selected[0] : null} post={props.pipeline} onProcessed={async()=>{setJobs((await props.jobsGet() as ResearchJobsResponse).jobs);setJobsError("");}} openReview={jobId=>void openJob(jobId)} />}
       {!props.inboxManaged && !!jobs.length && !json && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>↻</span><h3>Rechercheaufträge</h3></div></div><div className={styles.queueList}>{jobs.map((job) => <div key={job.jobId}><strong>{job.spotName}</strong><p>{job.pipeline?.state === "PROCESSING" ? "Quellenprüfung und Speicherung laufen …" : job.pipeline ? `${job.pipeline.stored} automatisch gespeichert · ${job.pipeline.review} Angaben zur Prüfung${job.pipeline.errors.length ? " · Verarbeitung unvollständig" : ""}` : job.status === "READY_FOR_REVIEW" ? "Vorschlag zur Prüfung bereit" : job.status === "RUNNING" ? "Recherche läuft" : job.status === "QUEUED" ? "Wartet auf Recherche" : `Recherche fehlgeschlagen: ${job.failureCode ?? "unbekannter Fehler"}`}</p>{job.status === "READY_FOR_REVIEW" && (job.pipeline?.errors.length && props.pipeline ? <button className={styles.secondary} disabled={busy} onClick={()=>void run(async()=>{const result=await props.pipeline!({action:"resume",jobId:job.jobId}) as {report:{errors:string[];stored:string[]}};setMessage(result.report.errors.length?"Die Verarbeitung ist noch nicht bestätigt. Der Auftrag bleibt erhalten.":`${result.report.stored.length} Angaben im Profil bestätigt. Offene Vorschläge bleiben zur Prüfung erhalten.`);setJobs((await props.jobsGet() as ResearchJobsResponse).jobs);})}>Verarbeitung fortsetzen</button> : <button className={styles.secondary} disabled={busy || job.pipeline?.state === "PROCESSING"} onClick={() => void openJob(job.jobId)}>{job.pipeline?.state === "PROCESSING" ? "Verarbeitung läuft" : "Vorschlag prüfen"}</button>)}</div>)}</div></div>}
       {!preview && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>02</span><h3>Recherche einfügen</h3></div></div>
