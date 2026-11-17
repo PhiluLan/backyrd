@@ -44,38 +44,66 @@ export async function createAutomaticWorldResearchExport(
   const detail = await readApprovedResearchProfile(actor, spotId);
   if (detail.manifest?.manifestHash) return buildResearchExport([detail]);
 
-  // The approved catalog already has a public name. Use it to initialize the
-  // World Knowledge profile while preserving any earlier authored identity.
-  const identity = detail.answers?.["identity.name"];
-  const preparationError = `WORLD_RESEARCH_PROFILE_PREPARATION: ${detail.name}: Das World-Knowledge-Profil konnte nicht für die Recherche vorbereitet werden. Prüfe den Namen unter «Profil & Angebote» und versuche es erneut.`;
-  if (identity && (identity.visibility !== "PUBLIC" || identity.knowledgeState !== "KNOWN_VALUE")) {
-    throw new Error(preparationError);
-  }
+  const preparationError = `WORLD_RESEARCH_PROFILE_PREPARATION: ${detail.name}: Das World-Knowledge-Profil konnte nicht für die Recherche vorbereitet werden. Prüfe die Basisangaben unter «Profil & Angebote» und versuche es erneut.`;
   const { data: spot, error: spotError } = await actor.from("spots")
-    .select("name,city,updated_at").eq("id", spotId).eq("status", "approved").single();
-  if (spotError || !spot || spot.name !== detail.name) {
-    throw new Error(`WORLD_RESEARCH_PROFILE_PREPARATION: ${detail.name}: Das freigegebene Profil konnte nicht bestätigt werden. Bitte erneut versuchen.`);
+    .select("name,address,city,lat,lng,updated_at").eq("id", spotId).eq("status", "approved").single();
+  if (spotError || !spot || spot.name !== detail.name) throw new Error(preparationError);
+
+  // Switching to the canonical profile also switches the public opening-hours
+  // reader. Preserve legacy hours until a public canonical schedule is available.
+  const hours = detail.answers?.["hours.regular"];
+  if (hours?.visibility !== "PUBLIC" || hours.knowledgeState !== "KNOWN_VALUE") {
+    const legacyHours = await actor.from("spot_hours").select("id").eq("spot_id", spotId).limit(1);
+    if (legacyHours.error) throw new Error(preparationError);
+    if (legacyHours.data?.length) {
+      throw new Error(`WORLD_RESEARCH_PROFILE_PREPARATION: ${detail.name}: Übernimm zuerst die bestehenden Öffnungszeiten unter «Profil & Angebote». Danach kannst du die Recherche starten.`);
+    }
   }
 
-  const prepared = identity
-    ? await service.rpc("world_product_rebuild_spot_v1", {
-      p_actor_user_id: actorId,
+  // Stage the already-public catalog values before publishing once. An existing
+  // private, disputed or differently authored value requires an Admin decision.
+  const baseline = {
+    "identity.name": spot.name.trim(),
+    "location.address_line1": spot.address?.trim() || null,
+    "location.locality": spot.city?.trim() || null,
+    "location.latitude": spot.lat,
+    "location.longitude": spot.lng,
+  };
+  for (const [key, value] of Object.entries(baseline)) {
+    const existing = detail.answers?.[key];
+    if (value === null) continue;
+    if (existing) {
+      if (existing.visibility !== "PUBLIC" || existing.knowledgeState !== "KNOWN_VALUE" || existing.value !== value) {
+        throw new Error(preparationError);
+      }
+      continue;
+    }
+    const submitted = await actor.rpc("world_product_admin_submit_claim_v1", {
       p_spot_id: spotId,
-      p_as_of: new Date().toISOString(),
-      p_idempotency_key: `research-profile-rebuild:${crypto.randomUUID()}`,
-    })
-    : await actor.rpc("world_product_save_and_publish_claim_v1", {
-      p_spot_id: spotId,
-      p_attribute_key: "identity.name",
+      p_attribute_key: key,
       p_knowledge_state: "KNOWN_VALUE",
-      p_value: spot.name.trim(),
+      p_value: value,
       p_observed_at: spot.updated_at,
       p_visibility: "PUBLIC",
-      p_idempotency_key: `research-profile-name:${spotId}:${spot.updated_at}`,
+      p_idempotency_key: `research-profile:${spotId}:${key}:${spot.updated_at}`,
     });
+    if (submitted.error) {
+      console.error("Research profile baseline failed", { spotId, key, code: submitted.error.code });
+      throw new Error(preparationError);
+    }
+  }
+
+  const prepared = await service.rpc("world_product_rebuild_spot_v1", {
+    p_actor_user_id: actorId,
+    p_spot_id: spotId,
+    p_as_of: new Date().toISOString(),
+    p_idempotency_key: `research-profile-rebuild:${crypto.randomUUID()}`,
+  });
   const current = await readWorldResearchDetail(actor, spotId).catch(() => null);
-  const currentName = current?.answers?.["identity.name"];
-  if (!current || currentName?.visibility !== "PUBLIC" || currentName.knowledgeState !== "KNOWN_VALUE") {
+  if (!current || !Object.entries(baseline).every(([key, value]) => {
+    const answer = current.answers?.[key];
+    return value === null || (answer?.visibility === "PUBLIC" && answer.knowledgeState === "KNOWN_VALUE" && answer.value === value);
+  })) {
     if (prepared.error) console.error("Research profile initialization failed", { spotId, code: prepared.error.code });
     throw new Error(preparationError);
   }
