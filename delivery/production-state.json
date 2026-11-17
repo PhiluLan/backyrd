@@ -643,6 +643,17 @@
       "deploymentRunId": 44067863956,
       "certificationRunId": 44067036463,
       "manifestHash": "62175b64632eedc2e2d02fa6d273cf8c83f601d2a877704c3e7e3630f767ec46"
+    },
+    "worldResearchBatchesRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "migration": {
+        "path": "supabase/migrations/20261117112737_world_research_configurable_batches_v1.sql",
+        "sha256": "66b6f47cc90157164f6a907225569ea23d418a536955323eee95d52f43d114f7"
+      },
+      "sourceSha": "d99307f3fcb6305bd61b1dee793faea147cc35ce",
+      "deploymentRunId": 44078152634,
+      "certificationRunId": 44077214164,
+      "manifestHash": "a04f0e4bc66f4a9a8dbcd46acdaa13901b43854ea6611512322c22aa0f9e1642"
     }
   },
   "mobile": {
