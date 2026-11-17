@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "basel-overture-place-source-v1",
+  "previousEvidence": "basel-spot-source-import-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "0a55298ecfb63d825f52a4374ffeac03492fd76eca8c125823cc4789b72af2e2",
+    "applicationSchemaSha256": "4c8602a74677eabe13a67e2b539feeb3274f435bdaacc02ac690be512d3c6f51"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261117095706_basel_overture_place_source_v1.sql",
+      "sha256": "4d42014c0b7b6846e8da08b72626b633fb7bf1d3d4ebf15cfdb7f1cd6526a6d8"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/basel_overture_import_v1.sql",
+      "sha256": "ca3480d894ea4a7d4a22db48065beb56395e28c0da89609a1cac52f24071838e"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "fb2d7bf4160c8950a6b8283865de48edbc9153e0bf436c9f772606f95d52eee5",
+    "applicationSchemaSha256": "7d229caa185fb41ad221f141e25a0a893274ff270a5bf86cf1573288e52263e3"
+  }
+}

@@ -37,12 +37,44 @@ Sie ist keine Bestätigung eines konkreten Programms.
 | Specials und andere temporäre Orte | Offizielle Betreiberprogramme und der bestehende Event-Import für terminierte Angebote. Neue Veranstaltungsfeeds werden erst nach Prüfung der Nutzungsrechte aktiviert. |
 | Sonstiges | Kategorisiert geprüfte Ergänzungen über Betreiber und Admin, passend zur Backyrd-Entdeckung. |
 
-Overture ist als nächste breite Quelle identifiziert. Die technische
-Anbindung steht noch aus. Seine monatlichen GeoParquet-Veröffentlichungen
-benötigen einen regionalen Export und eine Zuordnung der Kategorien.
-Primärschlüssel und Quelle sollen aus den Overture-Daten erhalten bleiben.
-Der Import braucht eine Kategorie- und Lizenzprüfung sowie einen
-Abdeckungsreport gegen den Backyrd-Katalog.
+## Overture · Gastro und Nachtleben
+
+Der Export liest einen bestimmten Overture-Monatsstand, beschränkt die
+Ergebnisse auf die amtliche Gemeinde Basel und bereitet Restaurants, Cafés,
+Bars und Clubs auf. Er übernimmt benannte Orte mit einem Existenzwert ab
+0,6. Als geschlossen markierte Orte werden ausgelassen. Werte für
+Öffnungszeiten, Preise, Atmosphäre und Veranstaltungsprogramm kommen aus
+anderen belegten Quellen. Die GERS-ID und die verfügbaren Quellen- und
+Lizenzangaben bleiben pro Eintrag erhalten.
+
+Export in einer separaten Python-Umgebung erstellen:
+
+```sh
+python3 -m venv /tmp/backyrd-overture
+/tmp/backyrd-overture/bin/pip install overturemaps==2.1.1
+PATH="/tmp/backyrd-overture/bin:$PATH" python3 scripts/spot-intelligence/export-basel-overture.py \
+  --release 2026-10-21.0 --output /tmp/basel-overture-2026-10-21.0.json
+```
+
+Unter **Admin → Spots → Ortsimporte → Overture · Gastro & Nachtleben** die
+erzeugte JSON-Datei bei **Overture-Stand importieren** auswählen. Der Stand
+wird gemeinsam geprüft und transaktional vorgemerkt. Die Liste zeigt bis zu
+50 Einträge pro Seite. Filter beziehen sich auf die angezeigte Seite.
+Identische Wiederholungen bleiben ohne Änderungen. Beim Upload älterer,
+abweichender gleichversionierter oder auffallend kurzer Folgestände bleibt der
+vorherige Stand erhalten. Freigabe und Veröffentlichung erfolgen über den
+etablierten Spot-Editor.
+
+Overture veröffentlicht GeoParquet. Der Monatsstand wird für diese
+Anbindung manuell erzeugt und eingespielt. Die Abrufzeiten der kantonalen
+JSON-Feeds werden separat eingestellt. Die Existenzwahrscheinlichkeit und
+die Anbieter-Kategorie sind Hinweise für die Admin-Prüfung.
+
+Der Bibliothekar begrenzt die Kohorte auf 1’000 freigegebene Orte mit
+geeigneter Projektion pro Suche. Für Basel umfasst die Suchregion auch
+Nachbargemeinden. Die Prüfliste kann auch darüber hinaus Daten aufnehmen.
+Vor dem Ausbau einer einzelnen Suchregion über diese Grenze braucht es eine
+Vorauswahl, die Suche und Ranking bei grösseren Katalogen erhält.
 
 ## Quellen und Zeitplan einstellen
 

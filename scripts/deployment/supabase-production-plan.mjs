@@ -7,7 +7,7 @@ import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
 import { NOV14_ADMIN_MIGRATIONS, NOV16_EAT_MIGRATIONS } from "./preapplied-admin-ledger.mjs";
-import { nuknukActivityAppliedReceipt, scopeNuknukActivityMigrations, analyticsPageviewsAppliedReceipt, scopeAnalyticsPageviewsMigrations, ANALYTICS_PAGEVIEWS_MIGRATION, spotSearchFreshnessAppliedReceipt, baselPlaceSourcesAppliedReceipt } from "./isolated-research-migration.mjs";
+import { nuknukActivityAppliedReceipt, scopeNuknukActivityMigrations, analyticsPageviewsAppliedReceipt, scopeAnalyticsPageviewsMigrations, ANALYTICS_PAGEVIEWS_MIGRATION, spotSearchFreshnessAppliedReceipt, baselPlaceSourcesAppliedReceipt, baselOvertureAppliedReceipt } from "./isolated-research-migration.mjs";
 import { betaSocialAppliedReceipt, scopeBetaSocialMigrations, BETA_SOCIAL_FUNCTIONS, ANALYTICS_PRIVACY_REPAIR_MIGRATION, analyticsPrivacyAppliedReceipt, betaSecurityAppliedReceipt, scopeBetaSecurityMigrations, seasonalEventAppliedReceipt, scopeSeasonalEventMigrations, regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -567,6 +567,10 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     try { git(repo, ["merge-base", "--is-ancestor", source, headSha]); return true; } catch { return false; }
   });
   if (appliedBaselPlaceSources) preappliedPaths.add(appliedBaselPlaceSources.migration.path);
+  const appliedBaselOverture = baselOvertureAppliedReceipt(state, head.read, source => {
+    try { git(repo, ["merge-base", "--is-ancestor", source, headSha]); return true; } catch { return false; }
+  });
+  if (appliedBaselOverture) preappliedPaths.add(appliedBaselOverture.migration.path);
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
   const codeOnlyScope = authority?.codeOnlyDeliveryScope ?? null;
@@ -691,7 +695,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
   const scoped = analyticsPageviewsScope
     ? scopeAnalyticsPageviewsMigrations({ pending: allPending, scope: analyticsPageviewsScope, baseSha, deployFunctions,
-      authDeploy: authConfig?.deploy === true, retiredFunctions, appliedAnalyticsPageviews, appliedSpotSearchFreshness, appliedBaselPlaceSources })
+      authDeploy: authConfig?.deploy === true, retiredFunctions, appliedAnalyticsPageviews, appliedSpotSearchFreshness, appliedBaselPlaceSources, appliedBaselOverture })
     : nuknukActivityScope
     ? scopeNuknukActivityMigrations({ pending: allPending, scope: nuknukActivityScope, baseSha, deployFunctions,
       authDeploy: authConfig?.deploy === true, appliedNuknukActivity })
@@ -739,6 +743,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     appliedAnalyticsPageviews,
     appliedSpotSearchFreshness,
     appliedBaselPlaceSources,
+    appliedBaselOverture,
     appliedSeasonalEvent,
     appliedAreaReservation,
     isolatedResearchScope: isolatedResearchScope ?? null,

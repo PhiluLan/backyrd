@@ -6,7 +6,7 @@ import { AdminPageHeader, EmptyState, ErrorState, FilterBar, LoadingState, Secti
 import { supabase } from "@/lib/supabaseClient";
 import { SpotForm } from "../SpotForm";
 
-type Facts = { name: string; lat: number; lng: number; category: string; label?: string; address?: string; city?: string; phone?: string; website?: string; hours?: string; equipment: string[] };
+type Facts = { name: string; lat: number; lng: number; category: string; label?: string; address?: string; city?: string; phone?: string; website?: string; hours?: string; equipment: string[]; external_id?: string; attribution?: string[] };
 type State = "NEW" | "MATCHED" | "REVIEW" | "MISSING";
 type ReviewState = "OPEN" | "REVIEWED" | "DISMISSED" | "EXISTING";
 type ReviewAction = "REVIEWED" | "DISMISSED" | "REOPENED";
@@ -18,17 +18,18 @@ type Row = {
 };
 type Run = {
   id: number; status: "FETCHING" | "COMPLETE" | "FAILED"; started_at: string; finished_at: string | null;
-  source_count: number | null; outcome: "FETCH_FAILED" | "SNAPSHOT_REJECTED" | null;
+  source_count: number | null; release_version?: string | null; outcome: "FETCH_FAILED" | "SNAPSHOT_REJECTED" | null;
 };
 type Cadence = "DAILY" | "WEEKLY" | "MANUAL";
 type SourceSettings = { key: string; enabled: boolean; cadence: Cadence; revision: string; schedule_time_utc: string };
-type Preview = { runs: Run[]; rows: Row[]; source: SourceSettings };
+type Preview = { runs: Run[]; rows: Row[]; source: SourceSettings; next_after?: number | null };
 type SettingsDraft = Pick<SourceSettings, "enabled" | "cadence">;
 
 const sources = {
   BASEL_PLAYGROUNDS: { label: "Spielplätze", dataset: "100462", credit: "Stadtgärtnerei Basel-Stadt", coverage: "Öffentliche Spielplätze" },
   BASEL_POI: { label: "Kultur, Ausflug & Unterkunft", dataset: "100015", credit: "Geodaten Kanton Basel-Stadt", coverage: "Museen, Bühnen, Aussichtspunkte, Picknickplätze und Unterkünfte" },
   BASEL_SPORT: { label: "Sportanlagen", dataset: "100151", credit: "Geodaten Kanton Basel-Stadt", coverage: "Sporthallen, Schwimmbäder, Eisbahnen, Skateanlagen und Sportplätze" },
+  BASEL_OVERTURE: { label: "Overture · Gastro & Nachtleben", dataset: null, credit: "Overture Maps Foundation", coverage: "Restaurants, Cafés, Bars und Clubs in der Stadt Basel" },
 } as const;
 type SourceKey = keyof typeof sources;
 const labels: Record<State, string> = { NEW: "Neuer Vorschlag", MATCHED: "Bereits in Backyrd", REVIEW: "Zuordnung prüfen", MISSING: "Fehlt aktuell in der Quelle" };
@@ -36,6 +37,7 @@ const reviewViews: readonly [Filter, string][] = [
   ["OPEN", "Offen"], ["REVIEWED", "Geprüft"], ["DISMISSED", "Ausgeblendet"], ["ALL", "Alle"],
 ];
 const cadenceLabels: Record<Cadence, string> = { DAILY: "Täglich", WEEKLY: "Wöchentlich (Montag)", MANUAL: "Nur manuell" };
+const overtureCategoryLabels: Readonly<Record<string, string>> = { RESTAURANT: "Restaurant", CAFE: "Café", BAR: "Bar", NIGHTCLUB: "Club" };
 const formatTime = new Intl.DateTimeFormat("de-CH", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Zurich" });
 
 function changes(row: Row) {
@@ -55,7 +57,8 @@ function changes(row: Row) {
   return fields.filter(field => field.before !== field.after);
 }
 
-function SourceControls({ settings, onSave }: {
+function SourceControls({ settings, onSave, manualSnapshot }: {
+  manualSnapshot: boolean;
   settings: SourceSettings;
   onSave: (draft: SettingsDraft) => Promise<void>;
 }) {
@@ -75,14 +78,15 @@ function SourceControls({ settings, onSave }: {
   return <form onSubmit={event => void submit(event)}>
     <FilterBar>
       <label><input type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} disabled={saving} /> Quelle aktiv</label>
-      <label>Abruf{" "}
+      {!manualSnapshot ? <label>Abruf{" "}
         <select aria-label="Abruf" value={cadence} onChange={event => setCadence(event.target.value as Cadence)} disabled={saving}>
           {Object.entries(cadenceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
-      </label>
+      </label> : null}
       <button className="bi-actionButton" type="submit" disabled={!changed || saving}>{saving ? "Speichert …" : "Einstellungen speichern"}</button>
     </FilterBar>
-    <p>Automatische Abrufe starten um {settings.schedule_time_utc} UTC. Eine ausgeschaltete Quelle pausiert auch manuelle Abrufe.</p>
+    {manualSnapshot ? <p>Importiert einen vorbereiteten Monatsstand. Ist die Quelle ausgeschaltet, kann kein neuer Stand übernommen werden.</p>
+      : <p>Automatische Abrufe starten um {settings.schedule_time_utc} UTC. Eine ausgeschaltete Quelle pausiert auch manuelle Abrufe.</p>}
   </form>;
 }
 
@@ -93,10 +97,15 @@ export default function SpotImportPage() {
 
 function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onSourceChange: (key: SourceKey) => void }) {
   const metadata = sources[sourceKey];
-  const source = `https://data.bs.ch/explore/dataset/${metadata.dataset}/`;
-  const sourceEntry = (row: Row) => sourceKey === "BASEL_POI"
+  const manualSnapshot = sourceKey === "BASEL_OVERTURE";
+  const source = manualSnapshot ? "https://docs.overturemaps.org/guides/places/" : `https://data.bs.ch/explore/dataset/${metadata.dataset}/`;
+  const license = manualSnapshot ? "https://docs.overturemaps.org/attribution/" : "https://creativecommons.org/licenses/by/4.0/";
+  const sourceEntry = (row: Row) => manualSnapshot ? source : sourceKey === "BASEL_POI"
     ? `${source}?q=${encodeURIComponent(row.facts.name)}` : `${source}?refine.id=${row.source_id}`;
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [pages, setPages] = useState([0]);
+  const [uploading, setUploading] = useState(false);
+  const cursor = pages.at(-1) ?? 0;
   const [filter, setFilter] = useState<Filter>("OPEN");
   const [selected, setSelected] = useState<Row | null>(null);
   const [error, setError] = useState("");
@@ -108,17 +117,21 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
     if (failure) setError("Die Importübersicht konnte nicht geladen werden.");
     else { setPreview(data as Preview); setError(""); }
   }, []);
+  const requestPreview = useCallback(() => manualSnapshot
+    ? supabase.rpc("admin_basel_overture_preview_v1", { p_after: cursor })
+    : supabase.rpc("admin_basel_place_source_preview_v1", { p_key: sourceKey }),
+  [cursor, manualSnapshot, sourceKey]);
   const reload = useCallback(async () => {
-    applyPreview(await supabase.rpc("admin_basel_place_source_preview_v1", { p_key: sourceKey }));
-  }, [applyPreview, sourceKey]);
+    applyPreview(await requestPreview());
+  }, [applyPreview, requestPreview]);
 
   useEffect(() => {
     const request = new AbortController();
-    void supabase.rpc("admin_basel_place_source_preview_v1", { p_key: sourceKey }).abortSignal(request.signal).then(result => {
+    void requestPreview().abortSignal(request.signal).then(result => {
       if (!request.signal.aborted) applyPreview(result);
     });
     return () => request.abort();
-  }, [applyPreview, sourceKey]);
+  }, [applyPreview, requestPreview]);
 
   const fetching = preview?.runs[0]?.status === "FETCHING";
   useEffect(() => {
@@ -126,6 +139,36 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
     const timer = window.setInterval(() => { void reload(); }, 15_000);
     return () => window.clearInterval(timer);
   }, [fetching, reload]);
+
+  async function uploadSnapshot(file: File) {
+    setUploading(true);
+    setError("");
+    try {
+      if (file.size > 1_800_000) throw new Error("invalid_snapshot");
+      const snapshot: unknown = JSON.parse(await file.text());
+      if (!snapshot || typeof snapshot !== "object" || !("release" in snapshot)
+        || typeof snapshot.release !== "string" || !("rows" in snapshot) || !Array.isArray(snapshot.rows)) {
+        throw new Error("invalid_snapshot");
+      }
+      const { error: failure } = await supabase.rpc("admin_basel_overture_import_v1", {
+        p_release: snapshot.release, p_rows: snapshot.rows,
+      });
+      if (failure) {
+        setError(failure.message === "overture_snapshot_release_not_newer"
+          ? "Dieser Datenstand ist älter oder unterscheidet sich vom bereits importierten Stand derselben Version."
+          : failure.message === "overture_snapshot_incomplete"
+          ? "Der neue Stand enthält deutlich weniger Orte. Prüfe den Export, bevor du ihn erneut importierst."
+          : "Der Overture-Stand konnte nicht übernommen werden. Prüfe die Datei und ob die Quelle aktiv ist.");
+        return;
+      }
+      if (cursor === 0) await reload();
+      else { setPreview(null); setPages([0]); }
+    } catch {
+      setError("Wähle eine gültige Overture-JSON-Datei mit höchstens 1,8 MB.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function start() {
     setStarting(true);
@@ -221,8 +264,8 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
         description="Basler Ortsquellen abrufen, Änderungen prüfen und neue Spots vorbereitet öffnen."
         actions={<>
           <Link className="bi-actionButton" href="/spots">Zu den Spots</Link>
-          <button className="bi-primaryButton" type="button" disabled={starting || fetching || !preview?.source.enabled}
-            onClick={() => void start()}>{starting || fetching ? "Abruf läuft …" : "Jetzt abrufen"}</button>
+          {!manualSnapshot ? <button className="bi-primaryButton" type="button" disabled={starting || fetching || !preview?.source.enabled}
+            onClick={() => void start()}>{starting || fetching ? "Abruf läuft …" : "Jetzt abrufen"}</button> : null}
         </>} />
       <FilterBar>
         <label>Quelle{" "}
@@ -235,21 +278,29 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
       {!preview && !error ? <LoadingState /> : null}
       {preview ? <>
         <SectionCard title={metadata.label} description={metadata.coverage}>
-          <p><a href={source}>Datensatz aufrufen</a> · {metadata.credit} · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a></p>
+          <p><a href={source}>Datensatz aufrufen</a> · {metadata.credit} · <a href={license}>{manualSnapshot ? "Lizenzen und Quellen" : "CC BY 4.0"}</a></p>
           <StatusBadge tone={preview.source.enabled ? "success" : "neutral"}>{preview.source.enabled ? "Aktiv" : "Ausgeschaltet"}</StatusBadge>
-          <SourceControls key={preview.source.revision} settings={preview.source} onSave={saveSourceSettings} />
+          <SourceControls key={preview.source.revision} settings={preview.source} onSave={saveSourceSettings} manualSnapshot={manualSnapshot} />
+          {manualSnapshot ? <label>Overture-Stand importieren{" "}
+            <input type="file" accept=".json,application/json" disabled={uploading || !preview.source.enabled} onChange={event => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = "";
+              if (file) void uploadSnapshot(file);
+            }} />
+            {uploading ? <span role="status">Wird importiert …</span> : null}
+          </label> : null}
           {latest ? <p role="status">
             {formatTime.format(new Date(latest.started_at))} · {latest.status === "FETCHING" ? "Abruf läuft"
-              : latest.status === "COMPLETE" ? `${latest.source_count} Einträge geprüft`
+              : latest.status === "COMPLETE" ? `${latest.source_count} Einträge eingelesen${latest.release_version ? ` · Stand ${latest.release_version}` : ""}`
               : latest.outcome === "SNAPSHOT_REJECTED" ? "Quelle war unvollständig oder lieferte ungültige Daten. Letzter vollständiger Stand bleibt sichtbar."
               : "Abruf fehlgeschlagen. Letzter vollständiger Stand bleibt sichtbar."}
-          </p> : <p>Der erste Abruf steht noch aus.</p>}
+          </p> : <p>{manualSnapshot ? "Der erste Import steht noch aus." : "Der erste Abruf steht noch aus."}</p>}
         </SectionCard>
 
         {selected ? <SectionCard title={`Spot anlegen · ${selected.facts.name}`} description="Der Spot ist zum Prüfen vorausgefüllt. Öffnungszeiten und Ausstattung siehst du mit Quellenbeleg in der Übersicht.">
           <p><button className="bi-actionButton" type="button" onClick={() => setSelected(null)}>Zurück zu den Vorschlägen</button></p>
           <p><a href={sourceEntry(selected)}>Quelle ansehen</a> · Öffnungszeiten gemäss Quelle: {selected.facts.hours ?? "Keine Angabe"}</p>
-          <p>Beim Publizieren die Quelle im Spot-Knowledge angeben: {metadata.credit}, CC BY 4.0.</p>
+          <p>Beim Publizieren den Quellenbeleg im Spot-Knowledge hinterlegen. {selected.facts.attribution?.join(", ") || metadata.credit} · <a href={license}>Lizenzhinweise</a></p>
           {selected.facts.equipment.length > 0 ? <p>Ausstattung: {selected.facts.equipment.join(", ")}</p> : null}
           <SpotForm key={selected.source_id} mode="create" initialValues={{
             name: selected.facts.name, lat: selected.facts.lat, lng: selected.facts.lng, city: selected.facts.city ?? null, country: "Switzerland",
@@ -258,7 +309,15 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
             google_place_id: null, google_photo_enabled: false, status: "pending",
           }} onSaved={() => { setSelected(null); void reload(); }} />
         </SectionCard> : <>
-          <FilterBar resultLabel={`${rows.length} Einträge`}>
+          <FilterBar resultLabel={`${rows.length} Einträge${manualSnapshot ? " auf dieser Seite" : ""}`}>
+            {manualSnapshot ? <>
+              <button className="bi-actionButton" type="button" disabled={pages.length <= 1} onClick={() => { setPreview(null); setPages(pages.slice(0, -1)); }}>Zurück</button>
+              <span>Seite {pages.length}</span>
+              <button className="bi-actionButton" type="button" disabled={!preview.next_after} onClick={() => {
+                const next = preview.next_after;
+                if (next) { setPreview(null); setPages([...pages, next]); }
+              }}>Weiter</button>
+            </> : null}
             <label>Ansicht{" "}
               <select value={filter} onChange={event => setFilter(event.target.value as Filter)}>
                 {reviewViews.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -266,7 +325,7 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
             </label>
           </FilterBar>
           {rows.length === 0 ? <EmptyState title={filter === "OPEN" ? "Keine offenen Vorschläge" : "Keine Einträge in dieser Ansicht"}
-              description={filter === "OPEN" ? "Neue oder geänderte Vorschläge siehst du beim nächsten erfolgreichen Abruf hier." : "In dieser Ansicht sind gerade keine Vorschläge."} />
+              description={manualSnapshot ? "Auf dieser Seite gibt es in der gewählten Ansicht keine Einträge." : filter === "OPEN" ? "Neue oder geänderte Vorschläge siehst du beim nächsten erfolgreichen Abruf hier." : "In dieser Ansicht sind gerade keine Vorschläge."} />
             : <SectionCard title="Vorschläge">
               {rows.map(row => <details key={row.source_id}>
                 <summary>
@@ -277,12 +336,13 @@ function SourceImport({ sourceKey, onSourceChange }: { sourceKey: SourceKey; onS
                     {row.review_state === "REVIEWED" ? "Geprüft" : "Ausgeblendet"}
                   </StatusBadge></> : null}
                 </summary>
-                <p>{row.facts.label ?? "Spielplatz"} · {row.facts.lat.toFixed(5)}, {row.facts.lng.toFixed(5)} · geprüft am {formatTime.format(new Date(row.checked_at))}</p>
+                <p>{row.facts.label ?? (manualSnapshot ? overtureCategoryLabels[row.facts.category] ?? row.facts.category : "Spielplatz")} · {row.facts.lat.toFixed(5)}, {row.facts.lng.toFixed(5)} · geprüft am {formatTime.format(new Date(row.checked_at))}</p>
                 <p>Öffnungszeiten gemäss Quelle: {row.facts.hours ?? "Keine Angabe"}</p>
                 {row.facts.address || row.facts.city ? <p>{[row.facts.address, row.facts.city].filter(Boolean).join(", ")}</p> : null}
                 {row.facts.phone ? <p>Telefon gemäss Quelle: {row.facts.phone}</p> : null}
                 {row.facts.equipment.length > 0 ? <p>Ausstattung: {row.facts.equipment.join(", ")}</p> : null}
-                <p><a href={sourceEntry(row)}>Quelleneintrag ansehen</a></p>
+                <p><a href={sourceEntry(row)}>{manualSnapshot ? "Datensatz ansehen" : "Quelleneintrag ansehen"}</a>{row.facts.external_id ? <> · GERS-ID {row.facts.external_id}</> : null}</p>
+                {row.facts.attribution?.length ? <p>Quelle: {row.facts.attribution.join(", ")}</p> : null}
                 {changes(row).map(field => <p key={field.label}>{field.label}: {field.before || "Keine Angabe"} → {field.after || "Keine Angabe"}</p>)}
                 {row.spots.map(spot => <p key={spot.id}>
                   <Link href={`/spots/${spot.id}/edit`}>{spot.name}</Link> · {spot.address ?? "Keine Adresse"} · {spot.distance_m} m{spot.status === "archived" ? " · Archiviert" : ""}
