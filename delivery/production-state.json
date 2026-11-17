@@ -632,6 +632,17 @@
       "deploymentRunId": 44053600525,
       "certificationRunId": 44052662058,
       "manifestHash": "c5b171a7945c37b7d1b92c532cb42874abcafeffa1689907f55c7610d469c366"
+    },
+    "baselOvertureRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "migration": {
+        "path": "supabase/migrations/20261117095706_basel_overture_place_source_v1.sql",
+        "sha256": "4d42014c0b7b6846e8da08b72626b633fb7bf1d3d4ebf15cfdb7f1cd6526a6d8"
+      },
+      "sourceSha": "31e0a6a01890f61bc645a1430561979a3bd855f1",
+      "deploymentRunId": 44067863956,
+      "certificationRunId": 44067036463,
+      "manifestHash": "62175b64632eedc2e2d02fa6d273cf8c83f601d2a877704c3e7e3630f767ec46"
     }
   },
   "mobile": {
