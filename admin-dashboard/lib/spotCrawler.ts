@@ -48,6 +48,8 @@ export type CrawlerCandidate = {
   review_revision: string;
   category_id: string | null;
   imported_spot_id: string | null;
+  can_confirm_distinct?: boolean;
+  research_status?: "QUEUED" | "RUNNING" | "READY_FOR_REVIEW" | "FAILED" | null;
   spots: { id: string; name: string; address: string | null; distance_m: number }[];
 };
 

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "crawler-approval-research-pipeline",
+  "previousEvidence": "backyrd-spot-crawler",
+  "previousFingerprints": {
+    "publicAclSha256": "96c3ec3ee37b99f47c44bbf42059715f89b57bd805d08adb0d05413cfff4711b",
+    "applicationSchemaSha256": "35f146c8a3f297be4a67f32faee80824809cedc7503da4f6083c501b2edea5fd"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261117185705_crawler_approval_research_pipeline.sql",
+      "sha256": "b62030443bf9d560d161d03f9876f2aaaae2ab75661077383018edfa00837a1b"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/crawler_approval_research_pipeline.sql",
+      "sha256": "e0646371c7b1d0509b2361e4db1afc19c5c00414c76f2c867dd8b899568201a4"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "cdfe14b7ea459795b4f981e9b26ae1a471378000f40603a095a43a50846275c1",
+    "applicationSchemaSha256": "26ffc6aaba1b15a5d52ca0bbce9510051c41dcca3578cb879f10c9f15c6c6b36"
+  }
+}

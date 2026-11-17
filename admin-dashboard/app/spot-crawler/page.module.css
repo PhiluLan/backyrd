@@ -18,3 +18,5 @@
 .result h3, .result p { margin: 0 0 .4rem; }
 .result .actions, .results + .actions { margin-top: .65rem; }
 @media (max-width: 840px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.confirm { display: flex; align-items: flex-start; gap: .55rem; margin: .65rem 0; }
+.confirm input { accent-color: #ff4086; margin-top: .25rem; }
