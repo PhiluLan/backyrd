@@ -33,6 +33,16 @@ export function parseCrawlerSettings(input: unknown): CrawlerSettings | null {
   return { categories: [...new Set(categories)], districts: [...new Set(districts)], limit, searches, schedule, time, monthBudgetCents };
 }
 
+export function sameCrawlerSettings(first: CrawlerSettings, second: CrawlerSettings): boolean {
+  return first.limit === second.limit && first.searches === second.searches
+    && first.schedule === second.schedule && first.time === second.time
+    && first.monthBudgetCents === second.monthBudgetCents
+    && first.categories.length === second.categories.length
+    && first.categories.every(category => second.categories.includes(category))
+    && first.districts.length === second.districts.length
+    && first.districts.every(district => second.districts.includes(district));
+}
+
 export type CrawlerFacts = {
   external_id: string; name: string; category: CrawlerCategory;
   address: string; lat: number; lng: number; website: string;
@@ -52,6 +62,13 @@ export type CrawlerCandidate = {
   research_status?: "QUEUED" | "RUNNING" | "READY_FOR_REVIEW" | "FAILED" | null;
   spots: { id: string; name: string; address: string | null; distance_m: number }[];
 };
+
+export type CrawlerView = "open" | "history";
+
+export function isOpenCrawlerCandidate(row: CrawlerCandidate): boolean {
+  return !row.imported_spot_id && (row.review_state === "OPEN" || row.review_state === "REVIEWED")
+    && (row.state === "NEW" || (row.state === "REVIEW" && row.can_confirm_distinct === true));
+}
 
 export type CrawlerOverview = {
   rows: CrawlerCandidate[]; next_after: number | null;

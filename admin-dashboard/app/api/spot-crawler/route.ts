@@ -1,25 +1,43 @@
 import { after } from "next/server";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 import { crawlerService, claimCrawlerRun, finishCrawlerRun } from "@/lib/server/spotCrawlerJobs";
-import { parseCrawlerSettings } from "@/lib/spotCrawler";
+import { isOpenCrawlerCandidate, parseCrawlerSettings, type CrawlerOverview, type CrawlerView } from "@/lib/spotCrawler";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const noStore = {"cache-control":"no-store"};
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:noStore});
 
+async function visiblePreview(client: Awaited<ReturnType<typeof crawlerService>>, cursor: number, view: CrawlerView) {
+  // Skip pages filled entirely with past decisions using the existing cursor.
+  // Bound each request so long archives can still be traversed via pagination.
+  for (let pages = 0; pages < 4; pages++) {
+    const { data, error } = await client.rpc("admin_backyrd_spot_crawler_preview_v1", { p_after: cursor });
+    if (error || !Array.isArray(data?.rows)) throw new Error("crawler_preview_failed");
+    const overview = data as CrawlerOverview;
+    const rows = overview.rows.filter(row => isOpenCrawlerCandidate(row) === (view === "open"));
+    if (rows.length || overview.next_after === null || pages === 3) return { ...overview, rows };
+    if (overview.next_after <= cursor) throw new Error("crawler_preview_cursor_invalid");
+    cursor = overview.next_after;
+  }
+  throw new Error("crawler_preview_unavailable");
+}
+
 export async function GET(request: Request) {
   const authorization=await authorizeAdminRequest(request);
   if (!authorization.ok) return json({error:authorization.error},authorization.status);
-  const cursor = new URL(request.url).searchParams.get("after") ?? "0";
+  const params = new URL(request.url).searchParams;
+  const cursor = params.get("after") ?? "0";
+  const view = params.get("view") ?? "open";
   if (!/^\d{1,10}$/u.test(cursor) || Number(cursor)>2147483647) return json({error:"INVALID_CURSOR"},400);
+  if (view !== "open" && view !== "history") return json({error:"INVALID_VIEW"},400);
   try {
     const [settings,preview]=await Promise.all([
       crawlerService().rpc("backyrd_spot_crawler_settings_v1"),
-      authorization.client.rpc("admin_backyrd_spot_crawler_preview_v1",{p_after:Number(cursor)}),
+      visiblePreview(authorization.client, Number(cursor), view),
     ]);
-    if (settings.error || preview.error || !parseCrawlerSettings(settings.data)) return json({error:"CRAWLER_UNAVAILABLE"},503);
-    return json({settings:settings.data,overview:preview.data,searchConfigured:!!process.env.BRAVE_SEARCH_API_KEY,
+    if (settings.error || !parseCrawlerSettings(settings.data)) return json({error:"CRAWLER_UNAVAILABLE"},503);
+    return json({settings:settings.data,overview:preview,searchConfigured:!!process.env.BRAVE_SEARCH_API_KEY,
       scheduleConfigured:!!process.env.CRON_SECRET});
   } catch { return json({error:"CRAWLER_UNAVAILABLE"},503); }
 }
