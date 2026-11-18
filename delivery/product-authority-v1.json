@@ -620,12 +620,8 @@
       ]
     }
   },
-  "codeOnlyDeliveryScope": {
-    "contractVersion": "backyrd.code-only-delivery-scope@1.0",
-    "functions": [
-      "decision-engine-worker"
-    ],
-    "workerSourceSetHash": "5ea6897d8786c5b424b41e6e73cf3bdf4819958e951615632a9f499abddd7a3f",
+  "analyticsPageviewsDeliveryScope": {
+    "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
     "deferredMigrations": [
       {
         "path": "supabase/migrations/20261020184245_booking_restaurant_service_lifecycle_v1.sql",
@@ -644,6 +640,21 @@
         "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
       }
     ],
+    "restoreDrill": {
+      "runId": 43878789183,
+      "artifactId": 14231428566,
+      "artifactDigest": "sha256:05df22f9723963b1cf7d0861bfed98154da461ab90405ed79a9ec1ce145323af"
+    },
+    "contractVersion": "backyrd.crawler-source-first-basics-delivery-scope@1.0",
+    "executionAuthorized": false,
+    "migrations": [
+      {
+        "path": "supabase/migrations/20261118163449_crawler_source_first_basics.sql",
+        "sha256": "b388dd79ac73fa9acc044015a6f0d5b073ca2588e00caa9beb24da89b7fea785"
+      }
+    ],
+    "functions": [],
+    "backupRunId": 44282138177,
     "existingFunctionReceipt": {
       "sourceSha": "422803e03b910db1770b7a44be1ea78f09a3e0bd",
       "deploymentRunId": 42385325625,
@@ -692,6 +703,17 @@
         }
       ]
     },
-    "source": "Measure provider usage per research run and display it in the Admin. Deploy exactly the research worker and defer Booking migrations."
+    "researchWorkerReceipt": {
+      "sourceSha": "cc72fc4aab30d4900a5125d004f72f8b3df2f4cd",
+      "deploymentRunId": 44291765953,
+      "functions": [
+        {
+          "slug": "decision-engine-worker",
+          "version": 183,
+          "bundleHash": "7834afce51a99c2d5efe74e8df12eb5d307a9baf76186954f1aaa7060cf326d9",
+          "sourceSetHash": "5ea6897d8786c5b424b41e6e73cf3bdf4819958e951615632a9f499abddd7a3f"
+        }
+      ]
+    }
   }
 }
