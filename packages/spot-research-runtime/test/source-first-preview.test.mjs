@@ -172,3 +172,25 @@ test('redirect authorization runs before DNS and HTTP on every target', async ()
  assert.deepEqual(authorized,['https://example.org/old','https://example.org/private']);
  assert.deepEqual(visited,['https://example.org/old']);assert.equal(resolved.length,1);
 });
+
+
+test("empty HTML sources stay unavailable and cannot abort other venue results", async () => {
+  const [unavailable, usable] = await Promise.all([
+    previewSpotSources(venue, { fetchPage: async url => page(url, "<main><img src='logo.png'></main>") }),
+    previewSpotSources(venue, { fetchPage: async url => page(url, website + "<h1><img src='logo.png'></h1>") }),
+  ]);
+  assert.equal(unavailable.status, "SOURCE_UNAVAILABLE");
+  assert.equal(unavailable.sourcesRead, 0);
+  assert.deepEqual(unavailable.proposals, []);
+  assert.ok(usable.proposals.some(item => item.attributeKey === "contact.public_email"));
+});
+
+test("an image-only heading cannot abort a verified venue's visit classification", async () => {
+  const html = '<h1><img src="logo.png"></h1><h2>Café Testhalle</h2><p>Testweg 5, 4000 Basel</p><p>Testhalle</p><p>Frühstück und Kaffee</p><p>hello@testhalle.example</p>';
+  const result = await previewSpotSources({ ...venue, name: "Café Testhalle", crawlerCategory: "CAFE" }, {
+    verifyVenue: true, fetchPage: async url => page(url, html),
+  });
+  assert.equal(result.status, "CHECKED");
+  assert.equal(result.proposals.find(item => item.attributeKey === "classification.primary_category")?.value, "COFFEE_DAYTIME");
+  assert.equal(result.proposals.find(item => item.attributeKey === "purpose.primary_visit")?.value, "EAT_DRINK");
+});

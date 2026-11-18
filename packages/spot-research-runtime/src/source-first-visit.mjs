@@ -168,7 +168,12 @@ export function readVisitClassification(pages, spot) {
     if (!venueIdentity) return [];
     const headings = [...page.body.matchAll(/<(title|h1|h2)\b[^>]*>([\s\S]*?)<\/\1>/giu)];
     return headings.flatMap(([, tag, html]) => {
-      const heading = sourceText({ ...page, body: "<h1>" + html + "</h1>" }, "category").text.trim();
+      let heading;
+      try { heading = sourceText({ ...page, body: "<h1>" + html + "</h1>" }, "category").text.trim(); }
+      catch (error) {
+        if (error instanceof Error && error.message === "source_empty") return [];
+        throw error;
+      }
       if (heading.length > 200 || !(" " + normalize(heading) + " ").includes(" " + name + " ") ||
           /häufige fragen|faq|häufig gestellte/iu.test(heading) || !categoryTerms.test(heading)) return [];
       return [{ page, heading, priority: tag.toLowerCase() === "title" ? 1 : 0 }];
