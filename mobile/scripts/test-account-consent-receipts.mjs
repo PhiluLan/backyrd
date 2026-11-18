@@ -6,10 +6,10 @@ const compiled=ts.transpileModule(readFileSync(new URL('../lib/consent.ts',impor
 const presentation={exports:{}};
 const shared=ts.transpileModule(readFileSync(new URL('../../packages/shared/src/consent-presentation.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 new Function('module','exports',shared)(presentation,presentation.exports);
-function fixture(reply){
+function fixture(reply, firstRead){
  let granted=true,reads=0;
  const dependencies={ '../../packages/shared/src/consent-presentation':presentation.exports, 'expo-constants':{default:{expoConfig:{version:'entry-test'}}}, './supabase':{supabase:{auth:{onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},rpc:async(name,args)=>{
-  if(name==='has_active_consent_v1'){reads++;return {data:granted,error:null};}
+  if(name==='has_active_consent_v1'){reads++;return reads===1 && firstRead ? firstRead : {data:granted,error:null};}
   if(name==='set_my_consent_v1'){granted=args.p_granted;if(reply instanceof Error)throw reply;return reply;}
   throw Error('Unexpected RPC');
  }}}};
@@ -29,4 +29,21 @@ test('a successful HTTP response without the requested consent receipt is reject
 test('the matching persisted withdrawal is acknowledged',async()=>{
  const f=fixture({data:[{purpose_key:'precise_location',status:'withdrawn'}],error:null});
  await f.api.setMyConsent('precise_location',false);assert.equal(await f.api.hasActiveConsent('precise_location'),false);
+});
+test('an in-flight grant cannot survive withdrawal or an account cache reset', async () => {
+  for (const invalidate of [
+    api => api.setMyConsent('precise_location', false),
+    api => api.clearConsentCache(),
+  ]) {
+    let resolveRead;
+    const read = new Promise(resolve => { resolveRead = resolve; });
+    const receipt = {data:[{purpose_key:'precise_location',status:'withdrawn'}],error:null};
+    const f = fixture(receipt, read);
+    const previous = f.api.hasActiveConsent('precise_location', {forceRefresh:true});
+    await invalidate(f.api);
+    resolveRead({data:true,error:null});
+    assert.equal(await previous, false);
+    await f.api.hasActiveConsent('precise_location');
+    assert.equal(f.reads(), 2, 'the stale result must never populate the cache');
+  }
 });

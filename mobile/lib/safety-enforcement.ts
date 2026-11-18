@@ -9,12 +9,12 @@ export type SafetyWriteStatus = {
   requiresAccountReview: boolean;
 };
 
-export async function getSafetyWriteStatus():
-Promise<SafetyWriteStatus | null> {
-  const { data, error } = await supabase.rpc(
+export async function getSafetyWriteStatus(signal?: AbortSignal): Promise<SafetyWriteStatus | null> {
+  const request = supabase.rpc(
     "safety_user_enforcement_summary_v1",
     {},
   );
+  const { data, error } = await (signal ? request.abortSignal(signal) : request);
 
   if (error) {
     console.log("getSafetyWriteStatus failed", error);
@@ -23,7 +23,7 @@ Promise<SafetyWriteStatus | null> {
 
   const row = Array.isArray(data) ? data[0] : data;
 
-  if (!row) return null;
+  if (typeof row?.can_write !== "boolean") return null;
 
   return {
     activePoints: Number(row.active_points ?? 0),
@@ -34,7 +34,7 @@ Promise<SafetyWriteStatus | null> {
       row.active_measure_type ?? null,
     activeMeasureEndsAt:
       row.active_measure_ends_at ?? null,
-    canWrite: row.can_write !== false,
+    canWrite: row.can_write,
     requiresAccountReview:
       row.requires_account_review === true,
   };

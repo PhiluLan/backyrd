@@ -156,7 +156,7 @@ test("uses native intent for runtime links and an acknowledged iOS initial targe
   assert.match(rootLayoutSource, /onReadyToReveal=\{onReactSplashReady\}/);
   assert.match(rootLayoutSource, /onStartupCheckSettled=\{onSafetyStartupReady\}/);
   assert.match(rootLayoutSource, /bootstrapReady.*splashSettled/);
-  assert.match(rootLayoutSource, /if \(\(!reactSplashReady && !fontError\) \|\| nativeSplashHidden\) return/);
+  assert.match(rootLayoutSource, /if \(nativeSplashHidden \|\| \(!reactSplashReady && !fontError && !authStartupFailed && !safetyStartupFailed\)\) return/);
   assert.doesNotMatch(rootLayoutSource, /splashSettled && !fontError/);
   assert.match(splashSource, /const WORDMARK_HOLD_MS = 1_450/);
   assert.match(splashSource, /const TRANSITION_MS = 760/);
@@ -183,7 +183,7 @@ test("gives one startup authority priority over the asynchronous default Home wr
   assert.match(coldStartRouterSource, /selectTarget\(target\.receipt\)/);
   assert.match(coldStartRouterSource, /waitForTargetDispatch/);
   assert.match(coldStartRouterSource, /selectNoTarget\(\)/);
-  assert.match(gateSource, /await rootStartupNavigationAuthority\.waitForSelection\(\)/);
+  assert.match(gateSource, /withRequestDeadline\(\s*signal => rootStartupNavigationAuthority\.waitForSelection\(signal\)/);
   assert.match(gateSource, /target === "\/\(tabs\)" && startupSelection\.kind === "target"/);
   assert.match(gateSource, /allowProductTargetFromEntryGate\(\)/);
   assert.match(gateSource, /completeDefaultStart\(\)/);

@@ -39,10 +39,25 @@ export class RootStartupNavigationAuthority {
     return true;
   }
 
-  waitForSelection(): Promise<InitialStartupSelection> {
+  waitForSelection(signal?: AbortSignal): Promise<InitialStartupSelection> {
     if (this.closed) return Promise.resolve({ kind: "no_target" });
     if (this.selection) return Promise.resolve(this.selection);
-    return new Promise((resolve) => this.selectionWaiters.add(resolve));
+    return new Promise((resolve, reject) => {
+      const cancel = () => {
+        this.selectionWaiters.delete(complete);
+        reject(new Error("startup_selection_cancelled"));
+      };
+      const complete: SelectionWaiter = (selection) => {
+        signal?.removeEventListener("abort", cancel);
+        resolve(selection);
+      };
+      if (signal?.aborted) {
+        cancel();
+        return;
+      }
+      this.selectionWaiters.add(complete);
+      signal?.addEventListener("abort", cancel, { once: true });
+    });
   }
 
   allowProductTargetFromEntryGate(): void {

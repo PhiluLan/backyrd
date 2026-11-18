@@ -13,8 +13,9 @@ export type ProductEntryStatus = {
   nextRoute: "/auth/login" | "/onboarding/profile" | "/onboarding/decision" | "/(tabs)";
 };
 
-export async function getMyProductEntryStatus(): Promise<ProductEntryStatus> {
-  const { data, error } = await supabase.rpc("get_my_product_entry_status_v1");
+export async function getMyProductEntryStatus(signal?: AbortSignal): Promise<ProductEntryStatus> {
+  const request = supabase.rpc("get_my_product_entry_status_v1");
+  const { data, error } = await (signal ? request.abortSignal(signal) : request);
   if (error) throw error;
 
   const row = (Array.isArray(data) ? data[0] : data) as ProductEntryStatus | null;

@@ -27,23 +27,20 @@ export async function filterDistributedEntities<T extends { id: string }>(
   const unique = Array.from(new Map(items.map((item) => [item.id, item])).values());
   if (unique.length === 0) return [];
 
-  const request = supabase.rpc(
-    "distribution_trust_filter_entities_v1",
-    {
+  const priorities = new Map<string, number>();
+  const batchSize = 500;
+  for (let offset = 0; offset < unique.length; offset += batchSize) {
+    const request = supabase.rpc("distribution_trust_filter_entities_v1", {
       p_entity_type: entityType,
-      p_entity_ids: unique.map((item) => item.id),
+      p_entity_ids: unique.slice(offset, offset + batchSize).map((item) => item.id),
       p_surface: surface,
-    },
-  );
-  const { data, error } = await (signal ? request.abortSignal(signal) : request);
-
-  if (error) throw error;
-
-  const priorities = new Map(
-    ((data ?? []) as EligibilityRow[])
-      .filter((row) => row.eligible)
-      .map((row) => [row.entity_id, Number(row.distribution_priority)]),
-  );
+    });
+    const { data, error } = await (signal ? request.abortSignal(signal) : request);
+    if (error) throw error;
+    for (const row of (data ?? []) as EligibilityRow[]) {
+      if (row.eligible) priorities.set(row.entity_id, Number(row.distribution_priority));
+    }
+  }
   const originalOrder = new Map(unique.map((item, index) => [item.id, index]));
 
   return unique

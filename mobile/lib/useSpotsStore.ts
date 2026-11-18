@@ -26,6 +26,7 @@ type State = {
 };
 
 let latestRefresh = 0;
+const MAP_PAGE_SIZE = 500;
 
 export const useSpotsStore = create<State>((set) => ({
   spots: [],
@@ -38,37 +39,42 @@ export const useSpotsStore = create<State>((set) => ({
 
     try {
       const visible = await withRequestDeadline(async (signal) => {
-        const { data, error } = await supabase
-          .from("spots")
-          .select(`
-        id,
-        name,
-        lat,
-        lng,
-        address,
-        city,
-        category_id,
-        header_photo_path,
-        categories ( name, color ),
-        spot_photos ( url ),
-        spot_hours ( day_of_week, open_time, close_time )
-          `)
-          .eq("status", "approved")
-          .limit(2000)
-          .abortSignal(signal);
+        const mapped: Spot[] = [];
+        let afterId: string | undefined;
+        while (!signal.aborted) {
+          const query = supabase
+            .from("spots")
+            .select(`
+              id,
+              name,
+              lat,
+              lng,
+              address,
 
-        if (error) throw error;
-
-        const mapped = (data ?? []).map((s) => ({
-          ...s,
-          lat: s.lat == null ? Number.NaN : Number(s.lat),
-          lng: s.lng == null ? Number.NaN : Number(s.lng),
-          categories: Array.isArray(s.categories) ? s.categories[0] ?? null : s.categories,
-          header_photo_url: selectSpotImageUrl({
-            photoUrl: s.spot_photos[0]?.url || null,
-            headerPhotoPath: s.header_photo_path,
-          }),
-        }));
+              city,
+              category_id,
+              header_photo_path,
+              categories ( name, color ),
+              spot_hours ( day_of_week, open_time, close_time )
+            `)
+            .eq("status", "approved")
+            .order("id")
+            .limit(MAP_PAGE_SIZE)
+            .abortSignal(signal);
+          const { data, error } = await (afterId ? query.gt("id", afterId) : query);
+          if (error) throw error;
+          const page = data ?? [];
+          mapped.push(...page.map(spot => ({
+            ...spot,
+            lat: spot.lat == null ? Number.NaN : Number(spot.lat),
+            lng: spot.lng == null ? Number.NaN : Number(spot.lng),
+            categories: Array.isArray(spot.categories) ? spot.categories[0] ?? null : spot.categories,
+            header_photo_url: selectSpotImageUrl({ headerPhotoPath: spot.header_photo_path }),
+          })));
+          if (page.length < MAP_PAGE_SIZE) break;
+          afterId = page[page.length - 1].id;
+        }
+        if (signal.aborted) throw new Error("map_catalog_aborted");
         return filterDistributedSpots(mapped, "maps", signal);
       }, 12_000);
       if (refreshId === latestRefresh) set({ spots: visible, loading: false, error: false });

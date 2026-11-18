@@ -15,6 +15,9 @@ import { useAuth } from "../hooks/useAuth";
 import { rootStartupNavigationAuthority } from "../lib/root-startup-navigation";
 import { backyrdTheme as theme, useBackyrdTheme } from "../theme/backyrd";
 import { useStartupContent } from "../providers/StartupContentProvider";
+import { withRequestDeadline } from "../lib/requestDeadline";
+
+const ENTRY_CHECK_DEADLINE_MS = 8_000;
 
 function normalizeRoute(route: string | null | undefined): string {
   if (!route) return "/(tabs)";
@@ -109,6 +112,7 @@ export default function GateScreen() {
   const { session, loading: authLoading } = useAuth();
 
   const didRouteRef = useRef(false);
+  const requestGeneration = useRef(0);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [forcedLoggedOut, setForcedLoggedOut] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -125,7 +129,7 @@ export default function GateScreen() {
     setErrorMessage(null);
 
     try {
-      await supabase.auth.signOut();
+      await withRequestDeadline(() => supabase.auth.signOut(), ENTRY_CHECK_DEADLINE_MS);
     } catch (signOutError) {
       console.log("Gate signOut after stale session failed:", signOutError);
     }
@@ -141,12 +145,17 @@ export default function GateScreen() {
       return;
     }
 
+    const generation = ++requestGeneration.current;
+    const isCurrent = () => generation === requestGeneration.current;
     try {
       setCheckingStatus(true);
 
       // Important: getSession() can still return a locally cached session after the user
       // was deleted in Supabase. getUser() verifies the JWT against Supabase Auth.
-      const { data: verifiedUserData, error: verifiedUserError } = await supabase.auth.getUser();
+      const { data: verifiedUserData, error: verifiedUserError } = await withRequestDeadline(
+        () => supabase.auth.getUser(), ENTRY_CHECK_DEADLINE_MS,
+      );
+      if (!isCurrent()) return;
 
       if (verifiedUserError && verifiedUserError.status !== 401 && verifiedUserError.status !== 403) {
         throw verifiedUserError;
@@ -157,7 +166,8 @@ export default function GateScreen() {
         return;
       }
 
-      const status = await getMyProductEntryStatus();
+      const status = await withRequestDeadline(getMyProductEntryStatus, ENTRY_CHECK_DEADLINE_MS);
+      if (!isCurrent()) return;
 
       if (!status.loggedIn) {
         await forceLogoutBecauseSessionIsStale("RPC returned logged_in=false");
@@ -167,8 +177,10 @@ export default function GateScreen() {
       const target = normalizeRoute(status.nextRoute);
 
       if (Platform.OS === "ios") {
-        const startupSelection =
-          await rootStartupNavigationAuthority.waitForSelection();
+        const startupSelection = await withRequestDeadline(
+          signal => rootStartupNavigationAuthority.waitForSelection(signal), ENTRY_CHECK_DEADLINE_MS,
+        );
+        if (!isCurrent()) return;
 
         if (target === "/(tabs)" && startupSelection.kind === "target") {
           didRouteRef.current = true;
@@ -188,17 +200,20 @@ export default function GateScreen() {
       didRouteRef.current = true;
       router.replace(target as any);
     } catch (error: any) {
+      if (!isCurrent()) return;
       console.log("Gate status error:", error?.message ?? error);
       setErrorMessage("Wir konnten deinen App-Status gerade nicht laden. Bitte versuche es nochmals.");
     } finally {
-      setCheckingStatus(false);
+      if (isCurrent()) setCheckingStatus(false);
     }
   }
 
   useEffect(() => {
     didRouteRef.current = false;
     setForcedLoggedOut(false);
+    setCheckingStatus(false);
     routeUser();
+    return () => { ++requestGeneration.current; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, session?.user?.id]);
 

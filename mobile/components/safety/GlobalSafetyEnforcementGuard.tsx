@@ -12,14 +12,16 @@ import {
 } from "../../lib/safety-enforcement";
 import { supabase } from "../../lib/supabase";
 import { signOutWithPushCleanup } from "../../lib/signOut";
-import { ProductLoading } from "../ui/ProductState";
+import { ProductLoading, ProductState } from "../ui/ProductState";
+import { withRequestDeadline } from "../../lib/requestDeadline";
 
 type Props = {
   children: ReactNode;
   /** Allows the root splash to remain the only visible bootstrap surface. */
   authReady?: boolean;
-  onStartupCheckSettled?: () => void;
+  onStartupCheckSettled?: (failed: boolean) => void;
 };
+const SAFETY_CHECK_DEADLINE_MS = 8_000;
 const SAFETY_ALLOWED_ROUTES = [
   "/safety-center",
   "/safety-notifications",
@@ -56,42 +58,47 @@ export default function GlobalSafetyEnforcementGuard({
   const [status, setStatus] = useState<SafetyWriteStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
+  const [checkFailed, setCheckFailed] = useState(false);
   const shownWriteNoticeKey = useRef<string | null>(null);
   const onStartupCheckSettledRef = useRef(onStartupCheckSettled);
-  const startupCheckSettledRef = useRef(false);
   const mounted = useRef(true);
+  const refreshGeneration = useRef(0);
+  const checkedActor = useRef<string | null>(null);
   const isSafetyRoute = isAllowedSafetyRoute(pathname);
 
   useEffect(() => {
     onStartupCheckSettledRef.current = onStartupCheckSettled;
   }, [onStartupCheckSettled]);
 
-  const settleStartupCheck = useCallback(() => {
-    if (startupCheckSettledRef.current) return;
-    startupCheckSettledRef.current = true;
-    onStartupCheckSettledRef.current?.();
-  }, []);
-
   const refresh = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!mounted.current) return;
-
-    if (!user) {
-      setSignedIn(false);
-      setStatus(null);
-      setLoading(false);
-      shownWriteNoticeKey.current = null;
-      settleStartupCheck();
-      return;
+    const generation = ++refreshGeneration.current;
+    setLoading(true);
+    const isCurrent = () => mounted.current && generation === refreshGeneration.current;
+    try {
+      const result = await withRequestDeadline(async signal => {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error && error.name !== "AuthSessionMissingError") throw error;
+        if (!user) return { actor: null, status: null };
+        if (signal.aborted || !isCurrent()) throw new Error("safety_check_cancelled");
+        const status = await getSafetyWriteStatus(signal);
+        if (!status) throw new Error("safety_status_unavailable");
+        return { actor: user.id, status };
+      }, SAFETY_CHECK_DEADLINE_MS);
+      if (!isCurrent()) return;
+      checkedActor.current = result.actor;
+      setSignedIn(result.actor !== null);
+      setStatus(result.status);
+      setCheckFailed(false);
+      if (!result.actor) shownWriteNoticeKey.current = null;
+      onStartupCheckSettledRef.current?.(false);
+    } catch {
+      if (!isCurrent()) return;
+      setCheckFailed(true);
+      onStartupCheckSettledRef.current?.(true);
+    } finally {
+      if (isCurrent()) setLoading(false);
     }
-
-    setSignedIn(true);
-    const nextStatus = await getSafetyWriteStatus();
-    if (!mounted.current) return;
-    setStatus(nextStatus);
-    setLoading(false);
-    settleStartupCheck();
-  }, [settleStartupCheck]);
+  }, []);
 
   useEffect(() => {
     mounted.current = true;
@@ -99,7 +106,13 @@ export default function GlobalSafetyEnforcementGuard({
     let active = true;
     void refresh();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "INITIAL_SESSION") return;
+      ++refreshGeneration.current;
+      if ((session?.user.id ?? null) !== checkedActor.current) {
+        setStatus(null);
+        setSignedIn(Boolean(session));
+      }
       setLoading(true);
       // Leave Supabase's auth callback before calling its APIs again.
       setTimeout(() => { if (active) void refresh(); }, 0);
@@ -108,17 +121,19 @@ export default function GlobalSafetyEnforcementGuard({
     return () => {
       active = false;
       mounted.current = false;
+      ++refreshGeneration.current;
       authListener.subscription.unsubscribe();
     };
   }, [authReady, refresh]);
 
   useEffect(() => {
+    if (!authReady) return;
     const onStateChange = (nextState: AppStateStatus) => {
       if (nextState === "active") void refresh();
     };
     const subscription = AppState.addEventListener("change", onStateChange);
     return () => subscription.remove();
-  }, [refresh]);
+  }, [authReady, refresh]);
 
   const isWriteSuspension = signedIn && status?.activeMeasureType === "write_suspension" && status.canWrite === false;
   const isFullAccountLock = signedIn && status?.activeMeasureType === "account_restricted";
@@ -152,8 +167,8 @@ export default function GlobalSafetyEnforcementGuard({
     }
   }
 
-  const checkingSafety = loading && signedIn && status === null;
-  const blocking = checkingSafety || (isFullAccountLock && !isSafetyRoute);
+  const checkingSafety = loading && (status === null || checkFailed);
+  const blocking = checkingSafety || checkFailed || (isFullAccountLock && !isSafetyRoute);
   const webBlockProps = Platform.OS === "web" ? { inert: blocking } : {};
   return (
     <View style={{ flex: 1 }}>
@@ -161,7 +176,8 @@ export default function GlobalSafetyEnforcementGuard({
         {children}
       </View>
       {checkingSafety ? <View accessibilityViewIsModal pointerEvents="auto" style={[StyleSheet.absoluteFillObject, { zIndex: 9999 }]}><ProductLoading label="Sicherheit wird geprüft" /></View> : null}
-      {isFullAccountLock && !isSafetyRoute ? <SafeAreaView accessibilityViewIsModal aria-modal
+      {checkFailed && !loading ? <View accessibilityViewIsModal pointerEvents="auto" style={[StyleSheet.absoluteFillObject, { zIndex: 9999 }]}><ProductState title="Sicherheitsprüfung nicht erreichbar" message="Prüfe deine Verbindung und versuche es nochmals." actionLabel="Nochmals versuchen" onAction={() => void refresh()} /></View> : null}
+      {!checkFailed && isFullAccountLock && !isSafetyRoute ? <SafeAreaView accessibilityViewIsModal aria-modal
           style={[
             StyleSheet.absoluteFillObject,
             styles.lockRoot,

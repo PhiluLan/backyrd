@@ -96,6 +96,7 @@ try {
   const chatSends = [];
   let chatLoadFail = true;
   let weatherUnavailable = true;
+  let pauseSafetyResponse;
   let finishChatRequest;
   const pendingDecisionResponses = new Map();
   const holdDecisionResponse = (wish) => {
@@ -200,6 +201,10 @@ try {
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(session) });
     }
     if (path === "/auth/v1/user") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) });
+    if (pauseSafetyResponse && path.endsWith("/rpc/safety_user_enforcement_summary_v1")) {
+      await pauseSafetyResponse;
+      return route.abort().catch(() => undefined);
+    }
     if (path.includes("/rest/v1/rpc/safety_user_enforcement_summary_v1")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ active_points: 0, confirmed_violations: 0, active_measure_type: state.locked ? "account_restricted" : null, active_measure_ends_at: null, can_write: !state.locked, requires_account_review: false }]) });
     if (path.includes("/rest/v1/rpc/get_my_legal_gate_status_v1")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ gate_required: false }]) });
     if (path.includes("/rest/v1/rpc/get_my_product_entry_status_v1")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ loggedIn: true, userId: subject, profileBasicsComplete: true, tasteOnboardingComplete: true, personalizationConsentValid: true, canEnterDecision: true, needsProfileOnboarding: false, needsDecisionOnboarding: false, semanticContractVersion: "synthetic", nextRoute: "/(tabs)" }]) });
@@ -598,13 +603,19 @@ try {
   await loginContext.route(`${endpoint}/**`, remoteFixture);
   const loginPage = await loginContext.newPage();
   await loginPage.goto(`${appUrl}/auth/login`, { waitUntil: "domcontentloaded" });
-  await loginPage.getByLabel("E-Mail", { exact: true }).fill("synthetic@example.invalid");
-  await loginPage.getByLabel("Passwort", { exact: true }).fill("synthetic-password");
+  const loginButton = loginPage.getByRole("button", { name: "Einloggen", exact: true });
+  await loginButton.click({ trial: true });
+  const loginEmail = loginPage.getByLabel("E-Mail", { exact: true });
+  const loginPassword = loginPage.getByLabel("Passwort", { exact: true });
+  await loginEmail.pressSequentially("synthetic@example.invalid");
+  await loginPassword.pressSequentially("synthetic-password");
   await loginPage.getByRole("button",{name:"Passwort anzeigen",exact:true}).click();
   assert.equal(await loginPage.getByLabel("Passwort", { exact: true }).evaluate(node => node.type),"text");
   await loginPage.getByRole("button",{name:"Passwort verbergen",exact:true}).click();
   assert.equal(await loginPage.getByLabel("Passwort", { exact: true }).evaluate(node => node.type),"password");
-  await loginPage.getByText("Einloggen", { exact: true }).last().click();
+  assert.equal(await loginEmail.inputValue(), "synthetic@example.invalid");
+  assert.equal(await loginPassword.inputValue(), "synthetic-password");
+  await loginButton.click();
   await loginPage.waitForFunction(() => window.localStorage.getItem("sb-example-auth-token") !== null);
   assert.equal(passwordLogins, 1);
   const recoveryPage = await loginContext.newPage();
@@ -667,6 +678,16 @@ try {
   await page.reload({waitUntil:"domcontentloaded"});
   await page.getByRole("button",{name:"Ort speichern",exact:true}).waitFor();
 
+  let releaseSafetyResponse;
+  pauseSafetyResponse = new Promise(resolve => { releaseSafetyResponse = resolve; });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByText("Sicherheitsprüfung nicht erreichbar", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Ort speichern", exact: true }).count(), 0);
+  pauseSafetyResponse = undefined;
+  releaseSafetyResponse();
+  await page.getByRole("button", { name: "Nochmals versuchen", exact: true }).click();
+  await page.getByRole("button", { name: "Ort speichern", exact: true }).waitFor();
+
   const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await guestContext.route(`${endpoint}/**`, remoteFixture);
   const guestPage = await guestContext.newPage();
@@ -680,7 +701,7 @@ try {
   assert.equal(await guestPage.getByText("Wohin", { exact: true }).count(), 0, "personalized Decision tab is unavailable to guests");
   await guestContext.close();
 
-  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, protectedDraftDiscard: true, favoriteWriteRecovery: true, placeSafetyFailClosed: true, unavailablePlaceRetry: true, forwardedPlaceSearch: true, passwordVisibility: true, safetyLockPreserved: true, passwordRecoverySmallLarge: true, cancelledEventActions: true, chatLoadRecovery: true, chatDraftFailureRecovery: true, chatRetryIdempotency: true, chatPendingEditPreserved: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, verticalSpotList: true, persistentConversation: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableShowsCatalogWithoutDecisionMatch: true, productionActions: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, protectedDraftDiscard: true, favoriteWriteRecovery: true, placeSafetyFailClosed: true, unavailablePlaceRetry: true, forwardedPlaceSearch: true, passwordVisibility: true, safetyLockPreserved: true, startupSafetyRetry: true, passwordRecoverySmallLarge: true, cancelledEventActions: true, chatLoadRecovery: true, chatDraftFailureRecovery: true, chatRetryIdempotency: true, chatPendingEditPreserved: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, verticalSpotList: true, persistentConversation: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableShowsCatalogWithoutDecisionMatch: true, productionActions: 0 })}\n`);
 } catch (error) {
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) {
     for (const ctx of browser.contexts()) for (const [index, tab] of ctx.pages().entries()) await tab.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/failure-${index}.png`}).catch(()=>undefined);

@@ -42,9 +42,34 @@ console.log('Experience regressions passed: overnight/overlapping/missing hours,
 
 let store;
 const storeRows=[{id:'one',name:'One',lat:null,lng:null,categories:{name:'Café'},spot_photos:[]},{id:'two',name:'Two',lat:0,lng:0,categories:[{name:'Bar'}],spot_photos:[]}];
-const query=Object.assign(Promise.resolve({data:storeRows,error:null}),{select(){return this;},eq(){return this;},limit(){return this;},abortSignal(){return this;}});
-load('lib/useSpotsStore.ts',{'zustand':{create:factory=>{store=factory(update=>Object.assign(store,update));return store;}},'./supabase':{supabase:{from:()=>query,channel:()=>({on(){return this;},subscribe(){return this;}})}},'./distributionTrust':{filterDistributedSpots:async rows=>rows},'./spot-images':{selectSpotImageUrl:()=>null},'./requestDeadline':{withRequestDeadline:operation=>operation(new AbortController().signal)}});
+let catalog = storeRows;
+const listPage = () => {
+  let limit;
+  let after;
+  return {
+    select() { return this; }, eq() { return this; }, order() { return this; }, abortSignal() { return this; },
+    limit(value) { limit = value; return this; },
+    gt(column, value) { assert.equal(column, 'id'); after = value; return this; },
+    then(resolve) { resolve({ data: catalog.filter(row => !after || row.id > after).slice(0, limit), error: null }); },
+  };
+};
+load('lib/useSpotsStore.ts',{'zustand':{create:factory=>{store=factory(update=>Object.assign(store,update));return store;}},'./supabase':{supabase:{from:listPage,channel:()=>({on(){return this;},subscribe(){return this;}})}},'./distributionTrust':{filterDistributedSpots:async rows=>rows},'./spot-images':{selectSpotImageUrl:()=>null},'./requestDeadline':{withRequestDeadline:operation=>operation(new AbortController().signal)}});
 await store.refresh();assert.equal(store.error,false);assert.equal(store.spots[0].categories.name,'Café');assert.equal(store.spots[1].categories.name,'Bar');assert.ok(Number.isNaN(store.spots[0].lat));assert.equal(store.spots[1].lat,0);
+catalog = Array.from({ length: 1_205 }, (_, index) => ({ ...storeRows[0], id: String(index).padStart(4, '0') }));
+await store.refresh();
+assert.equal(store.error, false);
+assert.equal(store.spots.length, 1_205);
+assert.equal(store.spots.at(-1).id, '1204');
+
+const eligibilityBatchSizes = [];
+const distribution = load('lib/distributionTrust.ts', {'./supabase':{supabase:{rpc:async (_, request) => {
+  eligibilityBatchSizes.push(request.p_entity_ids.length);
+  return { error: null, data: request.p_entity_ids.map(id => ({ entity_id: id, eligible: id !== '1002', distribution_priority: id === '1204' ? 100 : 50 })) };
+}}}});
+const visible = await distribution.filterDistributedSpots(catalog, 'maps');
+assert.deepEqual(eligibilityBatchSizes, [500, 500, 205]);
+assert.equal(visible.length, 1_204);
+assert.equal(visible[0].id, '1204');
 console.log('Catalog boundary: object/array category joins, missing coordinates and real zero coordinates passed.');
 
 // Real hook transitions: simultaneous taps, failed requests and edits during a send.

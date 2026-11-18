@@ -57,12 +57,15 @@ type CachedConsent = {
 
 const CACHE_TTL_MS = 30_000;
 const cache = new Map<string, CachedConsent>();
+const pendingChanges = new Map<ConsentPurposeKey, number>();
+let cacheGeneration = 0;
 
 function appVersion() {
   return Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "unknown";
 }
 
 export function clearConsentCache(purposeKey?: ConsentPurposeKey) {
+  ++cacheGeneration;
   if (purposeKey) {
     cache.delete(purposeKey);
     return;
@@ -74,6 +77,8 @@ export async function hasActiveConsent(
   purposeKey: ConsentPurposeKey,
   options?: { forceRefresh?: boolean },
 ): Promise<boolean> {
+  if (pendingChanges.has(purposeKey)) return false;
+  const generation = cacheGeneration;
   const cached = cache.get(purposeKey);
   if (!options?.forceRefresh && cached && cached.expiresAt > Date.now()) {
     return cached.value;
@@ -83,6 +88,7 @@ export async function hasActiveConsent(
     p_purpose_key: purposeKey,
   });
 
+  if (generation !== cacheGeneration) return false;
   if (error) {
     console.warn(`[consent] failed to check ${purposeKey}`, error);
     return false;
@@ -110,6 +116,7 @@ export async function setMyConsent(
   granted: boolean,
   documentId: string | null = null,
 ) {
+  pendingChanges.set(purposeKey, (pendingChanges.get(purposeKey) ?? 0) + 1);
   clearConsentCache(purposeKey);
   try {
     const { data, error } = await supabase.rpc("set_my_consent_v1", {
@@ -131,14 +138,18 @@ export async function setMyConsent(
     return data;
   } finally {
     // A failed response may follow a committed withdrawal. Never reuse an old grant.
+    const remainingChanges = (pendingChanges.get(purposeKey) ?? 1) - 1;
+    if (remainingChanges) pendingChanges.set(purposeKey, remainingChanges);
+    else pendingChanges.delete(purposeKey);
     clearConsentCache(purposeKey);
   }
 }
 
-export async function getMyLegalGateStatus() {
-  const { data, error } = await supabase.rpc("get_my_legal_gate_status_v1", {
+export async function getMyLegalGateStatus(signal?: AbortSignal) {
+  const request = supabase.rpc("get_my_legal_gate_status_v1", {
     p_locale: "de-CH",
   });
+  const { data, error } = await (signal ? request.abortSignal(signal) : request);
 
   if (error) throw error;
   return Array.isArray(data) ? data[0] ?? null : data;
