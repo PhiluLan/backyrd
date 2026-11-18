@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       if (error?.message === "spot_import_category_required") return json({ error: "APPROVAL_CATEGORY_REQUIRED" }, 400);
       return json({ error: "APPROVAL_FAILED" }, 503);
     }
-    spotId = data;
+    return json({ spotId: data, researchQueued: false });
   } else if (action === "research") {
     const { data, error } = await actor.rpc("admin_backyrd_crawler_import_v1", { p_source_id: sourceId });
     if (error || typeof data?.spotId !== "string") return json({ error: "APPROVAL_FAILED" }, 404);

@@ -46,6 +46,7 @@ test("uses a single visible Basel address to complete an identified venue", () =
 
 test("requires venue identity on pages without structured data", () => {
   assert.equal(readCrawlerEvidence(page(website, "<title>Bagatelle Bar Basel</title>" + address), settings.categories)[0].name, "Bagatelle Bar");
+  assert.equal(readCrawlerEvidence(page(website, "<title>Contact &#8211; Valhalla Bar Basel</title>" + address), settings.categories)[0].name, "Valhalla Bar");
   assert.deepEqual(readCrawlerEvidence(page(website, "<title>Was tun in Basel?</title>" + address), settings.categories), []);
 });
 
@@ -80,6 +81,30 @@ test("settings order and revision do not block a new search", () => {
   assert.equal(crawler.sameCrawlerSettings(saved, { ...same, districts: ["Basel", "Altstadt"] }), false);
 });
 
+test("held finds remain eligible and only appear in the review view", () => {
+  const held = { state: "NEW", review_state: "REVIEWED" };
+  assert.equal(crawler.isCrawlerCandidateVisible(held, "hold"), true);
+  assert.equal(crawler.isCrawlerCandidateVisible(held, "open"), false);
+  assert.equal(crawler.isCrawlerCandidateVisible(held, "history"), false);
+});
+
+test("creating a prepared spot never creates a paid research job", async () => {
+  const calls = [];
+  const route = load("../app/api/spot-crawler/approval/route.ts", id => ({
+    "@/lib/server/adminAuthorization": { authorizeAdminRequest: async () => ({ ok: true, client: {
+      rpc: async name => { calls.push(name); return { data: "spot-id" }; },
+    } }) },
+    "@/lib/server/spotCrawlerJobs": { crawlerService: () => assert.fail("The deep research worker must remain idle") },
+    "@/lib/server/worldResearchExport": {},
+  })[id]);
+  const response = await route.POST(new Request("https://example.org/approval", {
+    method: "POST", body: JSON.stringify({ action: "approve", sourceId: 1, fingerprint: "a".repeat(64),
+      revision: "0", categoryId: null, confirmDistinct: false }),
+  }));
+  assert.deepEqual(await response.json(), { spotId: "spot-id", researchQueued: false });
+  assert.deepEqual(calls, ["admin_backyrd_crawler_approve_spot_v1"]);
+});
+
 test("open candidates skip a page of processed finds and history preserves the existing records", async () => {
   const approved = { source_id: 1, imported_spot_id: "spot", review_state: "IMPORTED", state: "REVIEW" };
   const duplicate = { source_id: 2, review_state: "REVIEWED", state: "REVIEW", can_confirm_distinct: false };
@@ -88,7 +113,9 @@ test("open candidates skip a page of processed finds and history preserves the e
   const saved = { ...settings, schedule: "MANUAL", time: "08:00", monthBudgetCents: 1000, revision: "1" };
   const cursors = [];
   const actor = {
-    rpc: async (name, { p_after }) => {
+    rpc: async (name, args) => {
+      if (name === "admin_backyrd_crawler_run_usage_v1") return { data: {} };
+      const { p_after } = args;
       assert.equal(name, "admin_backyrd_spot_crawler_preview_v1");
       cursors.push(p_after);
       return { data: p_after === 0

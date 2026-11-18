@@ -29,7 +29,7 @@ const errors: Record<string, string> = {
   APPROVAL_CATEGORY_REQUIRED: "Wähle zuerst eine Backyrd-Kategorie für diesen Spot.",
   APPROVAL_CHANGED: "Der Fund hat sich geändert. Prüfe die aktualisierten Angaben.",
   APPROVAL_FAILED: "Die Freigabe konnte nicht bestätigt werden. Lade den aktuellen Stand und versuche es erneut.",
-  SEARCH_NOT_CONFIGURED: "Der Suchdienst ist noch nicht eingerichtet.",
+  SEARCH_NOT_CONFIGURED: "Brave ist nicht verfügbar. Der Lauf kann den vorhandenen Overture-Bestand prüfen.",
 };
 
 async function crawlerRequest<T>(url: string, input?: unknown): Promise<T> {
@@ -117,7 +117,7 @@ export default function SpotCrawlerPage() {
     setDraft(current => current && { ...current, ...values });
   }
 
-  function reviewCandidate(row: CrawlerCandidate, action: "DISMISSED" | "REOPENED") {
+  function reviewCandidate(row: CrawlerCandidate, action: "DISMISSED" | "REOPENED" | "REVIEWED") {
     void act(async () => {
       const { error: failure } = await supabase.rpc("admin_basel_place_source_review_v1", {
         p_key: "BASEL_WEB", p_source_id: row.source_id,
@@ -129,11 +129,12 @@ export default function SpotCrawlerPage() {
       }
       if (failure) throw new Error("Die Entscheidung konnte nicht gespeichert werden.");
       setConfirmed(current => ({ ...current, [row.source_id]: "" }));
-      return action === "DISMISSED" ? `${row.facts.name} wurde abgelehnt.` : `${row.facts.name} ist wieder offen.`;
+      return action === "DISMISSED" ? `${row.facts.name} wurde abgelehnt.`
+        : action === "REVIEWED" ? `${row.facts.name} steht unter «Zur Prüfung».` : `${row.facts.name} ist wieder offen.`;
     });
   }
 
-  function approveAndResearch(row: CrawlerCandidate) {
+  function actOnSpot(row: CrawlerCandidate) {
     void act(async () => {
       try {
         const { researchQueued } = await crawlerRequest<{ spotId: string; researchQueued: boolean }>("/api/spot-crawler/approval",
@@ -141,8 +142,9 @@ export default function SpotCrawlerPage() {
             action: "approve", sourceId: row.source_id, fingerprint: row.review_fingerprint, revision: row.review_revision,
             categoryId: row.category_id ?? choices[row.source_id] ?? null, confirmDistinct: confirmed[row.source_id] === row.review_fingerprint,
           });
-        if (researchQueued) return `${row.facts.name} ist freigegeben. Die Recherche steht unter «Aufgaben & Recherche».`;
-        return `${row.facts.name} ist freigegeben. Die Recherche konnte noch nicht gestartet werden.`;
+        if (!row.imported_spot_id) return `${row.facts.name} wurde in der Spotliste angelegt.`;
+        if (researchQueued) return "Die vertiefte Recherche steht unter «Aufgaben & Recherche».";
+        return "Die vertiefte Recherche konnte nicht gestartet werden.";
       } finally {
         setConfirmed(current => ({ ...current, [row.source_id]: "" }));
       }
@@ -172,7 +174,7 @@ export default function SpotCrawlerPage() {
   </>;
   return (
     <div className={styles.page}>
-      <AdminPageHeader title="Backyrd Crawler" description="Entdeckt neue Basler Orte im Web und sammelt belegte Funde für die Spotliste." />
+      <AdminPageHeader title="Backyrd Crawler" description="Findet neue Basler Orte und bereitet ihre Grundinfos für die Spotliste vor." />
       {feedbackTarget === "page" && feedback}
       <div className={styles.layout}>
         <SectionCard title="Suche einstellen">
@@ -181,13 +183,13 @@ export default function SpotCrawlerPage() {
               event.preventDefault();
               const submitter = (event.nativeEvent as SubmitEvent).submitter;
               const start = submitter?.getAttribute("value") === "start";
-              if ((start && (isRunning || !data?.searchConfigured)) || (!start && !changed)) return;
+              if ((start && isRunning) || (!start && !changed)) return;
               void act(async () => {
                 if (changed) await saveSettings(draft);
                 if (!start) return "Einstellungen gespeichert.";
                 await crawlerRequest("/api/spot-crawler", { action: "start" });
                 selectView("open");
-                return "Die Websuche wurde gestartet.";
+                return "Die Suche und Grundrecherche wurden gestartet.";
               }, "search");
             }}>
               <fieldset><legend>Kategorien</legend>
@@ -209,7 +211,7 @@ export default function SpotCrawlerPage() {
                     {[10, 20, 30, 40, 50].map(amount => <option key={amount}>{amount}</option>)}
                   </select>
                 </label>
-                <label>Websuchen pro Lauf
+                <label>Websuchen für neue Orte
                   <input type="number" min={2} max={24} value={draft.searches} required
                     onChange={event => update({ searches: Number(event.target.value) })} />
                 </label>
@@ -226,10 +228,11 @@ export default function SpotCrawlerPage() {
                     onChange={event => update({ monthBudgetCents: Math.round(Number(event.target.value) * 100) })} />
                 </label>
               </div>
-              {!data?.searchConfigured && <p className={styles.notice}>Der Suchdienst ist noch nicht eingerichtet.</p>}
+              <small>Pro Lauf sind zusätzlich höchstens zehn Suchen nach fehlenden Betreiberseiten und ein kurzer KI-Aufruf für Preise möglich. Das Monatsbudget gilt für alle Aufrufe.</small>
+              {!data?.searchConfigured && <p className={styles.notice}>Brave ist nicht verfügbar. Der Lauf kann den vorhandenen Overture-Bestand prüfen.</p>}
               {!data?.scheduleConfigured && draft.schedule !== "MANUAL" && <p className={styles.notice}>Der Zeitplan wartet auf die Aktivierung des Server-Takts.</p>}
               <div className={styles.actions}>
-                <button type="submit" value="start" className="bi-primaryButton" disabled={busy || isRunning || !data?.searchConfigured}>Suche starten</button>
+                <button type="submit" value="start" className="bi-primaryButton" disabled={busy || isRunning}>Suche starten</button>
                 <button type="submit" value="save" className="bi-actionButton" disabled={busy || !changed}>Speichern</button>
               </div>
               {isRunning && <small>Eine Suche läuft bereits. Danach kannst du eine neue starten.</small>}
@@ -242,7 +245,10 @@ export default function SpotCrawlerPage() {
             <li key={item.id}><div><strong>{timestamp.format(new Date(item.started_at))}</strong>
               <span>{item.status === "COMPLETE" ? `${item.source_count ?? 0} neue Funde`
                 : item.status === "FAILED" ? (["RUN_TIMEOUT", "RUN_TIME_LIMIT"].includes(item.outcome ?? "") ? "Zeitlimit erreicht" : "Die Quellen konnten nicht verarbeitet werden")
-                  : "Websuche und Quellenprüfung"}</span></div>
+                  : "Websuche und Quellenprüfung"}</span>
+              {item.usage && <small>{item.usage.estimatedUsd === null ? "API-Kosten teilweise unbekannt" : `${item.usage.estimatedUsd.toLocaleString("de-CH", { maximumFractionDigits: 4 })} USD API-Kosten`}
+                {" · Brave: "}{item.usage.webSearches === null ? "Suche teilweise fehlgeschlagen" : item.usage.webSearches + item.usage.enrichmentSearches}
+                {" · KI: "}{item.usage.aiCalls}</small>}</div>
               <StatusBadge tone={item.status === "FAILED" ? "danger" : item.status === "COMPLETE" ? "success" : "info"}>{statusLabels[item.status]}</StatusBadge></li>
           ))}</ul> : <p>Noch kein Suchlauf vorhanden.</p>}
           <button className="bi-actionButton" type="button" disabled={busy} onClick={() => void act(async () => {
@@ -255,12 +261,15 @@ export default function SpotCrawlerPage() {
         <div className={styles.actions} role="group" aria-label="Funde anzeigen">
           <button type="button" className={view === "open" ? "bi-primaryButton" : "bi-actionButton"} aria-pressed={view === "open"}
             disabled={busy} onClick={() => selectView("open")}>Offene Funde</button>
+          <button type="button" className={view === "hold" ? "bi-primaryButton" : "bi-actionButton"} aria-pressed={view === "hold"}
+            disabled={busy} onClick={() => selectView("hold")}>Zur Prüfung</button>
           <button type="button" className={view === "history" ? "bi-primaryButton" : "bi-actionButton"} aria-pressed={view === "history"}
             disabled={busy} onClick={() => selectView("history")}>Verlauf</button>
         </div>
         {!overview && !error && <p>Funde werden geladen.</p>}
         {overview && !overview.rows.length && <p>{overview.next_after !== null ? "Auf dieser Seite sind keine passenden Funde."
           : view === "history" ? "Der Verlauf ist leer."
+            : view === "hold" ? "Keine Funde zur Prüfung zurückgestellt."
             : isRunning ? "Die Suche läuft. Neue Funde erscheinen hier nach dem Abgleich." : "Keine offenen Funde."}</p>}
         <div className={styles.results}>{overview?.rows.map(row => {
           const { facts } = row;
@@ -269,15 +278,33 @@ export default function SpotCrawlerPage() {
           const canCreate = isOpenCrawlerCandidate(row);
           const status = row.imported_spot_id ? "Freigegeben"
             : row.review_state === "DISMISSED" ? "Abgelehnt"
+              : row.review_state === "REVIEWED" && canCreate ? "Zur Prüfung"
               : row.review_state === "EXISTING" || row.state === "MATCHED" ? "Bereits im Katalog"
                 : row.state === "MISSING" ? "Nicht mehr in der Quelle"
                   : row.state === "NEW" ? "Neu" : needsConfirmation ? "Ähnliche Orte gefunden" : "Mögliche Dublette";
           return <article className={styles.result} key={row.source_id}>
             <div className={styles.resultHeader}><div><h3>{facts.name}</h3><p>{spotCrawlerCategories[facts.category]} · {facts.address}</p></div>
               <StatusBadge>{status}</StatusBadge></div>
-            {(facts.phone || facts.email) && <p>{[facts.phone, facts.email].filter(Boolean).join(" · ")}</p>}
-            {facts.hours && <p>Öffnungszeiten laut Website · {facts.hours}</p>}
-            {facts.price_hint && <p>Preisangabe laut Website · {facts.price_hint}</p>}
+            {facts.origin === "OVERTURE" && <p>Gefunden über Overture</p>}
+            {[facts.basics?.phone ?? facts.phone, facts.basics?.email ?? facts.email].some(Boolean) &&
+              <p>{[facts.basics?.phone ?? facts.phone, facts.basics?.email ?? facts.email].filter(Boolean).join(" · ")}</p>}
+            {(facts.basics?.fullHours || facts.hours) && <p>{facts.basics?.fullHours
+              ? "Belegter Wochenplan wird übernommen."
+              : `Öffnungszeiten laut Quelle · ${facts.hours}`}</p>}
+            {facts.price_hint && <p>Preisangabe laut Quelle · {facts.price_hint}</p>}
+            {facts.basics && <details>
+              <summary>Quellen und Grundinfos</summary>
+              <p>{facts.address} · {facts.lat}, {facts.lng}</p>
+              {(facts.basics.website ?? facts.website) && (facts.basics.website ?? facts.website) !== facts.source_url &&
+                <a href={facts.basics.website ?? facts.website} rel="noreferrer" target="_blank">Betreiberseite öffnen ↗</a>}
+              {facts.basics.proposals.length > 0 && <ul>{facts.basics.proposals.map(item => <li key={item.attributeKey}>
+                <a href={item.url} rel="noreferrer" target="_blank">{item.evidence}</a>
+                {item.review && !(item.attributeKey === "hours.regular" && facts.basics?.fullHours)
+                  && !(item.attributeKey === "operation.price_options" && facts.basics?.fixedAdmission !== undefined)
+                  && item.attributeKey !== "contact.website" ? " · Zur Prüfung" : ""}
+              </li>)}</ul>}
+              {facts.basics.state !== "CHECKED" && <p>Betreiberseite konnte nicht vollständig geprüft werden.</p>}
+            </details>}
             {!row.imported_spot_id && row.spots.length > 0 && <p>Ähnliche oder nahe Spots · {row.spots.map(spot => spot.name).join(", ")}</p>}
             {canCreate && needsConfirmation && <label className={styles.confirm}>
               <input type="checkbox" checked={confirmed[row.source_id] === row.review_fingerprint} disabled={busy}
@@ -287,18 +314,20 @@ export default function SpotCrawlerPage() {
             {row.imported_spot_id && <p role="status">{row.research_status === "QUEUED" ? "Recherche eingereiht"
               : row.research_status === "RUNNING" ? "Recherche läuft"
                 : row.research_status === "READY_FOR_REVIEW" ? "Rechercheergebnis verfügbar"
-                  : row.research_status === "FAILED" ? "Recherche fehlgeschlagen" : "Recherche ausstehend"}</p>}
+                  : row.research_status === "FAILED" ? "Vertiefte Recherche fehlgeschlagen" : "Keine vertiefte Recherche gestartet"}</p>}
             <div className={styles.actions}>
               <a className="bi-actionButton" href={facts.source_url} rel="noreferrer" target="_blank">Quelle prüfen ↗</a>
               {row.imported_spot_id && <>
                 <Link className="bi-actionButton" href={`/spots/${row.imported_spot_id}`}>Spot öffnen</Link>
                 {row.research_status && row.research_status !== "FAILED" && <Link className="bi-actionButton" href="/world-knowledge">Aufgaben & Recherche</Link>}
                 {(!row.research_status || row.research_status === "FAILED") && <button type="button" className="bi-actionButton"
-                  disabled={busy} onClick={() => approveAndResearch(row)}>Recherche starten</button>}
+                  disabled={busy} onClick={() => actOnSpot(row)}>Vertiefte Recherche starten</button>}
               </>}
               {awaitingDecision && <button className="bi-actionButton" type="button"
                 disabled={busy} onClick={() => reviewCandidate(row, "DISMISSED")}>Ablehnen</button>}
-              {row.review_state === "DISMISSED" && <button className="bi-actionButton" type="button" disabled={busy}
+              {canCreate && row.review_state !== "REVIEWED" && <button className="bi-actionButton" type="button"
+                disabled={busy} onClick={() => reviewCandidate(row, "REVIEWED")}>Zur Prüfung</button>}
+              {(row.review_state === "DISMISSED" || row.review_state === "REVIEWED") && <button className="bi-actionButton" type="button" disabled={busy}
                 onClick={() => reviewCandidate(row, "REOPENED")}>Wieder öffnen</button>}
               {canCreate && !row.category_id && <select aria-label={`Kategorie für ${facts.name}`} value={choices[row.source_id] ?? ""}
                 onChange={event => setChoices(current => ({ ...current, [row.source_id]: event.target.value }))}>
@@ -306,7 +335,7 @@ export default function SpotCrawlerPage() {
                 {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
               </select>}
               {canCreate && <button className="bi-primaryButton" type="button" disabled={busy || !(row.category_id ?? choices[row.source_id]) || (needsConfirmation && confirmed[row.source_id] !== row.review_fingerprint)}
-                onClick={() => approveAndResearch(row)}>Freigeben und recherchieren</button>}
+                onClick={() => actOnSpot(row)}>Spot anlegen</button>}
             </div>
           </article>;
         })}</div>

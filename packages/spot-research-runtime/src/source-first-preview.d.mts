@@ -13,7 +13,7 @@ export type SourcePreviewResult = {
   spotId: string;
   name: string;
   status: "COMPLETE_PROFILE" | "INSUFFICIENT_IDENTITY" | "SOURCE_MISSING" | "SOURCE_UNAVAILABLE" | "CHECKED";
-  proposals: Array<{ attributeKey: string; value: unknown; evidence: string; url: string; observedAt: string; method: "DIRECT" | "AI"; review: boolean }>;
+  proposals: Array<{ attributeKey: string; value: unknown; evidence: string; url: string; observedAt: string; method: "DIRECT" | "AI"; review: boolean; fixedAdmission?: number }>;
   usage: {
     brave: { state: ProviderState; calls: number };
     ai: { state: ProviderState; calls: number; tokens?: { input: number; output: number } };

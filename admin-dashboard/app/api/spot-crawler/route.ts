@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 import { crawlerService, claimCrawlerRun, finishCrawlerRun } from "@/lib/server/spotCrawlerJobs";
-import { isOpenCrawlerCandidate, parseCrawlerSettings, type CrawlerOverview, type CrawlerView } from "@/lib/spotCrawler";
+import { isCrawlerCandidateVisible, parseCrawlerSettings, type CrawlerOverview, type CrawlerRunUsage, type CrawlerView } from "@/lib/spotCrawler";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -15,7 +15,7 @@ async function visiblePreview(client: Awaited<ReturnType<typeof crawlerService>>
     const { data, error } = await client.rpc("admin_backyrd_spot_crawler_preview_v1", { p_after: cursor });
     if (error || !Array.isArray(data?.rows)) throw new Error("crawler_preview_failed");
     const overview = data as CrawlerOverview;
-    const rows = overview.rows.filter(row => isOpenCrawlerCandidate(row) === (view === "open"));
+    const rows = overview.rows.filter(row => isCrawlerCandidateVisible(row, view));
     if (rows.length || overview.next_after === null || pages === 3) return { ...overview, rows };
     if (overview.next_after <= cursor) throw new Error("crawler_preview_cursor_invalid");
     cursor = overview.next_after;
@@ -30,14 +30,17 @@ export async function GET(request: Request) {
   const cursor = params.get("after") ?? "0";
   const view = params.get("view") ?? "open";
   if (!/^\d{1,10}$/u.test(cursor) || Number(cursor)>2147483647) return json({error:"INVALID_CURSOR"},400);
-  if (view !== "open" && view !== "history") return json({error:"INVALID_VIEW"},400);
+  if (view !== "open" && view !== "hold" && view !== "history") return json({error:"INVALID_VIEW"},400);
   try {
-    const [settings,preview]=await Promise.all([
+    const [settings,preview,usage]=await Promise.all([
       crawlerService().rpc("backyrd_spot_crawler_settings_v1"),
       visiblePreview(authorization.client, Number(cursor), view),
+      authorization.client.rpc("admin_backyrd_crawler_run_usage_v1"),
     ]);
     if (settings.error || !parseCrawlerSettings(settings.data)) return json({error:"CRAWLER_UNAVAILABLE"},503);
-    return json({settings:settings.data,overview:preview,searchConfigured:!!process.env.BRAVE_SEARCH_API_KEY,
+    const perRun = (usage.error ? {} : usage.data ?? {}) as Record<string, CrawlerRunUsage>;
+    const overview = { ...preview, runs: preview.runs.map(run => ({ ...run, usage: perRun[String(run.id)] })) };
+    return json({settings:settings.data,overview,searchConfigured:!!process.env.BRAVE_SEARCH_API_KEY,
       scheduleConfigured:!!process.env.CRON_SECRET});
   } catch { return json({error:"CRAWLER_UNAVAILABLE"},503); }
 }

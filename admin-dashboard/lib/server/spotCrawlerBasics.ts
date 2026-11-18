@@ -1,0 +1,83 @@
+import "server-only";
+import { validateAuthoringSubmission, type WeeklyScheduleDay } from "@backyrd/world-knowledge-core";
+import { fetchPublicSource } from "../../../packages/spot-research-runtime/src/nuknuk-sources.mjs";
+import { previewSpotSources } from "../../../packages/spot-research-runtime/src/source-first-preview.mjs";
+import type { CrawlerBasics, CrawlerFacts, CrawlerRunUsage } from "../spotCrawler";
+import { crawlerOperatorUrl, robotsPermits, searchBrave } from "./spotCrawlerDiscovery";
+import { selectSourcePrice } from "./sourceFirstSpotPreview";
+
+export async function enrichCrawlerCandidates(candidates: CrawlerFacts[], options: {
+  deadline: number; brave?: string; openai?: string; searches: number | null;
+}) {
+  let searchesLeft = 10;
+  let aiLeft = 1;
+  const robots = new Map<string, Promise<string | null>>();
+  const fetchPage: typeof fetchPublicSource = async (url, config) => {
+    const target = new URL(url);
+    const timeLeft = () => Math.min(3000, options.deadline - Date.now());
+    if (timeLeft() <= 0) throw new Error("CRAWLER_BASICS_TIME_LIMIT");
+    if (!robots.has(target.origin)) {
+      robots.set(target.origin, fetchPublicSource(`${target.origin}/robots.txt`, { timeoutMs: timeLeft(), maxBytes: 240000 })
+        .then(page => typeof page.body === "string" ? page.body : null)
+        .catch(error => error instanceof Error && /^source_http_(404|410)$/u.test(error.message) ? "" : null));
+    }
+    const policy = await robots.get(target.origin);
+    if (timeLeft() <= 0 || policy == null || !robotsPermits(policy, target.pathname + target.search)) {
+      throw new Error("CRAWLER_BASICS_SOURCE_UNAVAILABLE");
+    }
+    return fetchPublicSource(url, { ...config, timeoutMs: timeLeft(), maxRedirects: 0 });
+  };
+  const results: CrawlerFacts[] = [];
+  for (let index = 0; index < candidates.length; index += 6) {
+    results.push(...await Promise.all(candidates.slice(index, index + 6).map(async found => {
+      const candidate = { ...found, website: crawlerOperatorUrl(found.website ?? "") ?? undefined };
+      if (Date.now() >= options.deadline - 3500) {
+        return { ...candidate, basics: { state: "TIME_LIMIT", proposals: [], braveCalls: 0, aiCalls: 0, estimatedUsd: 0 } satisfies CrawlerBasics };
+      }
+      const research = await previewSpotSources({
+        spotId: candidate.external_id, name: candidate.name, address: candidate.address,
+        locality: "Basel", website: candidate.website, existingValues: {},
+      }, {
+        fetchPage,
+        search: options.brave && searchesLeft > 0 ? async query => {
+          if (searchesLeft <= 0 || Date.now() >= options.deadline - 8500) throw new Error("CRAWLER_BASICS_SEARCH_LIMIT");
+          searchesLeft--;
+          return (await searchBrave(query, options.brave!)).flatMap(url => crawlerOperatorUrl(url) ?? []);
+        } : undefined,
+        selectPrice: options.openai && aiLeft > 0 ? async quotes => {
+          if (aiLeft <= 0 || Date.now() >= options.deadline - 9500) throw new Error("CRAWLER_BASICS_AI_LIMIT");
+          aiLeft--;
+          return selectSourcePrice(options.openai!, quotes);
+        } : undefined,
+      });
+      const basics: CrawlerBasics = {
+        state: research.status === "COMPLETE_PROFILE" ? "CHECKED" : research.status,
+        proposals: research.proposals.map(({ attributeKey, url, evidence, review }) => ({ attributeKey, url, evidence, review })),
+        braveCalls: research.usage.brave.calls,
+        aiCalls: research.usage.ai.calls,
+        estimatedUsd: research.usage.estimatedUsd,
+      };
+      for (const proposal of research.proposals) {
+        if (proposal.attributeKey === "contact.website" && typeof proposal.value === "string") basics.website = proposal.value;
+        if (proposal.attributeKey === "contact.public_email" && typeof proposal.value === "string") basics.email = proposal.value;
+        if (proposal.attributeKey === "contact.phone" && typeof proposal.value === "string") basics.phone = proposal.value;
+        if (proposal.attributeKey === "hours.regular") {
+          const validated = validateAuthoringSubmission("hours.regular", "KNOWN_VALUE", proposal.value);
+          if (validated.ok && Array.isArray(validated.value) && validated.value.length === 7) {
+            basics.fullHours = validated.value as readonly WeeklyScheduleDay[];
+          }
+        }
+        if (proposal.fixedAdmission !== undefined) basics.fixedAdmission = proposal.fixedAdmission;
+      }
+      return { ...candidate, basics };
+    })));
+  }
+  const amounts = results.map(candidate => candidate.basics?.estimatedUsd);
+  const usage: CrawlerRunUsage = {
+    searchedWithWeb: !!options.brave, webSearches: options.searches,
+    enrichmentSearches: 10 - searchesLeft, aiCalls: 1 - aiLeft,
+    estimatedUsd: options.searches === null || amounts.some(amount => amount == null) ? null
+      : options.searches * 0.005 + amounts.reduce<number>((total, amount) => total + (amount ?? 0), 0),
+  };
+  return { results, usage };
+}

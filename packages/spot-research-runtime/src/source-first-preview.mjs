@@ -109,7 +109,9 @@ export async function previewSpotSources(spot, { fetchPage = fetchPublicSource, 
     }
     const simple = evidence.filter(candidate => fixedAdmission.test(candidate.evidence));
     if (simple.length === 1 && evidence.length === 1) {
-      proposals.push({ attributeKey: "operation.price_options", value: simple[0].evidence, ...simple[0], method: "DIRECT", review: true });
+      const amount = Number(simple[0].evidence.match(/\d+(?:[.,]\d{1,2})?/u)?.[0].replace(",", "."));
+      proposals.push({ attributeKey: "operation.price_options", value: simple[0].evidence, ...simple[0], method: "DIRECT", review: true,
+        ...(Number.isFinite(amount) && amount <= 100000 ? { fixedAdmission: amount } : {}) });
     } else if (evidence.length) {
       // The model may select an existing quotation, never create a price.
       let index = null;

@@ -7,7 +7,7 @@ import { searchBrave } from "./spotCrawlerDiscovery";
 const priceModel = "gpt-6.1-sol";
 const previewFields = ["contact.website", "location.address_line1", "contact.public_email", "contact.phone", "hours.regular", "operation.price_options"];
 
-async function selectPrice(key: string, quotes: string[]) {
+export async function selectSourcePrice(key: string, quotes: string[]) {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
@@ -77,6 +77,6 @@ export async function previewApprovedSpot(actor: SupabaseClient, spotId: string)
     existingValues,
   }, {
     search: brave ? query => searchBrave(query, brave) : undefined,
-    selectPrice: openai ? quotes => selectPrice(openai, quotes) : undefined,
+    selectPrice: openai ? quotes => selectSourcePrice(openai, quotes) : undefined,
   });
 }
