@@ -75,8 +75,8 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261118163449_crawler_source_first_basics.sql",
-        "sha256": "b388dd79ac73fa9acc044015a6f0d5b073ca2588e00caa9beb24da89b7fea785"
+        "path": "supabase/migrations/20261118174900_crawler_shortlist_timeout.sql",
+        "sha256": "8f20c547d73a301e114b376681be8fadc5e5e745b5530e861eace0d57556b3fa"
       }
     ],
     "executionAuthorized": false,
@@ -645,12 +645,12 @@
       "artifactId": 14231428566,
       "artifactDigest": "sha256:05df22f9723963b1cf7d0861bfed98154da461ab90405ed79a9ec1ce145323af"
     },
-    "contractVersion": "backyrd.crawler-source-first-basics-delivery-scope@1.0",
+    "contractVersion": "backyrd.crawler-shortlist-timeout-delivery-scope@1.0",
     "executionAuthorized": false,
     "migrations": [
       {
-        "path": "supabase/migrations/20261118163449_crawler_source_first_basics.sql",
-        "sha256": "b388dd79ac73fa9acc044015a6f0d5b073ca2588e00caa9beb24da89b7fea785"
+        "path": "supabase/migrations/20261118174900_crawler_shortlist_timeout.sql",
+        "sha256": "8f20c547d73a301e114b376681be8fadc5e5e745b5530e861eace0d57556b3fa"
       }
     ],
     "functions": [],
