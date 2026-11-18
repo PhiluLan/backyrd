@@ -255,3 +255,16 @@ test("museum price research does not import its separate restaurant menu", async
   readDocument:async()=>{pdfReads++;return 'Getränke\nWein CHF 7.50\nChampagner CHF 145.00';}});
  assert.equal(pdfReads,0);assert.ok(r.proposals.filter(p=>p.attributeKey==='operation.price_options').every(p=>p.value.purpose==='ADMISSION'));
 });
+
+
+test("PDF bottle-size variants and multiple unbound prices cannot widen drink ranges", async () => {
+ const r=await previewSpotSources(venue,{verifyVenue:true,fetchPage:async url=>page(url,website+
+  '<p>Getränke</p><p>Tee CHF 4.80</p><p>Spritz CHF 8.50</p><p>7.5 dl 55.00 Lion Rouge 2023, Jauslin 7.5 dl 65.00</p><p>Reserve 750 ml CHF 80.00</p>')});
+ assert.deepEqual(r.proposals.filter(p=>p.attributeKey==='operation.price_options').map(p=>[p.value.min,p.value.max]),[[4.8,8.5]]);
+});
+
+test("a renovation closure remains an explicit review notice", async () => {
+ const r=await previewSpotSources(venue,{verifyVenue:true,fetchPage:async url=>page(url,website+
+  '<p>Die Bar ist derzeit aufgrund eigentümerseitigen Sanierungsarbeiten geschlossen.</p>')});
+ assert.ok(r.proposals.some(p=>p.attributeKey==='hours.closure_notice'&&/Sanierungsarbeiten/u.test(p.evidence)));
+});

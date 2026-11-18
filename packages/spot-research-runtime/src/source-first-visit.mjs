@@ -4,7 +4,7 @@ import { sourceText } from "./nuknuk-sources.mjs";
 
 export const pricePageLabel = /eintritt|preise?|admission|tickets?|tarifs?|tariffe|speise|getränk|menu|brunch|frühstück/iu;
 const hoursHeading = /^(?:(?:unsere\s+)?(?:öffnungszeiten|opening hours)|wann)\s*:?$/iu;
-const closure = /(?:vorübergehend|bis auf weiteres|wegen .{0,80})\s+(?:.{0,60}\s+)?geschlossen|(?:bleibt|bleiben) .{0,100}geschlossen|temporarily closed/iu;
+const closure = /(?:vorübergehend|derzeit|aktuell|bis auf weiteres|wegen .{0,80}|aufgrund .{0,80})\s+(?:.{0,60}\s+)?geschlossen|(?:bleibt|bleiben) .{0,100}geschlossen|temporarily closed/iu;
 const lastEntry = /(?:letzte[rn]?\s+(?:einlass|eintritt)|last admission|last entry)\s*:?\s*(?:um\s+)?(?:[01]?\d|2[0-3])(?:[:.][0-5]\d|\s*uhr)/iu;
 const lateOpening = /^(?:montags?|dienstags?|mittwochs?|donnerstags?|freitags?|samstags?|sonntags?)\s+(?:jeweils\s+)?bis\s+.+\s+geöffnet[.!]?$/iu;
 const weekdays = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
@@ -85,16 +85,19 @@ function pricesOn(page, lines, menuPurpose) {
   const amounts = new Map();
   let section = menuPurpose;
   let bottled = false;
+  const bottleSize = /75\s*cl|7[.,]5\s*dl|0[.,]75\s*l|750\s*ml/iu;
   const brunchPage = /brunch|frühstück/iu.test(new URL(page.url).pathname);
   const brunchDays = brunchPage && lines.some(line => /^sonntags$/iu.test(line)) ? ["SUNDAY"] : [];
   for (const [index, line] of lines.entries()) {
     const heading = Object.keys(categories).find(key => categories[key].test(line));
     if (heading) { section = heading; bottled = false; continue; }
-    if (/flaschen|bottles?|75\s*cl|0[.,]75\s*l/iu.test(line)) bottled = true;
+    if (/flaschen|bottles?/iu.test(line) || bottleSize.test(line)) bottled = true;
     if (/offen(?:e|er)? (?:weine?|ausschank)|im glas|by the glass/iu.test(line)) bottled = false;
     let quote = line;
     const match = quote.match(priceAtEnd);
-    if (!match || unsafePrice.test(quote) || /\+\s*(?:CHF\s*)?\d|flasche|bottle|75\s*cl|0[.,]75\s*l/iu.test(quote)) continue;
+    if (!match || unsafePrice.test(quote) || bottleSize.test(quote) || /\+\s*(?:CHF\s*)?\d|flasche|bottle/iu.test(quote)) continue;
+    const priceCount = [...quote.matchAll(/(?<![\d.,])\d+[.,]\d{2}(?!\d)/gu)].length;
+    if (priceCount > 1 && !(priceCount === 2 && /\d+[.,]\d{2}\s*[-–]\s*\d+[.,]\d{2}/u.test(quote))) continue;
     const raw = match.slice(1).find(Boolean);
     let label = quote.slice(0, match.index).trim().replace(/[:\s]+$/u, "");
     if (!label && index > 0) {
