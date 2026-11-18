@@ -11,7 +11,7 @@ export type WorldResearchDetail = {
   manifest?: null | { manifestHash?: string; worldSnapshot?: { spotId?: string } };
 };
 
-async function readApprovedResearchProfile(actor: SupabaseClient, spotId: string): Promise<WorldResearchDetail> {
+export async function readApprovedResearchProfile(actor: SupabaseClient, spotId: string): Promise<WorldResearchDetail> {
   const result = await actor.rpc("world_product_authoring_detail_v1", { p_spot_id: spotId });
   if (result.error || !result.data) throw new Error(result.error?.message ?? "world_research_spot_unavailable");
   const detail = result.data as WorldResearchDetail;

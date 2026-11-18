@@ -7,6 +7,7 @@ import { researchPipelineSummary, visibleResearchJobs } from "@/lib/server/world
 
 import { RESEARCH_INBOX_CUTOVER } from "@/lib/researchInbox";
 import { WORLD_RESEARCH_MAX_JOBS } from "@/lib/worldResearchQueue";
+import { previewApprovedSpot } from "@/lib/server/sourceFirstSpotPreview";
 
 const noStore = { "cache-control": "no-store" };
 const UUID = WORLD_RESEARCH_SPOT_ID;
@@ -77,14 +78,24 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const authorization = await authorizeAdminRequest(request);
   if (!authorization.ok) return Response.json({ error: authorization.error }, { status: authorization.status, headers: noStore });
-  if (process.env.WORLD_RESEARCH_AUTOMATION_ENABLED !== "true") return Response.json({ error: "WORLD_RESEARCH_AUTOMATION_DISABLED" }, { status: 503, headers: noStore });
   if (Number(request.headers.get("content-length") ?? 0) > 4_000) return Response.json({ error: "WORLD_RESEARCH_REQUEST_TOO_LARGE" }, { status: 413, headers: noStore });
-  const body = await request.json().catch(() => null) as null | { spotIds?: unknown };
+  const body = await request.json().catch(() => null) as null | { spotIds?: unknown; mode?: unknown };
   const spotIds = body?.spotIds;
   if (!Array.isArray(spotIds) || spotIds.length < 1 || spotIds.length > WORLD_RESEARCH_MAX_JOBS
     || spotIds.some((id) => typeof id !== "string" || !UUID.test(id)) || new Set(spotIds).size !== spotIds.length) {
     return Response.json({ error: "WORLD_RESEARCH_SELECTION_INVALID" }, { status: 400, headers: noStore });
   }
+  if (body?.mode !== undefined && body.mode !== "SOURCE_PREVIEW") return Response.json({ error: "WORLD_RESEARCH_MODE_INVALID" }, { status: 400, headers: noStore });
+  if (body?.mode === "SOURCE_PREVIEW") {
+    if (spotIds.length !== 1) return Response.json({ error: "WORLD_RESEARCH_SELECTION_INVALID" }, { status: 400, headers: noStore });
+    try {
+      const { actor } = clients(request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "");
+      return Response.json({ preview: await previewApprovedSpot(actor, spotIds[0]) }, { headers: noStore });
+    } catch {
+      return Response.json({ error: "Die Vorschau konnte für diesen Spot nicht erstellt werden." }, { status: 503, headers: noStore });
+    }
+  }
+  if (process.env.WORLD_RESEARCH_AUTOMATION_ENABLED !== "true") return Response.json({ error: "WORLD_RESEARCH_AUTOMATION_DISABLED" }, { status: 503, headers: noStore });
   try {
     const { actor, service } = clients(request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "");
     const documents: WorldResearchBatchDocument[] = [];

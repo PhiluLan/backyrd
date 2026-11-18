@@ -3,6 +3,7 @@ import type { fetchPublicSource } from "./nuknuk-sources.mjs";
 export function readOfficialSpotBasics(
   spot: { website: string; name: string; locality: string | null; address?: string },
   fetchPage?: typeof fetchPublicSource,
+  options?: { additionalPages?: Awaited<ReturnType<typeof fetchPublicSource>>[] },
 ): Promise<Array<{
   attributeKey: "contact.public_email" | "contact.phone" | "hours.regular";
   knowledgeState: "KNOWN_VALUE";

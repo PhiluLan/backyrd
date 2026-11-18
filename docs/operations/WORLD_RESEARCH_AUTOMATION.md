@@ -56,6 +56,23 @@ reviewable. Confirmed fields appear above the questions with the existing field
 editor. Publication requires the existing Admin authoring authority and
 `WORLD_RESEARCH_SAFE_IMPORT_ENABLED` in the Admin server.
 
+## Source-first preview
+
+In «Neue Recherche», «Quellen prüfen · Vorschau» checks up to ten approved
+spots without preparing a World profile, enqueueing a deep job, or writing
+facts. It compares contact, regular hours and price options against the public
+profile and existing base fields. Known sites are read directly. If a website
+is missing, one Brave call can supply leads when `BRAVE_SEARCH_API_KEY` is
+configured. The target website must independently match the venue and address.
+Price review can use one bounded, tool-free OpenAI call when `OPENAI_API_KEY` is
+configured. Its input is restricted to price quotations from the official site.
+The model may pick a quotation but cannot produce a new price.
+
+Each preview shows proposals with their source, fields still open, provider
+usage and calculated API cost. Failed provider calls without usage are shown
+with unknown cost. The underlying preview result is read-only. Existing deep
+research remains an explicit separate action.
+
 ## Operational controls
 
 - Apply the forward migration through the normal, explicitly authorized
