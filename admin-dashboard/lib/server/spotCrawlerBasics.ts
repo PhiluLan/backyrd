@@ -1,8 +1,8 @@
 import "server-only";
-import { validateAuthoringSubmission, type WeeklyScheduleDay } from "@backyrd/world-knowledge-core";
+import { validateAuthoringSubmission, type SpecialHoursDay, type WeeklyScheduleDay } from "@backyrd/world-knowledge-core";
 import { fetchPublicSource } from "../../../packages/spot-research-runtime/src/nuknuk-sources.mjs";
 import { previewSpotSources } from "../../../packages/spot-research-runtime/src/source-first-preview.mjs";
-import type { CrawlerBasics, CrawlerFacts, CrawlerRunUsage } from "../spotCrawler";
+import type { CrawlerBasics, CrawlerFacts, CrawlerObservedPrice, CrawlerRunUsage } from "../spotCrawler";
 import { crawlerOperatorUrl, robotsPermits, searchBrave } from "./spotCrawlerDiscovery";
 import { selectSourcePrice } from "./sourceFirstSpotPreview";
 
@@ -39,6 +39,7 @@ export async function enrichCrawlerCandidates(candidates: CrawlerFacts[], option
         locality: "Basel", website: candidate.website, existingValues: {},
       }, {
         fetchPage,
+        verifyVenue: true,
         search: options.brave && searchesLeft > 0 ? async query => {
           if (searchesLeft <= 0 || Date.now() >= options.deadline - 8500) throw new Error("CRAWLER_BASICS_SEARCH_LIMIT");
           searchesLeft--;
@@ -57,18 +58,42 @@ export async function enrichCrawlerCandidates(candidates: CrawlerFacts[], option
         aiCalls: research.usage.ai.calls,
         estimatedUsd: research.usage.estimatedUsd,
       };
+      const hasVisitRestriction = research.proposals.some(({ attributeKey }) =>
+        attributeKey === "hours.closure_notice" || attributeKey === "hours.last_entry");
+      const observedPrices: CrawlerObservedPrice[] = [];
       for (const proposal of research.proposals) {
         if (proposal.attributeKey === "contact.website" && typeof proposal.value === "string") basics.website = proposal.value;
         if (proposal.attributeKey === "contact.public_email" && typeof proposal.value === "string") basics.email = proposal.value;
         if (proposal.attributeKey === "contact.phone" && typeof proposal.value === "string") basics.phone = proposal.value;
-        if (proposal.attributeKey === "hours.regular") {
+        if (proposal.attributeKey === "hours.regular" && !hasVisitRestriction) {
           const validated = validateAuthoringSubmission("hours.regular", "KNOWN_VALUE", proposal.value);
           if (validated.ok && Array.isArray(validated.value) && validated.value.length === 7) {
             basics.fullHours = validated.value as readonly WeeklyScheduleDay[];
           }
         }
-        if (proposal.fixedAdmission !== undefined) basics.fixedAdmission = proposal.fixedAdmission;
+        if (proposal.attributeKey === "hours.special" && !hasVisitRestriction) {
+          const validated = validateAuthoringSubmission("hours.special", "KNOWN_VALUE", proposal.value);
+          if (validated.ok && Array.isArray(validated.value)) {
+            basics.specialHours = validated.value as readonly SpecialHoursDay[];
+          }
+        }
+        if (proposal.attributeKey === "operation.price_options" && proposal.method === "DIRECT") {
+          const price = proposal.value;
+          if (!price || typeof price !== "object" || !("purpose" in price) || !("min" in price)
+            || !("max" in price) || !("minimumAge" in price)) continue;
+          const { purpose, min, max, minimumAge } = price;
+          if ((purpose !== "MEAL" && purpose !== "DRINK" && purpose !== "ADMISSION") ||
+            typeof min !== "number" || typeof max !== "number" || !Number.isFinite(min) || !Number.isFinite(max)
+            || min < 0 || max < min || max > 100000 ||
+            (minimumAge !== null && (typeof minimumAge !== "number" || !Number.isInteger(minimumAge) || minimumAge < 0 || minimumAge > 120))) continue;
+          const brunch = "occasion" in price && price.occasion === "Brunch";
+          const sundayOnly = "days" in price && Array.isArray(price.days) && price.days.length === 1 && price.days[0] === "SUNDAY";
+          observedPrices.push({ purpose, min, max, minimumAge, url: proposal.url,
+            ...(brunch ? { occasion: "Brunch", days: sundayOnly ? ["SUNDAY"] : [] } : {}),
+          });
+        }
       }
+      if (observedPrices.length) basics.observedPrices = observedPrices;
       return { ...candidate, basics };
     })));
   }

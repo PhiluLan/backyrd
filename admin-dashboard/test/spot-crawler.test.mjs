@@ -161,3 +161,23 @@ test("branch evidence keeps the branch address separate from the parent office",
   assert.equal(inferred[0].name,"Moment Café");
   assert.equal(inferred[0].address,"Bäumleingasse 4");
 });
+
+test("uses the individual branch names on a cafe directory run by the operator", () => {
+  const result = readCrawlerEvidence(page(website + "cafes", `<h1>Cafés in Basel</h1>
+    <h2>Café Frühling - Kleinbasel</h2><p>Klybeckstrasse 69, 4057 Basel</p>
+    <h2>Café Sommer - Gundeli</h2><p>Prüfstrasse 7, 4053 Basel</p>`), ["CAFE"]);
+  assert.deepEqual(result.map(({name, address}) => [name, address]), [
+    ["Café Frühling", "Klybeckstrasse 69"], ["Café Sommer", "Prüfstrasse 7"],
+  ]);
+});
+
+test("recognises public visitor destinations and discovers them with the usual search budget", () => {
+  const categories = ["MUSEUM", "AMUSEMENT_PARK", "PLAYGROUND"];
+  assert.ok(crawler.parseCrawlerSettings({
+    categories, districts: ["Basel"], searches: 7, limit: 10, schedule: "MANUAL", time: "08:00", monthBudgetCents: 1000,
+  }));
+  for (const [type, category] of [["Museum", "MUSEUM"], ["AmusementPark", "AMUSEMENT_PARK"], ["Playground", "PLAYGROUND"]]) {
+    const evidence = readCrawlerEvidence(page(website, structured({ ...cafe, "@type": type, name: "Prüfort" }) + address), categories);
+    assert.equal(evidence[0]?.category, category);
+  }
+});

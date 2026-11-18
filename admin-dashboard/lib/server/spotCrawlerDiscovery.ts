@@ -21,6 +21,7 @@ const host = (url: string) => new URL(url).hostname.replace(/^www\./u, "");
 const typeCategories = new Map<string, CrawlerCategory>([
   ["Restaurant", "RESTAURANT"], ["FastFoodRestaurant", "RESTAURANT"], ["CafeOrCoffeeShop", "CAFE"],
   ["BarOrPub", "BAR"], ["NightClub", "NIGHTCLUB"],
+  ["Museum", "MUSEUM"], ["AmusementPark", "AMUSEMENT_PARK"], ["Playground", "PLAYGROUND"],
 ]);
 const restrictedHosts = /(?:^|\.)(?:google(?:\.[a-z]+)+|tripadvisor(?:\.[a-z]+)+|facebook\.com|instagram\.com|booking\.com|yelp(?:\.[a-z]+)+|basel\.com|local\.ch|search\.ch|thefork(?:\.[a-z]+)+)$/iu;
 const deadlineExceeded = () => new Error("RUN_TIME_LIMIT");
@@ -75,6 +76,9 @@ function visibleText(html: string) {
 }
 
 function venueCategory(text: string): CrawlerCategory | undefined {
+  if (/museum|musée/iu.test(text)) return "MUSEUM";
+  if (/freizeitpark|vergnügungspark|amusement park|spielpark/iu.test(text)) return "AMUSEMENT_PARK";
+  if (/spielplatz|playground/iu.test(text)) return "PLAYGROUND";
   if (/(?:^|[^\p{L}])(?:caf[eé]|kaffeebar|kaffeehaus|coffee shop|specialty coffee)(?![\p{L}])|café(?:$|\s)/iu.test(text)) return "CAFE";
   if (/\b(?:restaurant|bistro|brasserie|ristorante|pizzeria)\b/iu.test(text)) return "RESTAURANT";
   if (/\b(?:bar|weinbar|cocktailbar)\b/iu.test(text)) return "BAR";
@@ -113,7 +117,7 @@ function visiblePlace(body: string, pageUrl: string) {
     .split(/[|:–—,]| - /u)[0]?.trim().replace(/\s+(?:in\s+)?Basel$/iu, "") ?? "";
   function namedVenue(name: string, category: CrawlerCategory | undefined): VenueIdentity | undefined {
     if (!category || name.length < 3 || name.split(/\s+/u).length > 7
-      || /^(?:best[esn]* |die |unser[e]?[nm]? |welche |willkommen|home$|startseite$|über uns$|kontakt$|kaffee$|restaurant$|bistro$|café$|cafe$|bar$|nachtclub$|nightclub$|specialty coffee$)/iu.test(name)) return;
+      || /^(?:best[esn]* |die |unser[e]?[nm]? |welche |willkommen|home$|startseite$|über uns$|kontakt$|kaffee$|restaurant$|bistro$|cafés?$|cafes?$|bar$|nachtclub$|nightclub$|museum$|freizeitpark$|spielplatz$|specialty coffee$)/iu.test(name)) return;
     return { name, category, website: pageUrl };
   }
   const headingIdentities = headings.flatMap(heading => namedVenue(displayName(heading), venueCategory(heading)) ?? []);
@@ -126,6 +130,18 @@ function visiblePlace(body: string, pageUrl: string) {
   const linkedIdentity = namedAddress ? namedVenue(namedAddress, venueCategory(namedAddress)) : undefined;
   const identity = primary ?? (headings.length === 1 ? headingIdentities[0] : undefined) ?? linkedIdentity;
   return { address, identity, visible, ambiguous: streets.size > 1 };
+}
+
+function cafeBranches(html: string, pageUrl: string) {
+  if (!/caf[eé]s?/iu.test(new URL(pageUrl).pathname)) return [];
+  const visible = visibleSourceHtml(html).replace(/<(script|style|template|noscript)\b[^>]*>[\s\S]*?<\/\1>/giu, "");
+  return [...visible.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>([\s\S]*?)(?=<h2\b|<footer\b|$)/giu)].flatMap(([, heading, body]) => {
+    const name = clean(visibleText(heading), 160).split(/\s+[-–—]\s+/u)[0]?.trim();
+    if (!name || !/^caf[eé]\s+\p{L}/iu.test(name)) return [];
+    const address = visiblePlace(body, pageUrl).address;
+    if (!address) return [];
+    return [{ name, category: "CAFE" as const, postalCode: address.postalCode, address: address.street, website: pageUrl }];
+  });
 }
 
 export function readCrawlerEvidence(page: PublicPage, categories: readonly CrawlerCategory[], referringVenue?: VenueIdentity): Evidence[] {
@@ -163,6 +179,10 @@ export function readCrawlerEvidence(page: PublicPage, categories: readonly Crawl
       ...(clean(node.priceRange, 80) ? {price_hint:clean(node.priceRange, 80)} : {}),
     }];
   });
+  if (!extracted.length && categories.includes("CAFE")) {
+    const branches = cafeBranches(page.body, page.url);
+    if (branches.length) return branches.map(branch => ({ ...branch, source_url: page.url, observed_at: page.observedAt }));
+  }
   const sameVenue = referringVenue && host(referringVenue.website) === host(page.url)
     && normalize(visible.visible).includes(normalize(referringVenue.name));
   const fallback = visible.identity ?? (sameVenue ? referringVenue : undefined);
@@ -181,6 +201,8 @@ export function planCrawlerQueries(settings: CrawlerSettings, runId: number): st
   const terms: Record<CrawlerCategory, string[]> = {
     RESTAURANT:["Restaurant", "Neueröffnung Restaurant", "Bistro"], CAFE:["Café", "neues Café", "Kaffeebar", "Specialty Coffee", "Kaffeehaus", "Café Brunch", "Espressobar", "Café Kontakt"],
     BAR:["Bar", "neue Cocktailbar", "Weinbar"], NIGHTCLUB:["Club", "Nachtclub", "Tanzen Club"],
+    MUSEUM:["Museum", "Museum Eintrittspreise"], AMUSEMENT_PARK:["Freizeitpark", "Indoor Spielpark"],
+    PLAYGROUND:["Spielplatz", "Abenteuerspielplatz"],
   };
   const hasCitywideCafe = settings.districts.includes("Basel") && settings.categories.includes("CAFE");
   const neighborhoods = ["Kleinbasel", "Gundeldingen", "Altstadt", "St. Johann", "Bachletten", "Clara", "Matthäus", "Iselin"];

@@ -51,3 +51,83 @@ test("price selection accepts only the exact observed quote and leaves known fie
   assert.equal(priced.proposals[0].review, true);
   assert.equal(priced.usage.estimatedUsd, 0.003);
 });
+
+test("reads the specific café branch on the operator's shared location page", async () => {
+  const result = await previewSpotSources({ ...venue, name: "Café Frühling" }, {
+    verifyVenue: true,
+    fetchPage: async url => page(url, `<h2>Café Sommer</h2><p>Gartenweg 3, Basel</p>
+      <p>Öffnungszeiten</p><p>Täglich 10:00–20:00</p>
+      <h2>Café Frühling</h2><p>Testweg 5, Basel</p><p>fruehling@testhalle.example</p>
+      <p>Öffnungszeiten</p><p>Montag bis Freitag: 8:00 bis 18:30 Uhr</p><p>Samstag und Sonntag: 9:00 bis 18:30 Uhr</p>`),
+  });
+  const hours = result.proposals.find(item => item.attributeKey === "hours.regular");
+  assert.equal(hours?.value.length, 7);
+  assert.equal(hours.value[0].intervals[0].start, "08:00");
+  assert.equal(hours.value[6].intervals[0].start, "09:00");
+});
+
+test("reads a named brunch offer, treats last entry separately and discards example prices", async () => {
+  const offer = "https://testhalle.example/brunch-basel";
+  const result = await previewSpotSources(venue, {
+    verifyVenue: true,
+    fetchPage: async url => page(url, url === offer ?
+      `<title>Brunch im Testhalle</title><h2>WANN</h2><p>Sonntags</p><p>9 - 15 Uhr</p>
+       <p>Letzter Einlass 13 Uhr</p><p>Preis ab 14 Jahren</p><p>42.- CHF</p>
+       <p>Alter in Jahren plus 8.- CHF</p><p>Beispiel: Kind 4 Jahre: 4+8 =CHF 12.-</p>`
+      : website + '<a href="/brunch-basel">Testhalle Brunch</a>'),
+    selectPrice: async () => assert.fail("Explicit prices should not need AI"),
+  });
+  assert.deepEqual(result.proposals.filter(item => item.attributeKey === "operation.price_options").map(item => item.value),
+    [{ purpose: "MEAL", min: 42, max: 42, minimumAge: 14, occasion: "Brunch", days: ["SUNDAY"] }]);
+  assert.deepEqual(result.proposals.find(item => item.attributeKey === "hours.regular")?.value,
+    [{ day: "SUNDAY", intervals: [{ start: "09:00", end: "15:00" }] }]);
+  assert.match(result.proposals.find(item => item.attributeKey === "hours.last_entry")?.evidence ?? "", /13 Uhr/u);
+});
+
+test("keeps meals and drinks separate and records dated closures without modifying weekly hours", async () => {
+  const result = await previewSpotSources(venue, {
+    verifyVenue: true,
+    fetchPage: async url => page(url, website + `
+      <p>Öffnungszeiten</p><p>Täglich 11:00–20:00</p>
+      <p>Vom 19.11.2026 bis 20.11.2026 bleibt das Restaurant wegen Umbau geschlossen.</p>
+      <h3>Speisekarte</h3><p>Tagessuppe CHF 9</p><p>Pizza CHF 28</p>
+      <h3>Getränke</h3><p>Apfelsaft 5.50 CHF</p><p>Cocktail CHF 16</p><p>Gutschein CHF 100</p>`),
+  });
+  const values = key => result.proposals.filter(item => item.attributeKey === key).map(item => item.value);
+  assert.deepEqual(values("operation.price_options"), [
+    { purpose: "MEAL", min: 9, max: 28, minimumAge: null },
+    { purpose: "DRINK", min: 5.5, max: 16, minimumAge: null },
+  ]);
+  assert.equal(values("hours.regular")[0].length, 7);
+  assert.deepEqual(values("hours.special")[0], [
+    { date: "2026-11-19", status: "CLOSED", intervals: [] },
+    { date: "2026-11-20", status: "CLOSED", intervals: [] },
+  ]);
+});
+
+test("seeks the operator again rather than promoting opening hours from a directory", async () => {
+  const directory = "https://directory.example/reopening";
+  const result = await previewSpotSources({ ...venue, website: directory }, {
+    verifyVenue: true,
+    fetchPage: async url => page(url, url === directory
+      ? '<title>Testhalle – Wiedereröffnung</title><p>Testweg 5, Basel</p><p>Öffnungszeiten</p><p>Täglich 12:00–21:00</p>'
+      : website + '<p>Öffnungszeiten</p><p>Täglich 09:00–14:00</p><p>Vorübergehend geschlossen.</p>'),
+    search: async () => [venue.website],
+  });
+  assert.equal(result.proposals.find(item => item.attributeKey === "hours.regular")?.url, venue.website);
+  assert.ok(result.proposals.some(item => item.attributeKey === "hours.closure_notice"));
+});
+
+test("uses regular museum admission and applies a late-opening weekday override", async () => {
+  const result = await previewSpotSources(venue, {
+    verifyVenue: true,
+    fetchPage: async url => page(url, website + `
+      <h3>Öffnungszeiten</h3><p>Dienstag bis Sonntag 11–18 Uhr</p>
+      <p>Donnerstags jeweils bis 21 Uhr geöffnet</p><p>Montag geschlossen</p>
+      <h3>Eintrittspreise</h3><p>Erwachsene: 18 CHF</p>
+      <p>Studierende und Lernende: 12 CHF</p><p>KulturLegi: 9 CHF</p>`),
+  });
+  assert.equal(result.proposals.find(item => item.attributeKey === "hours.regular").value[3].intervals[0].end, "21:00");
+  assert.deepEqual(result.proposals.filter(item => item.attributeKey === "operation.price_options").map(item => item.value),
+    [{ purpose: "ADMISSION", min: 18, max: 18, minimumAge: null }]);
+});

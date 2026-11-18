@@ -291,13 +291,21 @@ export default function SpotCrawlerPage() {
             {(facts.basics?.fullHours || facts.hours) && <p>{facts.basics?.fullHours
               ? "Belegter Wochenplan wird übernommen."
               : `Öffnungszeiten laut Quelle · ${facts.hours}`}</p>}
+            {facts.basics?.observedPrices?.map(price => {
+              const label = { MEAL: "Speisen", DRINK: "Getränke", ADMISSION: "Eintritt" }[price.purpose];
+              const amount = (value: number) => value.toLocaleString("de-CH", { maximumFractionDigits: 2 });
+              return <p key={`${price.purpose}-${price.minimumAge}`}>
+                <a href={price.url} rel="noreferrer" target="_blank">{price.occasion ?? (price.purpose === "ADMISSION" ? label : label + " laut Karte")} · CHF {amount(price.min)}{price.min !== price.max && `–${amount(price.max)}`}</a>
+                {price.minimumAge !== null && ` · ab ${price.minimumAge} Jahren`}
+              </p>;
+            })}
             {facts.price_hint && <p>Preisangabe laut Quelle · {facts.price_hint}</p>}
             {facts.basics && <details>
               <summary>Quellen und Grundinfos</summary>
               <p>{facts.address} · {facts.lat}, {facts.lng}</p>
               {(facts.basics.website ?? facts.website) && (facts.basics.website ?? facts.website) !== facts.source_url &&
                 <a href={facts.basics.website ?? facts.website} rel="noreferrer" target="_blank">Betreiberseite öffnen ↗</a>}
-              {facts.basics.proposals.length > 0 && <ul>{facts.basics.proposals.map(item => <li key={item.attributeKey}>
+              {facts.basics.proposals.length > 0 && <ul>{facts.basics.proposals.map(item => <li key={`${item.attributeKey}-${item.url}-${item.evidence}`}>
                 <a href={item.url} rel="noreferrer" target="_blank">{item.evidence}</a>
                 {item.review && !(item.attributeKey === "hours.regular" && facts.basics?.fullHours)
                   && !(item.attributeKey === "operation.price_options" && facts.basics?.fixedAdmission !== undefined)

@@ -172,3 +172,9 @@ opened primary pages and every proposed claim/conflict, and make no automatic
 canonical import. On any fault, disable both switches first; retain job
 evidence, stop further rollout, and use only reviewed forward correction for
 database errors. No Production data copy or untested restore-success claim.
+
+### Öffnungszeiten und Preise im Backyrd-Crawler
+
+Der Crawler prüft beobachtete, öffentliche Links des Betreibers für Öffnungszeiten, Besuchsinformationen und Karten. Bei einer Seite mit mehreren Filialen braucht es eine Zuordnung zum Ort und zur Adresse. Verzeichnisse bleiben Hinweise auf mögliche Funde.
+
+Im Admin erscheinen die belegten Beträge aus der gefundenen Karte getrennt nach Speisen, Getränken und Eintritt. Ein Preis gilt nur im angegebenen Angebotskontext. Die beobachtete Spanne garantiert weder ein Gesamtbudget noch die Vollständigkeit der Karte. Vollständige Wochenpläne und eindeutig datierte Schliessungen können bei der Freigabe des Spots in das World Knowledge übernommen werden. Bei widersprüchlichen Zeiten, Schliessungen ohne klares Enddatum oder einem separaten letzten Einlass bleibt die Zeitangabe zur Prüfung im Crawler.
