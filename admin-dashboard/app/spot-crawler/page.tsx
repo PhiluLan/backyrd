@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PRIMARY_CATEGORY_LABELS } from "@backyrd/world-knowledge-core/browser";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminPageHeader, SectionCard, StatusBadge } from "@/components/admin/AdminUi";
 import { supabase } from "@/lib/supabaseClient";
@@ -10,6 +11,13 @@ import {
   type CrawlerSettings, type SavedCrawlerSettings,
 } from "@/lib/spotCrawler";
 import styles from "./page.module.css";
+
+const visitPurposeLabels: Partial<Record<NonNullable<CrawlerCandidate["facts"]["basics"]>["primaryVisitPurpose"] & string, string>> = {
+  EAT_DRINK: "Essen oder trinken",
+  CULTURE_ARTS: "Kultur und Kunst",
+  ENTERTAINMENT: "Unterhaltung",
+  ACTIVITY_PLAY: "Aktivität und Spiel",
+};
 
 type CrawlerPageData = {
   settings: SavedCrawlerSettings;
@@ -285,19 +293,32 @@ export default function SpotCrawlerPage() {
           return <article className={styles.result} key={row.source_id}>
             <div className={styles.resultHeader}><div><h3>{facts.name}</h3><p>{spotCrawlerCategories[facts.category]} · {facts.address}</p></div>
               <StatusBadge>{status}</StatusBadge></div>
+            {facts.basics && <>
+              <p>Hauptkategorie · {facts.basics.primaryCategory ? PRIMARY_CATEGORY_LABELS[facts.basics.primaryCategory].de : "Zur Prüfung"}</p>
+              <p>Hauptgrund für den Besuch · {facts.basics.primaryVisitPurpose
+                ? visitPurposeLabels[facts.basics.primaryVisitPurpose] ?? "Zur Prüfung" : "Kein eindeutiger Beleg"}</p>
+            </>}
             {facts.origin === "OVERTURE" && <p>Gefunden über Overture</p>}
             {[facts.basics?.phone ?? facts.phone, facts.basics?.email ?? facts.email].some(Boolean) &&
               <p>{[facts.basics?.phone ?? facts.phone, facts.basics?.email ?? facts.email].filter(Boolean).join(" · ")}</p>}
             {(facts.basics?.fullHours || facts.hours) && <p>{facts.basics?.fullHours
               ? "Belegter Wochenplan wird übernommen."
               : `Öffnungszeiten laut Quelle · ${facts.hours}`}</p>}
+            {facts.basics?.observedPrices?.map(price => {
+              const label = { MEAL: "Speisen", DRINK: "Getränke", ADMISSION: "Eintritt" }[price.purpose];
+              const amount = (value: number) => value.toLocaleString("de-CH", { maximumFractionDigits: 2 });
+              return <p key={`${price.purpose}-${price.minimumAge}`}>
+                <a href={price.url} rel="noreferrer" target="_blank">{price.occasion ?? (price.purpose === "ADMISSION" ? label : label + " laut Karte")} · CHF {amount(price.min)}{price.min !== price.max && `–${amount(price.max)}`}</a>
+                {price.minimumAge !== null && ` · ab ${price.minimumAge} Jahren`}
+              </p>;
+            })}
             {facts.price_hint && <p>Preisangabe laut Quelle · {facts.price_hint}</p>}
             {facts.basics && <details>
               <summary>Quellen und Grundinfos</summary>
               <p>{facts.address} · {facts.lat}, {facts.lng}</p>
               {(facts.basics.website ?? facts.website) && (facts.basics.website ?? facts.website) !== facts.source_url &&
                 <a href={facts.basics.website ?? facts.website} rel="noreferrer" target="_blank">Betreiberseite öffnen ↗</a>}
-              {facts.basics.proposals.length > 0 && <ul>{facts.basics.proposals.map(item => <li key={item.attributeKey}>
+              {facts.basics.proposals.length > 0 && <ul>{facts.basics.proposals.map(item => <li key={`${item.attributeKey}-${item.url}-${item.evidence}`}>
                 <a href={item.url} rel="noreferrer" target="_blank">{item.evidence}</a>
                 {item.review && !(item.attributeKey === "hours.regular" && facts.basics?.fullHours)
                   && !(item.attributeKey === "operation.price_options" && facts.basics?.fixedAdmission !== undefined)

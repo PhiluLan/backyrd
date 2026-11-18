@@ -5,6 +5,7 @@ export type SourcePreviewSpot = {
   name: string;
   locality: string | null;
   address?: string;
+  crawlerCategory?: string;
   website?: string | null;
   existingValues: Record<string, unknown>;
 };
@@ -25,6 +26,7 @@ export type SourcePreviewResult = {
 };
 
 export function previewSpotSources(spot: SourcePreviewSpot, options?: {
+  verifyVenue?: boolean;
   fetchPage?: typeof fetchPublicSource;
   search?: (query: string) => Promise<string[]>;
   selectPrice?: (quotes: string[]) => Promise<{ index: number | null; estimatedUsd: number | null; tokens?: { input: number; output: number } }>;

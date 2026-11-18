@@ -709,6 +709,17 @@
       "deploymentRunId": 44358571851,
       "certificationRunId": 44357484552,
       "manifestHash": "9eb93965999ac11c9ee5dde819fc724ab1ffc4b77b3a2416b8abc4b93b823838"
+    },
+    "crawlerShortlistRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "migration": {
+        "path": "supabase/migrations/20261118174900_crawler_shortlist_timeout.sql",
+        "sha256": "8f20c547d73a301e114b376681be8fadc5e5e745b5530e861eace0d57556b3fa"
+      },
+      "sourceSha": "17d9a75b088800bb934e8984938391830af50113",
+      "deploymentRunId": 44363046387,
+      "certificationRunId": 44361999982,
+      "manifestHash": "386b65700c57d8fe00cbbfe1f9931742322ec2a1d14a4ae6eaa26e535d65aff4"
     }
   },
   "mobile": {

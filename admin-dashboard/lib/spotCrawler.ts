@@ -1,5 +1,7 @@
+import type { PrimaryCategory, PRIMARY_VISIT_PURPOSES, SpecialHoursDay, Weekday } from "@backyrd/world-knowledge-core";
 export const spotCrawlerCategories = {
   RESTAURANT: "Restaurants", CAFE: "Cafés", BAR: "Bars", NIGHTCLUB: "Clubs",
+  MUSEUM: "Museen", AMUSEMENT_PARK: "Freizeitparks", PLAYGROUND: "Spielplätze",
 } as const;
 
 export const spotCrawlerDistricts = ["Basel", "Altstadt", "Kleinbasel", "Gundeldingen", "St. Johann", "Matthäus", "Clara", "St. Alban", "Breite", "Iselin", "Bachletten", "Bruderholz"] as const;
@@ -19,7 +21,7 @@ export type SavedCrawlerSettings = CrawlerSettings & { revision: string };
 export function parseCrawlerSettings(input: unknown): CrawlerSettings | null {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   const { categories, districts, limit, searches, schedule, time, monthBudgetCents } = input as Record<string, unknown>;
-  if (!Array.isArray(categories) || !categories.length || categories.length > 4
+  if (!Array.isArray(categories) || !categories.length || categories.length > Object.keys(spotCrawlerCategories).length
     || categories.some(category => typeof category !== "string" || !Object.hasOwn(spotCrawlerCategories, category))
     || !Array.isArray(districts) || !districts.length || districts.length > spotCrawlerDistricts.length
     || districts.some(district => !spotCrawlerDistricts.includes(district))
@@ -51,13 +53,23 @@ export type CrawlerFacts = {
   basics?: CrawlerBasics;
 };
 
+export type CrawlerObservedPrice = {
+  purpose: "MEAL" | "DRINK" | "ADMISSION";
+  min: number; max: number; minimumAge: number | null; url: string;
+  occasion?: "Brunch"; days?: readonly Weekday[];
+};
+
 export type CrawlerBasics = {
   state: "CHECKED" | "SOURCE_MISSING" | "SOURCE_UNAVAILABLE" | "INSUFFICIENT_IDENTITY" | "TIME_LIMIT";
   website?: string;
   email?: string;
   phone?: string;
+  primaryCategory?: PrimaryCategory;
+  primaryVisitPurpose?: typeof PRIMARY_VISIT_PURPOSES[number];
   fullHours?: ReadonlyArray<{ readonly day: string; readonly intervals: ReadonlyArray<{ readonly start: string; readonly end: string }> }>;
   fixedAdmission?: number;
+  specialHours?: readonly SpecialHoursDay[];
+  observedPrices?: ReadonlyArray<CrawlerObservedPrice>;
   proposals: ReadonlyArray<{ attributeKey: string; url: string; evidence: string; review: boolean }>;
   braveCalls: number;
   aiCalls: number;
