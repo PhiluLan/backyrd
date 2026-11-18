@@ -1,7 +1,7 @@
 import { readOfficialSpotBasics } from "./official-spot-basics.mjs";
 import { discoverResearchLinks, fetchPublicSource, matchesExistingWebsite, publicSourceUrl, sourceText } from "./nuknuk-sources.mjs";
 
-import { pricePageLabel, readVisitFacts, venueSections } from "./source-first-visit.mjs";
+import { pricePageLabel, readVisitClassification, readVisitFacts, venueSections } from "./source-first-visit.mjs";
 
 const fields = ["contact.public_email", "contact.phone", "hours.regular", "operation.price_options"];
 const words = value => " " + value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim() + " ";
@@ -111,13 +111,13 @@ export async function previewSpotSources(spot, { fetchPage = fetchPublicSource, 
   const extra = await Promise.all([...new Set(links.map(link => link.url))].slice(0, verifyVenue ? 5 : 2)
     .map(url => read(url, { allowedWebsite: website })));
   const additionalPages = extra.filter(Boolean);
-  const visit = verifyVenue ? readVisitFacts([...navigation, ...additionalPages].flatMap(page => {
+  const visitPages = verifyVenue ? [...navigation, ...additionalPages].flatMap(page => {
     const link = links.find(item => item.url === page.url);
     const scoped = venueSections(page, part => matches(part, true), { name: spot.name });
     const menuPurpose = /eintritt|tarif|admission/iu.test((link?.label ?? "") + " " + new URL(page.url).pathname) ? "ADMISSION"
       : /getränk|drinks?|cocktail/iu.test(link?.label ?? "") ? "DRINK"
       : /speise|food|brunch|frühstück/iu.test(link?.label ?? "") ? "MEAL" : undefined;
-    if (scoped.length) return scoped.map(part => ({ page: part, menuPurpose }));
+    if (scoped.length) return scoped.map(part => ({ page: part, menuPurpose, venueIdentity: true }));
     // A link naming this exact venue can lead to a dedicated offer page
     // without a street address repeated in its body.
     const title = page.body.match(/<title\b[^>]*>([^<]+)<\/title>/iu)?.[1];
@@ -125,8 +125,12 @@ export async function previewSpotSources(spot, { fetchPage = fetchPublicSource, 
     const singleVenuePage = link && brandedHost(home) && title && has(words(title), spot.name)
       && !/standorte|filialen|locations|unsere cafés/iu.test(sourceText(home, "venue-scope").text);
     return namedOffer || singleVenuePage
-      ? [{ page, menuPurpose: menuPurpose ?? (/brunch|frühstück/iu.test(page.url) ? "MEAL" : undefined) }] : [];
-  })) : null;
+      ? [{ page, venueIdentity: Boolean(namedOffer), menuPurpose: menuPurpose ?? (/brunch|frühstück/iu.test(page.url) ? "MEAL" : undefined) }] : [];
+  }) : [];
+  const visit = verifyVenue ? readVisitFacts(visitPages) : null;
+  if (spot.crawlerCategory) {
+    proposals.push(...readVisitClassification(visitPages, spot).filter(({ attributeKey }) => !Object.hasOwn(spot.existingValues, attributeKey)));
+  }
   if (visit) proposals.push(...visit.restrictions);
   if (visit?.schedule && missing.includes("hours.regular")) proposals.push(visit.schedule);
   if (missing.some(key => key !== "operation.price_options")) {

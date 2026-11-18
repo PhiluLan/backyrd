@@ -10,17 +10,17 @@
   "migrations": [
     {
       "path": "supabase/migrations/20261118180635_crawler_verified_visit_facts.sql",
-      "sha256": "836e5dbb31e0fd114ed28c92586dea5363b236bd87f00f26bd64466970c325a0"
+      "sha256": "ee85f486e8455b15310980e5aec3f379364d15e31cd66d8265237c60bc25d575"
     }
   ],
   "tests": [
     {
       "path": "supabase/tests/crawler_verified_visit_facts.sql",
-      "sha256": "9bafacfb9bf0d6aba20cf6d97c31b3f33604f6b4a1d9ba287f76478a2f0b9283"
+      "sha256": "dbf24502f66b66f1aee78065a74c6d827d675cf37d71933aac5766bc4116a361"
     }
   ],
   "fingerprints": {
     "publicAclSha256": "7cf29f2fd15944a32b2d4990d662bf6393c5f9e52ab87a786aeb695917ef49ff",
-    "applicationSchemaSha256": "1792414d19c205ecb9d14ee68c190a0d77866ff8a8c106454de2421eacd775b1"
+    "applicationSchemaSha256": "370a3934551034c498d8101a6ff9362206bbde13d7c372071575d18f464d4fb9"
   }
 }

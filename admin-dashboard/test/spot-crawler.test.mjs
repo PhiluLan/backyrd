@@ -181,3 +181,11 @@ test("recognises public visitor destinations and discovers them with the usual s
     assert.equal(evidence[0]?.category, category);
   }
 });
+
+test("search settings cannot turn the museum's secondary cafe into the primary category", () => {
+  const raw = structured({ ...cafe, "@type": ["Museum", "CafeOrCoffeeShop"], name: "Museum Prüfhalle" }) + address;
+  assert.deepEqual(readCrawlerEvidence(page(website, raw), ["CAFE"]), []);
+  assert.equal(readCrawlerEvidence(page(website, raw), ["MUSEUM"])[0]?.category, "MUSEUM");
+  const hotel = structured({ ...cafe, "@type": ["Hotel", "Restaurant"], name: "Hotel Prüfhalle" }) + address;
+  assert.deepEqual(readCrawlerEvidence(page(website, hotel), ["RESTAURANT"]), []);
+});

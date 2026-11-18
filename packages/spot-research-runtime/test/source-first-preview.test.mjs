@@ -131,3 +131,28 @@ test("uses regular museum admission and applies a late-opening weekday override"
   assert.deepEqual(result.proposals.filter(item => item.attributeKey === "operation.price_options").map(item => item.value),
     [{ purpose: "ADMISSION", min: 18, max: 18, minimumAge: null }]);
 });
+
+test("keeps the main museum category and exhibition purpose separate from its cafe", async () => {
+  const spot = { ...venue, name: "Museum Testhalle", crawlerCategory: "MUSEUM" };
+  const result = await previewSpotSources(spot, {
+    verifyVenue: true,
+    fetchPage: async url => page(url, '<title>Museum Testhalle Basel</title>' +
+      '<h1>Museum Testhalle</h1><p>Testweg 5, Basel</p><p>Besuchen Sie unsere Ausstellung zur Stadtgeschichte.</p>' +
+      '<p>Im Museumsbistro gibt es Kaffee und Kuchen.</p>'),
+  });
+  const classification = result.proposals.find(item => item.attributeKey === "classification.primary_category");
+  const purpose = result.proposals.find(item => item.attributeKey === "purpose.primary_visit");
+  assert.equal(classification?.value, "CULTURE_ARTS");
+  assert.equal(purpose?.value, "CULTURE_ARTS");
+  assert.match(purpose.evidence, /Ausstellung/u);
+});
+
+test("keeps the main reason open when an official category has no activity evidence", async () => {
+  const spot = { ...venue, name: "Museum Testhalle", crawlerCategory: "MUSEUM" };
+  const result = await previewSpotSources(spot, {
+    verifyVenue: true,
+    fetchPage: async url => page(url, '<title>Museum Testhalle Basel</title><p>Testweg 5, Basel</p><p>Im Bistro: Kaffee und Kuchen.</p>'),
+  });
+  assert.equal(result.proposals.find(item => item.attributeKey === "classification.primary_category")?.value, "CULTURE_ARTS");
+  assert.ok(!result.proposals.some(item => item.attributeKey === "purpose.primary_visit"));
+});

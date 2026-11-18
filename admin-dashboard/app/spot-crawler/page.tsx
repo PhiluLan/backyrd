@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PRIMARY_CATEGORY_LABELS } from "@backyrd/world-knowledge-core/browser";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminPageHeader, SectionCard, StatusBadge } from "@/components/admin/AdminUi";
 import { supabase } from "@/lib/supabaseClient";
@@ -10,6 +11,13 @@ import {
   type CrawlerSettings, type SavedCrawlerSettings,
 } from "@/lib/spotCrawler";
 import styles from "./page.module.css";
+
+const visitPurposeLabels: Partial<Record<NonNullable<CrawlerCandidate["facts"]["basics"]>["primaryVisitPurpose"] & string, string>> = {
+  EAT_DRINK: "Essen oder trinken",
+  CULTURE_ARTS: "Kultur und Kunst",
+  ENTERTAINMENT: "Unterhaltung",
+  ACTIVITY_PLAY: "Aktivität und Spiel",
+};
 
 type CrawlerPageData = {
   settings: SavedCrawlerSettings;
@@ -285,6 +293,11 @@ export default function SpotCrawlerPage() {
           return <article className={styles.result} key={row.source_id}>
             <div className={styles.resultHeader}><div><h3>{facts.name}</h3><p>{spotCrawlerCategories[facts.category]} · {facts.address}</p></div>
               <StatusBadge>{status}</StatusBadge></div>
+            {facts.basics && <>
+              <p>Hauptkategorie · {facts.basics.primaryCategory ? PRIMARY_CATEGORY_LABELS[facts.basics.primaryCategory].de : "Zur Prüfung"}</p>
+              <p>Hauptgrund für den Besuch · {facts.basics.primaryVisitPurpose
+                ? visitPurposeLabels[facts.basics.primaryVisitPurpose] ?? "Zur Prüfung" : "Kein eindeutiger Beleg"}</p>
+            </>}
             {facts.origin === "OVERTURE" && <p>Gefunden über Overture</p>}
             {[facts.basics?.phone ?? facts.phone, facts.basics?.email ?? facts.email].some(Boolean) &&
               <p>{[facts.basics?.phone ?? facts.phone, facts.basics?.email ?? facts.email].filter(Boolean).join(" · ")}</p>}

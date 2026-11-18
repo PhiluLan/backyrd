@@ -2,7 +2,7 @@
 create or replace function public.admin_backyrd_crawler_approve_spot_v1(
   p_source_id integer,p_fingerprint text,p_revision text,p_category_id uuid,p_confirm_distinct boolean
 ) returns uuid language plpgsql security definer set search_path='' as $$
-declare v_spot uuid; v_data jsonb; v_hours jsonb; v_price jsonb; v_fields jsonb; v_field record;
+declare v_spot uuid; v_data jsonb; v_hours jsonb; v_price jsonb; v_fields jsonb; v_field record; v_category text; v_classification text;
   v_observed timestamptz := pg_catalog.clock_timestamp();
 begin
   if auth.uid() is null or public.admin_is_admin_v1() is not true then
@@ -43,6 +43,19 @@ begin
     'contact.website',case when website ~ '^https://' then website end,
     'contact.public_email',email,'contact.phone',v_data->>'phone'
   )) into v_fields from public.spots where id=v_spot;
+  select lower(trim(c.name)) into v_category from public.spots s
+    join public.categories c on c.id=s.category_id where s.id=v_spot;
+  v_classification:=case v_category
+    when 'restaurant' then 'EAT' when 'café' then 'COFFEE_DAYTIME'
+    when 'bar' then 'DRINKS' when 'nachtleben' then 'NIGHTLIFE'
+    when 'museum' then 'CULTURE_ARTS' when 'spielplatz' then 'ACTIVITIES_PLAY'
+    when 'freizeitpark' then 'ACTIVITIES_PLAY' when 'aktivität' then 'ACTIVITIES_PLAY'
+  end;
+  if v_classification=v_data->>'primaryCategory' then
+    v_fields:=v_fields || jsonb_strip_nulls(jsonb_build_object(
+      'classification.primary_category',v_classification,
+      'purpose.primary_visit',v_data->'primaryVisitPurpose'));
+  end if;
   if jsonb_typeof(v_hours)='array' and jsonb_array_length(v_hours)=7 then
     v_fields:=v_fields || jsonb_build_object('hours.regular',v_hours);
   end if;

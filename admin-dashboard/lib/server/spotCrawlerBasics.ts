@@ -1,5 +1,5 @@
 import "server-only";
-import { validateAuthoringSubmission, type SpecialHoursDay, type WeeklyScheduleDay } from "@backyrd/world-knowledge-core";
+import { PRIMARY_CATEGORIES, PRIMARY_VISIT_PURPOSES, validateAuthoringSubmission, type SpecialHoursDay, type WeeklyScheduleDay } from "@backyrd/world-knowledge-core";
 import { fetchPublicSource } from "../../../packages/spot-research-runtime/src/nuknuk-sources.mjs";
 import { previewSpotSources } from "../../../packages/spot-research-runtime/src/source-first-preview.mjs";
 import type { CrawlerBasics, CrawlerFacts, CrawlerObservedPrice, CrawlerRunUsage } from "../spotCrawler";
@@ -36,7 +36,7 @@ export async function enrichCrawlerCandidates(candidates: CrawlerFacts[], option
       }
       const research = await previewSpotSources({
         spotId: candidate.external_id, name: candidate.name, address: candidate.address,
-        locality: "Basel", website: candidate.website, existingValues: {},
+        locality: "Basel", website: candidate.website, existingValues: {}, crawlerCategory: candidate.category,
       }, {
         fetchPage,
         verifyVenue: true,
@@ -62,6 +62,12 @@ export async function enrichCrawlerCandidates(candidates: CrawlerFacts[], option
         attributeKey === "hours.closure_notice" || attributeKey === "hours.last_entry");
       const observedPrices: CrawlerObservedPrice[] = [];
       for (const proposal of research.proposals) {
+        if (proposal.attributeKey === "classification.primary_category") {
+          basics.primaryCategory = PRIMARY_CATEGORIES.find(value => value === proposal.value);
+        }
+        if (proposal.attributeKey === "purpose.primary_visit") {
+          basics.primaryVisitPurpose = PRIMARY_VISIT_PURPOSES.find(value => value === proposal.value);
+        }
         if (proposal.attributeKey === "contact.website" && typeof proposal.value === "string") basics.website = proposal.value;
         if (proposal.attributeKey === "contact.public_email" && typeof proposal.value === "string") basics.email = proposal.value;
         if (proposal.attributeKey === "contact.phone" && typeof proposal.value === "string") basics.phone = proposal.value;

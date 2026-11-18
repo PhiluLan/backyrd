@@ -1,4 +1,4 @@
-import type { SpecialHoursDay, Weekday } from "@backyrd/world-knowledge-core";
+import type { PrimaryCategory, PRIMARY_VISIT_PURPOSES, SpecialHoursDay, Weekday } from "@backyrd/world-knowledge-core";
 export const spotCrawlerCategories = {
   RESTAURANT: "Restaurants", CAFE: "Cafés", BAR: "Bars", NIGHTCLUB: "Clubs",
   MUSEUM: "Museen", AMUSEMENT_PARK: "Freizeitparks", PLAYGROUND: "Spielplätze",
@@ -64,6 +64,8 @@ export type CrawlerBasics = {
   website?: string;
   email?: string;
   phone?: string;
+  primaryCategory?: PrimaryCategory;
+  primaryVisitPurpose?: typeof PRIMARY_VISIT_PURPOSES[number];
   fullHours?: ReadonlyArray<{ readonly day: string; readonly intervals: ReadonlyArray<{ readonly start: string; readonly end: string }> }>;
   fixedAdmission?: number;
   specialHours?: readonly SpecialHoursDay[];

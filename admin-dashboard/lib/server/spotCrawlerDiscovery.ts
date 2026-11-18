@@ -151,15 +151,20 @@ export function readCrawlerEvidence(page: PublicPage, categories: readonly Crawl
   const venues = structured.filter(node => values(node["@type"]).some(value =>
     typeof value === "string" && typeCategories.has(value.split("/").at(-1) ?? "")));
   const extracted = venues.flatMap(node => {
-    const category = values(node["@type"]).map(value => typeof value === "string" ? typeCategories.get(value.split("/").at(-1) ?? "") : undefined)
-      .find(value => value && categories.includes(value));
+    const types = values(node["@type"]).flatMap(value => typeof value === "string" ? [value.split("/").at(-1) ?? ""] : []);
+    // A secondary restaurant declaration on the hotel itself is not an independent venue.
+    if (types.some(type => ["Hotel", "LodgingBusiness", "Hostel", "Resort"].includes(type))) return [];
+    const knownTypes = [...new Set(types.flatMap(type => typeCategories.get(type) ?? []))];
     const name = clean(node.name, 160);
+    const namedType = venueCategory(name);
+    const category = knownTypes.length === 1 ? knownTypes[0]
+      : namedType && knownTypes.includes(namedType) ? namedType : undefined;
     const address = record(node.address);
     const postal = !address && venues.length === 1 ? visible.address : undefined;
     const street = clean(address?.streetAddress, 200) || postal?.street;
     const postalCode = clean(address?.postalCode, 10) || postal?.postalCode;
     const country = clean(record(address?.addressCountry)?.name ?? address?.addressCountry, 40);
-    if (!category || !name || !street || !/\d/u.test(street)
+    if (!category || !categories.includes(category) || !name || !street || !/\d/u.test(street)
       || !postalCode || !/^40\d{2}$/u.test(postalCode)
       || (address && normalize(clean(address.addressLocality, 80)) !== "basel")
       || (country && !["ch", "schweiz", "switzerland", "suisse"].includes(normalize(country)))) return [];
@@ -189,7 +194,7 @@ export function readCrawlerEvidence(page: PublicPage, categories: readonly Crawl
   const declaredAddress = record(venues[0]?.address);
   const declaredCity = normalize(clean(declaredAddress?.addressLocality, 80));
   const declaredWebsite = clean(venues[0]?.url, 1100);
-  if (extracted.length || venues.length > 1 || (declaredCity && declaredCity !== "basel")
+  if (extracted.length || venues.length || (declaredCity && declaredCity !== "basel")
     || (declaredWebsite && (!crawlerOperatorUrl(declaredWebsite) || host(declaredWebsite) !== host(page.url)))
     || !fallback || !visible.address || !categories.includes(fallback.category)) return extracted;
   return [{ ...fallback, postalCode: visible.address.postalCode, alternatePostalCodes: visible.address.alternatePostalCodes,

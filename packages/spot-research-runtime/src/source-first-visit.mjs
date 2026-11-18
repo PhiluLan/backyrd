@@ -147,3 +147,44 @@ export function readVisitFacts(pages) {
   }
   return { schedule: schedules.size === 1 ? schedules.values().next().value : null, prices: [...prices.values()], restrictions: [...restrictions.values()] };
 }
+
+const visitClassification = {
+  RESTAURANT: ["EAT", "EAT_DRINK", /restaurant|bistro|brasserie|ristorante|pizzeria|brunch/iu, /speisekarte|brunch.buffet|hauptgerichte|mittagessen|abendessen|dining|main courses/iu],
+  CAFE: ["COFFEE_DAYTIME", "EAT_DRINK", /caf[eé]|kaffeehaus|coffee shop/iu, /kaffee|coffee|espresso|brunch|frühstück|breakfast|kuchen/iu],
+  BAR: ["DRINKS", "EAT_DRINK", /\bbar\b|weinbar|cocktailbar|\bpub\b/iu, /cocktails?|getränkekarte|drinks? menu|bier vom fass|weinkarte|ausschank/iu],
+  NIGHTCLUB: ["NIGHTLIFE", "ENTERTAINMENT", /nachtclub|nightclub|tanzclub|\bclub\b/iu, /tanzen|dance floor|tanzfläche|clubbing|dj.sets?/iu],
+  MUSEUM: ["CULTURE_ARTS", "CULTURE_ARTS", /museum|musée/iu, /ausstellung|exhibition|sammlung|collection|kunstwerke?/iu],
+  AMUSEMENT_PARK: ["ACTIVITIES_PLAY", "ACTIVITY_PLAY", /freizeitpark|spielpark|amusement park|theme park/iu, /fahrgeschäfte|achterbahn|spielattraktionen|trampolin|indoor.spiel|rides|play area/iu],
+  PLAYGROUND: ["ACTIVITIES_PLAY", "ACTIVITY_PLAY", /spielplatz|playground/iu, /klettergerüst|schaukel|rutschbahn|sandkasten|slide|swings?/iu],
+};
+
+export function readVisitClassification(pages, spot) {
+  const rule = Object.hasOwn(visitClassification, spot.crawlerCategory) ? visitClassification[spot.crawlerCategory] : null;
+  if (!rule) return [];
+  const [primaryCategory, purpose, categoryTerms, purposeTerms] = rule;
+  const normalize = text => text.toLowerCase().normalize("NFKC").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const name = normalize(spot.name);
+  const categoryEvidence = pages.flatMap(({ page, venueIdentity }) => {
+    if (!venueIdentity) return [];
+    const headings = [...page.body.matchAll(/<(title|h1|h2)\b[^>]*>([\s\S]*?)<\/\1>/giu)];
+    return headings.flatMap(([, tag, html]) => {
+      const heading = sourceText({ ...page, body: "<h1>" + html + "</h1>" }, "category").text.trim();
+      if (heading.length > 200 || !(" " + normalize(heading) + " ").includes(" " + name + " ") ||
+          /häufige fragen|faq|häufig gestellte/iu.test(heading) || !categoryTerms.test(heading)) return [];
+      return [{ page, heading, priority: tag.toLowerCase() === "title" ? 1 : 0 }];
+    });
+  }).sort((a, b) => a.priority - b.priority);
+  const category = categoryEvidence[0];
+  if (!category) return [];
+  const results = [proposal("classification.primary_category", primaryCategory, category.heading, category.page)];
+  const purposeEvidence = [category.page, ...pages.map(({ page }) => page).filter(page => page !== category.page)]
+    .flatMap(page => sourceText(page, "visit-purpose", { preferMain: true }).text
+      .split(/\n|(?<=[.!?])\s+(?=[\p{Lu}])/u).map(line => ({ page, line: line.trim() })))
+    .filter(({ line }) => line.length >= 4 && line.length <= 300 && purposeTerms.test(line)
+      && !/https?:|@|gutschein|voucher|events? buchen|mieten/iu.test(line));
+  const strongest = purpose === "CULTURE_ARTS"
+    ? purposeEvidence.find(({ line }) => /dauerausstellung|ausstellungen|sammlung|collection/iu.test(line)) ?? purposeEvidence[0]
+    : purposeEvidence[0];
+  if (strongest) results.push(proposal("purpose.primary_visit", purpose, strongest.line, strongest.page));
+  return results;
+}

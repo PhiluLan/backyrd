@@ -5,6 +5,7 @@ export type SourcePreviewSpot = {
   name: string;
   locality: string | null;
   address?: string;
+  crawlerCategory?: string;
   website?: string | null;
   existingValues: Record<string, unknown>;
 };
