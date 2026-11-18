@@ -163,7 +163,8 @@ export function safeImportRepository(
     },
     async finish(job, lease, document) {
       await update(job, lease, {
-        export_document: { ...document, ...(inbox?.exportDocument.taskDecisions ? {taskDecisions:inbox.exportDocument.taskDecisions} : {}), kind, pipeline: job.metadata },
+        export_document: { ...document, ...(inbox?.exportDocument.taskDecisions ? {taskDecisions:inbox.exportDocument.taskDecisions} : {}),
+          ...(inbox?.exportDocument.providerUsage ? {providerUsage:inbox.exportDocument.providerUsage} : {}), kind, pipeline: job.metadata },
         result_document: document,
         lease_token: null,
         lease_expires_at: null,

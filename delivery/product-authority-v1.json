@@ -625,7 +625,7 @@
     "functions": [
       "decision-engine-worker"
     ],
-    "workerSourceSetHash": "8ada092765e8b44007a55b071f31ba5078e0138b2b8f53d65a3a7d66101c5c10",
+    "workerSourceSetHash": "5ea6897d8786c5b424b41e6e73cf3bdf4819958e951615632a9f499abddd7a3f",
     "deferredMigrations": [
       {
         "path": "supabase/migrations/20261020184245_booking_restaurant_service_lifecycle_v1.sql",
@@ -692,6 +692,6 @@
         }
       ]
     },
-    "source": "Publish verified research sources and concrete proposals in the Admin. Bind only the changed research worker; defer Booking migrations."
+    "source": "Measure provider usage per research run and display it in the Admin. Deploy exactly the research worker and defer Booking migrations."
   }
 }

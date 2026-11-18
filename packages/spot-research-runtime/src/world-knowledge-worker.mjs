@@ -178,6 +178,33 @@ export async function retrieveWorldResearchResponse(responseId, { apiKey, fetchI
   return providerRequest(`${providerEndpoint}/${encodeURIComponent(responseId)}?include%5B%5D=web_search_call.action.sources`, apiKey, { fetchImpl });
 }
 
+function readProviderUsage(response, sourceCheckedProposals) {
+  const usage = response?.usage;
+  const validCount = value => Number.isSafeInteger(value) && value >= 0;
+  const model = response?.model;
+  if (typeof model !== "string" || !/^[a-zA-Z0-9._-]{1,80}$/.test(model)
+    || !validCount(usage?.input_tokens) || !validCount(usage?.output_tokens)
+    || !Array.isArray(response.output)) return null;
+  const inputTokens = usage.input_tokens;
+  const outputTokens = usage.output_tokens;
+  const reportedCached = usage.input_tokens_details?.cached_tokens;
+  const cachedInputTokens = validCount(reportedCached) && reportedCached <= inputTokens ? reportedCached : null;
+  const webSearchCalls = response.output.filter(item => item?.type === "web_search_call").length;
+  const tier = response.service_tier;
+  let estimatedUsd = null;
+  // Public standard GPT-5.5 rates, including long-context uplift.
+  // Other models and service tiers keep measured usage without a dollar estimate.
+  if (/^gpt-5\.5(?:-\d{4}-\d{2}-\d{2})?$/.test(model)
+    && (tier === undefined || tier === null || tier === "default") && cachedInputTokens !== null) {
+    const long = inputTokens > 272_000;
+    estimatedUsd = ((inputTokens - cachedInputTokens) * (long ? 10 : 5)
+      + cachedInputTokens * (long ? 1 : 0.5) + outputTokens * (long ? 45 : 30)
+      + webSearchCalls * 10_000) / 1_000_000;
+  }
+  return { model, inputTokens, cachedInputTokens, outputTokens, webSearchCalls,
+    estimatedUsd, sourceCheckedProposals: sourceCheckedProposals ?? null };
+}
+
 export async function processOneWorldResearchJob({ service, apiKey, model = "gpt-5.5", fetchImpl = fetch } = {}) {
   const claimed = await service.rpc("world_research_automation_claim_v1", { p_lease_seconds: 90 });
   if (claimed.error) throw new Error("world_research_job_claim_failed");
@@ -188,6 +215,7 @@ export async function processOneWorldResearchJob({ service, apiKey, model = "gpt
       .eq("id", job.jobId).eq("lease_token", job.leaseToken).eq("status", "RUNNING").select("id").single();
     if (result.error || !result.data) throw new Error("world_research_job_lease_lost");
   };
+  let providerUsage = null;
   try {
     const response = job.providerResponseId
       ? await retrieveWorldResearchResponse(job.providerResponseId, { apiKey, fetchImpl })
@@ -201,9 +229,12 @@ export async function processOneWorldResearchJob({ service, apiKey, model = "gpt
         lease_token: null, lease_expires_at: null });
       return { state: "RUNNING", jobId: job.jobId };
     }
+    providerUsage = readProviderUsage(response);
     if (response.status !== "completed") throw new Error(`world_research_provider_${response.status ?? "unknown"}`);
     const document = worldResearchResponseDocument(job.exportDocument, response);
+    if (providerUsage) providerUsage.sourceCheckedProposals = document.research.spots[0].claims.length;
     await update({ status: "READY_FOR_REVIEW", provider_response_id: response.id,
+      ...(providerUsage ? { export_document: { ...job.exportDocument, providerUsage } } : {}),
       result_document: document, completed_at: new Date().toISOString(),
       lease_token: null, lease_expires_at: null, failure_code: null });
     return { state: "READY_FOR_REVIEW", jobId: job.jobId, claims: document.research.spots[0].claims.length };
@@ -212,6 +243,7 @@ export async function processOneWorldResearchJob({ service, apiKey, model = "gpt
     if (code === "world_research_job_lease_lost") throw error;
     const retryable = /world_research_provider_(?:timeout|transport_error|http_429|http_5\d\d)/.test(code);
     await update({ status: retryable ? "QUEUED" : "FAILED", failure_code: code,
+      ...(providerUsage ? { export_document: { ...job.exportDocument, providerUsage } } : {}),
       available_at: retryable ? new Date(Date.now() + 30_000).toISOString() : undefined,
       completed_at: retryable ? null : new Date().toISOString(),
       lease_token: null, lease_expires_at: null });
