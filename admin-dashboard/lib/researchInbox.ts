@@ -6,10 +6,14 @@ export const RESEARCH_INBOX_CUTOVER = "2026-11-17T16:49:31.000Z";
 export const FOLLOWUP_KIND = "ADMIN_RESEARCH_FOLLOWUP";
 export type InboxAnswer = { claimId?: string; knowledgeState?: string; value?: unknown; visibility?: string };
 export type InboxDecision = { fingerprint: string; claimId: string | null; actorId: string; at: string; outcome: "KEPT_PROFILE" | "LEFT_UNKNOWN" };
+export type ResearchProviderUsage = {
+  model: string; inputTokens: number; cachedInputTokens: number | null; outputTokens: number;
+  webSearchCalls: number; estimatedUsd: number | null; sourceCheckedProposals: number | null;
+};
 export type InboxRow = {
   id: string; actor_id: string; spot_id: string; spot_name: string; status: string;
   created_at: string; updated_at: string; reviewed_at: string | null; provider_response_id?: string | null; lease_expires_at?: string | null;
-  export_document: { kind?: string; taskDecisions?: InboxDecision[]; pipeline?: { phase?: string; report?: { stored?: string[]; review?: Array<{attributeKey:string;reason?:string;explanation?:string}>; unresolved?: Array<{attributeKey:string;reason:string}>;errors?:string[] } } };
+  export_document: { kind?: string; providerUsage?: ResearchProviderUsage; taskDecisions?: InboxDecision[]; pipeline?: { phase?: string; report?: { stored?: string[]; review?: Array<{attributeKey:string;reason?:string;explanation?:string}>; unresolved?: Array<{attributeKey:string;reason:string}>;errors?:string[] } } };
   result_document?: unknown;
 };
 export type InboxTask = ResearchResult & { fingerprint: string; jobIds: string[]; claimId: string | null; currentValue?: unknown };

@@ -99,7 +99,11 @@ export async function GET(request:Request) {
       });
       const latestWorkerReport=items.find(item=>item.provider_response_id);
       const preparationJob=latestWorkerReport && canPrepareResearch(latestWorkerReport) ? latestWorkerReport.id : undefined;
-      return Response.json({spot:{...spot,name:detail.name,needsReview:spot.tasks.length>0,automaticallyStored,preparationJob}},{headers});
+      const researchUsage = items.flatMap(row => {
+        const usage = row.export_document.providerUsage;
+        return usage ? [{ ...usage, jobId: row.id, createdAt: row.created_at }] : [];
+      });
+      return Response.json({spot:{...spot,name:detail.name,needsReview:spot.tasks.length>0,automaticallyStored,preparationJob,researchUsage}},{headers});
     } catch {
       throw new Error("Das Ortprofil konnte nicht abgeglichen werden. Bitte aktualisiere den Auftrag.");
     }

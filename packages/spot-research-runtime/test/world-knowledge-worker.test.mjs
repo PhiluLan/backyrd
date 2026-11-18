@@ -123,11 +123,18 @@ test("Worker records a source-bound proposal document without canonical writes",
   const service = { rpc: async () => ({ data: { jobId: "job-1", leaseToken: "lease-1", exportDocument, providerResponseId: "resp_existing", pollCount: 0 }, error: null }),
     from: (table) => { assert.equal(table, "world_research_automation_jobs_v1"); return { update: (values) => { writes.push(values); return { eq: () => ({ eq: () => ({ eq: () => ({ select: () => ({ single: async () => ({ data: { id: "job-1" }, error: null }) }) }) }) }) }; } }; } };
   const result = await processOneWorldResearchJob({ service, apiKey: "test-only", fetchImpl: async () => ({ ok: true,
-    json: async () => ({ id: "resp_existing", ...response({ claims: [claim], unresolved: [] }) }) }) });
+    json: async () => ({ id: "resp_existing", model: "gpt-5.5-2026-04-23", service_tier: "default",
+      usage: { input_tokens: 50_000, input_tokens_details: { cached_tokens: 10_000 }, output_tokens: 10_000 },
+      ...response({ claims: [claim], unresolved: [] }) }) }) });
   assert.equal(result.state, "READY_FOR_REVIEW");
   assert.equal(writes.length, 1);
   assert.equal(writes[0].status, "READY_FOR_REVIEW");
   assert.equal(writes[0].result_document.research.spots[0].claims.length, 1);
+  assert.equal(writes[0].export_document.exportHash, exportDocument.exportHash);
+  assert.deepEqual(writes[0].export_document.providerUsage, {
+    model: "gpt-5.5-2026-04-23", inputTokens: 50_000, cachedInputTokens: 10_000,
+    outputTokens: 10_000, webSearchCalls: 2, estimatedUsd: 0.525, sourceCheckedProposals: 1,
+  });
 });
 
 test("directly opened official pages need no duplicate search entry, and failed opens count for nothing", () => {

@@ -1,13 +1,13 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { InboxSpot, StoredResearchField } from "@/lib/researchInbox";
+import type { InboxSpot, StoredResearchField, ResearchProviderUsage } from "@/lib/researchInbox";
 import { ResearchTaskReview } from "./ResearchTaskReview";
 import { ResearchFieldEditor } from "./ResearchFieldEditor";
 import { ResearchValue, researchFieldLabel } from "./ResearchValue";
 
 import styles from "./ResearchInbox.module.css";
 type SpotSummary=Omit<InboxSpot,"tasks"> & {needsReview:boolean};
-type SpotDetail=InboxSpot & {needsReview:boolean;automaticallyStored?:StoredResearchField[];preparationJob?:string};
+type SpotDetail=InboxSpot & {needsReview:boolean;automaticallyStored?:StoredResearchField[];preparationJob?:string;researchUsage?:Array<ResearchProviderUsage & {jobId:string;createdAt:string}>};
 type Snapshot={spots:SpotSummary[];checkedAt:string};
 type InboxTab = "recent" | "older" | "done";
 const recentWindow = 7 * 24 * 60 * 60 * 1000;
@@ -217,6 +217,17 @@ export function ResearchInbox({request,post,onTools}:{request(body?:unknown,spot
             {task ? "Die Recherche wurde nicht vollständig abgeschlossen. Die gefundenen Angaben kannst du trotzdem prüfen."
               : "Die Recherche wurde nicht vollständig abgeschlossen. Es liegen keine Angaben zur Prüfung vor."}
           </p>}
+          {!!detail.researchUsage?.length && <details className={styles.recovery}>
+            <summary>OpenAI-Verbrauch pro Recherche</summary>
+            <ul>{detail.researchUsage.map(run => <li key={run.jobId}>
+              <strong>{new Date(run.createdAt).toLocaleString("de-CH")} · {run.estimatedUsd === null
+                ? "Preis nicht berechnet"
+                : new Intl.NumberFormat("de-CH", {style:"currency",currency:"USD",maximumFractionDigits:4}).format(run.estimatedUsd)}</strong>
+              <p>{run.model} · {run.inputTokens.toLocaleString("de-CH")} Eingabe-Tokens · {run.outputTokens.toLocaleString("de-CH")} Ausgabe-Tokens · {run.webSearchCalls} Websuchaufrufe</p>
+              {run.sourceCheckedProposals !== null && <p>{run.sourceCheckedProposals} Vorschläge mit geprüfter Quellenreferenz</p>}
+            </li>)}</ul>
+            <small>Preise sind aus dem gemessenen Verbrauch und dem öffentlichen OpenAI-Tarif berechnet.</small>
+          </details>}
           {!!detail.automaticallyStored?.length && <section className={styles.stored} aria-label="Automatisch übernommen">
             <h3>Automatisch übernommen</h3>
             {detail.automaticallyStored.map(field=>{
