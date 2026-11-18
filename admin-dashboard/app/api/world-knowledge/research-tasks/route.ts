@@ -1,4 +1,5 @@
 import "server-only";
+import { readOfficialSpotEmail } from "../../../../../packages/spot-research-runtime/src/official-spot-email.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { AUTHORING_FIELDS, normalizeAutomatedWorldResearchBatch, parseWorldResearchBatch, type WorldResearchBatchDocument } from "@backyrd/world-knowledge-core";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
@@ -21,17 +22,33 @@ function clients(request:Request) {
 }
 const columns="id,actor_id,spot_id,spot_name,status,created_at,updated_at,reviewed_at,export_document,result_document,lease_expires_at";
 const allowed=new Set(AUTHORING_FIELDS.map(field=>field.attributeKey));
+const emailKey = "contact.public_email";
+type AssessedResearch = WorldResearchBatchDocument & {
+  research: WorldResearchBatchDocument["research"] & {
+    assessments?: { attributeKey: string; uncertainty: string; reason: string; bindings: Record<string, string> }[];
+  };
+};
+
+function canCheckOfficialEmail(document: AssessedResearch | null) {
+  const spot = document?.batch?.spots?.[0];
+  const website = spot?.existingValues?.["contact.website"];
+  return !!spot?.locality && website?.knowledgeState === "KNOWN_VALUE" &&
+    typeof website.value === "string" && !spot.existingValues[emailKey] &&
+    document?.research?.spots?.[0]?.unresolved?.some(item => item.attributeKey === emailKey) === true;
+}
+
 function canPrepareResearch(row: InboxRow) {
   const kind=row.export_document.kind;
+  const document = row.result_document as AssessedResearch | null;
   return process.env.WORLD_RESEARCH_SAFE_IMPORT_ENABLED === "true" &&
     row.status === "READY_FOR_REVIEW" && !row.reviewed_at &&
     (kind === "AUTOMATIC_RESEARCH_REVIEW" || (!kind && !!row.provider_response_id)) &&
     row.export_document.pipeline?.phase !== "FINISHED" &&
     (!row.lease_expires_at || Date.parse(row.lease_expires_at)<=Date.now()) &&
     !row.export_document.taskDecisions?.length &&
-    (row.result_document as {research?:{assessments?:{attributeKey:string;uncertainty:string}[]}} | null)?.research?.assessments?.some(
+    (canCheckOfficialEmail(document) || document?.research?.assessments?.some(
       assessment=>assessment.uncertainty==="NONE" && INBOX_AUTO_RESEARCH_KEYS.has(assessment.attributeKey),
-    ) === true;
+    ) === true);
 }
 export async function GET(request:Request) {
   const auth=await authorizeAdminRequest(request);
@@ -105,17 +122,35 @@ export async function POST(request:Request) {
       if(found.error || !found.data)throw new Error("Der Rechercheauftrag wurde nicht gefunden.");
       const row=found.data as InboxRow;
       if(!canPrepareResearch(row))return Response.json({prepared:false},{headers});
-      const document=normalizeAutomatedWorldResearchBatch(row.result_document as WorldResearchBatchDocument) as WorldResearchBatchDocument & {
-        research:WorldResearchBatchDocument["research"] & {assessments?: {attributeKey:string;uncertainty:string}[]}
-      };
-      const claims=new Set(document.research.spots[0]?.claims.map(claim=>claim.attributeKey));
-      if (!document.research.assessments) throw new Error("Die Quellenprüfung braucht eine Einschätzung pro Angabe.");
-      document.research.assessments=document.research.assessments.filter(assessment=>claims.has(assessment.attributeKey));
+      const document = normalizeAutomatedWorldResearchBatch(row.result_document as WorldResearchBatchDocument) as AssessedResearch;
       const exported=row.export_document as unknown as WorldResearchBatchDocument;
       if (document.exportHash !== exported.exportHash || document.batch.spots.length !== 1 ||
           document.batch.spots[0].spotId !== row.spot_id ||
           JSON.stringify(document.research.instructions) !== JSON.stringify(exported.research.instructions))
         throw new Error("Die Recherche gehört zu einem anderen Auftrag.");
+      const research = document.research.spots[0];
+      const claims = new Set(research.claims.map(claim => claim.attributeKey));
+      document.research.assessments = (document.research.assessments ?? [])
+        .filter(assessment => claims.has(assessment.attributeKey));
+      // Once adopted, the stored document and its proof state must remain stable on retry.
+      if (!row.export_document.pipeline && canCheckOfficialEmail(document)) {
+        const detail = await readWorldResearchDetail(actor, row.spot_id);
+        const spot = document.batch.spots[0];
+        const website = detail.answers?.["contact.website"];
+        if (website?.visibility === "PUBLIC" && website.knowledgeState === "KNOWN_VALUE" &&
+            typeof website.value === "string" && website.value === spot.existingValues["contact.website"].value &&
+            !detail.answers?.[emailKey]) {
+          const email = await readOfficialSpotEmail({ website: website.value, name: detail.name, locality: spot.locality });
+          if (email) {
+            research.claims.push(email);
+            research.unresolved = research.unresolved.filter(item => item.attributeKey !== emailKey);
+            document.research.assessments.push({
+              attributeKey: emailKey, uncertainty: "NONE", bindings: {},
+              reason: "Allgemeine Kontaktadresse im veröffentlichten Mail-Link der offiziellen Website.",
+            });
+          }
+        }
+      }
       const {report}=await processSafeResearchDocument(document,{
         actorId:auth.userId,
         inboxJobId:row.id,
