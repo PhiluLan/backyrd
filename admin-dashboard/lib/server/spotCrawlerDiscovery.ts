@@ -1,3 +1,4 @@
+import { directorySource } from "../../../packages/spot-research-runtime/src/source-first-identity.mjs";
 import { createHash } from "node:crypto";
 import {
   discoverResearchLinks, fetchPublicSource, publicSourceUrl, researchLegalPage, visibleSourceHtml,
@@ -23,13 +24,12 @@ const typeCategories = new Map<string, CrawlerCategory>([
   ["BarOrPub", "BAR"], ["NightClub", "NIGHTCLUB"],
   ["Museum", "MUSEUM"], ["AmusementPark", "AMUSEMENT_PARK"], ["Playground", "PLAYGROUND"],
 ]);
-const restrictedHosts = /(?:^|\.)(?:google(?:\.[a-z]+)+|tripadvisor(?:\.[a-z]+)+|facebook\.com|instagram\.com|booking\.com|guidle\.com|neueroeffnung\.info|ch-rest\.com|yelp(?:\.[a-z]+)+|basel\.com|local\.ch|search\.ch|thefork(?:\.[a-z]+)+)$/iu;
 const deadlineExceeded = () => new Error("RUN_TIME_LIMIT");
 
 export function crawlerOperatorUrl(input: string): string | null {
   try {
     const url = publicSourceUrl(input);
-    if (url.length > 1100 || restrictedHosts.test(host(url)) || researchLegalPage(url) === "PROHIBITED") return null;
+    if (url.length > 1100 || directorySource(url) || researchLegalPage(url) === "PROHIBITED") return null;
     return url;
   } catch { return null; }
 }
@@ -117,7 +117,8 @@ function visiblePlace(body: string, pageUrl: string) {
     .split(/[|:–—,]| - /u)[0]?.trim().replace(/\s+(?:in\s+)?Basel$/iu, "") ?? "";
   function namedVenue(name: string, category: CrawlerCategory | undefined): VenueIdentity | undefined {
     if (!category || name.length < 3 || name.split(/\s+/u).length > 7
-      || /^(?:best[esn]* |die |unser[e]?[nm]? |welche |willkommen|home$|startseite$|über uns$|kontakt$|kaffee$|restaurant$|bistro$|cafés?$|cafes?$|bar$|nachtclub$|nightclub$|museum$|freizeitpark$|spielplatz$|specialty coffee$)/iu.test(name)) return;
+      || /\.[a-z]{2,}(?:\/|$)/iu.test(name)
+      || /^(?:lokal$|eintrittspreise$|öffnungszeiten$|weinbar$|best[esn]* |die |unser[e]?[nm]? |welche |willkommen|home$|startseite$|über uns$|kontakt$|kaffee$|restaurant$|bistro$|cafés?$|cafes?$|bar$|nachtclub$|nightclub$|museum$|freizeitpark$|spielplatz$|specialty coffee$)/iu.test(name)) return;
     return { name, category, website: pageUrl };
   }
   const headingIdentities = headings.flatMap(heading => namedVenue(displayName(heading), venueCategory(heading)) ?? []);

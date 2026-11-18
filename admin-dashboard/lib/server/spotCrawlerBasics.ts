@@ -1,3 +1,4 @@
+import { readResearchPdf } from "./researchPdf";
 import "server-only";
 import { PRIMARY_CATEGORIES, PRIMARY_VISIT_PURPOSES, validateAuthoringSubmission, type SpecialHoursDay, type WeeklyScheduleDay } from "@backyrd/world-knowledge-core";
 import { fetchPublicSource } from "../../../packages/spot-research-runtime/src/nuknuk-sources.mjs";
@@ -25,6 +26,10 @@ export async function enrichCrawlerCandidates(candidates: CrawlerFacts[], option
       }, {
         fetchPage,
         verifyVenue: true,
+        readDocument: page => {
+          if (!Buffer.isBuffer(page.body) || Date.now() >= options.deadline - 2000) throw new Error("CRAWLER_DOCUMENT_UNAVAILABLE");
+          return readResearchPdf(new Uint8Array(page.body), { timeoutMs: Math.min(4000, options.deadline - Date.now() - 1000) });
+        },
         search: options.brave && searchesLeft > 0 ? async query => {
           if (searchesLeft <= 0 || Date.now() >= options.deadline - 8500) throw new Error("CRAWLER_BASICS_SEARCH_LIMIT");
           searchesLeft--;
