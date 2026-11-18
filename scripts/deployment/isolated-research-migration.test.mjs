@@ -329,6 +329,9 @@ test('crawler visit workspace retains its prerequisite receipts through the depl
  assert.equal(plan.appliedCrawlerShortlist?.status,'APPLIED_AND_VERIFIED');
  const output=mkdtempSync(join(tmpdir(),'backyrd-crawler-visit-workspace-'));
  prepareResearchMigrationWorkspace(plan,repo,output);
- assert.ok(existsSync(join(output,plan.pendingMigrations[0].path)));
+ const visitMigration = plan.pendingMigrations[0] ?? plan.appliedCrawlerVisit?.migration;
+ assert.ok(visitMigration, "pending or independently verified crawler visit migration is required");
+ assert.ok(existsSync(join(output,visitMigration.path)));
+ if (plan.appliedCrawlerVisit) assert.deepEqual(plan.pendingMigrations, [], "verified SQL must not run twice");
  assert.throws(()=>prepareResearchMigrationWorkspace({...plan,appliedCrawlerShortlist:null},repo,mkdtempSync(join(tmpdir(),'backyrd-crawler-visit-denied-'))),/scope_invalid/);
 });

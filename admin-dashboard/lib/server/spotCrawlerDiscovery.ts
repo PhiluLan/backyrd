@@ -23,7 +23,7 @@ const typeCategories = new Map<string, CrawlerCategory>([
   ["BarOrPub", "BAR"], ["NightClub", "NIGHTCLUB"],
   ["Museum", "MUSEUM"], ["AmusementPark", "AMUSEMENT_PARK"], ["Playground", "PLAYGROUND"],
 ]);
-const restrictedHosts = /(?:^|\.)(?:google(?:\.[a-z]+)+|tripadvisor(?:\.[a-z]+)+|facebook\.com|instagram\.com|booking\.com|guidle\.com|ch-rest\.com|yelp(?:\.[a-z]+)+|basel\.com|local\.ch|search\.ch|thefork(?:\.[a-z]+)+)$/iu;
+const restrictedHosts = /(?:^|\.)(?:google(?:\.[a-z]+)+|tripadvisor(?:\.[a-z]+)+|facebook\.com|instagram\.com|booking\.com|guidle\.com|neueroeffnung\.info|ch-rest\.com|yelp(?:\.[a-z]+)+|basel\.com|local\.ch|search\.ch|thefork(?:\.[a-z]+)+)$/iu;
 const deadlineExceeded = () => new Error("RUN_TIME_LIMIT");
 
 export function crawlerOperatorUrl(input: string): string | null {
