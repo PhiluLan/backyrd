@@ -29,7 +29,10 @@ export async function previewSpotSources(spot, { fetchPage = fetchPublicSource, 
       let page = null;
       try {
         const response = await fetchPage(url, { timeoutMs: 3500, maxRedirects: 2, maxBytes: 1_500_000, ...options });
-        if (/^(?:text\/html|application\/xhtml\+xml)\b/iu.test(response.contentType) && typeof response.body === "string") page = response;
+        if (/^(?:text\/html|application\/xhtml\+xml)\b/iu.test(response.contentType) && typeof response.body === "string") {
+          sourceText(response, "crawler-page-validation");
+          page = response;
+        }
       } catch { /* A failed page does not invalidate the sources that did respond. */ }
       pages.set(url, page);
     }
