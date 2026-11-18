@@ -786,6 +786,8 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     appliedSpotCrawler,
     appliedCrawlerApproval,
     appliedCrawlerBasics,
+    appliedCrawlerShortlist,
+    appliedCrawlerVisit,
     appliedSeasonalEvent,
     appliedAreaReservation,
     isolatedResearchScope: isolatedResearchScope ?? null,
