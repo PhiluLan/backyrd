@@ -150,7 +150,7 @@ export function readVisitFacts(pages) {
 
 const visitClassification = {
   RESTAURANT: ["EAT", "EAT_DRINK", /restaurant|bistro|brasserie|ristorante|pizzeria|brunch/iu, /speisekarte|brunch.buffet|hauptgerichte|mittagessen|abendessen|dining|main courses/iu],
-  CAFE: ["COFFEE_DAYTIME", "EAT_DRINK", /caf[eé]|kaffeehaus|coffee shop/iu, /kaffee|coffee|espresso|brunch|frühstück|breakfast|kuchen/iu],
+  CAFE: ["COFFEE_DAYTIME", "EAT_DRINK", /caf[eé]|kaffeehaus|coffee shop|specialty coffee/iu, /kaffee|coffee|espresso|brunch|frühstück|breakfast|kuchen/iu],
   BAR: ["DRINKS", "EAT_DRINK", /\bbar\b|weinbar|cocktailbar|\bpub\b/iu, /cocktails?|getränkekarte|drinks? menu|bier vom fass|weinkarte|ausschank/iu],
   NIGHTCLUB: ["NIGHTLIFE", "ENTERTAINMENT", /nachtclub|nightclub|tanzclub|\bclub\b/iu, /tanzen|dance floor|tanzfläche|clubbing|dj.sets?/iu],
   MUSEUM: ["CULTURE_ARTS", "CULTURE_ARTS", /museum|musée/iu, /ausstellung|exhibition|sammlung|collection|kunstwerke?/iu],

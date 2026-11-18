@@ -21,11 +21,12 @@ export function isPublicIPv4(ip) {
   const p=ip.split('.').map(Number);
   return p.length===4&&p.every(n=>Number.isInteger(n)&&n>=0&&n<256)&&![0,10,127].includes(p[0])&&p[0]<224&&!(p[0]===169&&p[1]===254)&&!(p[0]===172&&p[1]>=16&&p[1]<=31)&&!(p[0]===192&&p[1]===0&&p[2]===0)&&!(p[0]===192&&p[1]===168)&&!(p[0]===100&&p[1]>=64&&p[1]<=127)&&!(p[0]===198&&[18,19].includes(p[1]));
 }
-// Public GET only; callers constrain official-site discovery. No credentials or redirects.
-export async function fetchPublicSource(value,{resolve=lookup,requestImpl=request,maxBytes=2000000,timeoutMs=15000,maxRedirects=0,allowedWebsite=value,allowObservedPdfRedirect=false}={}) {
+// Public GET only. Redirects are opt-in, bounded and restricted to the approved site.
+export async function fetchPublicSource(value,{resolve=lookup,requestImpl=request,maxBytes=2000000,timeoutMs=15000,maxRedirects=0,allowedWebsite=value,allowObservedPdfRedirect=false,authorizeUrl}={}) {
   if(!Number.isInteger(maxBytes)||maxBytes<1||maxBytes>20000000)throw new Error('source_size_limit_invalid');
   if(!Number.isInteger(maxRedirects)||maxRedirects<0||maxRedirects>3)throw new Error('source_redirect_limit_invalid');
   const url=publicSourceUrl(value),u=new URL(url);
+  if(authorizeUrl)await authorizeUrl(url);
   let dnsTimer;
   const addresses=await Promise.race([resolve(u.hostname,{family:4,all:true}),new Promise((_,reject)=>{dnsTimer=setTimeout(()=>reject(new Error('source_dns_timeout')),timeoutMs);})]).finally(()=>clearTimeout(dnsTimer));
   if(!addresses.length||addresses.some(a=>!isPublicIPv4(a.address)))throw new Error('source_private_address');
@@ -46,7 +47,7 @@ export async function fetchPublicSource(value,{resolve=lookup,requestImpl=reques
           if(!sameWebsite&&!linkedPdf)throw new Error('source_redirect_identity_rejected');
           // Only an explicitly observed official PDF link may cross to a
           // public document host. The foreign hop gets no further redirects.
-          accept(fetchPublicSource(target,{resolve,requestImpl,maxBytes,timeoutMs,maxRedirects:sameWebsite?maxRedirects-1:0,allowedWebsite:sameWebsite?allowedWebsite:target,allowObservedPdfRedirect:false}).then(page=>({...page,redirectedFrom:[url,...(page.redirectedFrom??[])]})));
+          accept(fetchPublicSource(target,{resolve,requestImpl,maxBytes,timeoutMs,maxRedirects:sameWebsite?maxRedirects-1:0,allowedWebsite:sameWebsite?allowedWebsite:target,allowObservedPdfRedirect:false,authorizeUrl}).then(page=>({...page,redirectedFrom:[url,...(page.redirectedFrom??[])]})));
         }catch(error){reject(error);}return;
       }
       if(res.statusCode!==200){res.destroy();reject(new Error(`source_http_${res.statusCode}`));return;}

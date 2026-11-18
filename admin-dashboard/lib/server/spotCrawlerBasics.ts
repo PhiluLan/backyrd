@@ -3,7 +3,7 @@ import { PRIMARY_CATEGORIES, PRIMARY_VISIT_PURPOSES, validateAuthoringSubmission
 import { fetchPublicSource } from "../../../packages/spot-research-runtime/src/nuknuk-sources.mjs";
 import { previewSpotSources } from "../../../packages/spot-research-runtime/src/source-first-preview.mjs";
 import type { CrawlerBasics, CrawlerFacts, CrawlerObservedPrice, CrawlerRunUsage } from "../spotCrawler";
-import { crawlerOperatorUrl, robotsPermits, searchBrave } from "./spotCrawlerDiscovery";
+import { crawlerOperatorUrl, crawlerSourceLoader, searchBrave } from "./spotCrawlerDiscovery";
 import { selectSourcePrice } from "./sourceFirstSpotPreview";
 
 export async function enrichCrawlerCandidates(candidates: CrawlerFacts[], options: {
@@ -11,22 +11,7 @@ export async function enrichCrawlerCandidates(candidates: CrawlerFacts[], option
 }) {
   let searchesLeft = 10;
   let aiLeft = 1;
-  const robots = new Map<string, Promise<string | null>>();
-  const fetchPage: typeof fetchPublicSource = async (url, config) => {
-    const target = new URL(url);
-    const timeLeft = () => Math.min(3000, options.deadline - Date.now());
-    if (timeLeft() <= 0) throw new Error("CRAWLER_BASICS_TIME_LIMIT");
-    if (!robots.has(target.origin)) {
-      robots.set(target.origin, fetchPublicSource(`${target.origin}/robots.txt`, { timeoutMs: timeLeft(), maxBytes: 240000 })
-        .then(page => typeof page.body === "string" ? page.body : null)
-        .catch(error => error instanceof Error && /^source_http_(404|410)$/u.test(error.message) ? "" : null));
-    }
-    const policy = await robots.get(target.origin);
-    if (timeLeft() <= 0 || policy == null || !robotsPermits(policy, target.pathname + target.search)) {
-      throw new Error("CRAWLER_BASICS_SOURCE_UNAVAILABLE");
-    }
-    return fetchPublicSource(url, { ...config, timeoutMs: timeLeft(), maxRedirects: 0 });
-  };
+  const fetchPage = crawlerSourceLoader(fetchPublicSource, options.deadline);
   const results: CrawlerFacts[] = [];
   for (let index = 0; index < candidates.length; index += 6) {
     results.push(...await Promise.all(candidates.slice(index, index + 6).map(async found => {
