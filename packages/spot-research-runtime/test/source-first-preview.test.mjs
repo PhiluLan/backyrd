@@ -194,3 +194,64 @@ test("an image-only heading cannot abort a verified venue's visit classification
   assert.equal(result.proposals.find(item => item.attributeKey === "classification.primary_category")?.value, "COFFEE_DAYTIME");
   assert.equal(result.proposals.find(item => item.attributeKey === "purpose.primary_visit")?.value, "EAT_DRINK");
 });
+
+
+test("directory subdomains with copied venue schema cannot become operator evidence", async () => {
+  for (const domain of ["cafestjohann.restaurants-info.com", "speisekarte.menu", "basel-restaurants.ch", "where-to-eat.example"]) {
+    const url = `https://${domain}/`;
+    const html = '<title>Café Testhalle</title><p>Café Testhalle Testweg 5 Basel</p>' +
+      `<script type="application/ld+json">${JSON.stringify({name:"Café Testhalle",url,address:{streetAddress:"Testweg 5"}})}</script>`;
+    const r = await previewSpotSources({...venue,name:"Café Testhalle",website:url,crawlerCategory:"CAFE"}, {
+      verifyVenue:true,fetchPage:async target=>page(target,html),
+    });
+    assert.equal(r.proposals.length,0,domain);
+    assert.notEqual(r.status,"CHECKED",domain);
+  }
+});
+
+test("verified operator body establishes restaurant and visit purpose without a brand heading", async () => {
+  const r=await previewSpotSources({...venue,crawlerCategory:"RESTAURANT"},{verifyVenue:true,
+    fetchPage:async url=>page(url,website+'<main><h1>Frisch auf dem Tisch</h1><p>Unser Restaurant serviert täglich wechselnde Tagesmenüs.</p></main>'),
+  });
+  assert.equal(r.proposals.find(p=>p.attributeKey==="classification.primary_category")?.value,"EAT");
+  assert.equal(r.proposals.find(p=>p.attributeKey==="purpose.primary_visit")?.value,"EAT_DRINK");
+});
+
+test("reads observed official PDF price cards and keeps temporary menus out of permanent prices", async () => {
+  const fetched=[];
+  const card=venue.website+'speisen.pdf', weekly=venue.website+'wochenmenu.pdf';
+  const r=await previewSpotSources({...venue,crawlerCategory:"RESTAURANT"},{verifyVenue:true,
+    fetchPage:async url=>{fetched.push(url);return url.endsWith('.pdf')
+      ? {...page(url,Buffer.from('%PDF-1.7')),contentType:'application/pdf'}
+      : page(url,website+`<a href="${card}">Speisekarte</a><a href="${weekly}">Wochenmenü</a>`);},
+    readDocument:async document=>{assert.equal(document.url,card);return 'Speisen\nPasta CHF 19.50\nRisotto CHF 26.00';},
+  });
+  const price=r.proposals.find(p=>p.attributeKey==='operation.price_options');
+  assert.equal(price?.url,card);assert.deepEqual(price.value,{purpose:'MEAL',min:19.5,max:26,minimumAge:null});
+  assert.ok(!fetched.includes(weekly));
+});
+
+test("follows one observed offer page to its official price card without duplicate requests", async () => {
+  const counts=new Map();const offer=venue.website+'angebot',card=venue.website+'karte';
+  const r=await previewSpotSources(venue,{verifyVenue:true,fetchPage:async url=>{
+    counts.set(url,(counts.get(url)??0)+1);
+    return page(url,website+(url===venue.website?`<a href="${offer}">Speisekarte und Angebot</a>`:url===offer?`<a href="${card}">Getränkekarte</a>`:'<p>Getränke</p><p>Espresso CHF 4.50</p><p>Cappuccino CHF 6.50</p>'));
+  }});
+  assert.equal(r.proposals.find(p=>p.attributeKey==='operation.price_options')?.value.purpose,'DRINK');
+  assert.equal(counts.get(card),1);assert.ok([...counts.values()].every(count=>count===1));
+});
+
+
+test("supplements, bottle prices and unbound size rows are not per-person menu items", async () => {
+ const r=await previewSpotSources(venue,{verifyVenue:true,fetchPage:async url=>page(url,website+
+  '<p>Speisen</p><p>+ Honig 1.00</p><p>Toast CHF 9.50</p><p>Risotto CHF 24.00</p>'+
+  '<p>Getränke</p><p>Espresso CHF 4.50</p><p>Spritz CHF 8.50</p><p>Haferdrink + 0.50</p><p>1 dl 9.00</p><p>Flasche 75 cl 72.00</p>')});
+ assert.deepEqual(r.proposals.filter(p=>p.attributeKey==='operation.price_options').map(p=>[p.value.purpose,p.value.min,p.value.max]),[['MEAL',9.5,24],['DRINK',4.5,8.5]]);
+});
+
+test("museum price research does not import its separate restaurant menu", async () => {
+ let pdfReads=0;const r=await previewSpotSources({...venue,name:'Museum Testhalle',crawlerCategory:'MUSEUM'},{verifyVenue:true,
+  fetchPage:async url=>page(url,website.replaceAll('Testhalle','Museum Testhalle')+'<h1>Museum Testhalle</h1><p>Unsere Ausstellung</p><p>Eintrittspreise</p><p>Erwachsene: 18 CHF</p><a href="/bistro.pdf">Speisekarte Bistro</a>'),
+  readDocument:async()=>{pdfReads++;return 'Getränke\nWein CHF 7.50\nChampagner CHF 145.00';}});
+ assert.equal(pdfReads,0);assert.ok(r.proposals.filter(p=>p.attributeKey==='operation.price_options').every(p=>p.value.purpose==='ADMISSION'));
+});

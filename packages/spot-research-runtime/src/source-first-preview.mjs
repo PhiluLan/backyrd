@@ -1,10 +1,11 @@
+import { directorySource, brandedOperatorHost, identityWords } from "./source-first-identity.mjs";
 import { readOfficialSpotBasics } from "./official-spot-basics.mjs";
-import { discoverResearchLinks, fetchPublicSource, matchesExistingWebsite, publicSourceUrl, sourceText } from "./nuknuk-sources.mjs";
+import { discoverResearchLinks, discoverMenuDocuments, discoverPracticalDocuments, fetchPublicSource, matchesExistingWebsite, publicSourceUrl, sourceText } from "./nuknuk-sources.mjs";
 
 import { pricePageLabel, readVisitClassification, readVisitFacts, venueSections } from "./source-first-visit.mjs";
 
 const fields = ["contact.public_email", "contact.phone", "hours.regular", "operation.price_options"];
-const words = value => " " + value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim() + " ";
+const words = value => " " + identityWords(value) + " ";
 const has = (text, value) => !!value?.trim() && text.includes(words(value));
 const priceLabel = /(?:eintritt|preise?|admission|tickets?|tarifs?|tariffe)/iu;
 const fixedAdmission = /^(?:eintritt(?:spreis)?|admission)[\s:–-]+(?:CHF\s*\d+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?\s*CHF)\s+(?:pro person|per person)[.!]?$/iu;
@@ -12,12 +13,13 @@ const priceAmount = /(?:\bCHF\s*\d|\d\s*CHF\b)/iu;
 const observedPriceLabel = /^(?:.{1,110}\s)?(?:CHF\s*\d+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?\s*CHF)(?:[.–-])?(?:\s+(?:pro Person|per person))?$/iu;
 const excludedPriceContent = /@|https?:|[<>]|(?:schreib|ignoriere|instruction|ignore|prompt|passwort|password)/iu;
 
-export async function previewSpotSources(spot, { fetchPage = fetchPublicSource, search, selectPrice, verifyVenue = false } = {}) {
+export async function previewSpotSources(spot, { fetchPage = fetchPublicSource, search, selectPrice, verifyVenue = false, readDocument } = {}) {
   const started = Date.now();
   const missing = fields.filter(key => !Object.hasOwn(spot.existingValues, key));
   const proposals = [];
   const usage = { brave: { state: "NOT_NEEDED", calls: 0 }, ai: { state: "NOT_NEEDED", calls: 0 }, estimatedUsd: 0 };
   const pages = new Map();
+  const pendingPages = new Map();
   const result = (status) => ({
     spotId: spot.spotId, name: spot.name, status, proposals, usage, elapsedMs: Date.now() - started,
     sourcesRead: new Set([...pages.values()].filter(Boolean).map(page => page.url)).size,
@@ -25,7 +27,10 @@ export async function previewSpotSources(spot, { fetchPage = fetchPublicSource, 
   });
   if (!missing.length) return result("COMPLETE_PROFILE");
   const read = async (url, options = {}) => {
+    if (verifyVenue && directorySource(url)) return null;
+    if (pendingPages.has(url)) return pendingPages.get(url);
     if (!pages.has(url)) {
+      const pending = (async () => {
       let page = null;
       try {
         const response = await fetchPage(url, { timeoutMs: 3500, maxRedirects: 2, maxBytes: 1_500_000, ...options });
@@ -35,6 +40,10 @@ export async function previewSpotSources(spot, { fetchPage = fetchPublicSource, 
         }
       } catch { /* A failed page does not invalidate the sources that did respond. */ }
       pages.set(url, page);
+      return page;
+      })();
+      pendingPages.set(url, pending);
+      return pending;
     }
     return pages.get(url);
   };
@@ -46,14 +55,10 @@ export async function previewSpotSources(spot, { fetchPage = fetchPublicSource, 
   let website;
   try { website = publicSourceUrl(spot.website); } catch { /* No usable approved website. */ }
   let home = website ? await read(website) : null;
-  const brandedHost = page => {
-    const label = new URL(page.url).hostname.replace(/^www\./u, "").split(".")[0];
-    const compact = value => words(value.normalize("NFKD").replace(/\p{M}/gu, "")).replace(/\s+/gu, "");
-    const brand = compact(spot.name.replace(/^(?:museum|restaurant|café|bar|freizeitpark)\s+/iu, ""));
-    return brand.length >= 5 && compact(label).includes(brand);
-  };
+  const brandedHost = page => brandedOperatorHost(page.url, spot.name);
   const hasOperatorIdentity = page => {
-    if (matches(page, true) && declaresVenue(page, spot.name, street)) return true;
+    if (!verifyVenue && matches(page, true) && declaresVenue(page, spot.name, street)) return true;
+    if (verifyVenue && directorySource(page.url)) return false;
     if (!verifyVenue) return false;
     const domain = new URL(page.url).hostname.replace(/^www\./u, "");
     if (brandedHost(page) && matches(page, true)) return true;
@@ -104,17 +109,39 @@ export async function previewSpotSources(spot, { fetchPage = fetchPublicSource, 
   const siteLanguage = url => new URL(url).pathname.match(/^\/(de|en|fr|it)(?:[./]|$)/iu)?.[1]?.toLowerCase();
   const language = siteLanguage(home.url) ?? (root ? siteLanguage(root.url) : undefined);
   const navigation = [home, ...(root && (!language || siteLanguage(root.url) === language) ? [root] : [])];
-  const links = navigation.flatMap(page => discoverResearchLinks(page)).filter(({ url, label, topics }) =>
-    matchesExistingWebsite(url, website) && !new URL(url).search && url !== home.url &&
+  const eligibleLinks = page => discoverResearchLinks(page, { spotProfile: verifyVenue }).filter(({ url, label, topics }) =>
+    matchesExistingWebsite(url, website) && !new URL(url).search && url !== home.url && !/\.pdf(?:[?#]|$)/iu.test(url) &&
     (!verifyVenue || !language || !siteLanguage(url) || siteLanguage(url) === language) &&
     (missing.includes("hours.regular") && (topics.includes("hours") || verifyVenue && (topics.includes("visit") || topics.includes("contact"))) ||
       missing.includes("operation.price_options") && (topics.includes("menu") || (verifyVenue ? pricePageLabel : priceLabel).test(new URL(url).pathname + " " + label))));
+  let links = navigation.flatMap(eligibleLinks);
   const priority = link => Number(link.topics.includes("hours") || pricePageLabel.test(link.label) || has(words(link.label), spot.name));
   if (verifyVenue) links.sort((a, b) => priority(b) - priority(a));
   const extra = await Promise.all([...new Set(links.map(link => link.url))].slice(0, verifyVenue ? 5 : 2)
     .map(url => read(url, { allowedWebsite: website })));
   const additionalPages = extra.filter(Boolean);
-  const visitPages = verifyVenue ? [...navigation, ...additionalPages].flatMap(page => {
+  if (verifyVenue && additionalPages.length) {
+    const next = additionalPages.flatMap(eligibleLinks).filter(link => !pages.has(link.url));
+    links = [...links, ...next];
+    additionalPages.push(...(await Promise.all([...new Set(next.map(link => link.url))].slice(0, 2)
+      .map(url => read(url, { allowedWebsite: website })))).filter(Boolean));
+  }
+  const documents = verifyVenue && readDocument && brandedHost(home) && !/standorte|filialen|locations|unsere cafés/iu.test(sourceText(home,"document-scope").text) ? [...navigation, ...additionalPages].flatMap(page =>
+    [...(spot.crawlerCategory === "MUSEUM" ? [] : discoverMenuDocuments(page)), ...discoverPracticalDocuments(page)]) : [];
+  const documentPages = await Promise.all([...new Map(documents.map(item => [item.url, item])).values()].slice(0, 2).map(async document => {
+    // A short-lived weekly menu must not become a permanent price range.
+    if (/wochen|tages|menuplan|menüplan|weekly|daily/iu.test(document.label + " " + document.url)) return null;
+    try {
+      const raw = await fetchPage(document.url, { timeoutMs: 3500, maxBytes: 5_000_000, maxRedirects: 2, allowedWebsite: website, allowObservedPdfRedirect: true });
+      if (!/^application\/pdf\b/iu.test(raw.contentType) || !Buffer.isBuffer(raw.body) || raw.body.subarray(0, 5).toString() !== "%PDF-") return null;
+      const text = await readDocument(raw);
+      if (!text.trim() || text.length > 100000) return null;
+      const escaped = text.replace(/&/gu,"&amp;").replace(/</gu,"&lt;").replace(/>/gu,"&gt;");
+      return { ...raw, contentType: "text/html", body: "<pre>" + escaped + "</pre>", documentLabel: document.label };
+    } catch { return null; }
+  }));
+  const visitPages = verifyVenue ? [...navigation, ...additionalPages, ...documentPages.filter(Boolean)].flatMap(page => {
+    if (page.documentLabel) return [{ page, venueIdentity: true, menuPurpose: /eintritt|tarif|admission/iu.test(page.documentLabel) ? "ADMISSION" : /getränk|drink/iu.test(page.documentLabel) ? "DRINK" : /speise|food/iu.test(page.documentLabel) ? "MEAL" : undefined }];
     const link = links.find(item => item.url === page.url);
     const scoped = venueSections(page, part => matches(part, true), { name: spot.name });
     const menuPurpose = /eintritt|tarif|admission/iu.test((link?.label ?? "") + " " + new URL(page.url).pathname) ? "ADMISSION"

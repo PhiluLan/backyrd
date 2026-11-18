@@ -1,4 +1,4 @@
-import type { fetchPublicSource } from "./nuknuk-sources.mjs";
+import type { fetchPublicSource, PublicPage } from "./nuknuk-sources.mjs";
 
 export type SourcePreviewSpot = {
   spotId: string;
@@ -27,6 +27,7 @@ export type SourcePreviewResult = {
 
 export function previewSpotSources(spot: SourcePreviewSpot, options?: {
   verifyVenue?: boolean;
+  readDocument?: (page:PublicPage)=>Promise<string>;
   fetchPage?: typeof fetchPublicSource;
   search?: (query: string) => Promise<string[]>;
   selectPrice?: (quotes: string[]) => Promise<{ index: number | null; estimatedUsd: number | null; tokens?: { input: number; output: number } }>;

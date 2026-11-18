@@ -1,3 +1,4 @@
+import { identityWords } from "./source-first-identity.mjs";
 import { fieldCandidates, parseHoursRow } from "./nuknuk-research.mjs";
 import { sourceText } from "./nuknuk-sources.mjs";
 
@@ -83,23 +84,28 @@ function scheduleOn(page, lines) {
 function pricesOn(page, lines, menuPurpose) {
   const amounts = new Map();
   let section = menuPurpose;
+  let bottled = false;
   const brunchPage = /brunch|frühstück/iu.test(new URL(page.url).pathname);
   const brunchDays = brunchPage && lines.some(line => /^sonntags$/iu.test(line)) ? ["SUNDAY"] : [];
   for (const [index, line] of lines.entries()) {
     const heading = Object.keys(categories).find(key => categories[key].test(line));
-    if (heading) { section = heading; continue; }
+    if (heading) { section = heading; bottled = false; continue; }
+    if (/flaschen|bottles?|75\s*cl|0[.,]75\s*l/iu.test(line)) bottled = true;
+    if (/offen(?:e|er)? (?:weine?|ausschank)|im glas|by the glass/iu.test(line)) bottled = false;
     let quote = line;
     const match = quote.match(priceAtEnd);
-    if (!match || unsafePrice.test(quote)) continue;
+    if (!match || unsafePrice.test(quote) || /\+\s*(?:CHF\s*)?\d|flasche|bottle|75\s*cl|0[.,]75\s*l/iu.test(quote)) continue;
     const raw = match.slice(1).find(Boolean);
     let label = quote.slice(0, match.index).trim().replace(/[:\s]+$/u, "");
     if (!label && index > 0) {
       label = lines[index - 1];
       quote = label + " " + line;
     }
-    if (!/\p{L}/u.test(label) || label.length > 100 || unsafePrice.test(label)) continue;
+    if (!/\p{L}/u.test(label) || label.length > 100 || unsafePrice.test(label)
+      || /^\s*\+/u.test(label) || /^(?:\d+(?:[.,]\d+)?\s*)?(?:cl|dl|ml|l|g|kg)$/iu.test(label)) continue;
     const age = label.match(/(?:ab|from)\s+(\d{1,2})\s+(?:jahren|years)/iu);
     const purpose = /eintritt|admission|ticket/iu.test(label) ? "ADMISSION" : /brunch|frühstück/iu.test(label) ? "MEAL" : section;
+    if (purpose === "DRINK" && bottled) continue;
     if (!purpose || /kind(?:er)?|children|child|familie|family|ermässigt|student|gruppe|group/iu.test(label)) continue;
     if (purpose === "ADMISSION" && !/^(?:erwachsene(?:r)?|adults?|(?:regulärer?\s+)?eintritt(?:spreis)?(?:\s+erwachsene)?|admission|standard ticket)$/iu.test(label)) continue;
     if (/\b(?:preis|price)\b/iu.test(label) && !age && purpose !== "ADMISSION") continue;
@@ -149,7 +155,7 @@ export function readVisitFacts(pages) {
 }
 
 const visitClassification = {
-  RESTAURANT: ["EAT", "EAT_DRINK", /restaurant|bistro|brasserie|ristorante|pizzeria|brunch/iu, /speisekarte|brunch.buffet|hauptgerichte|mittagessen|abendessen|dining|main courses/iu],
+  RESTAURANT: ["EAT", "EAT_DRINK", /restaurant|bistro|brasserie|ristorante|pizzeria|brunch/iu, /speisekarte|brunch.buffet|hauptgerichte|mittagessen|abendessen|tagesmenüs|tagesmenus|frühstück|speisen|menükarte|dining|main courses/iu],
   CAFE: ["COFFEE_DAYTIME", "EAT_DRINK", /caf[eé]|kaffeehaus|coffee shop|specialty coffee/iu, /kaffee|coffee|espresso|brunch|frühstück|breakfast|kuchen/iu],
   BAR: ["DRINKS", "EAT_DRINK", /\bbar\b|weinbar|cocktailbar|\bpub\b/iu, /cocktails?|getränkekarte|drinks? menu|bier vom fass|weinkarte|ausschank/iu],
   NIGHTCLUB: ["NIGHTLIFE", "ENTERTAINMENT", /nachtclub|nightclub|tanzclub|\bclub\b/iu, /tanzen|dance floor|tanzfläche|clubbing|dj.sets?/iu],
@@ -162,22 +168,33 @@ export function readVisitClassification(pages, spot) {
   const rule = Object.hasOwn(visitClassification, spot.crawlerCategory) ? visitClassification[spot.crawlerCategory] : null;
   if (!rule) return [];
   const [primaryCategory, purpose, categoryTerms, purposeTerms] = rule;
-  const normalize = text => text.toLowerCase().normalize("NFKC").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const normalize = identityWords;
   const name = normalize(spot.name);
+  if (/museum/iu.test(spot.name) && spot.crawlerCategory !== "MUSEUM") return [];
+  const secondary = /(?:schwesterbetrieb|partnerbetrieb|empfehlen wir|in der nähe|gegenüber|kein[e]? |nicht als|not a )/iu;
   const categoryEvidence = pages.flatMap(({ page, venueIdentity }) => {
     if (!venueIdentity) return [];
-    const headings = [...page.body.matchAll(/<(title|h1|h2)\b[^>]*>([\s\S]*?)<\/\1>/giu)];
-    return headings.flatMap(([, tag, html]) => {
+    const main = page.body.match(/<main\b[^>]*>([\s\S]*?)<\/main>/iu)?.[1] ?? page.body;
+    const content = main.replace(/<(nav|footer|aside)\b[^>]*>[\s\S]*?<\/\1>/giu, "");
+    const title = page.body.match(/<title\b[^>]*>[\s\S]*?<\/title>/iu)?.[0] ?? "";
+    const headings = [...(title + content).matchAll(/<(title|h1|h2)\b[^>]*>([\s\S]*?)<\/\1>/giu)];
+    const namedHeadings = headings.flatMap(([, tag, html]) => {
       let heading;
       try { heading = sourceText({ ...page, body: "<h1>" + html + "</h1>" }, "category").text.trim(); }
       catch (error) {
         if (error instanceof Error && error.message === "source_empty") return [];
         throw error;
       }
-      if (heading.length > 200 || !(" " + normalize(heading) + " ").includes(" " + name + " ") ||
+      if (heading.length > 200 || secondary.test(heading) ||
           /häufige fragen|faq|häufig gestellte/iu.test(heading) || !categoryTerms.test(heading)) return [];
       return [{ page, heading, priority: tag.toLowerCase() === "title" ? 1 : 0 }];
     });
+    const ownDescription = sourceText(page, "category-description", { preferMain: true }).descriptionText ?? "";
+    const descriptions = ownDescription.split(/\n|(?<=[.!?])\s+(?=[\p{Lu}])/u).map(line => line.trim())
+      .filter(line => line.length >= 6 && line.length <= 300 && categoryTerms.test(line) && !secondary.test(line)
+        && ((" " + normalize(line) + " ").includes(" " + name + " ") || /\b(?:wir|unser[e]?[nm]?|we|our)\b/iu.test(line)))
+      .map(heading => ({ page, heading, priority: 2 }));
+    return [...namedHeadings, ...descriptions];
   }).sort((a, b) => a.priority - b.priority);
   const category = categoryEvidence[0];
   if (!category) return [];
@@ -186,7 +203,7 @@ export function readVisitClassification(pages, spot) {
     .flatMap(page => sourceText(page, "visit-purpose", { preferMain: true }).text
       .split(/\n|(?<=[.!?])\s+(?=[\p{Lu}])/u).map(line => ({ page, line: line.trim() })))
     .filter(({ line }) => line.length >= 4 && line.length <= 300 && purposeTerms.test(line)
-      && !/https?:|@|gutschein|voucher|events? buchen|mieten/iu.test(line));
+      && !/https?:|@|gutschein|voucher|events? buchen|mieten/iu.test(line) && !secondary.test(line));
   const strongest = purpose === "CULTURE_ARTS"
     ? purposeEvidence.find(({ line }) => /dauerausstellung|ausstellungen|sammlung|collection/iu.test(line)) ?? purposeEvidence[0]
     : purposeEvidence[0];

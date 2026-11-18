@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import test from "node:test";
 import ts from "typescript";
+import * as identityRuntime from "../../packages/spot-research-runtime/src/source-first-identity.mjs";
 import * as sourceRuntime from "../../packages/spot-research-runtime/src/nuknuk-sources.mjs";
 
 const nativeRequire = createRequire(import.meta.url);
@@ -15,7 +16,7 @@ function load(relative, resolve = nativeRequire) {
 }
 
 const { crawlSpotPages, planCrawlerQueries, readCrawlerEvidence, robotsPermits, crawlerOperatorUrl, crawlerSourceLoader } = load(
-  "../lib/server/spotCrawlerDiscovery.ts", id => id.endsWith("nuknuk-sources.mjs") ? sourceRuntime : nativeRequire(id),
+  "../lib/server/spotCrawlerDiscovery.ts", id => id.endsWith("nuknuk-sources.mjs") ? sourceRuntime : id.endsWith("source-first-identity.mjs") ? identityRuntime : nativeRequire(id),
 );
 const crawler = load("../lib/spotCrawler.ts");
 const page = (url, body) => ({ url, body, contentType: "text/html", observedAt: "2026-11-17T10:00:00Z" });
