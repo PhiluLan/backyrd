@@ -317,3 +317,18 @@ test('Basel place sources require the verified spot search release and exact mig
   }), /pending_scope_changed/);
   assert.deepEqual(scopeAnalyticsPageviewsMigrations({ ...request, pending: deferred, appliedBaselPlaceSources: { migration } }).pendingMigrations, []);
 });
+
+test('crawler visit workspace retains its prerequisite receipts through the deployment plan', async () => {
+ const {buildProductionPlan}=await import('./supabase-production-plan.mjs');
+ const {execFileSync}=await import('node:child_process');
+ const repo=new URL('../..',import.meta.url).pathname;
+ const head=execFileSync('git',['rev-parse','HEAD'],{cwd:repo,encoding:'utf8'}).trim();
+ const authority=JSON.parse(readFileSync(join(repo,'delivery/product-authority-v1.json'),'utf8'));
+ if(authority.analyticsPageviewsDeliveryScope?.contractVersion!=='backyrd.crawler-verified-visit-facts-delivery-scope@1.0')return;
+ const plan=buildProductionPlan({repo,baseSha:authority.analyticsPageviewsDeliveryScope.baseSha,headSha:head});
+ assert.equal(plan.appliedCrawlerShortlist?.status,'APPLIED_AND_VERIFIED');
+ const output=mkdtempSync(join(tmpdir(),'backyrd-crawler-visit-workspace-'));
+ prepareResearchMigrationWorkspace(plan,repo,output);
+ assert.ok(existsSync(join(output,plan.pendingMigrations[0].path)));
+ assert.throws(()=>prepareResearchMigrationWorkspace({...plan,appliedCrawlerShortlist:null},repo,mkdtempSync(join(tmpdir(),'backyrd-crawler-visit-denied-'))),/scope_invalid/);
+});
