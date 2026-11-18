@@ -14,7 +14,7 @@ function load(relative, resolve = nativeRequire) {
   return loaded.exports;
 }
 
-const { crawlSpotPages, planCrawlerQueries, readCrawlerEvidence, robotsPermits } = load(
+const { crawlSpotPages, planCrawlerQueries, readCrawlerEvidence, robotsPermits, crawlerOperatorUrl, crawlerSourceLoader } = load(
   "../lib/server/spotCrawlerDiscovery.ts", id => id.endsWith("nuknuk-sources.mjs") ? sourceRuntime : nativeRequire(id),
 );
 const crawler = load("../lib/spotCrawler.ts");
@@ -188,4 +188,32 @@ test("search settings cannot turn the museum's secondary cafe into the primary c
   assert.equal(readCrawlerEvidence(page(website, raw), ["MUSEUM"])[0]?.category, "MUSEUM");
   const hotel = structured({ ...cafe, "@type": ["Hotel", "Restaurant"], name: "Hotel Prüfhalle" }) + address;
   assert.deepEqual(readCrawlerEvidence(page(website, hotel), ["RESTAURANT"]), []);
+});
+
+
+test("visitor information titles retain the museum identity rather than the page label", () => {
+  const found = readCrawlerEvidence(page(website, "<title>Eintrittspreise, Rabatte, Museumspässe | Museum Tinguely Basel</title><h1>Eintrittspreise</h1>" + address), ["MUSEUM"]);
+  assert.equal(found[0]?.name, "Museum Tinguely");
+  for (const url of ["https://www.guidle.com/de/restaurants/basel/rosa", "https://burger-king-basel-vorstaedte.ch-rest.com/"]) {
+    assert.equal(crawlerOperatorUrl(url), null);
+  }
+});
+
+test("same-site redirects check target robots before fetching any target content", async () => {
+  const visited = [];
+  const load = async (url, options) => {
+    visited.push(url);
+    if (url.endsWith("robots.txt")) return page(url, "User-agent: *\nDisallow: /private");
+    if (url.endsWith("/old")) {
+      await options.authorizeUrl("https://www.venue.example/private");
+      throw new Error("redirect target must never be fetched");
+    }
+    return page(url, "public");
+  };
+  const read = crawlerSourceLoader(load, Date.now() + 10000);
+  await assert.rejects(read(website + "old"), /CRAWLER_SOURCE_UNAVAILABLE/);
+  assert.deepEqual(visited, [website + "robots.txt", website + "old", "https://www.venue.example/robots.txt"]);
+  await assert.rejects(read(website + "private"), /CRAWLER_SOURCE_UNAVAILABLE/);
+  assert.equal(visited.length, 3);
+  assert.equal((await read(website + "public")).body, "public");
 });

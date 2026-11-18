@@ -45,7 +45,7 @@ export async function previewSpotSources(spot, { fetchPage = fetchPublicSource, 
   let home = website ? await read(website) : null;
   const brandedHost = page => {
     const label = new URL(page.url).hostname.replace(/^www\./u, "").split(".")[0];
-    const compact = value => words(value).replace(/\s+/gu, "");
+    const compact = value => words(value.normalize("NFKD").replace(/\p{M}/gu, "")).replace(/\s+/gu, "");
     const brand = compact(spot.name.replace(/^(?:museum|restaurant|café|bar|freizeitpark)\s+/iu, ""));
     return brand.length >= 5 && compact(label).includes(brand);
   };

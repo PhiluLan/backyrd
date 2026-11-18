@@ -156,3 +156,19 @@ test("keeps the main reason open when an official category has no activity evide
   assert.equal(result.proposals.find(item => item.attributeKey === "classification.primary_category")?.value, "CULTURE_ARTS");
   assert.ok(!result.proposals.some(item => item.attributeKey === "purpose.primary_visit"));
 });
+
+test('redirect authorization runs before DNS and HTTP on every target', async () => {
+ const {EventEmitter}=await import('node:events'); const {fetchPublicSource}=await import('../src/nuknuk-sources.mjs');
+ const visited=[],authorized=[],resolved=[];
+ const requestImpl=(url,_opts,callback)=>{
+  const req=new EventEmitter();req.end=()=>queueMicrotask(()=>{
+   visited.push(url); const res=new EventEmitter();res.statusCode=302;res.headers={location:'/private'};res.destroy=()=>req.emit('close');callback(res);
+  });req.destroy=error=>req.emit('error',error);return req;
+ };
+ await assert.rejects(fetchPublicSource('https://example.org/old', {
+  maxRedirects:2,requestImpl,resolve:async host=>{resolved.push(host);return [{address:'93.184.216.34'}];},
+  authorizeUrl:async url=>{authorized.push(url);if(url.endsWith('/private'))throw new Error('ROBOTS_DISALLOWED');}
+ }),/ROBOTS_DISALLOWED/);
+ assert.deepEqual(authorized,['https://example.org/old','https://example.org/private']);
+ assert.deepEqual(visited,['https://example.org/old']);assert.equal(resolved.length,1);
+});

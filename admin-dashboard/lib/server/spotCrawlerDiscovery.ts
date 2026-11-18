@@ -23,7 +23,7 @@ const typeCategories = new Map<string, CrawlerCategory>([
   ["BarOrPub", "BAR"], ["NightClub", "NIGHTCLUB"],
   ["Museum", "MUSEUM"], ["AmusementPark", "AMUSEMENT_PARK"], ["Playground", "PLAYGROUND"],
 ]);
-const restrictedHosts = /(?:^|\.)(?:google(?:\.[a-z]+)+|tripadvisor(?:\.[a-z]+)+|facebook\.com|instagram\.com|booking\.com|yelp(?:\.[a-z]+)+|basel\.com|local\.ch|search\.ch|thefork(?:\.[a-z]+)+)$/iu;
+const restrictedHosts = /(?:^|\.)(?:google(?:\.[a-z]+)+|tripadvisor(?:\.[a-z]+)+|facebook\.com|instagram\.com|booking\.com|guidle\.com|ch-rest\.com|yelp(?:\.[a-z]+)+|basel\.com|local\.ch|search\.ch|thefork(?:\.[a-z]+)+)$/iu;
 const deadlineExceeded = () => new Error("RUN_TIME_LIMIT");
 
 export function crawlerOperatorUrl(input: string): string | null {
@@ -113,7 +113,7 @@ function visiblePlace(body: string, pageUrl: string) {
   const headings = [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/giu)]
     .map(([, text]) => clean(visibleText(text), 140)).filter(Boolean);
   const displayName = (text: string) => text
-    .replace(/^(?:kontakt|contact|impressum|anfahrt)\s*(?:[|:–—-])\s*/iu, "")
+    .replace(/^(?:kontakt|contact|impressum|anfahrt|öffnungszeiten|opening hours|eintrittspreise[^|:–—]*|admission prices[^|:–—]*)\s*(?:[|:–—-])\s*/iu, "")
     .split(/[|:–—,]| - /u)[0]?.trim().replace(/\s+(?:in\s+)?Basel$/iu, "") ?? "";
   function namedVenue(name: string, category: CrawlerCategory | undefined): VenueIdentity | undefined {
     if (!category || name.length < 3 || name.split(/\s+/u).length > 7
@@ -272,12 +272,34 @@ export function robotsPermits(body: string, pathname: string): boolean {
   return rules[0]?.allow ?? true;
 }
 
+/** Every redirect target must pass its own robots policy before an HTTP request. */
+export function crawlerSourceLoader(load: typeof fetchPublicSource, deadline: number): typeof fetchPublicSource {
+  const robots = new Map<string, Promise<string | null>>();
+  const authorizeUrl = async (url: string) => {
+    const target = new URL(url);
+    if (Date.now() >= deadline || !crawlerOperatorUrl(url)) throw new Error("CRAWLER_SOURCE_UNAVAILABLE");
+    if (!robots.has(target.origin)) robots.set(target.origin,
+      load(`${target.origin}/robots.txt`, { timeoutMs: Math.min(4000, deadline - Date.now()), maxBytes: 240000, maxRedirects: 2 })
+        .then(page => typeof page.body === "string" ? page.body : null)
+        .catch(error => error instanceof Error && /^source_http_(404|410)$/u.test(error.message) ? "" : null));
+    const policy = await robots.get(target.origin);
+    if (Date.now() >= deadline || policy == null || !robotsPermits(policy, target.pathname + target.search)) {
+      throw new Error("CRAWLER_SOURCE_UNAVAILABLE");
+    }
+  };
+  return async (url, config) => {
+    await authorizeUrl(url);
+    return load(url, { ...config, maxRedirects: 2,
+      timeoutMs: Math.max(1, Math.min(5000, deadline - Date.now())), authorizeUrl });
+  };
+}
+
 export async function crawlSpotPages(urls: string[], settings: CrawlerSettings, options: {
   deadline: number; load?: typeof fetchPublicSource; locate?: typeof lookupAddress;
 }): Promise<{candidates:CrawlerFacts[]; pagesChecked:number}> {
   const load = options.load ?? fetchPublicSource;
   const locate = options.locate ?? lookupAddress;
-  const robots = new Map<string, Promise<string | null>>();
+  const sourceLoader = crawlerSourceLoader(load, options.deadline);
   const pages = new Map<string, Promise<PublicPage | undefined>>();
   let pagesChecked = 0;
   const candidates = new Map<string, CrawlerFacts>();
@@ -297,18 +319,7 @@ export async function crawlSpotPages(urls: string[], settings: CrawlerSettings, 
   }
 
   async function fetchPage(url: string) {
-    const parsed = new URL(url);
-    const origin = parsed.origin;
-    if (!robots.has(origin)) {
-      robots.set(origin, load(`${origin}/robots.txt`,{maxBytes:240000,timeoutMs:4000}).then(page=>
-        typeof page.body==="string"?page.body:null).catch(error=>
-        error instanceof Error && /^source_http_(404|410)$/u.test(error.message)?"":null));
-    }
-    const instructions=await robots.get(origin);
-    if (instructions==null || !robotsPermits(instructions,parsed.pathname+parsed.search)) return;
-    // Redirects are evaluated as a separate URL by the source provider rather
-    // than fetching a destination whose robots policy was not checked.
-    const page=await load(url,{maxBytes:850000,timeoutMs:5000});
+    const page = await sourceLoader(url, { maxBytes: 850000 });
     pagesChecked++;
     return page;
   }
