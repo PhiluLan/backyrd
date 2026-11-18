@@ -16,7 +16,7 @@
   "tests": [
     {
       "path": "supabase/tests/crawler_shortlist_timeout.sql",
-      "sha256": "90e1e88e0eb38ce282688ac7077586df799da5ba05a1f8cb161e7cc2847ffde1"
+      "sha256": "d28282815b6e3137c6d2f373cff88b143cef90cb9e53b2d7849600a2b28fd2ec"
     }
   ],
   "fingerprints": {
