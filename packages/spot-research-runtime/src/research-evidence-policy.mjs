@@ -2,6 +2,7 @@
 // fetched evidence and schema bindings; it does not pretend to prove all meaning.
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
+import { officialContactLinks } from "./official-spot-basics.mjs";
 import {
   publicSourceUrl,
   visibleSourceHtml,
@@ -247,18 +248,11 @@ export async function collectResearchEvidence({
   const pages = new Map(),
     failures = [],
     documentLinks = new Set();
-  const rootIdentity = words(
-    (await readSourceText(page, "identity", { preferMain: false })).text,
-  );
-  if (
-    !rootIdentity.includes(words(name)) ||
-    !rootIdentity.includes(words(locality)) ||
-    (address && !rootIdentity.includes(words(address)))
-  )
-    return {
-      pages,
-      failures: [{ url: website, reason: "VENUE_IDENTITY_NOT_CONFIRMED" }],
-    };
+  const confirmsIdentity = async (source) => {
+    const text = words((await readSourceText(source, "identity", { preferMain: false })).text);
+    return text.includes(words(name)) && text.includes(words(locality)) &&
+      (!address || text.includes(words(address)));
+  };
   const wanted = new Set(
     claims.flatMap((c) =>
       [c.source, ...(c.supportingSources ?? [])].map((s) => uri(s.url)),
@@ -270,7 +264,7 @@ export async function collectResearchEvidence({
     uri(page.url),
     ...(page.redirectedFrom ?? []).map(uri),
   ]);
-  const register = async (p, requestUrl) => {
+  const register = async (p, requestUrl, allowedKeys = null) => {
     let text;
     if (/application\/pdf/iu.test(p.contentType)) {
       if (!readPdf) throw Error("PDF_READER_UNAVAILABLE");
@@ -305,6 +299,7 @@ export async function collectResearchEvidence({
     const entry = {
       url: p.url,
       requestUrl,
+      allowedKeys,
       text,
       observedAt: p.observedAt,
       hash: hash(p.body),
@@ -315,6 +310,28 @@ export async function collectResearchEvidence({
     for (const u of [requestUrl, p.url, ...(p.redirectedFrom ?? [])])
       pages.set(uri(u), entry);
   };
+  if (!(await confirmsIdentity(page))) {
+    // A directly linked contact page can identify the branch when the homepage lacks its details.
+    const basics = new Set(["contact.public_email", "contact.phone"]);
+    const keysByUrl = new Map();
+    for (const claim of claims) {
+      if (!basics.has(claim.attributeKey)) continue;
+      const url = uri(claim.source.url);
+      keysByUrl.set(url, [...(keysByUrl.get(url) ?? []), claim.attributeKey]);
+    }
+    for (const link of officialContactLinks(page).filter(({ url }) => keysByUrl.has(uri(url))).slice(0, 2)) {
+      try {
+        const contact = await fetchPage(link.url, { allowedWebsite: website, maxRedirects: 1, timeoutMs: 4000 });
+        if (host(contact.url) === host(website) && typeof contact.body === "string" && await confirmsIdentity(contact)) {
+          await register(contact, link.url, keysByUrl.get(uri(link.url)));
+        }
+      } catch {
+        // Missing or unreadable contact evidence remains unresolved.
+      }
+    }
+    if (pages.size) return { pages, failures };
+    return { pages, failures: [{ url: website, reason: "VENUE_IDENTITY_NOT_CONFIRMED" }] };
+  }
   await register(page, website);
   const attempted = new Set(pages.keys());
   for (let wave = 0; wave < 3; wave++) {
@@ -1300,6 +1317,7 @@ export function proveResearchEvidence({
       return hold("SOURCE_URL_INVALID");
     }
     if (!p) return hold("SOURCE_NOT_IN_OFFICIAL_GRAPH");
+    if (p.allowedKeys && !p.allowedKeys.includes(claim.attributeKey)) return hold("VENUE_IDENTITY_NOT_CONFIRMED");
     if (
       researchLegalPage(p.url) === "CONTACT_ONLY" &&
       ![

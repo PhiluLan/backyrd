@@ -1,4 +1,5 @@
 import "server-only";
+import { readOfficialSpotBasics } from "../../../../../packages/spot-research-runtime/src/official-spot-basics.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { AUTHORING_FIELDS, normalizeAutomatedWorldResearchBatch, parseWorldResearchBatch, type WorldResearchBatchDocument } from "@backyrd/world-knowledge-core";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
@@ -21,17 +22,34 @@ function clients(request:Request) {
 }
 const columns="id,actor_id,spot_id,spot_name,status,created_at,updated_at,reviewed_at,export_document,result_document,lease_expires_at";
 const allowed=new Set(AUTHORING_FIELDS.map(field=>field.attributeKey));
+const officialBasics = new Set(["contact.public_email", "contact.phone", "hours.regular"]);
+type AssessedResearch = WorldResearchBatchDocument & {
+  research: WorldResearchBatchDocument["research"] & {
+    assessments?: { attributeKey: string; uncertainty: string; reason: string; bindings: Record<string, string> }[];
+  };
+};
+
+function canCheckOfficialBasics(document: AssessedResearch | null) {
+  const spot = document?.batch?.spots?.[0];
+  const website = spot?.existingValues?.["contact.website"];
+  return !!spot?.locality && website?.knowledgeState === "KNOWN_VALUE" &&
+    typeof website.value === "string" &&
+    document?.research?.spots?.[0]?.unresolved?.some(item =>
+      officialBasics.has(item.attributeKey) && !spot.existingValues[item.attributeKey]) === true;
+}
+
 function canPrepareResearch(row: InboxRow) {
   const kind=row.export_document.kind;
+  const document = row.result_document as AssessedResearch | null;
   return process.env.WORLD_RESEARCH_SAFE_IMPORT_ENABLED === "true" &&
     row.status === "READY_FOR_REVIEW" && !row.reviewed_at &&
     (kind === "AUTOMATIC_RESEARCH_REVIEW" || (!kind && !!row.provider_response_id)) &&
     row.export_document.pipeline?.phase !== "FINISHED" &&
     (!row.lease_expires_at || Date.parse(row.lease_expires_at)<=Date.now()) &&
     !row.export_document.taskDecisions?.length &&
-    (row.result_document as {research?:{assessments?:{attributeKey:string;uncertainty:string}[]}} | null)?.research?.assessments?.some(
+    (canCheckOfficialBasics(document) || document?.research?.assessments?.some(
       assessment=>assessment.uncertainty==="NONE" && INBOX_AUTO_RESEARCH_KEYS.has(assessment.attributeKey),
-    ) === true;
+    ) === true);
 }
 export async function GET(request:Request) {
   const auth=await authorizeAdminRequest(request);
@@ -105,17 +123,46 @@ export async function POST(request:Request) {
       if(found.error || !found.data)throw new Error("Der Rechercheauftrag wurde nicht gefunden.");
       const row=found.data as InboxRow;
       if(!canPrepareResearch(row))return Response.json({prepared:false},{headers});
-      const document=normalizeAutomatedWorldResearchBatch(row.result_document as WorldResearchBatchDocument) as WorldResearchBatchDocument & {
-        research:WorldResearchBatchDocument["research"] & {assessments?: {attributeKey:string;uncertainty:string}[]}
-      };
-      const claims=new Set(document.research.spots[0]?.claims.map(claim=>claim.attributeKey));
-      if (!document.research.assessments) throw new Error("Die Quellenprüfung braucht eine Einschätzung pro Angabe.");
-      document.research.assessments=document.research.assessments.filter(assessment=>claims.has(assessment.attributeKey));
+      const document = normalizeAutomatedWorldResearchBatch(row.result_document as WorldResearchBatchDocument) as AssessedResearch;
       const exported=row.export_document as unknown as WorldResearchBatchDocument;
       if (document.exportHash !== exported.exportHash || document.batch.spots.length !== 1 ||
           document.batch.spots[0].spotId !== row.spot_id ||
           JSON.stringify(document.research.instructions) !== JSON.stringify(exported.research.instructions))
         throw new Error("Die Recherche gehört zu einem anderen Auftrag.");
+      const research = document.research.spots[0];
+      const claims = new Set(research.claims.map(claim => claim.attributeKey));
+      document.research.assessments = (document.research.assessments ?? [])
+        .filter(assessment => claims.has(assessment.attributeKey));
+      // Once adopted, the stored document and its proof state must remain stable on retry.
+      if (!row.export_document.pipeline && canCheckOfficialBasics(document)) {
+        const detail = await readWorldResearchDetail(actor, row.spot_id);
+        const spot = document.batch.spots[0];
+        const website = detail.answers?.["contact.website"];
+        if (website?.visibility === "PUBLIC" && website.knowledgeState === "KNOWN_VALUE" &&
+            typeof website.value === "string" && website.value === spot.existingValues["contact.website"].value) {
+          const missing = new Set(research.unresolved.filter(({ attributeKey }) =>
+            officialBasics.has(attributeKey) && !spot.existingValues[attributeKey] && !detail.answers?.[attributeKey],
+          ).map(({ attributeKey }) => attributeKey));
+          const address = detail.answers?.["location.address_line1"];
+          const found = missing.size ? await readOfficialSpotBasics({
+            website: website.value, name: detail.name, locality: spot.locality,
+            address: address?.visibility === "PUBLIC" && typeof address.value === "string" ? address.value : undefined,
+          }) : [];
+          for (const claim of found) {
+            if (!missing.has(claim.attributeKey)) continue;
+            research.claims.push(claim);
+            research.unresolved = research.unresolved.filter(item => item.attributeKey !== claim.attributeKey);
+            document.research.assessments.push({
+              attributeKey: claim.attributeKey,
+              uncertainty: claim.attributeKey === "hours.regular" ? "MINOR" : "NONE",
+              bindings: {},
+              reason: claim.attributeKey === "hours.regular"
+                ? "Die veröffentlichten Öffnungszeiten sind als Vorschlag zur Prüfung erfasst. Nicht genannte Tage und Ausnahmen bleiben offen."
+                : "Veröffentlichte Kontaktangabe auf der offiziellen Website.",
+            });
+          }
+        }
+      }
       const {report}=await processSafeResearchDocument(document,{
         actorId:auth.userId,
         inboxJobId:row.id,
@@ -129,8 +176,10 @@ export async function POST(request:Request) {
     if(body.action === "recover") {
       const document=parseWorldResearchBatch(body.document);
       for(const spot of document.batch.spots)await readWorldResearchDetail(actor,spot.spotId);
-      await persistResearchFollowups(service,auth.userId,document);
-      return Response.json({saved:true,message:"Offene Angaben sind jetzt in deinen Aufgaben. Die Profile wurden nicht verändert."},{headers});
+      const queued=await persistResearchFollowups(service,auth.userId,document);
+      return Response.json({saved:true,message:queued
+        ? "Die Vorschläge sind jetzt in deinen Aufgaben."
+        : "Der Bericht enthält keine neuen Vorschläge zur Prüfung."},{headers});
     }
     if(!["keep","accept"].includes(String(body.action)) || typeof body.spotId!=="string" || !WORLD_RESEARCH_SPOT_ID.test(body.spotId) || typeof body.fingerprint!=="string" || body.fingerprint.length>200_000 || !Array.isArray(body.jobIds) || !body.jobIds.length || body.jobIds.length>100 || body.jobIds.some(id=>typeof id!=="string" || !WORLD_RESEARCH_SPOT_ID.test(id)))throw new Error("Bitte die Aufgabe neu öffnen.");
     const [detail,found]=await Promise.all([

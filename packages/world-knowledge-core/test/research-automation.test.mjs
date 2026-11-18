@@ -9,8 +9,8 @@ test("automated result passes the unchanged World import contract", () => {
     createdAt: "2026-09-29T10:00:00Z", spots: [{ spotId, name: "Test Bistro", locality: "Basel",
       manifestHash: "a".repeat(64), existingValues: {} }] });
   const provider = { status: "completed", output: [
-    { type: "web_search_call", action: { type: "search", sources: [{ url: "https://test-bistro.example/kontakt" }] } },
-    { type: "web_search_call", action: { type: "open_page", url: "https://test-bistro.example/kontakt" } },
+    { type: "web_search_call", status: "completed", action: { type: "search", sources: [{ url: "https://test-bistro.example/kontakt" }] } },
+    { type: "web_search_call", status: "completed", action: { type: "open_page", url: "https://test-bistro.example/kontakt" } },
     { type: "message", content: [{ type: "output_text", text: JSON.stringify({
       claims: [{ attributeKey: "identity.name", knowledgeState: "KNOWN_VALUE", valueJson: '"Test Bistro"',
         sourceUrl: "https://test-bistro.example/kontakt", evidence: "Die Kontaktseite bezeichnet den Betrieb als Test Bistro.",

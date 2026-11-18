@@ -125,7 +125,7 @@ export function ResearchInbox({request,post,onTools}:{request(body?:unknown,spot
     if(file.size>2_000_000){setError("Bitte eine Recherchedatei bis 2 MB wählen.");return;}
     if(working.current)return;working.current=true;setBusy(true);setError("");
     try{const result=await request({action:"recover",document:JSON.parse(await file.text())}) as {message:string};setNotice(result.message);working.current=false;await refresh();}
-    catch{setError("Die offenen Angaben konnten nicht nachgetragen werden. Bitte die ursprüngliche Recherchedatei wählen und erneut versuchen.");}finally{working.current=false;setBusy(false);}
+    catch{setError("Die Vorschläge konnten nicht geladen werden. Bitte die ursprüngliche Recherchedatei wählen und erneut versuchen.");}finally{working.current=false;setBusy(false);}
   };
   const focusTask=()=>requestAnimationFrame(()=>{detailRef.current?.scrollIntoView({block:"start",behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});detailRef.current?.focus();});
   const open=(spotId:string)=>{
@@ -150,7 +150,7 @@ export function ResearchInbox({request,post,onTools}:{request(body?:unknown,spot
     if(!next || remaining.some(item=>item.attributeKey===task.attributeKey))void loadDetail(detail.spotId);
   };
   return <section className={styles.shell}>
-    <header className={styles.header}><span className={styles.eyebrow}>WISSEN & QUALITÄT</span><h1>{spot?spot.name:"Deine Aufgaben"}</h1><p>{spot?"Eine Angabe nach der anderen: prüfen, entscheiden, weiter.":"Hier siehst du, welche Angaben du prüfen oder ergänzen kannst."}</p><div className={styles.actions}><button onClick={refreshVisible} disabled={busy || reviewEditing || preparing}>{busy?"Wird aktualisiert …":"Aktualisieren"}</button><button disabled={reviewEditing || preparing} onClick={onTools}>Neue Recherche</button></div>{snapshot && <small>Übersicht geladen um {new Date(snapshot.checkedAt).toLocaleTimeString("de-CH",{hour:"2-digit",minute:"2-digit"})}</small>}</header>
+    <header className={styles.header}><span className={styles.eyebrow}>WISSEN & QUALITÄT</span><h1>{spot?spot.name:"Deine Aufgaben"}</h1><p>{spot?"Eine Angabe nach der anderen: prüfen, entscheiden, weiter.":"Hier prüfst du konkrete Vorschläge aus der Recherche. Fehlende Angaben kannst du direkt im Ortprofil ergänzen."}</p><div className={styles.actions}><button onClick={refreshVisible} disabled={busy || reviewEditing || preparing}>{busy?"Wird aktualisiert …":"Aktualisieren"}</button><button disabled={reviewEditing || preparing} onClick={onTools}>Neue Recherche</button></div>{snapshot && <small>Übersicht geladen um {new Date(snapshot.checkedAt).toLocaleTimeString("de-CH",{hour:"2-digit",minute:"2-digit"})}</small>}</header>
     {error ? <div role="alert" className={`${styles.error} ${styles.toast}`}><span>{error}</span><button aria-label="Meldung schliessen" onClick={()=>setError("")}>×</button></div> : notice && <div role="status" aria-atomic="true" className={`${styles.success} ${styles.toast}`}><span>{notice}</span><button aria-label="Meldung schliessen" onClick={()=>setNotice("")}>×</button></div>}
     {!spot && (
       <nav className={styles.tabs} aria-label="Aufgaben anzeigen">
@@ -239,14 +239,14 @@ export function ResearchInbox({request,post,onTools}:{request(body?:unknown,spot
               </div>;
             })}
           </section>}
-          {task && !editingStored && !!detail.automaticallyStored?.length && <h3>Offene Fragen</h3>}
+          {task && !editingStored && !!detail.automaticallyStored?.length && <h3>Vorschläge zur Prüfung</h3>}
           {task && !editingStored?<><div className={styles.taskProgress}><strong>Aufgabe {taskIndex+1} von {detail.tasks.length}</strong><span>{detail.tasks.length} noch offen</span></div>
             <ResearchTaskReview key={`${spot.spotId}:${task.fingerprint}:${task.claimId ?? "none"}`} spotId={spot.spotId} task={task} request={request} post={post} onDecision={decided} onEditingChange={setReviewEditing}/>
-            <nav className={styles.taskNavigation} aria-label="Zwischen Aufgaben wechseln"><button disabled={reviewEditing || taskIndex<=0} onClick={()=>jumpToTask(detail.tasks[taskIndex-1].fingerprint)}>← Vorherige</button><button disabled={reviewEditing} onClick={()=>{if(taskIndex+1<detail.tasks.length)jumpToTask(detail.tasks[taskIndex+1].fingerprint);else close();setNotice("Die vorige Frage bleibt offen. Du kannst sie später weiterprüfen.");}}>Später prüfen →</button></nav>
+            <nav className={styles.taskNavigation} aria-label="Zwischen Aufgaben wechseln"><button disabled={reviewEditing || taskIndex<=0} onClick={()=>jumpToTask(detail.tasks[taskIndex-1].fingerprint)}>← Vorherige</button><button disabled={reviewEditing} onClick={()=>{if(taskIndex+1<detail.tasks.length)jumpToTask(detail.tasks[taskIndex+1].fingerprint);else close();setNotice("Der Vorschlag bleibt offen. Du kannst ihn später prüfen.");}}>Später prüfen →</button></nav>
           </>:!task && !researchStatus && !spot.failed && <div className={styles.success}><h3>Keine offenen Aufgaben</h3><p>Für diesen Ort liegt derzeit nichts zur Prüfung vor.</p><button onClick={close}>Zurück zur Übersicht</button></div>}
         </>}
       </section>}
     </>}
-    <details className={styles.recovery}><summary>Offene Angaben aus einem früheren Bericht nachtragen</summary><p>Falls ein früherer Dateiimport seine offenen Fragen noch nicht hier abgelegt hat: Lade den ursprünglichen Bericht. Profilangaben werden dabei nicht verändert.</p><label>Recherchedatei auswählen<input disabled={busy || reviewEditing || preparing} type="file" accept=".json,application/json" onChange={event=>{const file=event.target.files?.[0];if(file)void recover(file);event.target.value="";}}/></label></details>
+    <details className={styles.recovery}><summary>Vorschläge aus einem früheren Bericht laden</summary><p>Lade den ursprünglichen Recherchebericht, um seine konkreten Vorschläge zu prüfen.</p><label>Recherchedatei auswählen<input disabled={busy || reviewEditing || preparing} type="file" accept=".json,application/json" onChange={event=>{const file=event.target.files?.[0];if(file)void recover(file);event.target.value="";}}/></label></details>
   </section>;
 }
