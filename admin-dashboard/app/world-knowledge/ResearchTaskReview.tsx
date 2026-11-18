@@ -29,14 +29,13 @@ export function researchCheckInstructions(key:string):string|null {
 export function ResearchTaskReview({spotId,task,request,post,onDecision,onEditingChange}:Props) {
   const [editing,setEditing]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState("");
   const [saveKey]=useState(()=>`research-edit:${crypto.randomUUID()}`);
-  const label=researchFieldLabel(task.attributeKey),hasProposal=task.value!==undefined;
+  const label=researchFieldLabel(task.attributeKey);
   const checkHint=researchCheckInstructions(task.attributeKey);
   const sourceHints=[...new Set(task.reason?.match(/https:\/\/[^\s)<>,]+/g) ?? [])].map(url=>url.replace(/\.$/,""));
   const citations=(task.citations ?? []).filter((citation,index,items)=>items.findIndex(other=>other.url===citation.url && other.evidence===citation.evidence && other.observedAt===citation.observedAt)===index);
-  const reason=task.reason || (hasProposal?task.currentValue===undefined?"Diese Angabe wurde vorgeschlagen, aber noch nicht bestätigt. Prüfe, ob sie zum richtigen Ort gehört und von der Quelle gestützt wird.":"Der Vorschlag weicht von der bisher gespeicherten Angabe ab. Vergleiche beide mit der Quelle und entscheide, welche richtig ist.":undefined);
+  const reason=task.reason || (task.currentValue===undefined?"Diese Angabe wurde vorgeschlagen, aber noch nicht bestätigt. Prüfe, ob sie zum richtigen Ort gehört und von der Quelle gestützt wird.":"Der Vorschlag weicht von der bisher gespeicherten Angabe ab. Vergleiche beide mit der Quelle und entscheide, welche richtig ist.");
   const explanation=researchGapReason(reason).replace(/https:\/\/[^\s)<>,]+/g,url=>sourceName(url.replace(/\.$/,"")));
   const preview=useMemo(()=>{
-    if(!hasProposal)return {allowed:false,explanation:"Hier gibt es noch keinen fertigen Vorschlag. Trage die richtige Angabe ein, wenn du sie verlässlich klären kannst."};
     if(task.attributeKey==="state.current")return {allowed:false,explanation:"Ein vorübergehender Zustand braucht ein Enddatum. Bitte ergänze es über „Ändern“, damit der Hinweis nicht veraltet stehen bleibt."};
     try {
       const value=supplementResearchValue(task.attributeKey,task.currentValue===undefined?undefined:{knowledgeState:"KNOWN_VALUE",value:task.currentValue},task.value);
@@ -44,21 +43,21 @@ export function ResearchTaskReview({spotId,task,request,post,onDecision,onEditin
       const valid=validateAuthoringSubmission(task.attributeKey,state,value);
       return valid.ok?{allowed:true,explanation:""}:{allowed:false,explanation:"Der Vorschlag ist noch unvollständig. Bitte korrigiere oder ergänze ihn über „Ändern“."};
     }catch{return {allowed:false,explanation:"Einzelne Angaben im Vorschlag widersprechen dem bisherigen Profil. Prüfe die Unterschiede und trage über „Ändern“ die richtige Angabe ein."};}
-  },[hasProposal,task]);
+  },[task]);
   const act=async(action:"accept"|"keep")=>{
     if(busy || action==="accept" && !preview.allowed)return;
     setBusy(true);setError("");onEditingChange(true);
     try {
       await request({action,spotId,jobIds:task.jobIds,fingerprint:task.fingerprint,claimId:task.claimId,idempotencyKey:saveKey});
-      onDecision(action==="accept"?`${label}: im Ortprofil gespeichert.`:hasProposal?`${label}: Vorschlag abgelehnt. Die bisherige Angabe bleibt erhalten.`:`${label}: Frage abgeschlossen. Es wurde keine neue Angabe ins Profil geschrieben.`);
+      onDecision(action==="accept"?`${label}: im Ortprofil gespeichert.`:`${label}: Vorschlag abgelehnt.`);
     }catch(cause){setError(researchFailureFeedback(cause).message);}finally{setBusy(false);onEditingChange(false);}
   };
   const edit=()=>{setError("");setEditing(true);onEditingChange(true);};
   return <article className={styles.taskReview}>
-    <span className={styles.eyebrow}>{hasProposal?"VORSCHLAG PRÜFEN":task.kind==="REVIEW"?"ANGABE KLÄREN":"ANGABE ERGÄNZEN"}</span>
+    <span className={styles.eyebrow}>VORSCHLAG PRÜFEN</span>
     <h3>{label}</h3>
     <div className={styles.comparison}>
-      {hasProposal && <section className={styles.proposed}><h4>Vorschlag</h4><ResearchValue attributeKey={task.attributeKey} value={task.value}/></section>}
+      <section className={styles.proposed}><h4>Vorschlag</h4><ResearchValue attributeKey={task.attributeKey} value={task.value}/></section>
       <section className={styles.current}><h4>Aktuell im Profil</h4>{task.currentValue===undefined || task.currentValue===null?<p>Keine bestätigte Angabe.</p>:task.attributeKey==="experience.profile"?<details><summary>Gespeicherte Angebote und Bereiche ansehen</summary><ResearchValue attributeKey={task.attributeKey} value={task.currentValue}/></details>:<ResearchValue attributeKey={task.attributeKey} value={task.currentValue}/>}</section>
     </div>
     {editing?<ResearchFieldEditor spotId={spotId} result={task} post={post} onClose={()=>{setEditing(false);onEditingChange(false);}} onSaved={(value,state,claimId)=>{
@@ -71,11 +70,11 @@ export function ResearchTaskReview({spotId,task,request,post,onDecision,onEditin
         finally{setBusy(false);onEditingChange(false);}
       })();
     }}/>:<section className={styles.decision}>
-      {hasProposal && !preview.allowed && <p className={styles.error}>{preview.explanation}</p>}
+      {!preview.allowed && <p className={styles.error}>{preview.explanation}</p>}
       <div className={styles.actions}>
-        {hasProposal && preview.allowed && <button className={styles.primary} disabled={busy} onClick={()=>void act("accept")}>Geprüft übernehmen</button>}
-        <button disabled={busy} className={!hasProposal || !preview.allowed?styles.primary:undefined} onClick={edit}>{hasProposal?"Ändern":"Angabe ergänzen"}</button>
-        <button disabled={busy} onClick={()=>void act("keep")}>{hasProposal?"Ablehnen":task.currentValue!==undefined?"Bisherige Angabe behalten":"Ohne Angabe abschliessen"}</button>
+        {preview.allowed && <button className={styles.primary} disabled={busy} onClick={()=>void act("accept")}>Geprüft übernehmen</button>}
+        <button disabled={busy} className={!preview.allowed?styles.primary:undefined} onClick={edit}>Ändern</button>
+        <button disabled={busy} onClick={()=>void act("keep")}>Ablehnen</button>
       </div>
       {busy && <p role="status">Wird gespeichert …</p>}
     </section>}

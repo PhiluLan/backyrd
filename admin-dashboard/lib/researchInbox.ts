@@ -12,7 +12,7 @@ export type InboxRow = {
   export_document: { kind?: string; taskDecisions?: InboxDecision[]; pipeline?: { phase?: string; report?: { stored?: string[]; review?: Array<{attributeKey:string;reason?:string;explanation?:string}>; unresolved?: Array<{attributeKey:string;reason:string}>;errors?:string[] } } };
   result_document?: unknown;
 };
-export type InboxTask = ResearchResult & { fingerprint: string; jobIds: string[]; claimId: string | null; currentValue?: unknown; kind: "REVIEW" | "MISSING" };
+export type InboxTask = ResearchResult & { fingerprint: string; jobIds: string[]; claimId: string | null; currentValue?: unknown };
 export type StoredResearchField = { attributeKey: string; value: unknown };
 export type InboxSpot = { spotId: string; name: string; latestReportAt: string; updatedAt: string; tasks: InboxTask[]; researchStatus: "QUEUED" | "RUNNING" | null; failed: boolean; unavailable?: boolean; reports: number };
 export const stableInboxValue = (value: unknown): string => JSON.stringify(value, (_key,item:unknown) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a],[b])=>a.localeCompare(b))) : item);
@@ -24,29 +24,32 @@ function preparing(row: InboxRow): boolean {
     !!row.lease_expires_at && Date.parse(row.lease_expires_at) > Date.now();
 }
 
+function hasProposal(result: ResearchResult): boolean {
+  return result.status === "REQUIRES_REVIEW" && result.value !== undefined && result.value !== null &&
+    (typeof result.value !== "string" || !!result.value.trim());
+}
+
 export function resultsFromInboxRow(row: InboxRow): ResearchResult[] {
   if (preparing(row)) return [];
-  const doc = row.result_document as { results?: ResearchResult[]; research?: {spots?: Array<{spotId:string;claims?: Array<{attributeKey:string;value:unknown;source?:{url:string;evidence:string;observedAt?:string};supportingSources?:Array<{url:string;evidence:string;observedAt?:string}>}>;unresolved?:Array<{attributeKey:string;reason:string}>}>} } | null;
-  if(row.export_document.kind === FOLLOWUP_KIND || row.export_document.kind === "NUKNUK_RESEARCH_DRAFT") return doc?.results ?? [];
+  const doc = row.result_document as { results?: ResearchResult[]; research?: {spots?: Array<{spotId:string;claims?: Array<{attributeKey:string;value:unknown;source?:{url:string;evidence:string;observedAt?:string};supportingSources?:Array<{url:string;evidence:string;observedAt?:string}>}>}>} } | null;
+  if(row.export_document.kind === FOLLOWUP_KIND || row.export_document.kind === "NUKNUK_RESEARCH_DRAFT") return (doc?.results ?? []).filter(hasProposal);
   const spot=doc?.research?.spots?.find(spot=>spot.spotId===row.spot_id);
   const pipeline=row.export_document.kind === "AUTOMATIC_RESEARCH_REVIEW" && row.export_document.pipeline?.phase !== "FINISHED"
     ? undefined : row.export_document.pipeline;
   const reviewed=pipeline?.report?.review;
   const claims=(spot?.claims ?? []).filter(claim=>!pipeline || reviewed?.some(item=>item.attributeKey===claim.attributeKey));
-  return [...claims.map(claim=>({attributeKey:claim.attributeKey,status:"REQUIRES_REVIEW",value:claim.value,
+  return claims.map(claim=>({attributeKey:claim.attributeKey,status:"REQUIRES_REVIEW",value:claim.value,
     reason:reviewed?.find(item=>item.attributeKey===claim.attributeKey)?.explanation ?? reviewed?.find(item=>item.attributeKey===claim.attributeKey)?.reason,
-    citations:[claim.source,...(claim.supportingSources ?? [])].filter((source):source is NonNullable<typeof source>=>!!source)})),
-    ...(pipeline?.report?.unresolved ?? spot?.unresolved ?? []).filter(gap=>gap.reason!=="Dieses Grundfeld wurde nicht recherchiert oder nicht mit einem Ergebnis geliefert.").map(gap=>({...gap,status:"UNKNOWN"}))];
+    citations:[claim.source,...(claim.supportingSources ?? [])].filter((source):source is NonNullable<typeof source>=>!!source)})).filter(hasProposal);
 }
 
-/** Group identical proposals; keep distinct older questions and compare against today's profile. */
+/** Group identical proposals; keep distinct older proposals and compare against today's profile. */
 export function buildInboxSpot(rows: InboxRow[], answers: Record<string,InboxAnswer>, covered:(result:ResearchResult)=>boolean): InboxSpot {
   const sorted=[...rows].sort((a,b)=>b.created_at.localeCompare(a.created_at));
   const tasks=new Map<string,InboxTask>();
   const receipts=sorted.flatMap(row=>row.export_document.taskDecisions ?? []);
   const archivedProposals=new Map<string,string>();
   for(const row of sorted.filter(row=>row.reviewed_at))for(const result of resultsFromInboxRow(row)) {
-    if(result.value===undefined)continue;
     const fingerprint=taskFingerprint(result);
     if(row.created_at>(archivedProposals.get(fingerprint) ?? ""))archivedProposals.set(fingerprint,row.created_at);
   }
@@ -55,20 +58,13 @@ export function buildInboxSpot(rows: InboxRow[], answers: Record<string,InboxAns
     for(const result of resultsFromInboxRow(row)) {
       const answer=answers[result.attributeKey];
       const publicAnswer=answer?.visibility === "PUBLIC" ? answer : undefined;
-      const missing=result.value===undefined;
-      const profile=answers["experience.profile"];
-      const hasProfile=profile?.visibility==="PUBLIC" && profile.knowledgeState==="KNOWN_VALUE" && profile.value && typeof profile.value==="object" && "offers" in profile.value && Array.isArray(profile.value.offers) && profile.value.offers.length>0;
-      if(missing && hasProfile && ["discovery.profile","offering.onsite","operation.price_options"].includes(result.attributeKey) && result.reason==="Die belegten Angebote, Bereiche und konkreten Preise sind im strukturierten Angebotsprofil erfasst; kein zweiter abweichender Datensatz wird erzeugt.")continue;
-      if(missing && result.attributeKey==="state.current" && result.reason==="Momentanen Zustand nicht dauerhaft aus einer Recherche ableiten.")continue;
-      const questionsExisting=missing && /(?:bisherige?.*(?:plan|zeit)|widerspr|abweich|(?:vorhandene|bisherige).*(?:nicht.*bestätigt|falsch)|kein(?:en|e)? plausibl|nicht als aktueller)/i.test(result.reason ?? "");
-      if(missing && !questionsExisting && publicAnswer && publicAnswer.knowledgeState && publicAnswer.knowledgeState!=="UNKNOWN") continue;
-      if(!missing && covered(result)) continue;
+      if(covered(result)) continue;
       const fingerprint=taskFingerprint(result),claimId=publicAnswer?.claimId ?? null;
       if(row.created_at<=(archivedProposals.get(fingerprint) ?? ""))continue;
       if(receipts.some(receipt=>receipt.fingerprint===fingerprint && receipt.claimId===claimId)) continue;
       const existing=tasks.get(fingerprint);
       if(existing) { if(!existing.jobIds.includes(row.id))existing.jobIds.push(row.id);continue; }
-      tasks.set(fingerprint,{...result,fingerprint,jobIds:[row.id],claimId,currentValue:publicAnswer?.value,kind:missing && !questionsExisting?"MISSING":"REVIEW"});
+      tasks.set(fingerprint,{...result,fingerprint,jobIds:[row.id],claimId,currentValue:publicAnswer?.value});
     }
   }
   const latest=sorted[0];

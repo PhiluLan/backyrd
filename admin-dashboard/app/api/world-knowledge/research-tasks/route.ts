@@ -176,8 +176,10 @@ export async function POST(request:Request) {
     if(body.action === "recover") {
       const document=parseWorldResearchBatch(body.document);
       for(const spot of document.batch.spots)await readWorldResearchDetail(actor,spot.spotId);
-      await persistResearchFollowups(service,auth.userId,document);
-      return Response.json({saved:true,message:"Offene Angaben sind jetzt in deinen Aufgaben. Die Profile wurden nicht verändert."},{headers});
+      const queued=await persistResearchFollowups(service,auth.userId,document);
+      return Response.json({saved:true,message:queued
+        ? "Die Vorschläge sind jetzt in deinen Aufgaben."
+        : "Der Bericht enthält keine neuen Vorschläge zur Prüfung."},{headers});
     }
     if(!["keep","accept"].includes(String(body.action)) || typeof body.spotId!=="string" || !WORLD_RESEARCH_SPOT_ID.test(body.spotId) || typeof body.fingerprint!=="string" || body.fingerprint.length>200_000 || !Array.isArray(body.jobIds) || !body.jobIds.length || body.jobIds.length>100 || body.jobIds.some(id=>typeof id!=="string" || !WORLD_RESEARCH_SPOT_ID.test(id)))throw new Error("Bitte die Aufgabe neu öffnen.");
     const [detail,found]=await Promise.all([

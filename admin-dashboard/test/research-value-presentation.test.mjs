@@ -131,13 +131,6 @@ test('review puts the comparison and actions first and keeps evidence collapsed'
  assert.doesNotMatch(html,/<details[^>]* open/);
  assert.ok(html.indexOf('Geprüft übernehmen')<html.indexOf('Recherche &amp; Belege'));
 });
-test('a missing fact is an invitation to add or leave unknown, never a fictitious proposed answer',()=>{
- const task={attributeKey:'accessibility.accessible_toilet',kind:'MISSING',fingerprint:'missing',claimId:null,jobIds:[],status:'UNKNOWN',reason:'Die offizielle Website nennt dazu keine Angabe.'};
- const html=renderToStaticMarkup(createElement(ResearchTaskReview,{spotId:'fixture',task,request(){},post(){},onDecision(){},onEditingChange(){}}));
- for(const phrase of ['Angabe ergänzen','Ohne Angabe abschliessen','Recherche &amp; Belege'])assert.ok(html.includes(phrase),phrase);
- assert.ok(!html.includes('>Vorschlag</h4>'));assert.ok(!html.includes('Geprüft übernehmen'));
-});
-
 test('temporary conditions require editing the expiry before a direct save is offered',()=>{
  const task={attributeKey:'state.current',kind:'REVIEW',fingerprint:'fixture',claimId:null,jobIds:[],status:'REQUIRES_REVIEW',value:{kind:'TEMPORARILY_CLOSED',scope:null},citations:[]};
  const html=renderToStaticMarkup(createElement(ResearchTaskReview,{spotId:'fixture',task,request(){},post(){},onDecision(){},onEditingChange(){}}));
