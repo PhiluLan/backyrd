@@ -56,6 +56,19 @@ reviewable. Confirmed fields appear above the questions with the existing field
 editor. Publication requires the existing Admin authoring authority and
 `WORLD_RESEARCH_SAFE_IMPORT_ENABLED` in the Admin server.
 
+## Provider usage
+
+The worker stores the resolved model, input tokens, cached input tokens, output
+tokens, and emitted web-search actions in `export_document.providerUsage` once
+OpenAI returns terminal usage. The Admin inbox shows those totals under
+«OpenAI-Verbrauch pro Recherche». Usage is preserved when review finishes.
+
+The USD estimate uses the public tariff for the supported model and counts all
+emitted web-search actions. Invoice totals may differ. Jobs with no reported
+usage or no supported tariff have no cost estimate. The proposal count shows
+claims with a source checked by the worker before the Admin validates values,
+compares them with existing facts, and checks evidence for import.
+
 ## Operational controls
 
 - Apply the forward migration through the normal, explicitly authorized
