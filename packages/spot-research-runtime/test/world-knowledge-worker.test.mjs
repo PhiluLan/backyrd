@@ -12,8 +12,8 @@ const exportDocument = {
   research: { instructions: ["Keep export immutable"], spots: [{ spotId, claims: [], unresolved: [] }] }, exportHash: "bound-hash",
 };
 const response = (payload, sources = ["https://test-bistro.example/kontakt"]) => ({ status: "completed", output: [
-  { type: "web_search_call", action: { type: "search", sources: sources.map((url) => ({ url })) } },
-  ...sources.map((url) => ({ type: "web_search_call", action: { type: "open_page", url } })),
+  { type: "web_search_call", status: "completed", action: { type: "search", sources: sources.map((url) => ({ url })) } },
+  ...sources.map((url) => ({ type: "web_search_call", status: "completed", action: { type: "open_page", url } })),
   { type: "message", content: [{ type: "output_text", text: JSON.stringify(payload) }] },
 ] });
 const claim = { attributeKey: "identity.name", knowledgeState: "KNOWN_VALUE", valueJson: '"Test Bistro"',
@@ -128,4 +128,15 @@ test("Worker records a source-bound proposal document without canonical writes",
   assert.equal(writes.length, 1);
   assert.equal(writes[0].status, "READY_FOR_REVIEW");
   assert.equal(writes[0].result_document.research.spots[0].claims.length, 1);
+});
+
+test("directly opened official pages need no duplicate search entry, and failed opens count for nothing", () => {
+  const provider = response({ claims: [claim], unresolved: [] });
+  provider.output = provider.output.filter(item => item.action?.type !== "search");
+  assert.equal(worldResearchResponseDocument(exportDocument, provider).research.spots[0].claims.length, 1);
+  provider.output[0].status = "failed";
+  provider.output.unshift({ type: "web_search_call", status: "completed", action: { type: "search" } });
+  const rejected = worldResearchResponseDocument(exportDocument, provider).research.spots[0];
+  assert.equal(rejected.claims.length, 0);
+  assert.equal(rejected.unresolved[0].attributeKey, claim.attributeKey);
 });

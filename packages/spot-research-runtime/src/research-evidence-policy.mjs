@@ -2,7 +2,7 @@
 // fetched evidence and schema bindings; it does not pretend to prove all meaning.
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
-import { officialContactLinks } from "./official-spot-email.mjs";
+import { officialContactLinks } from "./official-spot-basics.mjs";
 import {
   publicSourceUrl,
   visibleSourceHtml,
@@ -264,7 +264,7 @@ export async function collectResearchEvidence({
     uri(page.url),
     ...(page.redirectedFrom ?? []).map(uri),
   ]);
-  const register = async (p, requestUrl, emailOnly = false) => {
+  const register = async (p, requestUrl, allowedKeys = null) => {
     let text;
     if (/application\/pdf/iu.test(p.contentType)) {
       if (!readPdf) throw Error("PDF_READER_UNAVAILABLE");
@@ -299,7 +299,7 @@ export async function collectResearchEvidence({
     const entry = {
       url: p.url,
       requestUrl,
-      emailOnly,
+      allowedKeys,
       text,
       observedAt: p.observedAt,
       hash: hash(p.body),
@@ -311,21 +311,25 @@ export async function collectResearchEvidence({
       pages.set(uri(u), entry);
   };
   if (!(await confirmsIdentity(page))) {
-    // Some homepages omit the venue name or address. For its public email,
-    // independently verify identity on the directly linked contact page.
-    const emailSource = claims.find((claim) => claim.attributeKey === "contact.public_email")?.source;
-    const link = emailSource && officialContactLinks(page).find(({ url }) => uri(url) === uri(emailSource.url));
-    if (link) {
+    // A directly linked contact page can identify the branch when the homepage lacks its details.
+    const basics = new Set(["contact.public_email", "contact.phone"]);
+    const keysByUrl = new Map();
+    for (const claim of claims) {
+      if (!basics.has(claim.attributeKey)) continue;
+      const url = uri(claim.source.url);
+      keysByUrl.set(url, [...(keysByUrl.get(url) ?? []), claim.attributeKey]);
+    }
+    for (const link of officialContactLinks(page).filter(({ url }) => keysByUrl.has(uri(url))).slice(0, 2)) {
       try {
-        const contact = await fetchPage(link.url, { allowedWebsite: website, maxRedirects: 1, timeoutMs: 6000 });
+        const contact = await fetchPage(link.url, { allowedWebsite: website, maxRedirects: 1, timeoutMs: 4000 });
         if (host(contact.url) === host(website) && typeof contact.body === "string" && await confirmsIdentity(contact)) {
-          await register(contact, link.url, true);
-          return { pages, failures };
+          await register(contact, link.url, keysByUrl.get(uri(link.url)));
         }
       } catch {
         // Missing or unreadable contact evidence remains unresolved.
       }
     }
+    if (pages.size) return { pages, failures };
     return { pages, failures: [{ url: website, reason: "VENUE_IDENTITY_NOT_CONFIRMED" }] };
   }
   await register(page, website);
@@ -1313,7 +1317,7 @@ export function proveResearchEvidence({
       return hold("SOURCE_URL_INVALID");
     }
     if (!p) return hold("SOURCE_NOT_IN_OFFICIAL_GRAPH");
-    if (p.emailOnly && claim.attributeKey !== "contact.public_email") return hold("VENUE_IDENTITY_NOT_CONFIRMED");
+    if (p.allowedKeys && !p.allowedKeys.includes(claim.attributeKey)) return hold("VENUE_IDENTITY_NOT_CONFIRMED");
     if (
       researchLegalPage(p.url) === "CONTACT_ONLY" &&
       ![

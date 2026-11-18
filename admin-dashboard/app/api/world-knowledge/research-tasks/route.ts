@@ -1,5 +1,5 @@
 import "server-only";
-import { readOfficialSpotEmail } from "../../../../../packages/spot-research-runtime/src/official-spot-email.mjs";
+import { readOfficialSpotBasics } from "../../../../../packages/spot-research-runtime/src/official-spot-basics.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { AUTHORING_FIELDS, normalizeAutomatedWorldResearchBatch, parseWorldResearchBatch, type WorldResearchBatchDocument } from "@backyrd/world-knowledge-core";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
@@ -22,19 +22,20 @@ function clients(request:Request) {
 }
 const columns="id,actor_id,spot_id,spot_name,status,created_at,updated_at,reviewed_at,export_document,result_document,lease_expires_at";
 const allowed=new Set(AUTHORING_FIELDS.map(field=>field.attributeKey));
-const emailKey = "contact.public_email";
+const officialBasics = new Set(["contact.public_email", "contact.phone", "hours.regular"]);
 type AssessedResearch = WorldResearchBatchDocument & {
   research: WorldResearchBatchDocument["research"] & {
     assessments?: { attributeKey: string; uncertainty: string; reason: string; bindings: Record<string, string> }[];
   };
 };
 
-function canCheckOfficialEmail(document: AssessedResearch | null) {
+function canCheckOfficialBasics(document: AssessedResearch | null) {
   const spot = document?.batch?.spots?.[0];
   const website = spot?.existingValues?.["contact.website"];
   return !!spot?.locality && website?.knowledgeState === "KNOWN_VALUE" &&
-    typeof website.value === "string" && !spot.existingValues[emailKey] &&
-    document?.research?.spots?.[0]?.unresolved?.some(item => item.attributeKey === emailKey) === true;
+    typeof website.value === "string" &&
+    document?.research?.spots?.[0]?.unresolved?.some(item =>
+      officialBasics.has(item.attributeKey) && !spot.existingValues[item.attributeKey]) === true;
 }
 
 function canPrepareResearch(row: InboxRow) {
@@ -46,7 +47,7 @@ function canPrepareResearch(row: InboxRow) {
     row.export_document.pipeline?.phase !== "FINISHED" &&
     (!row.lease_expires_at || Date.parse(row.lease_expires_at)<=Date.now()) &&
     !row.export_document.taskDecisions?.length &&
-    (canCheckOfficialEmail(document) || document?.research?.assessments?.some(
+    (canCheckOfficialBasics(document) || document?.research?.assessments?.some(
       assessment=>assessment.uncertainty==="NONE" && INBOX_AUTO_RESEARCH_KEYS.has(assessment.attributeKey),
     ) === true);
 }
@@ -133,20 +134,31 @@ export async function POST(request:Request) {
       document.research.assessments = (document.research.assessments ?? [])
         .filter(assessment => claims.has(assessment.attributeKey));
       // Once adopted, the stored document and its proof state must remain stable on retry.
-      if (!row.export_document.pipeline && canCheckOfficialEmail(document)) {
+      if (!row.export_document.pipeline && canCheckOfficialBasics(document)) {
         const detail = await readWorldResearchDetail(actor, row.spot_id);
         const spot = document.batch.spots[0];
         const website = detail.answers?.["contact.website"];
         if (website?.visibility === "PUBLIC" && website.knowledgeState === "KNOWN_VALUE" &&
-            typeof website.value === "string" && website.value === spot.existingValues["contact.website"].value &&
-            !detail.answers?.[emailKey]) {
-          const email = await readOfficialSpotEmail({ website: website.value, name: detail.name, locality: spot.locality });
-          if (email) {
-            research.claims.push(email);
-            research.unresolved = research.unresolved.filter(item => item.attributeKey !== emailKey);
+            typeof website.value === "string" && website.value === spot.existingValues["contact.website"].value) {
+          const missing = new Set(research.unresolved.filter(({ attributeKey }) =>
+            officialBasics.has(attributeKey) && !spot.existingValues[attributeKey] && !detail.answers?.[attributeKey],
+          ).map(({ attributeKey }) => attributeKey));
+          const address = detail.answers?.["location.address_line1"];
+          const found = missing.size ? await readOfficialSpotBasics({
+            website: website.value, name: detail.name, locality: spot.locality,
+            address: address?.visibility === "PUBLIC" && typeof address.value === "string" ? address.value : undefined,
+          }) : [];
+          for (const claim of found) {
+            if (!missing.has(claim.attributeKey)) continue;
+            research.claims.push(claim);
+            research.unresolved = research.unresolved.filter(item => item.attributeKey !== claim.attributeKey);
             document.research.assessments.push({
-              attributeKey: emailKey, uncertainty: "NONE", bindings: {},
-              reason: "Allgemeine Kontaktadresse im veröffentlichten Mail-Link der offiziellen Website.",
+              attributeKey: claim.attributeKey,
+              uncertainty: claim.attributeKey === "hours.regular" ? "MINOR" : "NONE",
+              bindings: {},
+              reason: claim.attributeKey === "hours.regular"
+                ? "Die veröffentlichten Öffnungszeiten sind als Vorschlag zur Prüfung erfasst. Nicht genannte Tage und Ausnahmen bleiben offen."
+                : "Veröffentlichte Kontaktangabe auf der offiziellen Website.",
             });
           }
         }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readOfficialSpotEmail } from "../src/official-spot-email.mjs";
+import { readOfficialSpotBasics } from "../src/official-spot-basics.mjs";
 import { collectResearchEvidence, proveResearchEvidence } from "../src/research-evidence-policy.mjs";
 
 test("linked official email passes the independent import proof; ambiguous and private contacts stay open", async () => {
@@ -20,7 +20,7 @@ test("linked official email passes the independent import proof; ambiguous and p
         ? '<h1>Unser Bistro in Basel</h1><a href="/kontakt/">Kontakt</a><a href="https://elsewhere.example/kontakt">Kontakt</a>'
         : "<h1>Test Bistro</h1><p>Teststrasse 2, Basel</p>" + links };
     };
-    const claim = await readOfficialSpotEmail(spot, fetchPage);
+    const [claim] = await readOfficialSpotBasics(spot, fetchPage);
     assert.deepEqual(fetched, [spot.website, contact]);
     assert.equal(claim?.value, expected);
     if (!claim) continue;
@@ -39,4 +39,29 @@ test("linked official email passes the independent import proof; ambiguous and p
       now: Date.parse(observedAt),
     }).eligible, false);
   }
+});
+
+test("official contact fallback supplies phone and partial opening hours without filling unmentioned days", async () => {
+  const website = "https://test-bistro.example/";
+  const spot = { website, name: "Test Bistro", locality: "Basel", address: "Teststrasse 2" };
+  const read = async (url) => ({
+    url, contentType: "text/html", observedAt: "2026-11-18T10:00:00Z",
+    body: url === website
+      ? '<a href="/kontakt/">Kontakt</a>'
+      : "<h1>Test Bistro</h1><p>Teststrasse 2</p><p>4055 Basel</p><p>T +41 79 271 73 60</p>" +
+        "<p>Öffnungszeiten: Mo – Fr: 08:00 – 22:00 Uhr, ab 2026 Sa: 09:00 – 17.00</p>" +
+        "<p>Küchenzeiten: So 10:00 – 14:00 Uhr</p>",
+  });
+  const claims = await readOfficialSpotBasics(spot, read);
+  const phone = claims.find(claim => claim.attributeKey === "contact.phone");
+  const hours = claims.find(claim => claim.attributeKey === "hours.regular");
+  assert.equal(phone.value, "+41792717360");
+  assert.deepEqual(hours.value.map(day => day.day), ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"]);
+  assert.match(hours.source.evidence, /ab 2026/);
+  const page = await read(website);
+  const evidence = await collectResearchEvidence({ ...spot, page, claims: [phone], fetchPage: read });
+  assert.equal(proveResearchEvidence({
+    website, page, claims: [phone], claim: phone, assessment: { uncertainty: "NONE" }, evidence,
+    now: Date.parse(page.observedAt),
+  }).eligible, true);
 });

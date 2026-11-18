@@ -67,12 +67,12 @@ export function worldResearchResponseDocument(exportDocument, response, observed
   let proposed;
   try { proposed = JSON.parse(output); } catch { throw new Error("world_research_provider_json_invalid"); }
   if (!isObject(proposed) || !Array.isArray(proposed.claims) || !Array.isArray(proposed.unresolved)) throw new Error("world_research_provider_shape_invalid");
-  const sources = new Set((response.output ?? []).filter((item) => item?.type === "web_search_call")
-    .flatMap((item) => item?.action?.sources ?? []).map((source) => canonicalSource(source?.url)).filter(Boolean));
-  if (sources.size === 0) throw new Error("world_research_sources_missing");
-  const opened = new Set((response.output ?? []).filter((item) => item?.type === "web_search_call"
-    && ["open_page", "find_in_page"].includes(item?.action?.type))
-    .map((item) => canonicalSource(item.action.url)).filter(Boolean));
+  const searches = (response.output ?? []).filter(item => item?.type === "web_search_call");
+  const opened = new Set(searches.filter(item => item.status === "completed"
+    && ["open_page", "find_in_page"].includes(item.action?.type))
+    .map(item => canonicalSource(item.action.url)).filter(Boolean));
+  if (!opened.size && !searches.some(item => item.status === "completed" && item.action?.type === "search"))
+    throw new Error("world_research_sources_missing");
   const catalog = new Set(exportDocument.fieldCatalog.map((field) => field.attributeKey));
   const seen = new Set();
   const claims = [];
@@ -83,8 +83,8 @@ export function worldResearchResponseDocument(exportDocument, response, observed
     seen.add(item.attributeKey);
     const source = canonicalSource(item.sourceUrl);
     const corroborating = item.corroboratingUrl === null ? null : canonicalSource(item.corroboratingUrl);
-    if (!source || !sources.has(source) || !opened.has(source)
-      || (item.trust === "CORROBORATED_SECONDARY" && (!corroborating || !sources.has(corroborating) || !opened.has(corroborating)
+    if (!source || !opened.has(source)
+      || (item.trust === "CORROBORATED_SECONDARY" && (!corroborating || !opened.has(corroborating)
       || new URL(source).hostname === new URL(corroborating).hostname))) {
       unresolved.push({ attributeKey: item.attributeKey, reason: "Die Zielseite oder unabhängige Gegenprüfung wurde im Web-Recherchelauf nicht als tatsächlich geöffnete Quelle nachgewiesen." });
       continue;
