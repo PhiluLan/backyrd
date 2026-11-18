@@ -45,9 +45,25 @@ export function sameCrawlerSettings(first: CrawlerSettings, second: CrawlerSetti
 
 export type CrawlerFacts = {
   external_id: string; name: string; category: CrawlerCategory;
-  address: string; lat: number; lng: number; website: string;
+  address: string; lat: number; lng: number; website?: string;
   phone?: string; email?: string; hours?: string; price_hint?: string; source_url: string; observed_at: string; coordinates_source?: string;
+  origin?: "OVERTURE";
+  basics?: CrawlerBasics;
 };
+
+export type CrawlerBasics = {
+  state: "CHECKED" | "SOURCE_MISSING" | "SOURCE_UNAVAILABLE" | "INSUFFICIENT_IDENTITY" | "TIME_LIMIT";
+  website?: string;
+  email?: string;
+  phone?: string;
+  fullHours?: ReadonlyArray<{ readonly day: string; readonly intervals: ReadonlyArray<{ readonly start: string; readonly end: string }> }>;
+  fixedAdmission?: number;
+  proposals: ReadonlyArray<{ attributeKey: string; url: string; evidence: string; review: boolean }>;
+  braveCalls: number;
+  aiCalls: number;
+  estimatedUsd: number | null;
+};
+export type CrawlerRunUsage = { webSearches: number | null; enrichmentSearches: number; aiCalls: number; estimatedUsd: number | null; searchedWithWeb: boolean };
 
 export type CrawlerCandidate = {
   source_id: number;
@@ -63,15 +79,21 @@ export type CrawlerCandidate = {
   spots: { id: string; name: string; address: string | null; distance_m: number }[];
 };
 
-export type CrawlerView = "open" | "history";
+export type CrawlerView = "open" | "hold" | "history";
 
 export function isOpenCrawlerCandidate(row: CrawlerCandidate): boolean {
   return !row.imported_spot_id && (row.review_state === "OPEN" || row.review_state === "REVIEWED")
     && (row.state === "NEW" || (row.state === "REVIEW" && row.can_confirm_distinct === true));
 }
 
+export function isCrawlerCandidateVisible(row: CrawlerCandidate, view: CrawlerView): boolean {
+  const open = isOpenCrawlerCandidate(row);
+  if (view === "history") return !open;
+  return open && (view === "hold" ? row.review_state === "REVIEWED" : row.review_state !== "REVIEWED");
+}
+
 export type CrawlerOverview = {
   rows: CrawlerCandidate[]; next_after: number | null;
   runs: {id: number; status: "FETCHING" | "COMPLETE" | "FAILED"; started_at: string;
-    source_count: number | null; outcome: string | null}[];
+    source_count: number | null; outcome: string | null; usage?: CrawlerRunUsage}[];
 };

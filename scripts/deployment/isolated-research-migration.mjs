@@ -142,6 +142,11 @@ export const BASEL_PLACE_IMPORT_CREATE_MIGRATION = Object.freeze({
   path: "supabase/migrations/20261117124338_simplify_basel_place_import.sql",
   sha256: "bf978b80a708c9213f63949c42429ded325aa25f1459f789871f8875f10cc96b",
 });
+export const CRAWLER_BASICS_SCOPE = "backyrd.crawler-source-first-basics-delivery-scope@1.0";
+export const CRAWLER_BASICS_MIGRATION = Object.freeze({"path": "supabase/migrations/20261118163449_crawler_source_first_basics.sql", "sha256": "b388dd79ac73fa9acc044015a6f0d5b073ca2588e00caa9beb24da89b7fea785"});
+export function crawlerBasicsAppliedReceipt(state, read, isAncestor) {
+  return exactResearchReceipt(state, read, isAncestor, CRAWLER_BASICS_MIGRATION, "crawlerBasicsRelease");
+}
 export const CRAWLER_APPROVAL_SCOPE = "backyrd.crawler-approval-delivery-scope@1.0";
 export const CRAWLER_APPROVAL_MIGRATION = Object.freeze({
   path: "supabase/migrations/20261117185705_crawler_approval_research_pipeline.sql",
@@ -184,7 +189,7 @@ export function spotSearchFreshnessAppliedReceipt(state, read, isAncestor) {
 export function analyticsPageviewsAppliedReceipt(state, read, isAncestor) {
   return exactResearchReceipt(state, read, isAncestor, ANALYTICS_PAGEVIEWS_MIGRATION, "analyticsPageviewsRelease");
 }
-export function scopeAnalyticsPageviewsMigrations({ pending, scope, baseSha, deployFunctions, authDeploy, retiredFunctions, appliedAnalyticsPageviews, appliedSpotSearchFreshness, appliedBaselPlaceSources, appliedBaselOverture, appliedWorldResearchBatches, appliedBaselPlaceImportCreate, appliedSpotCategoryApproval, appliedSpotCrawler, appliedCrawlerApproval }) {
+export function scopeAnalyticsPageviewsMigrations({ pending, scope, baseSha, deployFunctions, authDeploy, retiredFunctions, appliedAnalyticsPageviews, appliedSpotSearchFreshness, appliedBaselPlaceSources, appliedBaselOverture, appliedWorldResearchBatches, appliedBaselPlaceImportCreate, appliedSpotCategoryApproval, appliedSpotCrawler, appliedCrawlerApproval, appliedCrawlerBasics }) {
   const targets = {
     [ANALYTICS_PAGEVIEWS_SCOPE]: [ANALYTICS_PAGEVIEWS_MIGRATION, appliedAnalyticsPageviews, true],
     [SPOT_SEARCH_FRESHNESS_SCOPE]: [SPOT_SEARCH_FRESHNESS_MIGRATION, appliedSpotSearchFreshness, appliedAnalyticsPageviews],
@@ -192,6 +197,7 @@ export function scopeAnalyticsPageviewsMigrations({ pending, scope, baseSha, dep
     [BASEL_OVERTURE_SCOPE]: [BASEL_OVERTURE_MIGRATION, appliedBaselOverture, appliedAnalyticsPageviews && appliedSpotSearchFreshness && appliedBaselPlaceSources],
     [WORLD_RESEARCH_BATCHES_SCOPE]: [WORLD_RESEARCH_BATCHES_MIGRATION, appliedWorldResearchBatches, appliedAnalyticsPageviews && appliedSpotSearchFreshness && appliedBaselPlaceSources && appliedBaselOverture],
     [BASEL_PLACE_IMPORT_CREATE_SCOPE]: [BASEL_PLACE_IMPORT_CREATE_MIGRATION, appliedBaselPlaceImportCreate, appliedAnalyticsPageviews && appliedSpotSearchFreshness && appliedBaselPlaceSources && appliedBaselOverture && appliedWorldResearchBatches],
+    [CRAWLER_BASICS_SCOPE]: [CRAWLER_BASICS_MIGRATION, appliedCrawlerBasics, appliedCrawlerApproval && appliedBaselOverture],
     [CRAWLER_APPROVAL_SCOPE]: [CRAWLER_APPROVAL_MIGRATION, appliedCrawlerApproval, appliedSpotCrawler && appliedWorldResearchBatches],
     [SPOT_CRAWLER_SCOPE]: [SPOT_CRAWLER_MIGRATION, appliedSpotCrawler, appliedBaselPlaceSources && appliedBaselPlaceImportCreate && appliedSpotCategoryApproval],
     [SPOT_CATEGORY_APPROVAL_SCOPE]: [SPOT_CATEGORY_APPROVAL_MIGRATION, appliedSpotCategoryApproval, appliedAnalyticsPageviews && appliedSpotSearchFreshness && appliedBaselPlaceSources && appliedBaselOverture && appliedWorldResearchBatches && appliedBaselPlaceImportCreate],
@@ -343,11 +349,11 @@ export function prepareResearchMigrationWorkspace(plan,root,output) {
     ? scopeNuknukActivityMigrations({ pending: [...plan.pendingMigrations, ...(plan.deferredMigrations ?? [])],
       scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,
       authDeploy: plan.authConfig?.deploy === true, appliedNuknukActivity: plan.appliedNuknukActivity })
-    : [ANALYTICS_PAGEVIEWS_SCOPE, SPOT_SEARCH_FRESHNESS_SCOPE, BASEL_PLACE_SOURCES_SCOPE, BASEL_OVERTURE_SCOPE, WORLD_RESEARCH_BATCHES_SCOPE, BASEL_PLACE_IMPORT_CREATE_SCOPE, SPOT_CATEGORY_APPROVAL_SCOPE, SPOT_CRAWLER_SCOPE, CRAWLER_APPROVAL_SCOPE].includes(plan.isolatedResearchScope?.contractVersion)
+    : [ANALYTICS_PAGEVIEWS_SCOPE, SPOT_SEARCH_FRESHNESS_SCOPE, BASEL_PLACE_SOURCES_SCOPE, BASEL_OVERTURE_SCOPE, WORLD_RESEARCH_BATCHES_SCOPE, BASEL_PLACE_IMPORT_CREATE_SCOPE, SPOT_CATEGORY_APPROVAL_SCOPE, SPOT_CRAWLER_SCOPE, CRAWLER_APPROVAL_SCOPE, CRAWLER_BASICS_SCOPE].includes(plan.isolatedResearchScope?.contractVersion)
     ? scopeAnalyticsPageviewsMigrations({ pending: [...plan.pendingMigrations, ...plan.deferredMigrations],
       scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,
       authDeploy: plan.authConfig?.deploy === true, retiredFunctions: plan.retiredFunctions,
-      appliedAnalyticsPageviews: plan.appliedAnalyticsPageviews, appliedSpotSearchFreshness: plan.appliedSpotSearchFreshness, appliedBaselPlaceSources: plan.appliedBaselPlaceSources, appliedBaselOverture: plan.appliedBaselOverture, appliedWorldResearchBatches: plan.appliedWorldResearchBatches, appliedBaselPlaceImportCreate: plan.appliedBaselPlaceImportCreate, appliedSpotCategoryApproval: plan.appliedSpotCategoryApproval, appliedSpotCrawler: plan.appliedSpotCrawler, appliedCrawlerApproval: plan.appliedCrawlerApproval })
+      appliedAnalyticsPageviews: plan.appliedAnalyticsPageviews, appliedSpotSearchFreshness: plan.appliedSpotSearchFreshness, appliedBaselPlaceSources: plan.appliedBaselPlaceSources, appliedBaselOverture: plan.appliedBaselOverture, appliedWorldResearchBatches: plan.appliedWorldResearchBatches, appliedBaselPlaceImportCreate: plan.appliedBaselPlaceImportCreate, appliedSpotCategoryApproval: plan.appliedSpotCategoryApproval, appliedSpotCrawler: plan.appliedSpotCrawler, appliedCrawlerApproval: plan.appliedCrawlerApproval, appliedCrawlerBasics: plan.appliedCrawlerBasics })
     : plan.isolatedVoltaScope
     ? scopeVoltaMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedVoltaScope,
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,

@@ -19,6 +19,7 @@ export default function AdminSpotResearchPage() {
     pipeline={(body)=>authorizedWorldResearchPipelinePost({auth:supabase.auth,body})}
     jobsGet={(jobId) => authorizedWorldResearchJobs({ auth: supabase.auth, jobId })}
     jobsStart={(spotIds) => authorizedWorldResearchJobs({ auth: supabase.auth, spotIds })}
+    sourcePreview={(spotId) => authorizedWorldResearchJobs({ auth: supabase.auth, spotIds: [spotId], mode: "SOURCE_PREVIEW" })}
     draftsGet={(draftId, view) => authorizedWorldResearchDrafts({ auth: supabase.auth, draftId, view })}
     draftsSave={(report) => authorizedWorldResearchDrafts({ auth: supabase.auth, report })} /></>;
 }

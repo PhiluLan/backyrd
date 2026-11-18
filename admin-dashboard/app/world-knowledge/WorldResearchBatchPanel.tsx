@@ -13,6 +13,7 @@ import { parseNuknukDraft, type NuknukDraft } from "@/lib/nuknukResearchDraft";
 import type { AdminResearchReview as ResearchReview } from "@/lib/nuknukDraftImport";
 import { ResearchPipelinePanel } from "./ResearchPipelinePanel";
 import styles from "./WorldResearchBatchPanel.module.css";
+import type { SourcePreviewResult } from "../../../packages/spot-research-runtime/src/source-first-preview.mjs";
 
 type Spot = ProductAdminSpotSearch["spots"][number];
 type Report = { followupError?: string; batchId: string; mode: string; totals: Record<string, number>; perSpot: Array<{ spotId: string; name: string; ready: string[]; readyClaims: Array<{ attributeKey: string; value: unknown; source: { evidence: string; url: string }; supportingSources?: Array<{ evidence: string; url: string }> }>; storedClaims?: Array<{ attributeKey: string; value: unknown }>; declined: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; unresolvedDetails: Array<{ attributeKey: string; reason: string }>; reviews: ResearchReview[]; blocked: string[]; derived: string[]; manifestHash?: string; reviewCompleted?: boolean; reviewCompletionError?: string; location?: { message: string; automatic: string | null; query?: string; candidates: Array<{ placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; sourceUrl: string }> } }> };
@@ -22,6 +23,21 @@ type StoredDraft = { draftId: string; spotId: string; spotName: string; version:
 
 const FILE_EXPORT_SPOT_LIMIT = 10;
 
+const sourcePreviewStatus = {
+  COMPLETE_PROFILE: "Basisangaben bereits vorhanden",
+  INSUFFICIENT_IDENTITY: "Adresse oder Ort für die Quellensuche fehlt",
+  SOURCE_MISSING: "Keine offizielle Website gefunden",
+  SOURCE_UNAVAILABLE: "Website nicht lesbar",
+  CHECKED: "Offizielle Website geprüft",
+};
+
+const sourceProviderStatus = {
+  NOT_NEEDED: "nicht eingesetzt",
+  NEEDED_NOT_CONFIGURED: "wäre nötig, nicht verfügbar",
+  USED: "eingesetzt",
+  FAILED: "Aufruf fehlgeschlagen",
+};
+
 export function WorldResearchBatchPanel(props: {
   inboxManaged?: boolean;
   search(query: string): Promise<ProductAdminSpotSearch>;
@@ -30,6 +46,7 @@ export function WorldResearchBatchPanel(props: {
   pipeline?(body: unknown):Promise<unknown>;
   jobsGet(jobId?: string): Promise<unknown>;
   jobsStart(spotIds: string[]): Promise<unknown>;
+  sourcePreview(spotId: string): Promise<unknown>;
   draftsGet(draftId?: string, view?: "archive"): Promise<unknown>;
   draftsSave(report: unknown): Promise<unknown>;
 }) {
@@ -50,6 +67,7 @@ export function WorldResearchBatchPanel(props: {
   const [draftsError, setDraftsError] = useState("");
   const [draftSaving, setDraftSaving] = useState(false);
   const [preview, setPreview] = useState<Report | null>(null);
+  const [sourcePreviews, setSourcePreviews] = useState<Array<SourcePreviewResult | { spotId: string; name: string; status: "ERROR" }>>([]);
   const [reviewOptions, setReviewOptions] = useState<Record<string, ResearchReview[]>>({});
   const [locations, setLocations] = useState<Record<string, string>>({});
   const [confirmations, setConfirmations] = useState<Record<string, Record<string, string>>>({});
@@ -203,6 +221,22 @@ export function WorldResearchBatchPanel(props: {
     setMessage("Export erstellt. Recherchiere extern und füge das vollständige JSON danach wieder ein.");
     if (queue) void props.queue(queuePage, batchSize).then((value) => setQueue(parseWorldResearchQueue(value))).catch(() => setQueueError("Export erstellt; der Fortschritt konnte nicht aktualisiert werden."));
   });
+  const previewSources = () => run(async () => {
+    setSourcePreviews([]);
+    for (let offset = 0; offset < selected.length; offset += 3) {
+      const results = await Promise.all(selected.slice(offset, offset + 3).map(async spot => {
+        try {
+          const response = await props.sourcePreview(spot.spotId) as { preview: SourcePreviewResult };
+          if (response.preview?.spotId !== spot.spotId) throw new Error("WORLD_RESEARCH_PREVIEW_MISMATCH");
+          return response.preview;
+        } catch {
+          return { spotId: spot.spotId, name: spot.name, status: "ERROR" as const };
+        }
+      }));
+      setSourcePreviews(previous => [...previous, ...results]);
+    }
+  });
+
   const startAutomatic = () => run(async () => {
     setStartFeedback({ message: "Rechercheauftrag wird vorbereitet …" });
     try {
@@ -383,7 +417,26 @@ export function WorldResearchBatchPanel(props: {
           <button className={styles.secondary} disabled={queueBusy || busy} onClick={() => setSelected(queue.spots.slice(0, batchSize))}>Auch bereits übernommene Spots auswählen</button>
         </div></div>}
         {queueError && <p className={styles.error} role="alert">{queueError}</p>}
-        <div className={styles.search}><input aria-label="Spot suchen" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Anderen Spot nach Namen suchen" onKeyDown={(event) => { if (event.key === "Enter") void search(); }} /><button disabled={busy} onClick={() => void search()}>Suchen</button></div>{!!results.length && <div className={styles.results}>{results.map((spot) => <label key={spot.spotId}><input type="checkbox" checked={selected.some((item) => item.spotId === spot.spotId)} disabled={!selected.some((item) => item.spotId === spot.spotId) && selected.length >= batchSize} onChange={() => toggle(spot)} /><span><b>{spot.name}</b><small>{spot.city ?? "Ort nicht gepflegt"}</small></span></label>)}</div>}{!!selected.length && <div className={styles.chips}>{selected.map((spot) => <button key={spot.spotId} onClick={() => toggle(spot)} aria-label={`${spot.name} entfernen`}>{spot.name} <span aria-hidden="true">×</span></button>)}</div>}<button className={styles.primary} disabled={busy || !selected.length || !automationEnabled} onClick={() => void startAutomatic()}>Recherche automatisch starten</button>
+        <div className={styles.search}><input aria-label="Spot suchen" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Anderen Spot nach Namen suchen" onKeyDown={(event) => { if (event.key === "Enter") void search(); }} /><button disabled={busy} onClick={() => void search()}>Suchen</button></div>{!!results.length && <div className={styles.results}>{results.map((spot) => <label key={spot.spotId}><input type="checkbox" checked={selected.some((item) => item.spotId === spot.spotId)} disabled={!selected.some((item) => item.spotId === spot.spotId) && selected.length >= batchSize} onChange={() => toggle(spot)} /><span><b>{spot.name}</b><small>{spot.city ?? "Ort nicht gepflegt"}</small></span></label>)}</div>}{!!selected.length && <div className={styles.chips}>{selected.map((spot) => <button key={spot.spotId} onClick={() => toggle(spot)} aria-label={`${spot.name} entfernen`}>{spot.name} <span aria-hidden="true">×</span></button>)}</div>}<button className={styles.primary} disabled={busy || !selected.length || selected.length > FILE_EXPORT_SPOT_LIMIT} onClick={() => void previewSources()}>Quellen prüfen · Vorschau</button>
+        <p className={styles.note}>Bis zu zehn Spots. Brave und KI werden bei Bedarf aufgerufen. Die Vorschau speichert keine Spotdaten.</p>
+        {!!sourcePreviews.length && <section aria-label="Ergebnisse der Quellenvorschau">
+          {sourcePreviews.map(result => <article key={result.spotId} className={styles.results}>
+            <h3>{result.name}</h3>
+            {result.status === "ERROR" ? <p>Vorschau nicht verfügbar. Kosten unbekannt.</p> : <>
+              <p>{sourcePreviewStatus[result.status]} · {result.sourcesRead} gelesene Seiten</p>
+              <p>{result.usage.estimatedUsd === null ? "API-Kosten unbekannt" : `${result.usage.estimatedUsd.toLocaleString("de-CH", { maximumFractionDigits: 4 })} USD API-Kosten`}
+                {" · Brave: "}{sourceProviderStatus[result.usage.brave.state]}{" · KI: "}{sourceProviderStatus[result.usage.ai.state]}</p>
+              {result.stillMissing.length > 0 && <p>Offen geblieben: {result.stillMissing.map(researchFieldLabel).join(", ")}</p>}
+              {result.proposals.map(item => <div key={item.attributeKey}>
+                <strong>{researchFieldLabel(item.attributeKey)}</strong>
+                {item.attributeKey === "operation.price_options" ? <p>{item.evidence}</p> : <ResearchValue attributeKey={item.attributeKey} value={item.value} />}
+                <a href={item.url} target="_blank" rel="noreferrer">Quelle öffnen ↗</a>
+                {item.review && <small> · Zur Prüfung</small>}
+              </div>)}
+            </>}
+          </article>)}
+        </section>}
+        <button className={styles.secondary} disabled={busy || !selected.length || !automationEnabled} onClick={() => void startAutomatic()}>Vertiefte Recherche starten</button>
         {startFeedback && <p className={startFeedback.error ? styles.error : styles.message} role={startFeedback.error ? "alert" : "status"}>{startFeedback.message}</p>}
         <button className={styles.secondary} disabled={busy || !selected.length || selected.length > FILE_EXPORT_SPOT_LIMIT} onClick={() => void exportBatch()}>Recherche-Datei herunterladen <span aria-hidden="true">↗</span></button>{selected.length > FILE_EXPORT_SPOT_LIMIT && <p className={styles.note}>Für eine Recherche-Datei kannst du bis zu {FILE_EXPORT_SPOT_LIMIT} Spots auswählen.</p>}<p className={styles.note}>Die automatische Nuknuk-Recherche liefert zunächst Vorschläge. Für extern recherchierte Dateien nutzt du unten die sichere Übernahme mit erneuter Quellenprüfung.</p>{jobsError && <p className={styles.error} role="alert">{jobsError}</p>}{!automationEnabled && !jobsError && <p className={styles.note}>Automatische Recherche ist noch nicht freigeschaltet. Die manuelle Datei bleibt verfügbar.</p>}</div>}
       {props.pipeline && !json && <ResearchPipelinePanel spot={selected.length === 1 ? selected[0] : null} post={props.pipeline} onProcessed={async()=>{setJobs((await props.jobsGet() as ResearchJobsResponse).jobs);setJobsError("");}} openReview={jobId=>void openJob(jobId)} />}

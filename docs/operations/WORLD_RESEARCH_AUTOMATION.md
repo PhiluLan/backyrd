@@ -56,6 +56,46 @@ reviewable. Confirmed fields appear above the questions with the existing field
 editor. Publication requires the existing Admin authoring authority and
 `WORLD_RESEARCH_SAFE_IMPORT_ENABLED` in the Admin server.
 
+## Source-first preview
+
+In «Neue Recherche», «Quellen prüfen · Vorschau» checks up to ten approved
+spots without preparing a World profile, enqueueing a deep job, or writing
+facts. It compares contact, regular hours and price options against the public
+profile and existing base fields. Known sites are read directly. If a website
+is missing, one Brave call can supply leads when `BRAVE_SEARCH_API_KEY` is
+configured. The target website must independently match the venue and address.
+Price review can use one bounded, tool-free OpenAI call when `OPENAI_API_KEY` is
+configured. Its input is restricted to price quotations from the official site.
+The model may pick a quotation but cannot produce a new price.
+
+Each preview shows proposals with their source, fields still open, provider
+usage and calculated API cost. Failed provider calls without usage are shown
+with unknown cost. The underlying preview result is read-only. Existing deep
+research remains an explicit separate action.
+
+## New-spot discovery
+
+The Backyrd Crawler combines active Brave discovery with the latest enabled
+Basel Overture snapshot. The Overture snapshot is used for citywide searches
+and keeps its attribution. The shortlist filters catalog matches and
+previously seen finds before making supplemental calls. The existing
+category, size, schedule and budget settings still govern each run.
+
+Candidate basics are prepared before the candidate is displayed. The crawler
+reads the official website, attempts at most ten missing website searches
+and uses at most one bounded, tool-free price selection call per run. The
+existing monthly guard reserves these worst-case calls before starting.
+Individual source failures leave evidence and gaps visible without creating
+research tasks. Costs reflect observed calls and metered tokens where known.
+
+«Spot anlegen» uses the existing Admin approval and binds the source facts to
+the reviewed fingerprint. Public contact and a complete verified weekly
+schedule are saved in the same transaction. When World Admin authoring is
+active, canonical basics and a clearly evidenced fixed admission price are
+also published to Decision. Other price evidence stays linked to the find.
+«Zur Prüfung» holds a find and «Ablehnen» archives it. Paid full research
+requires the separate «Vertiefte Recherche starten» action after approval.
+
 ## Operational controls
 
 - Apply the forward migration through the normal, explicitly authorized

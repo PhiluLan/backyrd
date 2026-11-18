@@ -7,7 +7,7 @@ export function officialContactLinks(page) {
     .filter(({ url, label }) => /\b(?:kontakt|contact|contatti|impressum)\b/iu.test(new URL(url).pathname + " " + label));
 }
 
-export async function readOfficialSpotBasics(spot, fetchPage = fetchPublicSource) {
+export async function readOfficialSpotBasics(spot, fetchPage = fetchPublicSource, options = {}) {
   let website;
   try { website = publicSourceUrl(spot.website); } catch { return []; }
   if (!spot.locality) return [];
@@ -25,7 +25,8 @@ export async function readOfficialSpotBasics(spot, fetchPage = fetchPublicSource
   const home = await read(website);
   if (!home) return [];
   const contactLinks = officialContactLinks(home).slice(0, 2);
-  const pages = [...(await Promise.all(contactLinks.map(({ url }) => read(url)))).filter(Boolean), home];
+  const extra = options.additionalPages ?? [];
+  const pages = [...(await Promise.all(contactLinks.map(({ url }) => read(url)))).filter(Boolean), home, ...extra];
   const words = (value) => " " + value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim() + " ";
   const host = new URL(website).hostname.replace(/^www\./, "");
   const candidates = new Map();
@@ -56,6 +57,12 @@ export async function readOfficialSpotBasics(spot, fetchPage = fetchPublicSource
     // Require an explicitly labelled international number; never infer the country.
     for (const match of source.text.matchAll(/^\s*(?:T|Tel\.?|Telefon|Phone|Téléphone)\s*:?\s*(\+\d[\d ()/-]{6,24}\d)\s*$/gimu)) {
       try { remember("contact.phone", normalizePhone(match[1]), match[1], page); } catch { /* Invalid number. */ }
+    }
+    if (options.additionalPages) {
+      for (const match of html.matchAll(/<a\b[^>]*\shref\s*=\s*(?:"tel:(\+\d[\d ().-]{6,24}\d)"|'tel:(\+\d[\d ().-]{6,24}\d)')/giu)) {
+        const number = match[1] ?? match[2];
+        try { remember("contact.phone", normalizePhone(number), number, page); } catch { /* Invalid number. */ }
+      }
     }
     const heading = /^(?:Unsere\s+)?(?:Öffnungszeiten|Opening hours)\s*:?[^\S\n]*/iu;
     const weekday = /^(?:Mo\b|Di\b|Mi\b|Do\b|Fr\b|Sa\b|So\b|Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag|täglich)/iu;

@@ -9,7 +9,7 @@ type JsonRecord = Record<string, unknown>;
 type Address = { street: string; postalCode: string };
 type VisibleAddress = Address & { alternatePostalCodes: string[] };
 type Coordinates = { lat: number; lng: number; coordinates_source?: string };
-type Evidence = Omit<CrawlerFacts, "external_id" | "lat" | "lng"> & { postalCode: string; alternatePostalCodes?: string[]; coordinates?: Coordinates };
+type Evidence = Omit<CrawlerFacts, "external_id" | "lat" | "lng" | "website"> & { website: string; postalCode: string; alternatePostalCodes?: string[]; coordinates?: Coordinates };
 const record = (value: unknown): JsonRecord | null =>
   value !== null && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : null;
 const values = (value: unknown): unknown[] => Array.isArray(value) ? value : [value];
@@ -25,7 +25,7 @@ const typeCategories = new Map<string, CrawlerCategory>([
 const restrictedHosts = /(?:^|\.)(?:google(?:\.[a-z]+)+|tripadvisor(?:\.[a-z]+)+|facebook\.com|instagram\.com|booking\.com|yelp(?:\.[a-z]+)+|basel\.com|local\.ch|search\.ch|thefork(?:\.[a-z]+)+)$/iu;
 const deadlineExceeded = () => new Error("RUN_TIME_LIMIT");
 
-function sourceUrl(input: string): string | null {
+export function crawlerOperatorUrl(input: string): string | null {
   try {
     const url = publicSourceUrl(input);
     if (url.length > 1100 || restrictedHosts.test(host(url)) || researchLegalPage(url) === "PROHIBITED") return null;
@@ -62,11 +62,15 @@ function point(lat: unknown, lng: unknown): Coordinates | undefined {
   return a >= 47.519 && a <= 47.599 && b >= 7.554 && b <= 7.635 ? { lat:a, lng:b } : undefined;
 }
 
-type VenueIdentity = Pick<CrawlerFacts, "name" | "category" | "website">;
+type VenueIdentity = Pick<Evidence, "name" | "category" | "website">;
 
 function visibleText(html: string) {
   return html.replace(/<[^>]*>/gu, "").replace(/&(?:nbsp|#160);/giu, " ")
     .replace(/&(?:amp|#38);/giu, "&").replace(/&(?:eacute|#233);/giu, "é")
+    .replace(/&#(?:x([\da-f]{1,6})|(\d{1,7}));/giu, (entity, hex: string | undefined, decimal: string | undefined) => {
+      const code = hex ? Number.parseInt(hex, 16) : Number(decimal);
+      return code >= 32 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff) ? String.fromCodePoint(code) : entity;
+    })
     .replace(/&([aou])uml;/giu, (_, vowel: string) => ({ a: "ä", o: "ö", u: "ü", A: "Ä", O: "Ö", U: "Ü" })[vowel] ?? vowel);
 }
 
@@ -104,7 +108,9 @@ function visiblePlace(body: string, pageUrl: string) {
   // with generic words (e.g. "Kontakt") or only names the parent business.
   const headings = [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/giu)]
     .map(([, text]) => clean(visibleText(text), 140)).filter(Boolean);
-  const displayName = (text: string) => text.split(/[|–—,]| - /u)[0]?.trim().replace(/\s+(?:in\s+)?Basel$/iu, "") ?? "";
+  const displayName = (text: string) => text
+    .replace(/^(?:kontakt|contact|impressum|anfahrt)\s*(?:[|:–—-])\s*/iu, "")
+    .split(/[|:–—,]| - /u)[0]?.trim().replace(/\s+(?:in\s+)?Basel$/iu, "") ?? "";
   function namedVenue(name: string, category: CrawlerCategory | undefined): VenueIdentity | undefined {
     if (!category || name.length < 3 || name.split(/\s+/u).length > 7
       || /^(?:best[esn]* |die |unser[e]?[nm]? |welche |willkommen|home$|startseite$|über uns$|kontakt$|kaffee$|restaurant$|bistro$|café$|cafe$|bar$|nachtclub$|nightclub$|specialty coffee$)/iu.test(name)) return;
@@ -141,7 +147,7 @@ export function readCrawlerEvidence(page: PublicPage, categories: readonly Crawl
       || !postalCode || !/^40\d{2}$/u.test(postalCode)
       || (address && normalize(clean(address.addressLocality, 80)) !== "basel")
       || (country && !["ch", "schweiz", "switzerland", "suisse"].includes(normalize(country)))) return [];
-    const website = sourceUrl(clean(node.url, 1100) || page.url);
+    const website = crawlerOperatorUrl(clean(node.url, 1100) || page.url);
     if (!website || host(website) !== host(page.url)) return [];
     const geo = record(node.geo);
     const coordinates = point(geo?.latitude, geo?.longitude);
@@ -164,7 +170,7 @@ export function readCrawlerEvidence(page: PublicPage, categories: readonly Crawl
   const declaredCity = normalize(clean(declaredAddress?.addressLocality, 80));
   const declaredWebsite = clean(venues[0]?.url, 1100);
   if (extracted.length || venues.length > 1 || (declaredCity && declaredCity !== "basel")
-    || (declaredWebsite && (!sourceUrl(declaredWebsite) || host(declaredWebsite) !== host(page.url)))
+    || (declaredWebsite && (!crawlerOperatorUrl(declaredWebsite) || host(declaredWebsite) !== host(page.url)))
     || !fallback || !visible.address || !categories.includes(fallback.category)) return extracted;
   return [{ ...fallback, postalCode: visible.address.postalCode, alternatePostalCodes: visible.address.alternatePostalCodes,
     address: visible.address.street, source_url: page.url, observed_at: page.observedAt }];
@@ -280,7 +286,7 @@ export async function crawlSpotPages(urls: string[], settings: CrawlerSettings, 
     return page;
   }
 
-  const links = [...new Set(urls.flatMap(url => sourceUrl(url) ?? []))].slice(0,36);
+  const links = [...new Set(urls.flatMap(url => crawlerOperatorUrl(url) ?? []))].slice(0,36);
   for (let offset=0; offset<links.length && Date.now()<options.deadline; offset+=6) {
     await Promise.all(links.slice(offset,offset+6).map(async (url) => {
       try {
@@ -292,7 +298,7 @@ export async function crawlSpotPages(urls: string[], settings: CrawlerSettings, 
           const contact = mainVenue?.ambiguous ? undefined : discoverResearchLinks(page).find(link =>
             /kontakt|contact|anfahrt|location/iu.test(link.label+" "+link.url) && host(link.url) === host(url)
             && !/^\/(?:policies|legal)(?:\/|$)/iu.test(new URL(link.url).pathname));
-          const next = contact && sourceUrl(contact.url);
+          const next = contact && crawlerOperatorUrl(contact.url);
           const contactPage = next ? await read(next) : undefined;
           if (contactPage) evidence = readCrawlerEvidence(contactPage, settings.categories, mainVenue?.identity);
         }
@@ -313,13 +319,15 @@ export async function crawlSpotPages(urls: string[], settings: CrawlerSettings, 
   return {candidates:[...candidates.values()],pagesChecked};
 }
 
-export async function discoverCrawlerSpots(settings: CrawlerSettings, runId: number, key: string) {
-  const deadline=Date.now()+42000;
+export async function discoverCrawlerSpots(settings: CrawlerSettings, runId: number, key: string, deadline = Date.now()+42000) {
   const queries=planCrawlerQueries(settings,runId);
   const urls: string[][]=[];
+  let searchesAttempted = 0;
   let firstError: unknown;
   for (let offset=0; offset<queries.length && Date.now()<deadline-16000; offset+=6) {
-    const results=await Promise.allSettled(queries.slice(offset,offset+6).map(query=>searchBrave(query,key)));
+    const batch = queries.slice(offset, offset+6);
+    searchesAttempted += batch.length;
+    const results=await Promise.allSettled(batch.map(query=>searchBrave(query,key)));
     for (const result of results) {
       if (result.status==="fulfilled") urls.push(result.value);
       else firstError ??= result.reason;
@@ -330,5 +338,5 @@ export async function discoverCrawlerSpots(settings: CrawlerSettings, runId: num
   const interleaved=Array.from({length:10},(_,rank)=>urls.flatMap(result=>result[rank]??[])).flat();
   const discovered=await crawlSpotPages(interleaved,settings,{deadline});
   if (!discovered.pagesChecked && interleaved.length) throw new Error("SOURCES_UNAVAILABLE");
-  return { ...discovered, searchResponses: urls.length, distinctSearchLinks: new Set(interleaved).size };
+  return { ...discovered, searchResponses: urls.length, distinctSearchLinks: new Set(interleaved).size, searchesAttempted };
 }

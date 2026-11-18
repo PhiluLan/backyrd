@@ -137,7 +137,7 @@ export async function authorizedWorldResearchQueue(input: { auth: WorldKnowledge
   return result;
 }
 
-export async function authorizedWorldResearchJobs(input: { auth: WorldKnowledgeBrowserAuth; jobId?: string; spotIds?: string[]; fetcher?: typeof fetch }): Promise<unknown> {
+export async function authorizedWorldResearchJobs(input: { auth: WorldKnowledgeBrowserAuth; jobId?: string; spotIds?: string[]; mode?: "SOURCE_PREVIEW"; fetcher?: typeof fetch }): Promise<unknown> {
   const fetcher = input.fetcher ?? fetch;
   const path = `/api/world-knowledge/research-jobs${input.jobId ? `?jobId=${encodeURIComponent(input.jobId)}` : ""}`;
   const send = async (forceRefresh: boolean) => {
@@ -145,7 +145,7 @@ export async function authorizedWorldResearchJobs(input: { auth: WorldKnowledgeB
     return fetcher(path, {
       method: input.spotIds ? "POST" : "GET", cache: "no-store",
       headers: { authorization: `Bearer ${token}`, ...(input.spotIds ? { "content-type": "application/json" } : {}) },
-      ...(input.spotIds ? { body: JSON.stringify({ spotIds: input.spotIds }) } : {}),
+      ...(input.spotIds ? { body: JSON.stringify({ spotIds: input.spotIds, mode: input.mode }) } : {}),
     });
   };
   let response = await send(false);
