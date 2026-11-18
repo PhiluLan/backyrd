@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "crawler-shortlist-timeout",
+  "previousEvidence": "crawler-source-first-basics",
+  "previousFingerprints": {
+    "publicAclSha256": "7cf29f2fd15944a32b2d4990d662bf6393c5f9e52ab87a786aeb695917ef49ff",
+    "applicationSchemaSha256": "aea5aa7464c4a73333802c49ce6764fbc187fed6c57d7cf6a2869a373232ee4a"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261118174900_crawler_shortlist_timeout.sql",
+      "sha256": "8f20c547d73a301e114b376681be8fadc5e5e745b5530e861eace0d57556b3fa"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/crawler_shortlist_timeout.sql",
+      "sha256": "d28282815b6e3137c6d2f373cff88b143cef90cb9e53b2d7849600a2b28fd2ec"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "7cf29f2fd15944a32b2d4990d662bf6393c5f9e52ab87a786aeb695917ef49ff",
+    "applicationSchemaSha256": "fbc0eb619ca59702efa461fbe6fa0f0379488d8816aee0534a08108fb3c726e9"
+  }
+}
