@@ -713,3 +713,48 @@ Die erforderlichen CI-Gates für den Implementierungsstand `7f864df0` bestanden:
 [Risk Gate](https://github.com/PhiluLan/backyrd/actions/runs/44608289690).
 Dieser Nachtrag ist noch kein Veröffentlichungsbeleg; die neue Main-
 Zertifizierung und der OTA-Nachweis werden separat festgehalten.
+
+
+### Veröffentlichungsbeleg: native Wohin-Eingabe
+
+Am 19. November 2026 für beide unterstützten iPhone-Runtimes auf dem bestehenden
+Production-Kanal veröffentlicht. Quelle: Main `5d8f45072aced952fc39670ba82f98f7e6a09546`,
+[PR #769](https://github.com/PhiluLan/backyrd/pull/769). Alle erforderlichen
+Merge-Gates erfolgreich, einschliesslich des finalen dokumentierten
+[PR-Stands](https://github.com/PhiluLan/backyrd/actions/runs/44610850964).
+Separate exakte `POST_MERGE_MAIN` / `IOS_OTA`-Zertifizierungen:
+[1.1.1](https://github.com/PhiluLan/backyrd/actions/runs/44612126628) und
+[1.1.0](https://github.com/PhiluLan/backyrd/actions/runs/44612126613), beide erfolgreich.
+Die über die GitHub-Anbindung heruntergeladenen ZIP-Dateien stimmten mit den
+GitHub-Archivprüfsummen überein. Veröffentlichung ausschliesslich aus diesen
+zertifizierten Artefakten mit `--skip-bundler`; kein lokaler Bundle-Neubau.
+Die öffentlichen Clientwerte in EAS und CI stimmten vor Veröffentlichung überein.
+
+Runtime **1.1.1**:
+
+- Update: `01a1f599-8408-7ee1-a4e8-b1e1e6f1d5fb`
+- Gruppe: `1c380cf2-6320-42a8-928a-e1f1b1f8acc4`
+- Manifest SHA-256: `dd1016f529eed60267327cd8f4c7a8f63a3249f87c7dd94b37c696428435fccf`
+- Ausgeliefertes Bundle SHA-256: `a0d7454c531eeffa2e537c0556e82561323aae1f59c2c21b6a9a3f03bd57ddd1`
+- Vorherige Gruppe als Rückfallpunkt: `c4839fd3-9329-4d42-bb6d-0e51a29ecef9`
+
+Runtime **1.1.0**:
+
+- Update: `01a1f59a-ddd9-75ce-83a6-d90cd1e68b10`
+- Gruppe: `f4fa05c4-1200-456f-845c-664958e10bba`
+- Manifest SHA-256: `956f9f00e9f45636f6b09137a147a4bbe24504c249afd01d35a4b2dc69337121`
+- Ausgeliefertes Bundle SHA-256: `c4044cd5c338960308077a1e99708f5d3297eb9417f9b036b668b6c637bbae0e`
+- Vorherige Gruppe als Rückfallpunkt: `a108f329-592c-4e55-9a85-7e940579d635`
+
+Nach beiden Veröffentlichungen wurden die Production-Manifeste beider Runtimes
+und die tatsächlichen CDN-Bundle-Bytes erneut gegen die jeweiligen zertifizierten
+Artefakte geprüft. Beide Prüfungen bestanden; die Updates bestehen gleichzeitig
+auf demselben Kanal für ihre jeweilige Runtime. Keine Backend- oder
+Datenbankveröffentlichung, keine Änderung der Entscheidungslogik.
+
+Die native Abnahme des exakt gleichen Wohin-Quellcodes ist oben dokumentiert.
+Die Aktivierung dieses letzten OTA auf dem physischen iPhone wurde nach der
+Veröffentlichung nicht erneut beobachtet. Beim nächsten vollständigen App-Start
+wird gemäss bestehendem `ON_LOAD`-Verhalten nach Updates gesucht; ein geladener
+Stand wird beim anschliessenden Start aktiv. Die visuelle Founder-Abnahme bleibt
+ein eigener Schritt.
