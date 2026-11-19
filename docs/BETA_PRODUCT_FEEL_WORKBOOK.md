@@ -185,3 +185,6 @@ direkt unter der Adresse gewünscht.
   prüft zusätzlich Reihenfolge, Quellenfilter, leere Texte und Vorrang.
 
 Physische iPhone-Abnahme der Abstände und des vollständigen Texts bleibt offen.
+Der Simulator-Sichttest war durch den gesperrten Mac blockiert. Der öffentliche
+App-RPC wurde zusätzlich ohne privilegierten Zugriff geprüft: HTTP 200,
+Quelle `owner`, Beschreibungslänge 347 Zeichen.

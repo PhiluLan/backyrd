@@ -4,6 +4,17 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "spacingAndDescriptionFollowUp": {
+    "sourceCommit": "4e60ce63b3a0fed861509fe3d2b3439b40d2a6a4",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f2b3-4fe3-7ba7-a005-6080bf7a6374", "group": "9ab21f21-fc77-4278-b3fd-5d4292216461" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f2b3-f661-7e07-a642-3eb357fc49f7", "group": "d9b8579d-ab47-4c95-bba0-a951bcd46141" }
+    ],
+    "validation": "Full Mobile contracts, map/discovery, typecheck, targeted lint, Hermes and verified Production exports passed. Description ordering, trusted-source filters and canonical precedence tested. Public Volta Braeu owner-context RPC returned HTTP 200, owner source, 347 characters.",
+    "visualAcceptance": "PENDING; Simulator UI inspection blocked by locked Mac",
+    "databaseChanges": false
+  },
   "founderSectionOrderFollowUp": {
     "sourceCommit": "09a19f529101de68232aa8533ce1635b04fe0a47",
     "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
