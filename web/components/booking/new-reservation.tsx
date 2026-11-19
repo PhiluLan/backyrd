@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { bookingError, bookingWriteUncertain, createBooking, readBookingSlots, restaurantDate, restaurantTime, type BookingSlot, type BookingSnapshot, type BookingSource } from "@/lib/booking-api";
+import { bookingAllocationLabel, bookingTableIds, bookingError, bookingWriteUncertain, createBooking, readBookingSlots, restaurantDate, restaurantTime, restaurantSlotTime, type BookingSlot, type BookingSnapshot, type BookingSource } from "@/lib/booking-api";
 import { ConsolePanel } from "./console-panel";
 import styles from "./console.module.css";
 
@@ -12,6 +12,7 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
   onCreated: (booking: CreatedBooking) => Promise<void>; onBusy: (value: boolean) => void; onClose: (uncertain?: boolean, date?: string) => void;
 }) {
   const [bookingDate, setDate] = useState(date);
+  const [preferredTime, setPreferredTime] = useState("");
   const [party, setParty] = useState(() => String(Math.min(2, snapshot.settings?.max_party_size ?? 8)));
   const [service, setService] = useState(serviceId);
   const [area, setArea] = useState(areaId);
@@ -34,6 +35,8 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
   const generation = useRef(0);
   const inFlight = useRef(false);
   const request = useRef<{ key: string; id: string } | null>(null);
+  const combinations = !!snapshot.capabilities?.table_combinations;
+  const queryService = combinations ? service : "", queryArea = combinations ? area : "";
   const partySize = Number(party);
   const maxPartySize = snapshot.settings?.max_party_size ?? 8;
   const validParty = party.trim() !== "" && Number.isInteger(partySize) && partySize >= 1 && partySize <= maxPartySize;
@@ -43,7 +46,7 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
   const latest = lastDate.toISOString().slice(0, 10);
   const validDate = bookingDate >= today && bookingDate <= latest;
   const available = slots.filter((slot) => (!service || slot.service_id === service)
-    && (!tableId || slot.table_id === tableId)
+    && (!tableId || bookingTableIds(slot).includes(tableId))
     && (!area || snapshot.tables.some((table) => table.id === slot.table_id && table.area_id === area)));
   const times = [...new Set(available.map((slot) => slot.starts_at))].sort((a, b) => Date.parse(a) - Date.parse(b));
   const tableSlots = available.filter((slot) => slot.starts_at === selectedTime);
@@ -57,13 +60,13 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
     const current = ++generation.current;
     setChecking(true); setSlotError(null); setSlots([]); setSelected(""); setChecked(false);
     try {
-      const rows = await readBookingSlots(spotId, bookingDate, partySize);
+      const rows = await readBookingSlots(spotId, bookingDate, partySize, { combinations, serviceId: queryService, areaId: queryArea, time: preferredTime });
       if (current !== generation.current) return;
       setSlots(rows); setChecked(true);
-      setTime(rows.find((slot) => restaurantTime(slot.starts_at) === time)?.starts_at ?? "");
+      setTime(rows.find((slot) => restaurantTime(slot.starts_at, slot.ends_at) === time)?.starts_at ?? "");
     } catch (error) { if (current === generation.current) setSlotError(bookingError(error)); }
     finally { if (current === generation.current) setChecking(false); }
-  }, [spotId, bookingDate, partySize, validParty, validDate, time, uncertain]);
+  }, [spotId, bookingDate, partySize, validParty, validDate, time, uncertain, combinations, queryService, queryArea, preferredTime]);
 
   useEffect(() => {
     if (!validParty || !validDate || uncertain) { setChecking(false); return; }
@@ -118,15 +121,16 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
             <label>Buchungsdatum<input type="date" min={today} max={latest} required value={bookingDate} onChange={(e) => { setDate(e.target.value); clearAvailability(); }} /></label>
             <label>Service<select value={service} onChange={(e) => { setService(e.target.value); setTime(""); setSelected(""); }}>{<option value="">Alle Services</option>}{snapshot.services.map((s) => <option key={s.id} value={s.id}>{s.name}{!s.is_active ? " (inaktiv)" : ""}</option>)}</select></label>
           </div>
+          {combinations && <label>Uhrzeit eingrenzen (optional)<input type="time" value={preferredTime} onChange={(event) => { setPreferredTime(event.target.value); clearAvailability(); }} /></label>}
           {checking && <p className={styles.help} role="status">Freie Zeiten werden geprüft …</p>}
           {slotError && <p className={styles.error} role="alert">{slotError} <button type="button" className={styles.secondary} onClick={() => void checkSlots()}>Erneut prüfen</button></p>}
           {!validParty && <p className={styles.help}>Wähle zwischen 1 und {maxPartySize} Personen.</p>}
           {checked && !available.length && <div className={styles.emptyCompact}><h3>Keine passende Zeit frei.</h3><p>Prüfe Personenzahl, Datum oder Service. Es wurde nichts reserviert.</p></div>}
           {available.length > 0 && <div className={styles.fields}>
-            <label>Uhrzeit<select required value={selectedTime} onChange={(e) => { setTime(e.target.value); setSelected(""); }}><option value="">Zeit auswählen</option>{times.map((start) => <option key={start} value={start}>{restaurantTime(start)}</option>)}</select></label>
-            <label>Tisch<select required disabled={!selectedTime} value={selected} onChange={(e) => setSelected(e.target.value)}><option value="">Tisch auswählen</option>{tableSlots.map((slot) => <option key={slot.service_id + slot.table_id + slot.starts_at} value={slots.indexOf(slot)}>{snapshot.tables.find((t) => t.id === slot.table_id)?.label} · {restaurantTime(slot.starts_at)}–{restaurantTime(slot.ends_at)}{!service ? " · " + snapshot.services.find((s) => s.id === slot.service_id)?.name : ""}</option>)}</select></label>
+            <label>Uhrzeit<select required value={selectedTime} onChange={(e) => { setTime(e.target.value); setSelected(""); }}><option value="">Zeit auswählen</option>{times.map((start) => <option key={start} value={start}>{restaurantSlotTime(start, times)}</option>)}</select></label>
+            <label>Tisch<select required disabled={!selectedTime} value={selected} onChange={(e) => setSelected(e.target.value)}><option value="">Tisch auswählen</option>{tableSlots.map((slot) => <option key={slot.service_id + (slot.combination_id ?? slot.table_id) + slot.starts_at} value={slots.indexOf(slot)}>{bookingAllocationLabel(slot, snapshot)} · {restaurantTime(slot.starts_at, slot.ends_at)}–{restaurantTime(slot.ends_at, slot.starts_at)}{!service ? " · " + snapshot.services.find((s) => s.id === slot.service_id)?.name : ""}</option>)}</select></label>
           </div>}
-          {slot && <p className={styles.slotSummary}>{partySize} Personen · {restaurantTime(slot.starts_at)}–{restaurantTime(slot.ends_at)} · {snapshot.tables.find((table) => table.id === slot.table_id)?.label}</p>}
+          {slot && <p className={styles.slotSummary}>{partySize} Personen · {restaurantTime(slot.starts_at, slot.ends_at)}–{restaurantTime(slot.ends_at, slot.starts_at)} · {bookingAllocationLabel(slot, snapshot)}</p>}
           <details className={styles.editorDetails}><summary>Weitere Angaben</summary>
             {!tableId && <label>Bereich<select value={area} onChange={(e) => { setArea(e.target.value); setTime(""); setSelected(""); }}><option value="">Alle Bereiche</option>{snapshot.areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>}
             <div className={styles.fields}><label>Quelle<select value={source} onChange={(e) => setSource(e.target.value as BookingSource)}><option value="phone">Telefon</option><option value="email">E-Mail</option><option value="walk_in">Vor Ort</option><option value="operator">Betreiber</option></select></label><label>Status<select value={status} onChange={(e) => setStatus(e.target.value as "pending" | "confirmed")}><option value="confirmed">Bestätigt</option><option value="pending">Anfrage offen</option></select></label></div>
