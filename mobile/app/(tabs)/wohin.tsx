@@ -486,9 +486,10 @@ function WohinExperience() {
     setConversationOpen(false);
     setEditing(true);
   };
-  const searchProgress = pendingSearch
-    ? <WohinWaitCard key={requestGeneration.current} isReply={pendingSearch.isReply} onLeave={leaveSearch} />
-    : null;
+  const searchProgress = pendingSearch ? <>
+    {pendingSearch.isReply ? <View style={styles.userMessage}><AppText role="caption" tone="pink">Deine Ergänzung</AppText><AppText role="body">{pendingSearch.message}</AppText></View> : null}
+    <WohinWaitCard key={requestGeneration.current} isReply={pendingSearch.isReply} onLeave={leaveSearch} />
+  </> : null;
   const discoveryPlaceholder = !editing && wohinIsDiscoveryPlaceholder(submittedQuery);
   const needsDiscovery = Boolean(city && authenticated && conversation && !editing && !loading && !clarificationQuestion
     && !candidates.length && (discoveryPlaceholder || response || standaloneQuestion || error));

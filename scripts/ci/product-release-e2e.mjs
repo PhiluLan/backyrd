@@ -244,44 +244,20 @@ try {
   const startupRail = page.getByLabel("Orte entdecken", { exact: true });
   assert.equal(await startupRail.getByLabel("Bild wird geladen", { exact: true }).count(), 0);
   // The prominent Plus opens the draft directly; location refusal does not block manual entry.
-  await page.getByText("Wetter gerade nicht verfügbar", { exact: true }).waitFor();
-  weatherUnavailable = false;
-  await page.getByRole("button", { name: "Wetter aktualisieren", exact: true }).click();
-  await page.getByText("12 °C · Bewölkt", { exact: true }).waitFor();
-  await page.getByRole("link", { name: "Apple Weather: Datenquellen ansehen", exact: true }).waitFor();
-  // Check visible glyphs, not merely the enclosing box: clipped text also has a
-  // perfectly valid box. Stress the same flowing text at the native display
-  // role's maximum 1.4 scale without changing authentication clocks or data.
+  assert.equal(await page.getByRole("button", { name: "Wetter aktualisieren", exact: true }).count(), 0, "accepted Home does not show a weather block");
+  // Home now uses native single-line adjustsFontSizeToFit. React Native Web
+  // does not implement that native font fitting; do not override its font with
+  // the retired wrapping-heading stress test. Check the browser layout here;
+  // native large-text fitting remains a device acceptance item.
   for (const width of [320, 430]) {
     await page.setViewportSize({ width, height: width === 320 ? 568 : 932 });
     const title = page.getByTestId("home-daypart-title");
-    for (const scale of [1, 1.4]) {
-      await title.evaluate((node, scale) => { node.style.fontSize = `${31 * scale}px`; node.style.lineHeight = `${38 * scale}px`; }, scale);
-      await page.waitForTimeout(100);
-      const layout = await title.evaluate(node => {
-        const box = node.getBoundingClientRect();
-        const range = document.createRange();
-        const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
-        const glyphs = [];
-        for (let text = walker.nextNode(); text; text = walker.nextNode()) {
-          // A wrap can leave a space with a layout rect beyond the line while
-          // painting no glyph. Keep the bounds check on every visible word.
-          for (const word of text.textContent.matchAll(/\S+/gu)) {
-            range.setStart(text, word.index);
-            range.setEnd(text, word.index + word[0].length);
-            for (const rect of range.getClientRects()) glyphs.push({left:rect.left,right:rect.right,bottom:rect.bottom});
-          }
-        }
-        return { text: node.textContent, box: {left:box.left,right:box.right,bottom:box.bottom}, glyphs };
-      });
-      assert.match(layout.text, /^Heute .+ schon was\s+vor\?$/);
-      assert.ok(layout.box.left >= 0 && layout.box.right <= width, `heading stays on screen at ${width}/${scale}`);
-      assert.ok(layout.glyphs.length > 0 && layout.glyphs.every(r => r.left >= layout.box.left - 1 && r.right <= layout.box.right + 1), `heading never clips horizontally at ${width}/${scale}: ${JSON.stringify(layout)}`);
-      const searchBounds = await page.getByRole("textbox", {name:"Was willst du machen?",exact:true}).boundingBox();
-      assert.ok(searchBounds && layout.glyphs.every(r => r.bottom <= searchBounds.y), `heading glyphs never overlap the search field at ${width}/${scale}`);
-      if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/home-heading-${width}-${scale}.png`});
-    }
-    await title.evaluate(node => { node.style.removeProperty("font-size"); node.style.removeProperty("line-height"); });
+    assert.match(await title.textContent(), /^Heute .+ schon was\s+vor\?$/);
+    const bounds = await title.boundingBox();
+    const searchBounds = await page.getByRole("textbox", {name:"Was willst du machen?",exact:true}).boundingBox();
+    assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= width);
+    assert.ok(searchBounds && bounds.y + bounds.height <= searchBounds.y, "Home title and input do not overlap");
+    if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/home-heading-${width}.png`});
   }
   await page.setViewportSize({width:390,height:844});
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/weather-home.png`});
@@ -319,8 +295,8 @@ try {
   const releaseFirstDecision = holdDecisionResponse(firstWish);
   try {
     await page.getByRole("button", { name:"Orte finden", exact: true }).click();
-    await page.getByText("Ich schau mal, was zu deinem Wunsch passt.", { exact: true }).waitFor();
-    await page.getByText(`«${firstWish}»`, { exact: true }).waitFor();
+    await page.getByText("Dein Wunsch ist bei mir.", { exact: true }).waitFor();
+    assert.equal(await page.getByText(firstWish, { exact: true }).count(), 1, "the loading view shows the wish once");
     if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-search-progress-390.png`});
   } finally {
     releaseFirstDecision();
@@ -330,7 +306,7 @@ try {
   const dock = page.getByRole("button", {name:"Mit NukNuk chatten",exact:true});
   await dock.waitFor();
   const paletteCard = cards.first();
-  for (const [mode, expected] of [["light", "rgb(255, 249, 246)"], ["dark", "rgb(43, 27, 38)"]]) {
+  for (const [mode, expected] of [["light", "rgb(255, 255, 255)"], ["dark", "rgb(16, 16, 16)"]]) {
     await page.emulateMedia({ colorScheme: mode });
     await paletteCard.evaluate(async (card, background) => {
       for (let tick = 0; tick < 30; tick++) {
@@ -352,10 +328,10 @@ try {
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-390.png`});
   await cards.last().scrollIntoViewIfNeeded();
   assert.equal((await dock.boundingBox()).y,dockAtTop.y,"the conversation stays reachable while browsing");
-  await cards.last().getByRole("button",{name:/Details & Hinweise/}).click();
+  await cards.last().getByRole("button",{name:/Vor deinem Besuch/}).click();
   await page.getByRole("dialog").getByText(spots.at(-1).name(),{exact:true}).waitFor();
-  await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
-  await page.getByRole("button",{name:"Hinweise schließen",exact:true}).waitFor({state:"hidden"});
+  await page.getByRole("button",{name:"Hinweise schliessen",exact:true}).click();
+  await page.getByRole("button",{name:"Hinweise schliessen",exact:true}).waitFor({state:"hidden"});
   assert.equal(state.decisions.length,1,"browsing never invokes the model again");
   assert.equal(state.interactions.some(row=>row.eventType==="candidate_rejected"),false,"browsing does not reject a candidate");
   await page.setViewportSize({width:320,height:568});
@@ -366,10 +342,10 @@ try {
   assert.ok(compactBounds && compactDock && compactBounds.x>=0 && compactBounds.x+compactBounds.width<=320 && compactBounds.y+compactBounds.height<compactDock.y,"the first Spot and conversation actions fit on small screens");
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-320.png`});
   await page.setViewportSize({width:390,height:844});
-  await page.getByText("Details & Hinweise",{exact:true}).first().click();
-  await page.getByText("Auswahl ohne persönliche Vorlieben",{exact:true}).waitFor();
-  await page.getByText("Das Angebot hier passt zu deinem Plan.",{exact:true}).filter({visible:true}).last().waitFor();
-  await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
+  await page.getByText("Vor deinem Besuch",{exact:true}).first().click();
+  await page.getByText("Zur gewünschten Besuchszeit laut Angaben geöffnet",{exact:true}).waitFor();
+  assert.equal(await page.getByText("Auswahl ohne persönliche Vorlieben",{exact:true}).count(),0,"visit details avoid generic personal-fit claims");
+  await page.getByRole("button",{name:"Hinweise schliessen",exact:true}).click();
   assert.equal(state.decisions[0].explicit.targetCity, "Bern");
   assert.equal(state.decisions[0].explicit.primaryIntent, undefined, "old guided intent must not leak into Wohin");
   assert.equal(state.decisions[0].alternativeRequested, false);
@@ -381,10 +357,11 @@ try {
 
   // A recommendation keeps its grounded context only when opened from this search.
   await page.getByRole("button", {name:"Café Vorher entdecken",exact:true}).click();
-  await page.getByText("FÜR DEINEN NÄCHSTEN MOMENT",{exact:true}).waitFor();
+  await page.getByText("DEIN PLAN MIT NUKNUK",{exact:true}).waitFor();
+  await page.getByRole("button",{name:"Dein Plan & Hinweise",exact:true}).click();
   await page.getByText("Das Angebot hier passt zu deinem Plan.",{exact:true}).filter({visible:true}).last().waitFor();
   await page.getByRole("button",{name:"Zurück zu deinen Vorschlägen",exact:true}).click();
-  await page.getByRole("heading",{name:"Deine Vorschläge",exact:true}).waitFor();
+  await page.getByRole("heading",{name:"Das könnte dein Moment sein",exact:true}).waitFor();
 
   state.consent = true;
   state.worldName = "Café Aktualisiert";
@@ -393,9 +370,10 @@ try {
   await page.getByRole("button", { name:"Orte finden", exact: true }).click();
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
   assert.equal(await page.getByText(/World-Version 2/).count(), 0);
-  await page.getByText("Details & Hinweise",{exact:true}).first().click();
-  await page.getByText("Nach deinen Vorlieben ausgewählt",{exact:true}).waitFor();
-  await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
+  await page.getByText("Vor deinem Besuch",{exact:true}).first().click();
+  await page.getByText("Zur gewünschten Besuchszeit laut Angaben geöffnet",{exact:true}).waitFor();
+  assert.equal(await page.getByText("Nach deinen Vorlieben ausgewählt",{exact:true}).count(),0);
+  await page.getByRole("button",{name:"Hinweise schliessen",exact:true}).click();
   await page.reload({ waitUntil: "domcontentloaded" });
   // A refresh now preserves the current route instead of remounting Home.
   await page.getByRole("button",{name:/Dein letzter Suchwunsch/}).waitFor();
@@ -405,12 +383,12 @@ try {
   await page.getByRole("button", { name:"Orte finden", exact: true }).click();
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
   await page.getByRole("button", {name:"Mit NukNuk chatten",exact:true}).click();
-  await page.getByRole("heading", {name:"Dein Gespräch mit NukNuk",exact:true}).waitFor();
+  await page.getByRole("heading", {name:"Dein Plan mit NukNuk",exact:true}).waitFor();
   await page.getByText("Dein Plan",{exact:true}).waitFor();
   await page.getByRole("textbox", {name:"Nachricht an NukNuk",exact:true}).fill("Lieber mit Terrasse");
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) {
     await page.waitForFunction(() => {
-      const title = Array.from(document.querySelectorAll('[role="heading"]')).find(node => node.textContent === "Dein Gespräch mit NukNuk");
+      const title = Array.from(document.querySelectorAll('[role="heading"]')).find(node => node.textContent === "Dein Plan mit NukNuk");
       return title && title.getBoundingClientRect().top < 32;
     });
     await page.getByRole("textbox", {name:"Nachricht an NukNuk",exact:true}).blur();
@@ -422,23 +400,23 @@ try {
   const releaseRefinedDecision = holdDecisionResponse(refinedWish);
   try {
     await page.getByRole("button", {name:"Nachricht senden",exact:true}).click();
-    await page.getByText("Ich nehme das mit und schau noch mal.", {exact:true}).waitFor();
-    await page.getByText("«Lieber mit Terrasse»", {exact:true}).waitFor();
+    await page.getByText("Gut, das nehme ich mit.", {exact:true}).waitFor();
+    await page.getByRole("dialog").getByText("Lieber mit Terrasse", {exact:true}).waitFor();
   } finally {
     releaseRefinedDecision();
   }
   assert.equal((await refinedResponse).status(), 200);
-  await page.getByRole("heading", {name:"Dein Gespräch mit NukNuk",exact:true}).waitFor({state:"hidden"});
+  await page.getByRole("heading", {name:"Dein Plan mit NukNuk",exact:true}).waitFor({state:"hidden"});
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
   assert.equal(state.decisions.at(-1).naturalLanguage, refinedWish);
   await page.getByRole("button", {name:"Mit NukNuk chatten",exact:true}).click();
-  await page.getByText("Lieber mit Terrasse", {exact:true}).waitFor();
+  await page.getByRole("dialog").getByText("Lieber mit Terrasse", {exact:true}).waitFor();
   const countBeforeChatChoices = state.decisions.length;
   const searchChatInput = page.getByRole("textbox", {name:"Nachricht an NukNuk",exact:true});
   const sendSearchChat = page.getByRole("button", {name:"Nachricht senden",exact:true});
   await searchChatInput.fill("Erklär mir Quantenphysik");
   await sendSearchChat.click();
-  await page.getByText(/Quanten und Co. überlasse ich ChatGPT/).waitFor();
+  await page.getByText(/Ich helfe dir, einen Ort für deinen nächsten Moment zu finden/).waitFor();
   assert.equal(state.decisions.length, countBeforeChatChoices);
   const tomorrow = "Morgen möchte ich mit meiner Tochter eine Aktivität haben";
   await searchChatInput.fill(tomorrow);
@@ -499,11 +477,12 @@ try {
 
   state.unavailable = false;
   await page.goto(appUrl, {waitUntil:"domcontentloaded"});
-  await page.getByText("backyrd Momente,",{exact:true}).waitFor();
-  await page.getByRole("button",{name:/Moment bei Café Aktualisiert/}).waitFor();
+  await page.getByRole("textbox",{name:"Was willst du machen?",exact:true}).waitFor();
+  assert.equal(await page.getByText("backyrd Momente,",{exact:true}).count(),0,"Home moments remain parked");
+  assert.equal(await page.getByRole("button",{name:/Moment bei Café Aktualisiert/}).count(),0);
   assert.equal(await page.getByText("Verborgener Ort",{exact:true}).count(),0,"Home never displays safety-hidden Moments");
   await page.getByText("ackyrd",{exact:true}).waitFor({state:"detached"});
-  await page.getByText("Deine letzte Suche,",{exact:true}).waitFor();
+  await page.getByText("Deine letzte Suche",{exact:true}).waitFor();
   await page.getByText("ruhiges Café nach Reload",{exact:true}).waitFor();
   const recentRail = page.getByLabel("Deine letzte Suche: ruhiges Café nach Reload",{exact:true});
   await recentRail.getByRole("button",{name:/Café Aktualisiert öffnen/}).first().waitFor();
@@ -529,16 +508,17 @@ try {
   }
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/connected-home-390.png`,fullPage:true});
   await page.getByText("Momente",{exact:true}).last().click();
+  await page.getByRole("button",{name:"Momentdetails anzeigen",exact:true}).first().click();
   await page.getByRole("button",{name:"Ähnliche Orte finden",exact:true}).first().click();
-  await page.getByRole("heading",{name:"Deine Vorschläge",exact:true}).waitFor();
+  await page.getByRole("heading",{name:"Das könnte dein Moment sein",exact:true}).waitFor();
   assert.equal(state.decisions.at(-1).naturalLanguage,"Ich suche einen Ort (Café) mit dieser Atmosphäre: Gemütlich, Ruhig in Bern.");
   await page.getByRole("button",{name:"Café Aktualisiert entdecken",exact:true}).click();
-  await page.getByText("FÜR DEINEN NÄCHSTEN MOMENT",{exact:true}).waitFor();
+  await page.getByText("DEIN PLAN MIT NUKNUK",{exact:true}).waitFor();
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/connected-place-390.png`});
   // A direct visit has no personalized rationale, even for the same place.
   await page.goto(`${appUrl}/spot/22222222-2222-4222-a222-000000000001`,{waitUntil:"domcontentloaded"});
   await page.getByText("Café Aktualisiert",{exact:true}).first().waitFor();
-  assert.equal(await page.getByText("FÜR DEINEN NÄCHSTEN MOMENT",{exact:true}).count(),0);
+  assert.equal(await page.getByText("DEIN PLAN MIT NUKNUK",{exact:true}).count(),0);
 
   await page.getByText("ackyrd",{exact:true}).waitFor({state:"detached"});
   assert.match(page.url(), /\/spot\/22222222/);
