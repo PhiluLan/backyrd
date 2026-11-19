@@ -188,3 +188,19 @@ Physische iPhone-Abnahme der Abstände und des vollständigen Texts bleibt offen
 Der Simulator-Sichttest war durch den gesperrten Mac blockiert. Der öffentliche
 App-RPC wurde zusätzlich ohne privilegierten Zugriff geprüft: HTTP 200,
 Quelle `owner`, Beschreibungslänge 347 Zeichen.
+
+### Folgekorrektur: Momente auf der Ortsseite
+
+«Hier erlebt» verwendet statt gerahmter grauer Profilkarten eine ruhige Liste
+mit feinen Trennern. Fotos stehen zuerst in voller Inhaltsbreite im Format 4:3;
+Moods erscheinen als typografische Zeile, persönliche Texte darunter. Einträge
+ohne Foto werden kompakt mit einer pinken Linie dargestellt. Name, Local-Hinweis
+und Datum folgen als zurückhaltende Quellenzeile. Die bestehende Suche nach
+ähnlichen Orten erhält nur hier eine dezente, kürzere Darstellung. Feed und Home
+bleiben in dieser Iteration unverändert.
+
+Melden, Anmeldung, Sichtbarkeitsfilter und Review-Datenquelle bleiben erhalten.
+Fehlgeschlagene Fotos werden durch einen ehrlichen kurzen Hinweis ersetzt;
+Text und Moods bleiben lesbar. Keine neuen Backend-Anfragen oder Datenänderungen.
+Mobile-Typecheck, gezieltes ESLint, vollständige Mobile-Vertragstests und direkte
+Hermes-Ausführung bestanden. Visuelle Founder-Abnahme steht aus.

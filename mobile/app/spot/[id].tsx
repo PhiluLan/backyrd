@@ -48,7 +48,6 @@ import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { SpotMoodProfile, type SpotMoodProfileItem } from "../../components/spot/SpotMoodProfile";
 import { AppText, ProductText as Text } from "../../components/foundation/AppText";
 import { StateView } from "../../components/foundation/StateView";
-import SharedAvatar from "../../components/Avatar";
 import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
 import { SPOT_OPENING_STATUS_COPY, spotOpeningStatusNow } from "../../lib/spot-opening-status";
 import { spotAddressLines } from "../../lib/spot-address-presentation";
@@ -275,6 +274,7 @@ export default function SpotDetailScreen() {
   const [galleryImage,setGalleryImage]=useState<string|null>(null);
   const [mediaRevision,setMediaRevision]=useState(0);
   const [reviews, setReviews] = useState<any[]>([]);
+  const [failedMomentPhotos, setFailedMomentPhotos] = useState<Set<string>>(() => new Set());
   const [reviewsFailed, setReviewsFailed] = useState(false);
   const reviewGeneration = useRef(0);
   const [hours, setHours] = useState<Record<string, any[]>>({});
@@ -979,10 +979,10 @@ export default function SpotDetailScreen() {
           </View>
 
           <View style={styles.section}>
-              <View style={styles.sectionHeader}><SectionTitle>Hier erlebt</SectionTitle>{presentableReviews.length > 3 ? <Text style={styles.previewMeta}>Aktuell</Text> : null}</View>
+              <View style={styles.sectionHeader}><SectionTitle>Hier erlebt</SectionTitle></View>
               {reviewsFailed ? <StateView kind="error" title="Momente konnten nicht geladen werden" actionLabel="Erneut laden" onAction={() => void refreshVisibleReviews()} /> : null}
               {!reviewsFailed && presentableReviews.length === 0 ? <Text style={styles.mutedText}>Noch keine Momente von hier. Wenn du hier warst, halte deinen Eindruck fest.</Text> : null}
-              <AppText role="meta" tone="secondary" style={{ marginBottom: 16 }}>Persönliche Momente und die Atmosphäre, die geblieben ist.</AppText>
+              <AppText role="meta" tone="secondary" style={{ marginBottom: 24 }}>So fühlt es sich hier an.</AppText>
               {presentableReviews.slice(0, 3).map((rev) => {
                 const moods = [
                   presentMoodToken(rev.moodA?.token ?? rev.mood_a),
@@ -998,19 +998,23 @@ export default function SpotDetailScreen() {
                   (rev.photo_path?.startsWith("http")
                     ? rev.photo_path
                     : publicReviewPhotoUrl);
+                const hasPhoto = Boolean(reviewPhotoUrl && !failedMomentPhotos.has(reviewPhotoUrl));
 
                 return (
-                  <View key={rev.id} style={[styles.reviewCard, !reviewPhotoUrl && !rev.text ? styles.reviewCardCompact : null]}>
-                    <View style={styles.reviewHeader}>
-                      <SharedAvatar name={name} size={40} />
+                  <View key={rev.id} style={styles.reviewCard}>
+                    {hasPhoto ? <Image source={{ uri: reviewPhotoUrl }} accessibilityLabel={`Moment bei ${spot.name}`} resizeMode="cover" onError={() => setFailedMomentPhotos(previous => new Set(previous).add(reviewPhotoUrl))} style={styles.reviewPhoto} /> : null}
+                    <View style={[styles.reviewImpression, !hasPhoto && styles.reviewImpressionTextOnly]}>
+                      {moods.length > 0 ? <Text style={styles.reviewMoods}>{moods.join(" · ")}</Text> : null}
+                      {rev.text?.trim() ? <Text style={styles.reviewText}>{rev.text.trim()}</Text> : null}
+                      {reviewPhotoUrl && !hasPhoto ? <Text style={styles.reviewDate}>Foto gerade nicht verfügbar</Text> : null}
+                    </View>
 
+                    <View style={styles.reviewHeader}>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.reviewName}>
                           {name}
                           {isLocal ? " · Local" : ""}
-                        </Text>
-
-                        <Text style={styles.reviewDate}>
+                          {"  ·  "}
                           {new Date(rev.created_at).toLocaleDateString("de-DE", {
                             day: "2-digit",
                             month: "short",
@@ -1058,14 +1062,7 @@ export default function SpotDetailScreen() {
                         )
                       ) : null}
                     </View>
-                    {rev.text ? <Text style={styles.reviewText}>{rev.text}</Text> : null}
-                    {moods.length > 0 && (
-                      <View style={styles.reviewMoods}>
-                        {moods.map((m: string) => <Chip key={m} text={m} />)}
-                      </View>
-                    )}
-                    {reviewPhotoUrl ? <Image source={{ uri: reviewPhotoUrl }} style={styles.reviewPhoto} /> : null}
-                    <DiscoverFromMoment moods={moods} city={spot.city} />
+                    <DiscoverFromMoment moods={moods} city={spot.city} compact />
                   </View>
                 );
               })}
@@ -1668,16 +1665,13 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   reviewCard: {
-    marginTop: 12,
-    padding: 14,
-    borderRadius: 24,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    paddingBottom: 24,
+    marginBottom: 28,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
   },
-  reviewCardCompact: {
-    paddingVertical: 12,
-  },
+  reviewImpression: { gap: 12, marginTop: 18, marginBottom: 8 },
+  reviewImpressionTextOnly: { marginTop: 0, paddingLeft: 16, paddingVertical: 4, borderLeftWidth: 2, borderLeftColor: theme.colors.pink },
   reviewHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1704,9 +1698,10 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.97 }],
   },
   reviewName: {
-    color: theme.colors.text,
-    fontSize: 15,
-    fontWeight: "800",
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    lineHeight: 19,
+    fontWeight: "500",
   },
   reviewDate: {
     color: theme.colors.textMuted,
@@ -1715,29 +1710,22 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   reviewText: {
-    color: theme.colors.textSoft,
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 12,
-    fontWeight: "500",
+    color: theme.colors.text,
+    fontSize: 17,
+    lineHeight: 27,
+    fontWeight: "400",
   },
   reviewMoods: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 10,
+    color: theme.colors.pinkSoft,
+    fontSize: 18,
+    lineHeight: 27,
+    fontWeight: "600",
   },
   reviewPhoto: {
     width: "100%",
-    height: 160,
+    aspectRatio: 4 / 3,
     borderRadius: 18,
     backgroundColor: "#111",
-    marginTop: 12,
-  },
-  previewMeta: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    fontWeight: "700",
   },
   momentsMore: {
     marginTop: 12,
