@@ -4,6 +4,22 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "spotProfileAcceptance": {
+    "status": "ACCEPTED_BY_FOUNDER",
+    "date": "2026-11-19",
+    "scope": "Spot profile including moments presentation; overall Point 1 remains open"
+  },
+  "discoveryAndSpotCardsFollowUp": {
+    "sourceCommit": "4b0d9630ba6f79f651adc7f00c0294b3d1e7841d",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f2d3-918e-71a9-8ef1-27495b8a8b0e", "group": "14b7870e-8916-4d2f-b32c-906bbe3d9f60" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f2d4-35de-73de-8ab9-8c6c261c4869", "group": "d3bdee3b-f95f-4720-9e94-082bd6763423" }
+    ],
+    "validation": "Full Mobile contracts, map/discovery, typecheck, targeted lint, Hermes, production validation and both verified iOS exports passed. Image and opening-status contracts now follow the shared card.",
+    "visualAcceptance": "PENDING; Simulator UI inspection blocked by locked Mac",
+    "databaseChanges": false
+  },
   "spotMomentsPresentationFollowUp": {
     "sourceCommit": "b16d732a891270eab916982acfd9c008a83c6198",
     "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
