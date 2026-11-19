@@ -99,24 +99,46 @@ function price(input: unknown): string | null {
  const amount=p.min===0&&p.max===0?"Kostenlos":p.max===null?`ab ${money(p.min)} ${p.currency}`:p.max===p.min?`${money(p.min)} ${p.currency}`:`${money(p.min)}–${money(p.max as number)} ${p.currency}`;
  const basis:Readonly<Record<string,string>>={PER_PERSON:"pro Person",PER_GROUP:"für die Gruppe",PER_ITEM:"pro Artikel",PER_ROOM_NIGHT:"pro Zimmer/Nacht",PER_PERSON_NIGHT:"pro Person/Nacht",PER_SITE_NIGHT:"pro Stellplatz/Nacht"};
  const age=numeric(p.minimumAge)&&numeric(p.maximumAge)?`${p.minimumAge}–${p.maximumAge} Jahre`:numeric(p.minimumAge)?`ab ${p.minimumAge} Jahren`:numeric(p.maximumAge)?`bis einschließlich ${p.maximumAge} Jahre`:null;
- const included=text(p.includes,1000),fees=p.mandatoryFeesIncluded===false?"zusätzliche Pflichtkosten":p.mandatoryFeesIncluded===null?"Pflichtkosten noch nicht bestätigt":null;
- return [text(p.label,160),amount,typeof p.basis==="string"?basis[p.basis]:null,age,included?`für ${included}`:null,fees,conditions(p.conditions)].filter(Boolean).join(" · ");
+ const included=text(p.includes,1000),label=text(p.label,160),fees=p.mandatoryFeesIncluded===false?"zusätzliche Pflichtkosten":p.mandatoryFeesIncluded===null?"Pflichtkosten noch nicht bestätigt":null;
+ const repeatsLabel = included.toLocaleLowerCase("de-CH") === label.toLocaleLowerCase("de-CH");
+ return [label,amount,typeof p.basis==="string"?basis[p.basis]:null,age,included && !repeatsLabel?`für ${included}`:null,fees,conditions(p.conditions)].filter(Boolean).join(" · ");
 }
 function times(input: unknown): string[] {
- return list(input,56).flatMap(item => {
+ const schedule = new Map<number, Set<string>>();
+ for (const item of list(input,56)) {
   const interval=row(item);
   const day=typeof interval.weekday === "number" && Number.isInteger(interval.weekday) ? days[interval.weekday-1] : null;
   const start=text(interval.start,5),end=text(interval.end,5);
-  return day && /^([01]\d|2[0-3]):[0-5]\d$/.test(start) && /^([01]\d|2[0-3]):[0-5]\d$/.test(end) ? [`${day} ${start}–${end}`] : [];
- });
+  if (!day || !/^([01]\d|2[0-3]):[0-5]\d$/.test(start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(end)) continue;
+  const weekday = interval.weekday as number;
+  const slots = schedule.get(weekday) ?? new Set<string>();
+  slots.add(`${start}–${end}`);
+  schedule.set(weekday, slots);
+ }
+ const result: string[] = [];
+ for (let day = 1; day <= 7; day++) {
+  const slots = schedule.get(day);
+  if (!slots) continue;
+  const hours = [...slots].sort().join(", ");
+  let last = day;
+  while (last < 7 && schedule.has(last + 1) && [...schedule.get(last + 1)!].sort().join(", ") === hours) last++;
+  result.push(`${days[day-1]}${last > day ? `–${days[last-1]}` : ""} ${hours}`);
+  day = last;
+ }
+ return result;
+}
+// Replace only the catalogue's technical default; preserve curated offer names.
+function visitorOfferName(value: unknown): string {
+ const name = text(value,160);
+ return name === "Essen (ohne Trennung nach Mahlzeit)" ? "Essen" : name;
 }
 export function presentSpotExperience(input: unknown): PublicSpotExperience {
  const profile=row(input);if(profile.contractVersion!=="backyrd.world-knowledge.experience-profile@1.0"||profile.reviewed!==true)return {offers:[],areas:[],shared:[]};
  const offers=list(profile.offers,30).map(row).filter(o=>text(o.id,100)&&text(o.name,160));
  const areas=list(profile.areas,30).map(row).filter(a=>text(a.id,100)&&text(a.name,160));
  return {
-  offers:offers.map(o=>({id:text(o.id,100),kind:text(o.kind,100),name:text(o.name,160),prices:list(o.prices,30).flatMap(p=>{const label=price(p);return label?[label]:[];}),facts:facts(o.properties),places:areas.filter(a=>list(o.areaIds,30).includes(a.id)).map(a=>text(a.name,160)),times:[...times(o.schedule),...([conditions({validFrom:o.validFrom,validUntil:o.validUntil})].filter((value): value is string => value !== null))]})),
-  areas:areas.map(a=>({id:text(a.id,100),kind:text(a.kind,100),name:text(a.name,160),prices:[],facts:facts(a.properties),places:offers.filter(o=>list(o.areaIds,30).includes(a.id)).map(o=>text(o.name,160)),times:[]})),
+  offers:offers.map(o=>({id:text(o.id,100),kind:text(o.kind,100),name:visitorOfferName(o.name),prices:list(o.prices,30).flatMap(p=>{const label=price(p);return label?[label]:[];}),facts:facts(o.properties),places:areas.filter(a=>list(o.areaIds,30).includes(a.id)).map(a=>text(a.name,160)),times:[...times(o.schedule),...([conditions({validFrom:o.validFrom,validUntil:o.validUntil})].filter((value): value is string => value !== null))]})),
+  areas:areas.map(a=>({id:text(a.id,100),kind:text(a.kind,100),name:text(a.name,160),prices:[],facts:facts(a.properties),places:offers.filter(o=>list(o.areaIds,30).includes(a.id)).map(o=>visitorOfferName(o.name)),times:[]})),
   shared:facts(profile.properties),
  };
 }

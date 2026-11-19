@@ -9,7 +9,7 @@ import {
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
 function VisitorDetails({ facts, offerKind = "" }: { facts: PublicSpotFact[]; offerKind?: string }) {
-  return <>{spotExperienceDetailGroups(facts, offerKind).map(group => <View key={group.title} style={styles.group}><Text style={styles.label}>{group.title}</Text><Text style={styles.body}>{group.items.join(" ")}</Text></View>)}</>;
+  return <>{spotExperienceDetailGroups(facts, offerKind).map(group => <View key={group.title} style={styles.group}><Text style={styles.label}>{group.title}</Text>{group.items.map(item => <Text key={item} style={styles.body}>{item}</Text>)}</View>)}</>;
 }
 
 function ExperienceRow({ card, area = false }: { card: PublicSpotCard; area?: boolean }) {
@@ -19,11 +19,11 @@ function ExperienceRow({ card, area = false }: { card: PublicSpotCard; area?: bo
   return <View style={styles.row}>
     <Pressable accessibilityRole="button" accessibilityLabel={`${card.name}: ${expanded ? "weniger" : "mehr"} Informationen`} accessibilityState={{ expanded }} onPress={() => setExpanded(value => !value)} style={({ pressed }) => [styles.summary, pressed && styles.pressed]}>
       <Text style={styles.name}>{card.name}</Text>
-      <View style={styles.toggle}><Text style={styles.hint}>{expanded ? "Weniger anzeigen" : "Mehr erfahren"}</Text><Text accessible={false} style={styles.chevron}>{expanded ? "⌃" : "⌄"}</Text></View>
+      <View style={styles.toggle}><Text accessible={false} style={styles.chevron}>{expanded ? "−" : "+"}</Text></View>
     </Pressable>
     {expanded && <View style={styles.content}>
       {card.prices.length > 0 && <View style={styles.group}><Text style={styles.label}>Preise</Text>{card.prices.map((price, index) => <Text key={index} style={[styles.body, styles.price]}>{price}</Text>)}</View>}
-      {card.times.length > 0 && <View style={styles.group}><Text style={styles.label}>Wann?</Text><Text style={styles.body}>{card.times.join(" · ")}</Text></View>}
+      {card.times.length > 0 && <View style={styles.group}><Text style={styles.label}>Zeiten für dieses Angebot</Text>{card.times.map(time => <Text key={time} style={styles.body}>{time}</Text>)}</View>}
       <VisitorDetails facts={card.facts} offerKind={area ? "" : card.kind} />
       {card.places.length > 0 && <View style={styles.group}><Text style={styles.label}>{area ? "Hier möglich" : "Wo?"}</Text><Text style={styles.body}>{card.places.join(" · ")}</Text></View>}
     </View>}
@@ -46,12 +46,11 @@ const styles = StyleSheet.create({
   summary: { minHeight: 68, paddingVertical: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   pressed: { opacity: 0.65 },
   name: { flex: 1, color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 17, lineHeight: 24 },
-  toggle: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1, maxWidth: "45%" },
-  hint: { flexShrink: 1, color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 12, lineHeight: 18 },
+  toggle: { width: 28, alignItems: "center", justifyContent: "center" },
   chevron: { color: theme.color.textSecondary, fontSize: 20 },
   content: { paddingBottom: 24 },
   group: { marginTop: 18 },
   label: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 13, lineHeight: 20, marginBottom: 5 },
-  body: { color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 15, lineHeight: 25 },
+  body: { width: "100%", flexShrink: 1, color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 15, lineHeight: 25 },
   price: { marginBottom: 8 },
 });

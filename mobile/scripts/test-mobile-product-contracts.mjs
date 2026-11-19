@@ -265,6 +265,8 @@ assert.equal(closedSunday[1].open_time, "");
 assert.match(spotDetail, /Heute geschlossen/, "an explicit closed day must be labeled closed, not unknown");
 const confirmedHighlight = "Im IWB Unterwerk wird Craft Beer gebraut.";
 assert.equal(spotProfileRuntime.presentSpotProductField({ attributeKey: "description.highlight", knowledgeState: "KNOWN_VALUE", value: confirmedHighlight }), confirmedHighlight, "a confirmed World description must retain original spelling");
+assert.equal(spotProfileRuntime.presentSpotProductField({ attributeKey: "classification.place_types", knowledgeState: "KNOWN_VALUE", value: ["BAR", "BREWERY"] }), "Bar · Brauerei");
+assert.equal(spotProfileRuntime.presentSpotProductField({ attributeKey: "offering.onsite", knowledgeState: "KNOWN_VALUE", value: [{ kind: "FULL_MEALS" }] }), "Mahlzeiten");
 assert.match(spotDetail, /worldProfile\.spot\.name/, "Spot Detail must derive its displayed identity from World Knowledge");
 assert.match(spotProductProfile, /source: "WORLD_KNOWLEDGE" \| "LEGACY_COMPATIBILITY"/, "Spot profile source must be explicit");
 assert.match(spotProductProfile, /profile\.spot\.source !== "WORLD_KNOWLEDGE"/, "legacy data must not be mixed into a manifested World schedule");

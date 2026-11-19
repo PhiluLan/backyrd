@@ -224,7 +224,7 @@ const SpotEssentials = ({ category, placeType, price }: {
       {category ? <View style={styles.essentialsDetail}>
         <Feather name="grid" size={18} color={theme.colors.pink} />
         <Text style={styles.essentialsDetailValue}>{presentSpotProductField(category)}</Text>
-        <Text style={styles.essentialsLabel}>Hauptkategorie</Text>
+        <Text style={styles.essentialsLabel}>Kategorie</Text>
       </View> : null}
       {placeType ? <View style={styles.essentialsDetail}>
         <Feather name="map-pin" size={18} color={theme.colors.pink} />
@@ -883,9 +883,6 @@ export default function SpotDetailScreen() {
             </> : null}
             <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="label" tone="pink">Zurück zu deinen Vorschlägen</AppText></Pressable>
           </View> : null}
-          <View style={{ marginBottom: 24 }}>
-            {moodProfileLoading ? <AppText role="caption" tone="secondary">Moods werden geladen …</AppText> : moodProfileFailed ? <Pressable accessibilityRole="button" onPress={() => void refreshVisibleReviews()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="meta" tone="pink">Moods erneut laden</AppText></Pressable> : <SpotMoodProfile moods={moodSummary} />}
-          </View>
           {addressLines.length ? <View style={styles.addressBlock}>
             <Feather name="map-pin" size={18} color={theme.colors.pink} style={styles.addressIcon} />
             <View style={styles.addressLines}>{addressLines.map((line, index) => (
@@ -904,16 +901,9 @@ export default function SpotDetailScreen() {
             </ScrollView>}
           </View>:null}
 
-          {contactActions.length > 0 ? <View style={styles.section}>
-            <SectionTitle>Kontakt</SectionTitle>
-            <View style={styles.contactGrid}>
-              {contactActions.map((contact) => <ContactAction key={contact.key} icon={contact.icon} label={contact.label} value={contact.value} onPress={contact.onPress} />)}
-            </View>
-          </View> : null}
-
-          <View style={styles.section}>
+          {description ? <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <SectionTitle>Beschreibung</SectionTitle>
+              <SectionTitle>Über diesen Ort</SectionTitle>
               {!canonicalWorldDetail && !!descriptionSourceLabel(descSource) ? (
                 <View style={styles.sourcePill}>
                   <Text style={styles.sourceText}>{descriptionSourceLabel(descSource)}</Text>
@@ -922,7 +912,7 @@ export default function SpotDetailScreen() {
             </View>
             {description ? (
               <>
-                <Text numberOfLines={descriptionExpanded ? undefined : 2} style={styles.bodyText}>{description}</Text>
+                <Text numberOfLines={descriptionExpanded ? undefined : 3} style={styles.bodyText}>{description}</Text>
                 {description.length > 65 ? (
                   <Pressable accessibilityRole="button" accessibilityState={{ expanded: descriptionExpanded }} onPress={() => setDescriptionExpanded((value) => !value)} style={styles.textAction}>
                     <Text style={styles.textActionLabel}>{descriptionExpanded ? "Weniger anzeigen" : "Mehr lesen"}</Text>
@@ -930,8 +920,8 @@ export default function SpotDetailScreen() {
                   </Pressable>
                 ) : null}
               </>
-            ) : <Text style={styles.mutedText}>Für diesen Ort ist noch keine Beschreibung hinterlegt.</Text>}
-          </View>
+            ) : null}
+          </View> : null}
 
           <SpotExperience profile={productProfile?.experienceProfile}/>
           {sourceCredit ? (
@@ -1004,6 +994,17 @@ export default function SpotDetailScreen() {
               <Feather name="chevron-right" size={20} color={theme.colors.pink} />
             </Pressable>
             <Text style={styles.moreInfoSubtitle}>Ausstattung, Atmosphäre und weitere Details</Text>
+          </View>
+
+          {contactActions.length > 0 ? <View style={styles.section}>
+            <SectionTitle>Kontakt</SectionTitle>
+            <View style={styles.contactGrid}>
+              {contactActions.map((contact) => <ContactAction key={contact.key} icon={contact.icon} label={contact.label} value={contact.value} onPress={contact.onPress} />)}
+            </View>
+          </View> : null}
+
+          <View style={{ marginBottom: 24 }}>
+            {moodProfileLoading ? <AppText role="caption" tone="secondary">Moods werden geladen …</AppText> : moodProfileFailed ? <Pressable accessibilityRole="button" onPress={() => void refreshVisibleReviews()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="meta" tone="pink">Moods erneut laden</AppText></Pressable> : <SpotMoodProfile moods={moodSummary} />}
           </View>
 
           <SpotEventsSection spotId={String(spot.id)}/>

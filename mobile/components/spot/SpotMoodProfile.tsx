@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { rankMoodSupport, publicMoodCount, moodSupportFraction } from "../../../packages/shared/src/presentation/mood";
+import { rankMoodSupport, publicMoodCount } from "../../../packages/shared/src/presentation/mood";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -25,7 +25,6 @@ export function SpotMoodProfile({ moods, appearance = "dark" }: { moods: SpotMoo
   const [selected, setSelected] = useState<SpotMoodProfileItem | null>(null);
   const light = appearance === "light";
   const ranked = rankMoodSupport(moods);
-  const strongestCount = ranked.length ? publicMoodCount(ranked[0]) : null;
   const current = ranked.find(mood => mood.concept_key === selected?.concept_key) ?? null;
   const renderRow = (mood: SpotMoodProfileItem) => {
     const count = publicMoodCount(mood);
@@ -38,23 +37,17 @@ export function SpotMoodProfile({ moods, appearance = "dark" }: { moods: SpotMoo
       {ranked.length ? <View style={styles.summary}>
         <View style={styles.summaryHeader}>
           <AppText role="sectionTitle" style={[styles.summaryTitle, light && styles.textLight]}>Moods</AppText>
-          <AppText role="body" tone="secondary" style={[styles.summarySubtitle, light && styles.secondaryLight]}>So wird dieser Ort beschrieben</AppText>
+          <AppText role="body" tone="secondary" style={[styles.summarySubtitle, light && styles.secondaryLight]}>So beschreiben Gäste diesen Ort. Die Zahl nennt die Personen pro Mood.</AppText>
         </View>
-        <View style={styles.topMoods}>{ranked.slice(0, 3).map((mood, index) => {
+        <View style={styles.topMoods}>{ranked.slice(0, 3).map((mood) => {
           const count = publicMoodCount(mood);
-          const fraction = moodSupportFraction(mood, strongestCount);
           return <View key={mood.concept_key}>
             <View style={styles.leadingLabel}>
               <AppText role="bodyStrong" style={[styles.leadingMood, light && styles.textLight]}>{mood.label}</AppText>
-              {count !== null ? <AppText role="body" tone="secondary" accessibilityLabel={`${count} ${count === 1 ? "Person" : "Personen"}`} style={[styles.leadingCount, light && styles.secondaryLight]}>{count}</AppText> : null}
+              {count !== null ? <AppText role="caption" tone="secondary" style={[styles.leadingCount, light && styles.secondaryLight]}>{count} {count === 1 ? "Person" : "Personen"}</AppText> : null}
             </View>
-            {fraction !== null ? <View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.track, light && { backgroundColor: theme.color.borderLight }]}><View style={[styles.fill, { width: `${fraction * 100}%`, opacity: [1, 0.72, 0.5][index] }]} /></View> : null}
           </View>;
         })}</View>
-        {ranked.length > 3 ? <View style={[styles.otherMoods, light && { borderColor: theme.color.borderLight }]}>{ranked.slice(3, 10).map(mood => <View key={mood.concept_key} style={styles.otherRow}>
-          <AppText role="body" style={[styles.otherLabel, light && styles.textLight]}>{mood.label}</AppText>
-          {publicMoodCount(mood) !== null ? <AppText role="body" tone="secondary" accessibilityLabel={`${publicMoodCount(mood)} ${publicMoodCount(mood) === 1 ? "Person" : "Personen"}`} style={[styles.otherCount, light && styles.secondaryLight]}>{publicMoodCount(mood)}</AppText> : null}
-        </View>)}</View> : null}
         {ranked.some(mood => mood.evidence_state === "EARLY") ? <AppText role="caption" tone="secondary" style={[styles.earlyEvidence, light && styles.secondaryLight]}>Erste Eindrücke</AppText> : null}
         <Pressable accessibilityRole="button" onPress={() => setSelected(ranked[0])} style={[styles.allMoods, light && { borderColor: theme.color.borderLight }]}><AppText role="meta" style={[styles.allMoodsLabel, light && styles.textLight]}>Alle Moods ansehen</AppText><Ionicons name="arrow-forward" size={18} color={theme.color.pink} /></Pressable>
       </View> : <AppText role="meta" tone="secondary">Noch keine Moods geteilt</AppText>}
@@ -94,12 +87,6 @@ const styles = StyleSheet.create({
   leadingLabel: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 20 },
   leadingMood: { fontSize: 18, lineHeight: 24, letterSpacing: -0.2, flexShrink: 1 },
   leadingCount: { fontSize: 14, lineHeight: 19 },
-  track: { height: 4, marginTop: 10, backgroundColor: theme.color.border, overflow: "hidden" },
-  fill: { height: 4, backgroundColor: theme.color.pink },
-  otherMoods: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 16, marginTop: 23, paddingTop: 23, borderTopWidth: 1, borderColor: theme.color.border },
-  otherRow: { width: "47%", flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 },
-  otherLabel: { fontSize: 13, lineHeight: 19, flexShrink: 1 },
-  otherCount: { fontSize: 12, lineHeight: 19 },
   earlyEvidence: { marginTop: 16 },
   supportRow: { minHeight: 48, justifyContent: "center", gap: 8, paddingVertical: 8 },
   supportLabel: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" },

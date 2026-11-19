@@ -11,6 +11,23 @@ const conditions={event:null,dayparts:[],weekdays:[],validFrom:null,validUntil:n
 const known=(key,value,extra={})=>({key,state:'KNOWN',value,label:null,conditions,...extra});
 const price={label:'Brunch',currency:'CHF',min:42,max:null,basis:'PER_PERSON',minimumAge:14,maximumAge:null,includes:'Essen',mandatoryFeesIncluded:true,conditions};
 const profile={contractVersion:'backyrd.world-knowledge.experience-profile@1.0',reviewed:true,offers:[{id:'brunch',name:'Brunch',prices:[price],areaIds:['terrace'],properties:[known('participation.minimum_age',18),known('food.drink','Kaffee'),known('food.drink','Tee'),known('experience.activity','essen gehen',{conditions:{...conditions,weekdays:[7],dayparts:['MORNING']}})],schedule:[]}],areas:[{id:'terrace',name:'Terrasse',properties:[known('amenity.step_free',true),known('amenity.playground',false),known('location.waterbody','Rhein')]}],properties:[known('amenity.changing_table',false)]};
+test('schedule groups only consecutive days with identical complete time slots',()=>{
+ const schedule=[1,2,4,5,6].flatMap(weekday=>[{weekday,start:'17:00',end:'00:30'}]);
+ schedule.push({weekday:5,start:'12:00',end:'14:00'});
+ schedule.push({weekday:1,start:'17:00',end:'00:30'});
+ const shown=presentSpotExperience({...profile,offers:[{...profile.offers[0],schedule}]});
+ assert.deepEqual(shown.offers[0].times,['Montag–Dienstag 17:00–00:30','Donnerstag 17:00–00:30','Freitag 12:00–14:00, 17:00–00:30','Samstag 17:00–00:30']);
+});
+test('technical default offer name is visitor-facing in offers and area references',()=>{
+ const shown=presentSpotExperience({...profile,offers:[{...profile.offers[0],name:'Essen (ohne Trennung nach Mahlzeit)'}]});
+ assert.equal(shown.offers[0].name,'Essen');
+ assert.deepEqual(shown.areas[0].places,['Essen']);
+});
+test('price omits only inclusion copy identical to the tariff label',()=>{
+ const shown=presentSpotExperience({...profile,offers:[{...profile.offers[0],prices:[{...price,label:'Essen',includes:'Essen'},{...price,label:'Essen',includes:'Essen und Getränke'}]}]});
+ assert.doesNotMatch(shown.offers[0].prices[0],/für Essen/);
+ assert.match(shown.offers[0].prices[1],/für Essen und Getränke/);
+});
 test('offers retain their own prices, age scope, places and conditions',()=>{
  const displayed=presentSpotExperience(profile);assert.equal(displayed.offers[0].name,'Brunch');assert.match(displayed.offers[0].prices[0],/ab 42 CHF.*pro Person.*ab 14 Jahren.*für Essen/);assert.deepEqual(displayed.offers[0].places,['Terrasse']);
  assert.deepEqual(displayed.offers[0].facts.find(f=>f.label==='Getränke einschließlich alkoholfreier Auswahl')?.value,'Kaffee · Tee');assert.match(displayed.offers[0].facts.find(f=>f.label==='Was kann man hier machen?')?.condition,/Sonntag.*vormittags/);assert.match(displayed.offers[0].facts.find(f=>f.label==='Mindestalter für dieses Angebot')?.value??'',/18/);

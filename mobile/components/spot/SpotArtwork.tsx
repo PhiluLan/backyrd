@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -104,9 +103,12 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
         />
       ) : null}
       {fallbackVisible ? (
-        <LinearGradient colors={["#242126", "#111113", "#070708"]} style={StyleSheet.absoluteFill}>
-          <View style={styles.fallbackPattern} />
-          {showFallbackName ? <Ionicons color={theme.color.textSecondary} name="image-outline" size={28} style={styles.fallbackIcon} /> : <View accessible accessibilityLabel={`Für ${spotName} ist noch kein Foto hinterlegt`} style={styles.fallbackCenter}><Ionicons color={theme.color.textSecondary} name="image-outline" size={28} /></View>}
+        <LinearGradient accessible accessibilityLabel={`Grafische Ortskarte für ${spotName}`} colors={["#32232F", "#19171E", "#101114"]} style={StyleSheet.absoluteFill}>
+          <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>
+            <View style={styles.fallbackRing} />
+            <View style={styles.fallbackRingInner} />
+            <View style={styles.fallbackAccent} />
+          </View>
           {showFallbackName ? <Text numberOfLines={2} style={styles.fallbackName}>{spotName}</Text> : null}
         </LinearGradient>
       ) : null}
@@ -134,8 +136,8 @@ const styles = StyleSheet.create({
   loading: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: theme.color.surface },
   googleAttribution: { minHeight: theme.control.compact, justifyContent: "center", position: "absolute", left: 8, right: 8, bottom: 8, alignSelf: "flex-start", maxWidth: "90%", paddingHorizontal: 7, paddingVertical: 4, borderRadius: 999, backgroundColor: "rgba(7,7,8,0.72)" },
   googleAttributionText: { color: "rgba(255,255,255,0.9)", ...theme.typeScale.caption },
-  fallbackPattern: { position: "absolute", width: "145%", height: 92, left: "-18%", top: "38%", backgroundColor: "rgba(255,79,145,0.08)", transform: [{ rotate: "-11deg" }] },
-  fallbackIcon: { position: "absolute", left: 18, top: 18 },
-  fallbackCenter: { flex: 1, alignItems: "center", justifyContent: "flex-start", paddingTop: theme.spacing.display, paddingHorizontal: theme.spacing.md },
-  fallbackName: { position: "absolute", left: 18, right: 18, bottom: 18, color: theme.color.textPrimary, fontFamily: theme.type.display, fontSize: 34, lineHeight: 38, letterSpacing: -0.6 },
+  fallbackRing: { position: "absolute", width: 260, height: 260, right: -65, top: -95, borderRadius: 130, borderWidth: 1, borderColor: "rgba(255,186,210,0.20)" },
+  fallbackRingInner: { position: "absolute", width: 190, height: 190, right: -30, top: -60, borderRadius: 95, borderWidth: 1, borderColor: "rgba(255,186,210,0.12)" },
+  fallbackAccent: { position: "absolute", left: 22, top: 26, width: 32, height: 4, borderRadius: 2, backgroundColor: "#FF4F91" },
+  fallbackName: { position: "absolute", left: 18, right: 18, bottom: 18, color: "#FFFFFF", fontFamily: theme.type.display, fontSize: 34, lineHeight: 38, letterSpacing: -0.6 },
 });
