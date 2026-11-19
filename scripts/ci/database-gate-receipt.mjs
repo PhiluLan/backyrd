@@ -24,6 +24,7 @@ const INPUTS = [
   "scripts/ci/validate-world-knowledge-rebuild-race.sh",
   "scripts/ci/validate-review-same-day-race.sh",
   "scripts/ci/validate-founder-live-idempotency-race.sh",
+  "scripts/ci/validate-booking-closure-race.sh",
 ];
 
 const walk = (path) => {
