@@ -804,3 +804,48 @@ Speicher-Bypass. Der Test-Harness ist temporär und wird nicht veröffentlicht.
 
 Dieser Eintrag dokumentiert Umsetzung und Prüfung; ein OTA-Veröffentlichungsbeleg
 folgt separat nach erfolgreicher Main-Zertifizierung.
+
+
+### Veröffentlichungsbeleg: Wohin-Begrüssung und Anfragenverlauf
+
+Am 19. November 2026 für beide unterstützten iPhone-Runtimes auf Production
+veröffentlicht. Quelle: Main `b8c9f47148d21d448a53b4c77a39bf19e9b644da`,
+[PR #771](https://github.com/PhiluLan/backyrd/pull/771). Sämtliche erforderlichen
+[PR-Gates](https://github.com/PhiluLan/backyrd/actions/runs/44624272039) erfolgreich.
+Der gemeinsame KI-Datenschutzhinweis bleibt identisch zur öffentlichen Fassung;
+der lokale Verlauf wird in einem separaten Abschnitt erklärt. Der zunächst
+gefundene Konsistenzfehler wurde an dieser Ursache behoben; danach bestanden
+auch die vollständigen mobilen Vertragstests.
+
+Exakte Main-Zertifizierungen mit Ziel `IOS_OTA`:
+[1.1.1](https://github.com/PhiluLan/backyrd/actions/runs/44625446233) und
+[1.1.0](https://github.com/PhiluLan/backyrd/actions/runs/44625446636), beide erfolgreich.
+Die über die GitHub-Anbindung heruntergeladenen Archive stimmten mit den
+GitHub-Archivprüfsummen überein. Upload mit `--skip-bundler` ausschliesslich aus
+diesen zertifizierten Artefakten. Öffentliche EAS- und CI-Clientkonfiguration
+vorab abgeglichen. Keine Backend-, Schema- oder Decision-Logik-Veröffentlichung.
+
+Runtime **1.1.1**:
+
+- Update: `01a1f5e0-364c-73ac-acb6-6e86a0aeac9e`
+- Gruppe: `7af9ba28-c53f-4d2f-a221-06e097d001cf`
+- Manifest SHA-256: `62632115edf78d7cb1c9ee9869f5fa9355f7a311454d2b1f98ada5e0f97d48ea`
+- Ausgeliefertes Bundle SHA-256: `95e3b2cae6af65b3bae6aded9ae280271ed06ff835981da56cb2bf0b34cd0006`
+- Vorherige Gruppe als Rückfallpunkt: `1c380cf2-6320-42a8-928a-e1f1b1f8acc4`
+
+Runtime **1.1.0**:
+
+- Update: `01a1f5e1-5eb8-7543-90e4-fecc7e4c5357`
+- Gruppe: `6568a1d0-ba2d-4b9e-8eac-73c80c7e38e0`
+- Manifest SHA-256: `ec26d5754f97c3edae4c532538045f24e878f8eca57d866bf2c64b87efd3c1fd`
+- Ausgeliefertes Bundle SHA-256: `f515a62771bc489f19c1239dcdce7670a011814740a96cb754bef63b7fb8f07e`
+- Vorherige Gruppe als Rückfallpunkt: `f4fa05c4-1200-456f-845c-664958e10bba`
+
+Nach beiden Uploads wurden beide Production-Manifeste und die tatsächlichen
+CDN-Bundle-Bytes erneut gegen die jeweiligen zertifizierten Artefakte geprüft.
+Beide Updates werden gleichzeitig für ihre jeweilige Runtime ausgeliefert.
+Die native Funktions-/Sichtprüfung ist oben dokumentiert; die Aktivierung des
+veröffentlichten OTA auf dem physischen iPhone wurde danach nicht beobachtet.
+Gemäss bestehendem ON_LOAD-Verhalten wird beim vollständigen Start nachgeladen
+und beim anschliessenden Start aktiviert. Die visuelle Founder-Abnahme bleibt
+ein eigener Schritt.
