@@ -4,6 +4,18 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "homeAcceptanceAndFinalContrast": {
+    "sourceCommit": "1c1117b83ec809209e2826d5b23398472729f96c",
+    "status": "HOME_ACCEPTED_BY_FOUNDER_FOR_NOW",
+    "acceptanceBasis": "Founder accepted current Dark/Light Home with final question-mark contrast correction and explicitly requested closing Home for now",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f3e9-e947-73c6-aae7-2284a4963ec4", "group": "6b3b2dd1-9984-4413-b842-30d1e47df636" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f3ea-3e4a-7013-921b-81689235e616", "group": "6ace40ce-eedf-4e94-8e7d-7c011559d2c3" }
+    ],
+    "validation": "Adaptive primary text token replaces fixed white. Typecheck, targeted lint, full Mobile contracts, Production validation and both verified iOS exports passed.",
+    "postFixDeviceRecording": "NOT_OBSERVED",
+    "scope": "Home closed for now; not an overall app or Beta approval"
+  },
   "homeMomentsHidden": {
     "sourceCommit": "de357d76d39c4a7925a2fd2c0ddf434b25e6d8c5",
     "status": "PUBLISHED_HOME_SECTION_HIDDEN",
