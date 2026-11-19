@@ -182,7 +182,13 @@ const booleanCopy: Readonly<Record<string, readonly [string, string]>> = {
  "condition.weather_protection":["Vor Regen geschützt","Nicht vor Regen geschützt"]
 };
 
-const visitorList = (value: string) => new Intl.ListFormat("de-CH", { style: "long", type: "conjunction" }).format(value.split(" · ").filter(Boolean));
+// iOS Hermes does not provide Intl.ListFormat. Keep this German conjunction
+// deterministic and available in both supported native runtimes.
+const visitorList = (value: string) => {
+ const items = value.split(" · ").filter(Boolean);
+ if (items.length < 2) return items[0] ?? "";
+ return `${items.slice(0, -1).join(", ")} und ${items[items.length - 1]}`;
+};
 const travelCopy: Readonly<Record<string,string>> = { "ÖV":"mit dem ÖV", "Zu Fuss":"zu Fuss", "Velo":"mit dem Velo", "Auto":"mit dem Auto" };
 const cuisineCopy: Readonly<Record<string,string>> = { schweizerisch:"schweizerisch", international:"international", italienisch:"italienisch", französisch:"französisch", japanisch:"japanisch", vegan:"vegan", vegetarisch:"vegetarisch" };
 

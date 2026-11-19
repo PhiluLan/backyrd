@@ -3,6 +3,7 @@ import test from "node:test";
 import {readFile} from "node:fs/promises";
 import {createRequire} from "node:module";
 import {resolve} from "node:path";
+import vm from "node:vm";
 const ts=createRequire(resolve(process.cwd(),"package.json"))("typescript");
 const source=await readFile(new URL('../src/presentation/spot-experience.ts',import.meta.url),'utf8');
 const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText;
@@ -11,6 +12,16 @@ const conditions={event:null,dayparts:[],weekdays:[],validFrom:null,validUntil:n
 const known=(key,value,extra={})=>({key,state:'KNOWN',value,label:null,conditions,...extra});
 const price={label:'Brunch',currency:'CHF',min:42,max:null,basis:'PER_PERSON',minimumAge:14,maximumAge:null,includes:'Essen',mandatoryFeesIncluded:true,conditions};
 const profile={contractVersion:'backyrd.world-knowledge.experience-profile@1.0',reviewed:true,offers:[{id:'brunch',name:'Brunch',prices:[price],areaIds:['terrace'],properties:[known('participation.minimum_age',18),known('food.drink','Kaffee'),known('food.drink','Tee'),known('experience.activity','essen gehen',{conditions:{...conditions,weekdays:[7],dayparts:['MORNING']}})],schedule:[]}],areas:[{id:'terrace',name:'Terrasse',properties:[known('amenity.step_free',true),known('amenity.playground',false),known('location.waterbody','Rhein')]}],properties:[known('amenity.changing_table',false)]};
+test('consumer copy works without Intl.ListFormat as on installed iOS Hermes',()=>{
+ const exports={};
+ const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
+ vm.runInNewContext(code,{exports,Intl:{NumberFormat:Intl.NumberFormat}});
+ for(const [value,expected] of [['Craft-Bier','Hier gibt es Craft-Bier.'],['Kaffee · Tee','Hier gibt es Kaffee und Tee.'],['Bier · Kaffee · Tee','Hier gibt es Bier, Kaffee und Tee.']]) {
+  const groups=exports.spotExperienceDetailGroups([{key:'food.drink',label:'Getränke',value,condition:null}]);
+  assert.equal(groups[0].items[0],expected);
+ }
+ assert.equal(exports.spotExperienceDetailGroups([]).length,0);
+});
 test('schedule groups only consecutive days with identical complete time slots',()=>{
  const schedule=[1,2,4,5,6].flatMap(weekday=>[{weekday,start:'17:00',end:'00:30'}]);
  schedule.push({weekday:5,start:'12:00',end:'14:00'});
