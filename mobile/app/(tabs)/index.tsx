@@ -21,7 +21,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { HomeEventsSection } from "../../components/events/HomeEventsSection";
 import { HomeMomentsSection } from "../../components/HomeMomentsSection";
 import { HomeDisplayHeading } from "../../components/HomeDisplayHeading";
-import Avatar from "../../components/Avatar";
 import { IconButton } from "../../components/foundation/Button";
 import { StateView } from "../../components/foundation/StateView";
 import { loadDiscoveryOpeningSchedules } from "../../lib/discovery-opening-hours";
@@ -63,7 +62,6 @@ function HomeContent() {
   const [locationLabel, setLocationLabel] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [measuredGreeting, setMeasuredGreeting] = useState<{ name: string; width: number } | null>(null);
-  const [profileAvatar, setProfileAvatar] = useState<{ userId: string; uri: string | null } | null>(null);
   const [spots, setSpots] = useState<DiscoverySpot[]>([]);
   const [newSpots, setNewSpots] = useState<DiscoverySpot[]>([]);
   const [recentSearch, setRecentSearch] = useState<(RecentDecisionSearch & { actorId: string }) | null>(null);
@@ -93,7 +91,6 @@ function HomeContent() {
   const [currentLocation, setCurrentLocation] = useState<LocationCoordinates | null>(null);
   const [detailsReady, setDetailsReady] = useState(false);
   const [eventsReady, setEventsReady] = useState(false);
-  const [readyAvatarUri, setReadyAvatarUri] = useState<string | null>(null);
   const [momentsReadyCity, setMomentsReadyCity] = useState<string>();
   const [readyArtworkIds, setReadyArtworkIds] = useState<ReadonlySet<string>>(() => new Set());
   const onEventsReady = useCallback(() => setEventsReady(true), []);
@@ -129,7 +126,7 @@ function HomeContent() {
     try {
       const [profile, location] = await Promise.all([
         user?.id ? withRequestDeadline(async signal => {
-          const result = await supabase.from("profiles").select("city,first_name,display_name,username,avatar_url").eq("id", user.id).abortSignal(signal).maybeSingle();
+          const result = await supabase.from("profiles").select("city,first_name,display_name,username").eq("id", user.id).abortSignal(signal).maybeSingle();
           if (result.error) throw result.error;
           return result.data;
         }, 5_000).catch(() => undefined) : Promise.resolve(null),
@@ -139,7 +136,6 @@ function HomeContent() {
       const productCity = profile === undefined ? displayedCatalog.current?.city ?? "Basel" : cleanName(profile?.city) ?? "Basel";
       if (!displayedCatalog.current) setCity(productCity);
       if (profile !== undefined) {
-        setProfileAvatar(user?.id ? { userId: user.id, uri: cleanName(profile?.avatar_url) } : null);
         const profileName = cleanName(profile?.first_name) ?? cleanName(profile?.display_name) ?? cleanName(profile?.username);
         setFirstName(profileName ? profileName.split(/\s+/)[0] : null);
       }
@@ -213,15 +209,12 @@ function HomeContent() {
   }, [load]));
 
   const topSpots = spots.slice(0, 6);
-  const avatarUri = profileAvatar?.userId === user?.id ? profileAvatar?.uri ?? null : null;
-  const onAvatarReady = useCallback(() => setReadyAvatarUri(avatarUri), [avatarUri]);
-  const avatarReady = !avatarUri || readyAvatarUri === avatarUri;
   const initialArtworkReady = topSpots.slice(0, 2).every(spot => readyArtworkIds.has(spot.id));
   const greetingReady = !useSFPro || !headlineName || measuredGreeting?.name === headlineName;
   const initialSectionsReady = eventsReady && (!user || (momentsReadyCity === city));
   useEffect(() => {
-    if (!loading && (error || (detailsReady && avatarReady && initialArtworkReady && greetingReady && initialSectionsReady))) reportHomeReady?.();
-  }, [avatarReady, detailsReady, error, greetingReady, initialArtworkReady, initialSectionsReady, loading, reportHomeReady]);
+    if (!loading && (error || (detailsReady && initialArtworkReady && greetingReady && initialSectionsReady))) reportHomeReady?.();
+  }, [detailsReady, error, greetingReady, initialArtworkReady, initialSectionsReady, loading, reportHomeReady]);
   const heroCardWidth = homeRailCardWidth(width, { minimum: 248, maximum: 356 });
   const heroCardHeight = Math.round(heroCardWidth * 1.08);
   const activeRecent = recentSearch?.actorId === user?.id ? recentSearch : null;
@@ -258,9 +251,9 @@ function HomeContent() {
                 <IconButton accessibilityLabel="Benachrichtigungen" onPress={() => router.push("/safety-notifications" as never)}>
                   <Ionicons color={color.textPrimary} name="notifications-outline" size={30} />
                 </IconButton>
-                <Pressable accessibilityLabel="Profil öffnen" accessibilityRole="button" hitSlop={8} onPress={() => router.push("/(tabs)/profile" as never)}>
-                  <Avatar uri={avatarUri} name={firstName ?? user.email ?? "backyrd"} size={50} fallback="smiley" onImageSettled={reportHomeReady ? onAvatarReady : undefined} />
-                </Pressable>
+                <IconButton accessibilityLabel="Profil öffnen" onPress={() => router.push("/(tabs)/profile" as never)}>
+                  <Ionicons name="person-outline" size={27} color={color.textPrimary} />
+                </IconButton>
               </> : <Pressable accessibilityRole="button" accessibilityLabel="Anmelden" onPress={() => router.push("/auth/login" as never)} style={[styles.guestLogin, { borderColor: color.border }]}>
                 <AppText role="label" tone="pink">Anmelden</AppText>
               </Pressable>}
@@ -348,7 +341,7 @@ const styles = StyleSheet.create({
   pageTitle: { marginTop: theme.spacing.lg, marginHorizontal: theme.layout.pageGutter, textAlign: "left" },
   greetingMeasure: { position: "absolute", left: 0, top: 0, width: 10000, opacity: 0 },
   cockpitGreeting: { color: "#F8F8F8", fontWeight: "700" },
-  daypartTitle: { marginTop: theme.spacing.xs, marginHorizontal: theme.layout.pageGutter, alignSelf: "stretch", fontSize: 20, lineHeight: 28 },
+  daypartTitle: { marginTop: theme.spacing.xs, marginHorizontal: theme.layout.pageGutter, alignSelf: "stretch", fontSize: 22, lineHeight: 30 },
   daypartAccent: { textDecorationLine: "underline", textDecorationStyle: "solid", textDecorationColor: theme.color.pink },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   guestLogin: { minHeight: 44, justifyContent: "center", paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.color.border },

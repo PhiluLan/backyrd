@@ -286,3 +286,12 @@ fehlende Währung und ungültige/fehlende Preise ab. Der tatsächliche Home-Load
 Callback wird auf Quartieranzeige, fehlende Freigabe und verspätete Geocodes geprüft.
 Keine Backend-, Schema- oder Vertragsänderung; keine Änderung der abgenommenen
 Spot-Profilseite. Native visuelle Abnahme dieser Iteration steht aus.
+
+### Kleine Header-Nachkorrektur
+
+Auf Founder-Wunsch ist die Tageszeitfrage von 20 auf 22 Punkte vergrössert
+(30 Punkte Zeilenhöhe); die einzeilige Anpassung für «Nachmittag» bleibt erhalten.
+Das Profilfoto oben rechts wurde durch ein weisses Profil-Symbol im bestehenden
+IconButton ersetzt, mit derselben Profilnavigation und zugänglicher Beschriftung.
+Home lädt das dafür nicht mehr benötigte Avatarfeld nicht mehr und wartet beim
+Start nicht mehr auf dessen Bild-Callback. Das Profil selbst bleibt unverändert.
