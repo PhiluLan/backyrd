@@ -1,0 +1,21 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+import ts from "typescript";
+
+const source = readFileSync(new URL("../components/events/EventCard.tsx", import.meta.url), "utf8");
+const syntax = ts.createSourceFile("EventCard.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const declaration = syntax.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === "eventCardPrice");
+assert.ok(declaration);
+const exports = {};
+vm.runInNewContext(ts.transpileModule(declaration.getText(syntax), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports, Intl });
+const price = (overrides = {}) => exports.eventCardPrice({ is_free: false, price_min: 15, price_currency: "CHF", ...overrides });
+assert.equal(price(), "ab CHF 15");
+assert.equal(price({ price_min: 12.5 }), "ab CHF 12.5");
+assert.equal(price({ is_free: true, price_min: null }), "Gratis");
+assert.equal(price({ is_free: null, price_min: null }), null);
+assert.equal(price({ price_min: null }), "Preis offen");
+assert.equal(price({ price_currency: null }), "Preis offen");
+for (const price_min of [-1, NaN, Infinity]) assert.equal(price({ price_min }), "Preis offen");
+assert.equal(price({ price_min: 0 }), "ab CHF 0");
+console.log("Event card prices preserve free, paid and unknown pricing.");

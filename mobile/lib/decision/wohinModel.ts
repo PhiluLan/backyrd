@@ -88,6 +88,20 @@ export function visibleWohinCandidates(response: DecisionProductResponse): Decis
       || Boolean(response.clarification) && reason.code === "librarian-provisional-nearby")).slice(0, MAX_VISIBLE_CANDIDATES);
 }
 
+export function wohinAvailability(candidate: DecisionProductCandidate): string {
+  const requestedDay = candidate.reasons.find((reason) => ["requested-day-opening-hours", "requested-day-closed", "requested-day-opening-unknown"].includes(reason.code));
+  if (requestedDay?.code === "requested-day-opening-hours") return requestedDay.statement;
+  if (requestedDay?.code === "requested-day-closed") return "Am gewünschten Tag geschlossen";
+  if (requestedDay?.code === "requested-day-opening-unknown") return "Für deinen geplanten Tag fehlen uns noch die Öffnungszeiten";
+  if (candidate.reasons.some(reason => reason.code === "librarian-visit-time-unconfirmed")) return "Ob du zur gewünschten Zeit vorbeikommen und das Angebot nutzen kannst, ist noch offen.";
+  const value = candidate.actualAvailability;
+  if (value === "open") return "Zur gewünschten Besuchszeit laut Angaben geöffnet";
+  if (value === "closed") return "Zur gewünschten Besuchszeit laut Angaben geschlossen";
+  if (value === "not_requested") return "Öffnungszeiten vor Besuch prüfen";
+  return "Die Öffnungszeiten kennen wir noch nicht";
+}
+
+
 export function wohinPlaceMeta(candidate: DecisionProductCandidate): string {
   const groups: Record<string, string> = { EAT: "Essen & Trinken", DRINKS: "Bar", COFFEE_DAYTIME: "Café", NIGHTLIFE: "Nachtleben", CULTURE_ARTS: "Kultur", ENTERTAINMENT: "Unterhaltung", ACTIVITIES_PLAY: "Aktivitäten & Spiel", SPORT_MOVEMENT: "Sport & Bewegung", OUTDOOR_NATURE: "Natur & draussen", WELLNESS_RELAXATION: "Wellness", SHOPPING_MARKETS: "Shopping", STAY: "Übernachten", COMMUNITY_SOCIAL: "Gemeinschaft", ATTRACTIONS_LANDMARKS: "Ausflugsziel", TEMPORARY_PLACES: "Veranstaltungsort" };
   const event = candidate.presentation.event;
@@ -152,6 +166,7 @@ const cardQuestions = new Map([
 export function wohinRecommendation(
   candidate: DecisionProductCandidate,
   interpretation?: DecisionProductResponse["interpretation"],
+  includeCaveat = true,
 ): string {
   const provisional = candidate.reasons.find(reason =>
     provisionalVisitReasons.has(reason.code) || reason.code === "librarian-provisional-nearby");
@@ -188,7 +203,7 @@ export function wohinRecommendation(
   const caveat = openQuestion ?? (provisional?.code === "librarian-provisional-visit" || unanswered.some(reason =>
     reason.statement.startsWith("Noch nicht bestätigt:") || reason.statement.startsWith("Diesen Wunsch können wir noch nicht zuverlässig prüfen:"))
     ? "Ein Punkt ist noch offen. Frag vor dem Besuch am besten direkt nach." : undefined);
-  const withCaveat = (sentence: string) => caveat ? `${sentence} ${caveat}` : sentence;
+  const withCaveat = (sentence: string) => includeCaveat && caveat ? `${sentence} ${caveat}` : sentence;
 
   if (confirmed) {
     const drinks = confirmed === cardDetails.get("Cocktails");
@@ -243,7 +258,11 @@ export function wohinConsiderations(candidate: DecisionProductCandidate, persona
   const notes: string[] = candidate.reasons.flatMap(reason => {
     if (["librarian-atmosphere-unconfirmed", "event-ticket-availability", "librarian-inherited-spot-hours", "librarian-external-admission-unconfirmed", "librarian-free-admission", "librarian-age-rules-unconfirmed", "librarian-age-requirement", "librarian-external-consumption-exceptions", "librarian-relative-price-level"].includes(reason.code)) return [reason.statement];
     if (reason.confirmed || reason.domain !== "LIMITATION") return [];
-    if (reason.code.startsWith("LBR:") && /^(Noch nicht bestätigt:|Nicht passend:|Ein ausdrücklich ausgeschlossener Inhalt|Diesen Wunsch können wir|Welches Budget)/.test(reason.statement)) return [cardQuestions.get(reason.statement.replace(/^(?:Noch nicht bestätigt: |Diesen Wunsch können wir noch nicht zuverlässig prüfen: )(.+)\.$/u, "$1")) ?? librarianNotes[reason.statement] ?? reason.statement];
+    if (reason.code.startsWith("LBR:") && /^(Noch nicht bestätigt:|Nicht passend:|Ein ausdrücklich ausgeschlossener Inhalt|Diesen Wunsch können wir|Welches Budget)/.test(reason.statement)) {
+      const label = reason.statement.replace(/^(?:Noch nicht bestätigt: |Diesen Wunsch können wir noch nicht zuverlässig prüfen: )(.+)\.$/u, "$1");
+      if (label === "dieser Teil deines Wunsches") return ["Uns fehlen Angaben, um deinen ganzen Wunsch zu prüfen. Welche Einzelheit offen ist, können wir dir hier leider noch nicht genauer sagen."];
+      return [cardQuestions.get(label) ?? librarianNotes[reason.statement] ?? reason.statement];
+    }
     if (reason.code === "librarian-access-details") return [librarianNotes[reason.statement] ?? reason.statement];
     return [];
   });
@@ -307,7 +326,7 @@ export function wohinFollowUp(response: Pick<DecisionProductResponse, "limitatio
     && candidate.failedHardConstraints.length === 0 && candidate.unknownHardConstraints.length > 0);
   if (unsupported || unverified) {
     return {
-      message: "Bei einem wichtigen Punkt sind wir noch unsicher. Wenn du magst, sag uns, wo du flexibel bist.",
+      message: "Ich bin bei deinem Wunsch noch unsicher. Beschreibe kurz, was du erleben möchtest – zum Beispiel gemütlich etwas trinken oder mit deinem Kind etwas unternehmen.",
       actionLabel: "Suchwunsch bearbeiten",
       explainedLimitation: unsupported ? "REQUEST_REQUIREMENT_UNSUPPORTED" : null,
     };
@@ -348,7 +367,7 @@ export function wohinMessageKind(message: string, currentWish = ""): "OFF_TOPIC"
 }
 
 export const wohinOffTopicMessage =
-  "Quanten und Co. überlasse ich ChatGPT. Wenn du Lust hast, rauszugehen, kenne ich ein paar gute Orte.";
+  "Ich helfe dir, einen Ort für deinen nächsten Moment zu finden. Erzähl mir, was du erleben möchtest – auch eine erste Idee reicht.";
 
 export function wohinClarificationQuery(original: string, question: string | null, answer: string): string | null {
   const reply = answer.trim();

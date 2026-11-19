@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
+import "./test-moment-experience-card.mjs";
 
 const helperSource = fs.readFileSync(
   path.resolve("lib/moment-presentation.ts"),
@@ -34,11 +35,24 @@ new Function("exports", "require", "module", helperOutput)(
 
 const {
   formatMomentTime,
+  homeMomentPreview,
   momentHasRenderableImage,
   momentMediaAspectRatio,
   momentTagPreview,
   presentMomentTags,
 } = helperModule.exports;
+
+const homePost = { caption: null, mood_tags: ["cozy", "calm"], media: [] };
+assert.equal(homeMomentPreview(homePost), null, "bare Moods do not create a Home story");
+assert.equal(homeMomentPreview({ ...homePost, caption: "Gemütlich · Ruhig" }), null);
+assert.equal(homeMomentPreview({ ...homePost, caption: "  Gemütlich und Ruhig  " }), null);
+assert.equal(homeMomentPreview({ ...homePost, caption: "   " }), null);
+assert.equal(homeMomentPreview({ ...homePost, caption: "Der Innenhof war mein Lieblingsplatz." }).caption, "Der Innenhof war mein Lieblingsplatz.");
+const photoPost = { ...homePost, media: [{ public_url: "https://media.example/photo.jpg", media_type: "image" }] };
+assert.equal(homeMomentPreview(photoPost).imageUrl, "https://media.example/photo.jpg");
+assert.equal(homeMomentPreview(photoPost, new Set(["https://media.example/photo.jpg"])), null, "failed photos cannot leave empty story cards");
+assert.equal(homeMomentPreview({ ...photoPost, caption: "Ein schöner Abend." }, new Set(["https://media.example/photo.jpg"])).caption, "Ein schöner Abend.");
+assert.equal(homeMomentPreview({ ...homePost, media: [{ public_url: "https://media.example/video.mp4", media_type: "video" }] }), null);
 
 // No-image is an intentional compact card state, including failed media.
 assert.equal(momentHasRenderableImage(null), false);
@@ -82,7 +96,7 @@ assert.equal(formatMomentTime(new Date(now - 6 * 86_400_000).toISOString(), now)
 // enough scroll clearance for the floating tab bar.
 assert.doesNotMatch(feedSource, /LOCAL \/ JETZT|localPrompt/);
 assert.match(feedSource, /accessibilityLabel="Moment erstellen"/);
-assert.match(feedSource, /height: 42,/);
+assert.match(feedSource, /modeShell:[\s\S]*?height: 46,/, "feed tabs keep an accessible touch height");
 assert.match(
   feedSource,
   /paddingBottom: theme\.control\.tabBar \+ theme\.spacing\.display/,

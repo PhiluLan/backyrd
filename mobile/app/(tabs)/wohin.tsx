@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { readRecentDecisionSearch, rememberRecentDecisionSearch } from "@/lib/decision/recentDecisionSearch";
 import { clearJourneySelection, rememberJourneySelection, canCarryPlaceRecommendation } from "@/lib/discovery-journey";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Keyboard, Linking, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, useColorScheme, View } from "react-native";
+import { ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, useColorScheme, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,17 +11,19 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import * as Crypto from "expo-crypto";
 import type { DecisionProductCandidate, DecisionProductRequest, DecisionProductResponse } from "@backyrd/product-decision-contract";
 
-import { AppText, ProductText as Text, ProductTextInput as TextInput } from "@/components/foundation/AppText";
+import { AppText, HomeTypographyProvider, ProductText as Text, ProductTextInput as TextInput } from "@/components/foundation/AppText";
+import { NuknukAvatar } from "@/components/NuknukAvatar";
+import { WohinWaitCard } from "@/components/WohinWaitCard";
 import { eventImageUrl } from "@/lib/events-v1";
 import { Image } from "expo-image";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
-import { invokeDecisionProduct, recordDecisionProductInteraction, type PersonalDecisionTrace } from "@/lib/decision/productDecision";
-import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinClarificationQuery, wohinDiscoveryCategories, wohinDiscoveryDirections, wohinIsDiscoveryPlaceholder, wohinFollowUp, wohinLimitations, wohinPlaceMeta, wohinMessageKind, wohinOffTopicMessage } from "@/lib/decision/wohinModel";
+import { invokeDecisionProduct, recordDecisionProductInteraction } from "@/lib/decision/productDecision";
+import { createWohinRequest, wohinAvailability as availabilityText, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinClarificationQuery, wohinDiscoveryCategories, wohinDiscoveryDirections, wohinIsDiscoveryPlaceholder, wohinFollowUp, wohinLimitations, wohinPlaceMeta, wohinMessageKind, wohinOffTopicMessage } from "@/lib/decision/wohinModel";
 import { recordDecisionFailure, type DecisionFailurePhase } from "@/lib/decision/productDecisionDiagnostics";
 import { loadCanonicalSpotHeaders, loadDiscoverySpots, type DiscoverySpot } from "@/lib/spot-images";
 import { supabase } from "@/lib/supabase";
 import { userFacingError } from "@/lib/userFacingError";
-import { backyrdTheme } from "@/theme/backyrd";
+import { backyrdTheme, usesFixedDarkAppearance } from "@/theme/backyrd";
 import { homeDaypart } from "@/lib/home-daypart";
 
 type SearchIdea = { icon: React.ComponentProps<typeof Ionicons>["name"]; title: string; wish: string };
@@ -32,24 +34,32 @@ type SearchConversation = {
 };
 
 const darkColors = {
-  background: "#050505", card: "#1D171A", text: "#F6F0E8", muted: "#B6A5AC",
-  border: "#47323C", pink: "#FF4F91", warning: "#FFC878", onAccent: "#170A11",
-  gradient: ["#422034", "#1E101B", "#050505"] as readonly [string, string, string],
-  panel: "#2B1B26", tint: "#472737", dock: "#33202B", dockBorder: "#785367",
-  icon: "#583346", disabled: "#252528", message: "#291C24", prompt: "#1F161C",
-  focusBorder: "#63344C", subButton: "#372333", question: "#492938", artwork: "#3C2934",
-  detailText: "#E2D3D6", chat: "#160E15", brief: "#342233",
+  background: "#050505", card: "#101010", text: "#F6F0E8", muted: "#9B9B9F",
+  border: "#FFFFFF24", pink: "#FF4F91", warning: "#F7C65C", onAccent: "#08080A",
+  gradient: ["#21131B", "#0D090B", "#050505"] as readonly [string, string, string],
+  panel: "#101010", tint: "#29151F", dock: "#171719", dockBorder: "#FFFFFF33",
+  disabled: "#252528", message: "#171719", prompt: "#171719",
+  focusBorder: "#63344C", subButton: "#171719", question: "#20141B", artwork: "#171719",
+  detailText: "#D7D7DB", chat: "#050505", brief: "#101010",
 };
 
 const lightColors: typeof darkColors = {
-  background: "#FAF5F0", card: "#FFFCF9", text: "#321E26", muted: "#725862",
-  border: "#DBC5C9", pink: "#9E2153", warning: "#8A4C1D", onAccent: "#FFFFFF",
-  gradient: ["#F4DEE6", "#FAF0F0", "#FAF5F0"],
-  panel: "#FFF9F6", tint: "#F4DFE5", dock: "#FFF8F6", dockBorder: "#CEAAB8",
-  icon: "#F1D9E2", disabled: "#EDE0E4", message: "#F5E3E9", prompt: "#F9ECEF",
-  focusBorder: "#D6A6BE", subButton: "#F1E3E9", question: "#F1DDE6", artwork: "#EEDFE3",
-  detailText: "#543744", chat: "#FCF6F4", brief: "#F2E2E9",
+  background: "#F7F7F5", card: "#FFFFFF", text: "#19191C", muted: "#53535A",
+  border: "#19191C21", pink: "#C71559", warning: "#8C5700", onAccent: "#FFFFFF",
+  gradient: ["#F3E7ED", "#F7F4F5", "#F7F7F5"],
+  panel: "#FFFFFF", tint: "#F5E5EC", dock: "#FFFFFF", dockBorder: "#19191C47",
+  disabled: "#EEEEF0", message: "#FFFFFF", prompt: "#FFFFFF",
+  focusBorder: "#D6A6BE", subButton: "#EEEEF0", question: "#F5E5EC", artwork: "#EEEEF0",
+  detailText: "#53535A", chat: "#F7F7F5", brief: "#FFFFFF",
 };
+
+// Same disclosure as web/app/legal/page.tsx#decision. Kept readable in-app,
+// including offline; opening it never records or changes consent.
+const searchPrivacy = [
+  "Wenn du nach Orten suchst, übermittelt Backyrd deinen Suchwunsch und die gewählten Suchangaben, zum Beispiel Stadt, Budget oder Begleitung, an OpenAI. Dazu kommen das Bezugsdatum und die Zeitzone, damit Angaben wie „morgen“ verstanden werden. Die KI hilft, deine Anfrage zu verstehen; passende Orte wählt Backyrd anhand seiner Spot- und Eventangaben aus.",
+  "Deine Konto-ID und E-Mail-Adresse werden dabei nicht an OpenAI gesendet. Angaben, die du selbst in das Suchfeld schreibst, sind Teil der Anfrage. Bitte gib deshalb keine vertraulichen Daten oder Namen anderer Personen ein. Backyrd fordert keine dauerhafte Speicherung der Modellantwort bei OpenAI an. Technische Protokolle beim Anbieter sind davon getrennt.",
+  "Die Verarbeitung durch OpenAI kann ausserhalb der Schweiz stattfinden. Persönliche Vorlieben berücksichtigt Backyrd nur mit deiner entsprechenden Einwilligung. Du kannst sie im Privacy Center verwalten. Fragen oder Anliegen zum Datenschutz: hello@backyrd.ch.",
+];
 
 async function withinIdentityDeadline<T>(operation: PromiseLike<T>): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -65,18 +75,6 @@ async function withinIdentityDeadline<T>(operation: PromiseLike<T>): Promise<T> 
   }
 }
 
-function availabilityText(candidate: DecisionProductCandidate): string {
-  const requestedDay = candidate.reasons.find((reason) => ["requested-day-opening-hours", "requested-day-closed", "requested-day-opening-unknown"].includes(reason.code));
-  if (requestedDay?.code === "requested-day-opening-hours") return requestedDay.statement;
-  if (requestedDay?.code === "requested-day-closed") return "Am gewünschten Tag geschlossen";
-  if (requestedDay?.code === "requested-day-opening-unknown") return "Für deinen geplanten Tag fehlen uns noch die Öffnungszeiten";
-  if (candidate.reasons.some(reason => reason.code === "librarian-visit-time-unconfirmed")) return "Ob du zur gewünschten Zeit vorbeikommen und das Angebot nutzen kannst, ist noch offen.";
-  const value = candidate.actualAvailability;
-  if (value === "open") return "Laut Angaben geöffnet";
-  if (value === "closed") return "Laut Angaben geschlossen";
-  if (value === "not_requested") return "Öffnungszeiten vor Besuch prüfen";
-  return "Die Öffnungszeiten kennen wir noch nicht";
-}
 
 function DecisionResultCard({ candidate, recommendation, imageUrl, onOpen, onDetails }: {
   candidate: DecisionProductCandidate;
@@ -87,6 +85,7 @@ function DecisionResultCard({ candidate, recommendation, imageUrl, onOpen, onDet
 }) {
   const { styles, color } = useWohinPresentation();
   const meta = wohinPlaceMeta(candidate);
+  const hasVisitNotes = wohinConsiderations(candidate, false).length > 0 || candidate.actualAvailability === "unknown";
   const openLabel = candidate.presentation.event ? "Event entdecken" : "Ort entdecken";
 
   return (
@@ -102,7 +101,8 @@ function DecisionResultCard({ candidate, recommendation, imageUrl, onOpen, onDet
         <View style={styles.cardBody}>
           {meta ? <AppText role="caption" style={styles.resultMeta}>{meta}</AppText> : null}
           <AppText role="cardTitle" accessibilityRole="header">{candidate.presentation.name}</AppText>
-          {candidate.tier === "UNCONFIRMED_FALLBACK" ? <AppText role="caption" style={styles.provisional}>Noch abzuklären</AppText> : null}
+          {candidate.tier === "UNCONFIRMED_FALLBACK" ? <AppText role="caption" style={styles.provisional}>Vor Besuch klären</AppText> : null}
+          {candidate.tier !== "UNCONFIRMED_FALLBACK" && hasVisitNotes ? <AppText role="caption" style={styles.provisional}>Hinweise zum Besuch</AppText> : null}
           <AppText role="body" style={styles.cardReason}>{recommendation}</AppText>
         </View>
       </View>
@@ -111,8 +111,8 @@ function DecisionResultCard({ candidate, recommendation, imageUrl, onOpen, onDet
           <AppText role="label" tone="pink">{openLabel}</AppText>
           <Ionicons name="arrow-forward" size={16} color={color.pink} />
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Details & Hinweise zu ${candidate.presentation.name}`} onPress={onDetails} style={({ pressed }) => [styles.cardAction, pressed && styles.pressed]}>
-          <AppText role="label" style={styles.detailsText}>Details &amp; Hinweise</AppText>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Vor deinem Besuch bei ${candidate.presentation.name}`} onPress={onDetails} style={({ pressed }) => [styles.cardAction, pressed && styles.pressed]}>
+          <AppText role="label" style={styles.detailsText}>Vor deinem Besuch</AppText>
         </Pressable>
       </View>
     </View>
@@ -120,6 +120,10 @@ function DecisionResultCard({ candidate, recommendation, imageUrl, onOpen, onDet
 }
 
 export default function WohinScreen() {
+  return <HomeTypographyProvider><WohinExperience /></HomeTypographyProvider>;
+}
+
+function WohinExperience() {
   const { styles, color } = useWohinPresentation();
   const router = useRouter();
   const { user } = useAuth();
@@ -129,8 +133,7 @@ export default function WohinScreen() {
   const [offTopic, setOffTopic] = useState(false);
   const [newPlan, setNewPlan] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [trace, setTrace] = useState<PersonalDecisionTrace | null>(null);
-  const [traceOpen, setTraceOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [selectedDetails, setSelectedDetails] = useState<DecisionProductCandidate | null>(null);
   const searchInputRef = useRef<React.ElementRef<typeof TextInput>>(null);
   const searchScrollRef = useRef<ScrollView>(null);
@@ -142,6 +145,7 @@ export default function WohinScreen() {
   const [city, setCity] = useState<string | null>(null);
   const [daypart, setDaypart] = useState(() => homeDaypart(new Date()));
   const [recentWish, setRecentWish] = useState<{ actorId: string; query: string } | null>(null);
+  const [recentWishLoaded, setRecentWishLoaded] = useState(false);
   const [identityReady, setIdentityReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [verifiedActorId, setVerifiedActorId] = useState<string | null>(null);
@@ -186,14 +190,13 @@ export default function WohinScreen() {
     requestInFlight.current = false;
     autoRunKey.current = null;
     clearJourneySelection();
-    setTrace(null);
-    setTraceOpen(false);
     responseRef.current = null;
     setStandaloneQuestion(null);
     setSubmittedQuery("");
     setClarificationAnswer("");
     setConversation(null);
     setConversationOpen(false);
+    setSelectedDetails(null);
     setOffTopic(false);
     setNewPlan(null);
     setEditing(false);
@@ -204,6 +207,7 @@ export default function WohinScreen() {
     setError(null);
     setRetryRequest(null);
     setRecentWish(null);
+    setRecentWishLoaded(false);
     setVerifiedActorId(null);
     setIdentityReady(false);
     setIdentityError(false);
@@ -242,7 +246,7 @@ export default function WohinScreen() {
     let active = true;
     void readRecentDecisionSearch(verifiedActorId).then(recent => {
       if (active) setRecentWish(recent ? { actorId: verifiedActorId, query: recent.query } : null);
-    });
+    }).catch(() => undefined).finally(() => { if (active) setRecentWishLoaded(true); });
     return () => { active = false; };
   }, [user?.id, verifiedActorId]));
 
@@ -285,8 +289,6 @@ export default function WohinScreen() {
     setPendingSearch(placeholder ? null : { message: userReply ?? text.trim(), isReply: Boolean(userReply) });
     setError(null);
     setRetryRequest(null);
-    setTrace(null);
-    setTraceOpen(false);
     if (!nextConversation) {
       responseRef.current = null;
       setResponse(null);
@@ -302,9 +304,7 @@ export default function WohinScreen() {
     try {
       request = retry ?? createWohinRequest({ query: text, city, requestId: Crypto.randomUUID() });
       failurePhase = "LOAD";
-      const result = await invokeDecisionProduct({ supabase, request, supportsDialogueChoice: Boolean(nextConversation), onTrace(value) {
-        if (generation === requestGeneration.current) setTrace(value);
-      } });
+      const result = await invokeDecisionProduct({ supabase, request, supportsDialogueChoice: Boolean(nextConversation) });
       failurePhase = "DISPLAY";
       const visible = visibleWohinCandidates(result);
       if (generation !== requestGeneration.current) return;
@@ -371,7 +371,7 @@ export default function WohinScreen() {
     }
     if (response && user && user.id === verifiedActorId && canCarryPlaceRecommendation(candidate)) {
       rememberJourneySelection({ actorId: user.id, decisionId: response.decisionId, spotId: candidate.spotId,
-        wish: submittedQuery, recommendation: wohinRecommendation(candidate, response.interpretation), notes: [availabilityText(candidate), ...wohinConsiderations(candidate, response.personalization.state === "ACTIVE")], selectedAt: Date.now() });
+        wish: [conversation?.wish ?? submittedQuery, ...(conversation?.turns ?? []).map(({ question, answer }) => question ? `${question} ${answer}` : answer)].join("\n"), recommendation: wohinRecommendation(candidate, response.interpretation), notes: [availabilityText(candidate), ...wohinConsiderations(candidate, response.personalization.state === "ACTIVE")], selectedAt: Date.now() });
     }
     const event=candidate.presentation.event;
     router.push((event ? `/events/${event.eventId}?occurrenceId=${event.occurrenceId}` : `/spot/${candidate.spotId}?entrySource=decision`) as never);
@@ -418,6 +418,7 @@ export default function WohinScreen() {
           setClarificationAnswer(text);
         }}
         maxLength={replyLimit}
+        editable={!loading}
       />
       <Pressable accessibilityRole="button" accessibilityLabel={replyLabel}
         disabled={!replyEnabled} accessibilityState={{ disabled: !replyEnabled }}
@@ -475,21 +476,22 @@ export default function WohinScreen() {
       ))}
     </View>
   ) : null;
-  const searchProgress = pendingSearch ? (
-    <View style={styles.searchProgress} accessibilityLiveRegion="polite">
-      <View style={styles.progressHeader}>
-        <View style={styles.progressAvatar} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <Ionicons name="chatbubble-ellipses-outline" size={17} color={color.pink} />
-        </View>
-        <AppText role="label" tone="pink" style={styles.querySummary}>NukNuk</AppText>
-        <ActivityIndicator size="small" color={color.pink} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
-      </View>
-      <AppText role="bodyStrong">{pendingSearch.isReply ? "Ich nehme das mit und schau noch mal." : "Ich schau mal, was zu deinem Wunsch passt."}</AppText>
-      <AppText role="body" tone="secondary" numberOfLines={3}>{`«${pendingSearch.message}»`}</AppText>
-    </View>
-  ) : null;
+  const leaveSearch = () => {
+    // Invalidate local delivery; an already sent request may finish on the server.
+    ++requestGeneration.current;
+    requestInFlight.current = false;
+    setPendingSearch(null);
+    setQuery(conversation?.wish ?? submittedQuery);
+    setClarificationAnswer("");
+    setConversationOpen(false);
+    setEditing(true);
+  };
+  const searchProgress = pendingSearch ? <>
+    {pendingSearch.isReply ? <View style={styles.userMessage}><AppText role="caption" tone="pink">Deine Ergänzung</AppText><AppText role="body">{pendingSearch.message}</AppText></View> : null}
+    <WohinWaitCard key={requestGeneration.current} isReply={pendingSearch.isReply} onLeave={leaveSearch} />
+  </> : null;
   const discoveryPlaceholder = !editing && wohinIsDiscoveryPlaceholder(submittedQuery);
-  const needsDiscovery = Boolean(city && authenticated && conversation && !editing && !loading
+  const needsDiscovery = Boolean(city && authenticated && conversation && !editing && !loading && !clarificationQuestion
     && !candidates.length && (discoveryPlaceholder || response || standaloneQuestion || error));
   const discoveryDirections = React.useMemo(() => wohinDiscoveryDirections(submittedQuery), [submittedQuery]);
   useEffect(() => {
@@ -517,7 +519,7 @@ export default function WohinScreen() {
     return () => { active = false; };
   }, [city, discoveryDirections, needsDiscovery, response]);
 
-  const followUp = response && !candidates.length && !clarificationQuestion ? wohinFollowUp(response) : null;
+  const followUp = !editing && response && !candidates.length && !clarificationQuestion ? wohinFollowUp(response) : null;
   const followUpNotes = response && followUp
     ? wohinLimitations(response.limitations.filter(code => code !== followUp.explainedLimitation), 0)
     : [];
@@ -537,19 +539,32 @@ export default function WohinScreen() {
   const canSearch = !loading && identityReady && !identityError && authenticated && Boolean(city) && query.trim().length >= 3;
   const editQuery = () => {
     if (conversation) setQuery(conversation.wish);
+    setError(null);
+    setRetryRequest(null);
     setConversationOpen(false);
     setEditing(true);
   };
   const startNewSearch = () => {
     if (loading) return;
+    clearJourneySelection();
+    responseRef.current = null;
+    setResponse(null);
+    setCandidates([]);
+    setDiscovery([]);
+    setConversation(null);
+    setConversationOpen(false);
+    setSelectedDetails(null);
+    setStandaloneQuestion(null);
+    setSubmittedQuery("");
+    setClarificationAnswer("");
+    setNewPlan(null);
+    setOffTopic(false);
+    setError(null);
+    setRetryRequest(null);
     setQuery("");
-    setEditing(true);
+    Keyboard.dismiss();
+    setEditing(false);
   };
-  const traceButton = trace && verifiedActorId === user?.id ? (
-    <Pressable accessibilityRole="button" onPress={() => setTraceOpen(true)} style={styles.followUpButton}>
-      <AppText role="label" tone="pink">Übergabe &amp; Reihenfolge</AppText>
-    </Pressable>
-  ) : null;
   const personal = response?.personalization.state === "ACTIVE";
   const canCompose = !loading && identityReady && !identityError && authenticated && Boolean(city);
   const submitWish = () => {
@@ -571,17 +586,32 @@ export default function WohinScreen() {
   const personalIdea = recentWish && recentWish.actorId === verifiedActorId && verifiedActorId === user?.id
     ? { icon: "time-outline", title: "Dein letzter Suchwunsch", wish: recentWish.query } as const : null;
   const nearbyIdea = city ? { icon: "location-outline", title: `${city} entdecken`, wish: `Zeig mir etwas Besonderes in ${city}.` } as const : null;
+  const ideasReady = identityReady && (!authenticated || recentWishLoaded);
   const ideas = [localIdea, personalIdea, nearbyIdea].flatMap(idea => idea ? [idea] : []);
   const resultHeader = (
     <View style={styles.resultHeader}>
       <View style={styles.resultHeading}>
-        <AppText role="displayM" accessibilityRole="header" style={styles.querySummary}>
-          {candidates.every(candidate => candidate.tier === "UNCONFIRMED_FALLBACK") ? "Orte zum Abklären" : "Deine Vorschläge"}
+        <AppText role="screenTitle" accessibilityRole="header" style={styles.querySummary}>
+          {candidates.every(candidate => candidate.tier === "UNCONFIRMED_FALLBACK") ? "Zum Entdecken" : "Das könnte dein Moment sein"}
         </AppText>
         <Pressable accessibilityRole="button" accessibilityLabel="Suche ändern" onPress={editQuery} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
           <Ionicons name="create-outline" size={20} color={color.text} />
         </Pressable>
       </View>
+      <View style={styles.planSummary}>
+        <View style={styles.guideRow}>
+          <NuknukAvatar height={30} appearance="outline" />
+          <AppText role="caption" tone="pink">Dein Plan · {response?.interpretation.targetCity ?? city}</AppText>
+        </View>
+        <AppText role="bodyStrong">{conversation?.wish ?? submittedQuery}</AppText>
+        {conversation?.turns.map(({ answer }, index) => <AppText key={index} role="meta" tone="secondary">{answer}</AppText>)}
+        <View style={styles.searchActions}>
+          <Pressable accessibilityRole="button" onPress={editQuery} style={styles.followUpButton}><AppText role="label" tone="pink">Wunsch anpassen</AppText></Pressable>
+          <Pressable accessibilityRole="button" onPress={startNewSearch} style={styles.followUpButton}><AppText role="label">Neue Suche</AppText></Pressable>
+        </View>
+      </View>
+      {candidates.some(candidate => candidate.tier === "UNCONFIRMED_FALLBACK") ? <AppText role="meta" tone="secondary">Bei den markierten Orten sind noch Angaben offen. Unter «Vor deinem Besuch» erfährst du mehr.</AppText> : null}
+      <AppText role="caption" tone="secondary">{candidates.length === 1 ? "1 Möglichkeit für deinen Plan" : `${candidates.length} Möglichkeiten für deinen Plan`}</AppText>
       {clarificationQuestion ? <Pressable
         accessibilityRole="button" accessibilityLabel={`NukNuk fragt: ${clarificationQuestion} Gespräch öffnen`}
         onPress={() => setConversationOpen(true)} style={({ pressed }) => [styles.conversationLink, pressed && styles.pressed]}
@@ -610,7 +640,7 @@ export default function WohinScreen() {
           keyExtractor={(candidate) => candidate.spotId}
           renderItem={({ item: candidate }) => <DecisionResultCard
             candidate={candidate}
-            recommendation={wohinRecommendation(candidate, response?.interpretation)}
+            recommendation={wohinRecommendation(candidate, response?.interpretation, false)}
             imageUrl={coverImages.has(candidate.spotId) ? coverImages.get(candidate.spotId)! : (candidate.presentation.event ? eventImageUrl(candidate.presentation.event.imageStoragePath) ?? candidate.presentation.imageUrl : candidate.presentation.imageUrl)}
             onOpen={() => openSpot(candidate)}
             onDetails={() => setSelectedDetails(candidate)}
@@ -619,23 +649,23 @@ export default function WohinScreen() {
         <View style={[styles.dock, dockPadding]}>
           <Pressable accessibilityRole="button" accessibilityLabel="Mit NukNuk chatten"
             onPress={() => setConversationOpen(true)} style={({ pressed }) => [styles.chatDock, pressed && styles.pressed]}>
-            <View style={styles.dockAvatar}><Ionicons name="chatbubble-ellipses-outline" size={18} color={color.pink} /></View>
-            <AppText role="bodyStrong" style={styles.querySummary}>{clarificationQuestion ? "NukNuk antworten" : "Frag NukNuk weiter …"}</AppText>
+            <NuknukAvatar height={32} appearance="outline" />
+            <AppText role="bodyStrong" style={styles.querySummary}>{clarificationQuestion ? "NukNuk antworten" : "Was darf noch anders sein?"}</AppText>
             <Ionicons name="chevron-forward" size={19} color={color.pink} />
           </Pressable>
         </View>
       </View> : <KeyboardAvoidingView style={styles.screenBody} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView ref={searchScrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: backyrdTheme.layout.pageGutter, paddingTop: backyrdTheme.spacing.lg, paddingBottom: showConversation ? backyrdTheme.control.tabBar + insets.bottom + backyrdTheme.spacing.xl : backyrdTheme.spacing.sm }}>
-          {editing && conversation ? <Pressable accessibilityRole="button" onPress={() => { setEditing(false); Keyboard.dismiss(); }} style={styles.backToResults}>
+          {editing && conversation ? <Pressable accessibilityRole="button" accessibilityLabel={candidates.length ? "Zurück zu deinen Vorschlägen" : "Zurück zum Gespräch"} onPress={() => { setEditing(false); Keyboard.dismiss(); }} style={styles.backToResults}>
             <Ionicons name="arrow-back" size={18} color={color.pink} />
             <AppText role="label" tone="pink">{candidates.length ? "Zurück zu deinen Vorschlägen" : "Zurück zum Gespräch"}</AppText>
           </Pressable> : null}
           <View style={styles.searchHeader}>
-            <AppText role="displayXL" accessibilityRole="header">Wohin?</AppText>
-            {city ? <View style={styles.location}>
+            <AppText role="screenTitle" style={styles.pageTitle} accessibilityRole="header">Wohin<AppText role="screenTitle" style={styles.pageTitle} tone="pink">?</AppText></AppText>
+            <View style={styles.location}>
               <Ionicons name="location-outline" size={16} color={color.pink} />
-              <AppText role="meta" style={styles.resultMeta}>{city}</AppText>
-            </View> : null}
+              <AppText role="meta" style={styles.resultMeta}>{city ?? (identityReady ? "Deine Stadt" : "Stadt wird geladen")}</AppText>
+            </View>
           </View>
 
           {showConversation ? <View style={styles.searchFlow}>
@@ -648,12 +678,15 @@ export default function WohinScreen() {
             {!editing ? <>
               <View style={styles.welcome}>
                 <View style={styles.querySummary}>
-                  <AppText role="displayM" style={styles.welcomeTitle}>Worauf hast du Lust?</AppText>
-                  <AppText role="body" style={styles.welcomeText}>Erzähl mir, was du vorhast. Ich finde Orte, die zu deinem Plan passen.</AppText>
+                  <View style={styles.guideRow}><NuknukAvatar height={36} appearance="outline" /><AppText role="label" tone="pink">Hey, ich bin NukNuk.</AppText></View>
+                  <AppText role="screenTitle" style={styles.welcomeTitle}>Was würde dir guttun?</AppText>
+                  <AppText role="body" style={styles.welcomeText}>Erzähl mir, worauf du Lust hast. Mit wem du losziehst. Oder einfach, wie sich dein nächster Moment anfühlen soll.</AppText>
+                  <AppText role="meta" tone="secondary" style={styles.welcomeText}>Du musst noch keinen fertigen Plan haben.</AppText>
                 </View>
               </View>
               <View style={styles.ideas}>
-                {ideas.map(({ icon, title, wish }) => (
+                <AppText role="caption" tone="secondary">Ein Gedanke zum Loslegen</AppText>
+                {!ideasReady ? <View style={styles.idea}><ActivityIndicator color={color.pink} /><AppText role="meta" tone="secondary">Ein paar Ideen für dich …</AppText></View> : ideas.map(({ icon, title, wish }) => (
                   <Pressable key={title} accessibilityRole="button" disabled={!canCompose}
                     onPress={() => { setQuery(wish); setOffTopic(false); setError(null); setRetryRequest(null); searchInputRef.current?.focus(); }}
                     style={({ pressed }) => [styles.idea, pressed && styles.pressed]}>
@@ -666,7 +699,7 @@ export default function WohinScreen() {
                   </Pressable>
                 ))}
               </View>
-            </> : <AppText role="body">Was möchtest du suchen?</AppText>}
+            </> : <View style={styles.emptyState}><AppText role="sectionTitle">Was darf anders sein?</AppText><AppText role="body" tone="secondary">Dein Wunsch darf sich ändern. Erzähl mir, was dir jetzt wichtig ist.</AppText></View>}
             {offTopic ? <AppText role="body" accessibilityLiveRegion="polite" style={styles.offTopic}>{wohinOffTopicMessage}</AppText> : null}
           </>}
           {identityError ? <View style={{ marginTop: 20 }}><Text style={{ color: color.warning }}>Dein Profil konnte gerade nicht geprüft werden. Wohin ist vorübergehend nicht verfügbar.</Text><Pressable accessibilityRole="button" onPress={() => setIdentityAttempt((value) => value + 1)}><Text style={{ color: color.pink, marginTop: 12, fontWeight: "800" }}>Erneut prüfen</Text></Pressable></View> : null}
@@ -722,10 +755,9 @@ export default function WohinScreen() {
                 <AppText role="label">Neue Suche</AppText>
               </Pressable>
             </View>
-            {traceButton}
           </> : null}
           {!showConversation ? <View style={styles.privacy}>
-            <Pressable accessibilityRole="link" accessibilityLabel="Datenschutz zur KI-Suche öffnen" onPress={() => { void Linking.openURL("https://www.backyrd.ch/legal#decision").catch(() => setError("Die Datenschutzinformation konnte nicht geöffnet werden. Versuche es erneut.")); }} style={styles.followUpButton}>
+            <Pressable accessibilityRole="link" accessibilityLabel="Datenschutz zur KI-Suche öffnen" onPress={() => setPrivacyOpen(true)} style={styles.followUpButton}>
               <AppText role="caption" tone="pink">Datenschutz zur KI-Suche</AppText>
             </Pressable>
           </View> : null}
@@ -739,7 +771,7 @@ export default function WohinScreen() {
               multiline
               maxLength={2000}
               onChangeText={(value) => { setQuery(value); setOffTopic(false); setError(null); setRetryRequest(null); }}
-              placeholder="Frag NukNuk …"
+              placeholder="Was hast du im Kopf?"
               placeholderTextColor={color.muted}
               style={styles.searchInput}
               value={query}
@@ -752,7 +784,7 @@ export default function WohinScreen() {
           </View>
         </View> : null}
       </KeyboardAvoidingView>}
-      <Modal visible={conversationOpen && showingResults && !traceOpen} animationType="slide" onShow={() => {
+      <Modal visible={conversationOpen && showingResults} animationType="slide" onShow={() => {
         conversationScrollRef.current?.scrollToEnd({ animated: false });
       }} onRequestClose={() => setConversationOpen(false)}>
         <SafeAreaView style={styles.conversationScreen} edges={["top", "bottom", "left", "right"]} accessibilityViewIsModal>
@@ -762,49 +794,31 @@ export default function WohinScreen() {
                 <Ionicons name="arrow-back" size={21} color={color.text} />
               </Pressable>
               <View style={styles.querySummary}>
-                <AppText role="cardTitle" accessibilityRole="header">Dein Gespräch mit NukNuk</AppText>
+                <AppText role="cardTitle" accessibilityRole="header">Dein Plan mit NukNuk</AppText>
                 {city ? <AppText role="caption" style={styles.resultMeta}>{response?.interpretation.targetCity ?? city}</AppText> : null}
               </View>
             </View>
             <ScrollView ref={conversationScrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.conversationBody}>
               {conversationHistory(true)}
+              {!clarificationQuestion && !newPlan && !offTopic && !loading ? <View style={styles.chatQuestion}><AppText role="label" tone="pink">NukNuk</AppText><AppText role="body">Was würde deinen Plan noch besser machen? Mehr Ruhe, ein anderer Zeitpunkt oder etwas ganz anderes? Sag mir, was dir wichtig ist.</AppText></View> : null}
               {conversationPrompt}
               {searchProgress}
-              {traceButton}
             </ScrollView>
             {!newPlan ? <View style={styles.conversationComposer}>{replyComposer}</View> : null}
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
-      <Modal visible={traceOpen && trace !== null && verifiedActorId === user?.id} transparent animationType="slide" onRequestClose={() => setTraceOpen(false)}>
+      <Modal visible={privacyOpen} transparent animationType="slide" onRequestClose={() => setPrivacyOpen(false)}>
         <View style={styles.modalBackdrop}>
-          <SafeAreaView style={styles.detailSheet} edges={["top", "bottom"]} accessibilityViewIsModal>
+          <SafeAreaView style={styles.detailSheet} edges={["bottom"]} accessibilityViewIsModal>
             <View style={styles.sheetHeader}>
-              <AppText role="sectionTitle" style={{ flex: 1 }}>Übergabe &amp; Reihenfolge</AppText>
-              <Pressable accessibilityRole="button" accessibilityLabel="Übergabe schliessen" onPress={() => setTraceOpen(false)} style={styles.pagerButton}><Ionicons name="close" size={22} color={color.text} /></Pressable>
+              <AppText role="sectionTitle" style={{ flex: 1 }}>Dein Wunsch. Deine Daten.</AppText>
+              <Pressable accessibilityRole="button" accessibilityLabel="Datenschutz schliessen" onPress={() => setPrivacyOpen(false)} style={styles.pagerButton}><Ionicons name="close" size={24} color={color.text} /></Pressable>
             </View>
             <ScrollView contentContainerStyle={styles.sheetContent}>
-              <AppText role="sectionTitle">Suchauftrag</AppText>
-              {trace?.handoff ? trace.handoff.facts.map(fact => (
-                <View key={fact.id}>
-                  <AppText role="label">{fact.key} · {fact.modality}</AppText>
-                  <AppText role="body" tone="secondary">{JSON.stringify(fact.value)}</AppText>
-                </View>
-              )) : <AppText role="body">Für diese Antwort wurde keine Spot-Suche ausgeführt.</AppText>}
-              {trace?.handoff ? <AppText selectable role="caption" tone="secondary">{JSON.stringify(trace.handoff, null, 2)}</AppText> : null}
-              {trace?.ranked.length ? <AppText role="sectionTitle">Reihenfolge</AppText> : null}
-              {trace?.ranked.map((candidate, index) => (
-                <View key={index}>
-                  <AppText role="label">{candidate.spot} · {candidate.rank === null ? "Vorläufig" : `Rang ${candidate.rank}`}</AppText>
-                  {candidate.beforeNext ? <AppText role="body">Vor {trace.ranked[index + 1]?.spot} wegen {candidate.beforeNext}.</AppText> : null}
-                  {candidate.facts.map((fact, factIndex) => (
-                    <AppText key={factIndex} role="caption" tone="secondary">
-                      {trace.handoff?.facts.find(item => item.id === fact.factId)?.key ?? fact.factId} · {fact.state} · {fact.reason}
-                      {candidate.matchedPreferences.includes(fact.factId) ? " · erfüllte Präferenz" : ""}
-                    </AppText>
-                  ))}
-                </View>
-              ))}
+              <AppText role="label" tone="pink">Datenschutz zur KI-Suche</AppText>
+              {searchPrivacy.map(paragraph => <AppText key={paragraph} role="body" tone="secondary">{paragraph}</AppText>)}
+              <Pressable accessibilityRole="button" onPress={() => { setPrivacyOpen(false); router.push("/settings/privacy"); }} style={styles.followUpButton}><AppText role="label" tone="pink">Zum Privacy Center</AppText></Pressable>
             </ScrollView>
           </SafeAreaView>
         </View>
@@ -813,18 +827,18 @@ export default function WohinScreen() {
         <View style={styles.modalBackdrop}>
           <SafeAreaView style={styles.detailSheet} edges={["top", "bottom"]} accessibilityViewIsModal>
             <View style={styles.sheetHeader}>
-              <AppText role="sectionTitle" style={{ flex: 1 }}>Details & Hinweise</AppText>
-              <Pressable accessibilityRole="button" accessibilityLabel="Hinweise schließen" onPress={() => setSelectedDetails(null)} style={styles.pagerButton}><Ionicons name="close" size={24} color={color.text} /></Pressable>
+              <AppText role="sectionTitle" style={{ flex: 1 }}>Vor deinem Besuch</AppText>
+              <Pressable accessibilityRole="button" accessibilityLabel="Hinweise schliessen" onPress={() => setSelectedDetails(null)} style={styles.pagerButton}><Ionicons name="close" size={24} color={color.text} /></Pressable>
             </View>
             <ScrollView contentContainerStyle={styles.sheetContent}>
               {selectedDetails ? <>
                 <AppText role="screenTitle">{selectedDetails.presentation.name}</AppText>
                 <AppText role="meta" tone="secondary">{wohinPlaceMeta(selectedDetails)}</AppText>
-                <AppText role="body" style={styles.recommendation}>{wohinRecommendation(selectedDetails, response?.interpretation)}</AppText>
-                {selectedDetails.actualAvailability !== "not_requested" ? <AppText role="body" tone="secondary">{availabilityText(selectedDetails)}</AppText> : null}
-                {wohinConsiderations(selectedDetails, personal).map(note => <AppText key={note} role="body" tone="secondary">{note}</AppText>)}
+                <AppText role="caption" tone="pink">Für deinen geplanten Besuch</AppText>
+                <AppText role="bodyStrong">{availabilityText(selectedDetails)}</AppText>
+                {wohinConsiderations(selectedDetails, personal).map(note => <View key={note} style={styles.visitNote}><Ionicons name="information-circle-outline" size={19} color={color.warning} /><AppText role="body" tone="secondary" style={styles.querySummary}>{note}</AppText></View>)}
               </> : null}
-              <AppText role="caption" tone="muted">{personal ? "Nach deinen Vorlieben ausgewählt" : "Auswahl ohne persönliche Vorlieben"}</AppText>
+              {selectedDetails ? <Pressable accessibilityRole="button" onPress={() => { const candidate = selectedDetails; setSelectedDetails(null); openSpot(candidate); }} style={styles.primaryButton}><AppText role="label" style={styles.primaryLabel}>{selectedDetails.presentation.event ? "Event entdecken" : "Ort entdecken"}</AppText><Ionicons name="arrow-forward" size={18} color={color.onAccent} /></Pressable> : null}
             </ScrollView>
           </SafeAreaView>
         </View>
@@ -837,19 +851,21 @@ const createStyles = (color: typeof darkColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.background },
   ambient: { position: "absolute", left: 0, right: 0, top: 0, height: 560 },
   screenBody: { flex: 1 },
+  pageTitle: { fontSize: 46, lineHeight: 52, letterSpacing: -1.8 },
+  planSummary: { padding: 18, gap: 12, borderRadius: 24, backgroundColor: color.card, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border },
   searchHeader: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 22 },
   guideRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  visitNote: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   location: { flexDirection: "row", alignItems: "center", gap: 5 },
-  welcome: { flexDirection: "row", alignItems: "center", gap: 15, borderRadius: 26, backgroundColor: "#F5E1D5", padding: 22 },
-  welcomeTitle: { color: "#412035", fontSize: 31, lineHeight: 35 },
-  welcomeText: { color: "#634053", marginTop: 8 },
-  ideas: { marginTop: 22, gap: 9 },
+  welcome: { flexDirection: "row", alignItems: "center", gap: 15, borderRadius: 26, backgroundColor: color.card, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border, padding: 22 },
+  welcomeTitle: { color: color.text, fontSize: 30, lineHeight: 35, marginTop: 20, letterSpacing: -1 },
+  welcomeText: { color: color.muted, marginTop: 12 },
+  ideas: { marginTop: 28, gap: 12, minHeight: 270 },
   idea: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 13, paddingVertical: 10, minHeight: 64, borderRadius: 18, backgroundColor: color.panel, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border },
   ideaIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: color.tint },
   offTopic: { marginTop: 16 },
   dock: { paddingHorizontal: 18, paddingTop: 9, backgroundColor: color.background, borderTopWidth: StyleSheet.hairlineWidth, borderColor: color.border },
   chatDock: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: color.dockBorder, backgroundColor: color.dock, borderRadius: 27, paddingHorizontal: 13, paddingVertical: 5 },
-  dockAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: color.icon },
   searchInput: { flex: 1, color: color.text, fontSize: 16, lineHeight: 23, minHeight: 44, maxHeight: 112, paddingHorizontal: 3, paddingVertical: 10, textAlignVertical: "top" },
   sendButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: color.pink, alignItems: "center", justifyContent: "center" },
   primaryButton: { minHeight: 52, paddingVertical: 12, paddingHorizontal: 18, borderRadius: 999, backgroundColor: color.pink, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center" },
@@ -860,14 +876,11 @@ const createStyles = (color: typeof darkColors) => StyleSheet.create({
   searchFlow: { gap: 18 },
   history: { gap: 12 },
   userMessage: { maxWidth: "92%", alignSelf: "flex-end", gap: 5, backgroundColor: color.message, borderRadius: 18, borderBottomRightRadius: 6, padding: 14 },
-  assistantMessage: { gap: 5, backgroundColor: backyrdTheme.color.surfaceElevated, borderRadius: 18, borderBottomLeftRadius: 6, padding: 14 },
-  searchProgress: { gap: 8, padding: 16, borderRadius: 22, borderBottomLeftRadius: 6, borderWidth: 1, borderColor: color.border, backgroundColor: backyrdTheme.color.surfaceElevated },
-  progressHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 2 },
-  progressAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: color.message },
+  assistantMessage: { gap: 5, backgroundColor: color.card, borderRadius: 18, borderBottomLeftRadius: 6, padding: 14 },
   questionCard: { padding: 16, gap: 12, borderWidth: 1, borderColor: color.focusBorder, borderRadius: 22, backgroundColor: color.prompt },
   searchActions: { flexDirection: "row", flexWrap: "wrap", gap: 16, marginTop: 10 },
   results: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 16, gap: 12 },
-  resultHeader: { gap: 12, paddingBottom: 6 },
+  resultHeader: { gap: 18, paddingBottom: 12 },
   resultHeading: { flexDirection: "row", alignItems: "center", gap: 12 },
   querySummary: { flex: 1, gap: 2 },
   iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: color.subButton },
@@ -883,7 +896,6 @@ const createStyles = (color: typeof darkColors) => StyleSheet.create({
   cardActions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", columnGap: 12, borderTopWidth: StyleSheet.hairlineWidth, borderColor: color.border },
   cardAction: { flexDirection: "row", alignItems: "center", gap: 5, minHeight: 44 },
   detailsText: { color: color.detailText, flexShrink: 1 },
-  recommendation: { fontSize: 22, lineHeight: 31, color: color.text },
   pagerButton: { minWidth: 44, minHeight: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: color.card },
   backToResults: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 },
   discoverySpot: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, minHeight: 52, borderRadius: 16, backgroundColor: color.card },
@@ -906,5 +918,5 @@ const darkPresentation = { color: darkColors, styles: createStyles(darkColors) }
 const lightPresentation = { color: lightColors, styles: createStyles(lightColors) };
 
 function useWohinPresentation() {
-  return useColorScheme() === "light" ? lightPresentation : darkPresentation;
+  return useColorScheme() === "light" && !usesFixedDarkAppearance ? lightPresentation : darkPresentation;
 }

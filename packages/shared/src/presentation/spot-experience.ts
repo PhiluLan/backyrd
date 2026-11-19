@@ -1,6 +1,7 @@
 /** Public display adapter only: no eligibility, inference or raw-object rendering. */
 export type PublicSpotFact = { key: string; label: string; value: string; condition: string | null };
-export type PublicSpotCard = { id: string; kind: string; name: string; prices: string[]; facts: PublicSpotFact[]; places: string[]; times: string[] };
+export type PublicSpotPrice = { label: string; amount: string; details: string[] };
+export type PublicSpotCard = { id: string; kind: string; name: string; prices: string[]; priceDetails?: PublicSpotPrice[]; facts: PublicSpotFact[]; places: string[]; times: string[] };
 export type PublicSpotExperience = { offers: PublicSpotCard[]; areas: PublicSpotCard[]; shared: PublicSpotFact[] };
 // Public presentation copy is separate from matching rules and catalogue codes.
 const labels: Readonly<Record<string,string>> = {
@@ -94,35 +95,62 @@ function facts(input: unknown): PublicSpotFact[] {
  }
  return [...grouped.values()];
 }
-function price(input: unknown): string | null {
+function priceParts(input: unknown): PublicSpotPrice | null {
  const p=row(input);if(!numeric(p.min)||!(p.max===null||numeric(p.max))||typeof p.currency!=="string"||!/^([A-Z]{3})$/.test(p.currency)||(numeric(p.max)&&p.max<p.min))return null;
  const amount=p.min===0&&p.max===0?"Kostenlos":p.max===null?`ab ${money(p.min)} ${p.currency}`:p.max===p.min?`${money(p.min)} ${p.currency}`:`${money(p.min)}–${money(p.max as number)} ${p.currency}`;
  const basis:Readonly<Record<string,string>>={PER_PERSON:"pro Person",PER_GROUP:"für die Gruppe",PER_ITEM:"pro Artikel",PER_ROOM_NIGHT:"pro Zimmer/Nacht",PER_PERSON_NIGHT:"pro Person/Nacht",PER_SITE_NIGHT:"pro Stellplatz/Nacht"};
  const age=numeric(p.minimumAge)&&numeric(p.maximumAge)?`${p.minimumAge}–${p.maximumAge} Jahre`:numeric(p.minimumAge)?`ab ${p.minimumAge} Jahren`:numeric(p.maximumAge)?`bis einschließlich ${p.maximumAge} Jahre`:null;
- const included=text(p.includes,1000),fees=p.mandatoryFeesIncluded===false?"zusätzliche Pflichtkosten":p.mandatoryFeesIncluded===null?"Pflichtkosten noch nicht bestätigt":null;
- return [text(p.label,160),amount,typeof p.basis==="string"?basis[p.basis]:null,age,included?`für ${included}`:null,fees,conditions(p.conditions)].filter(Boolean).join(" · ");
+ const included=text(p.includes,1000),label=text(p.label,160),fees=p.mandatoryFeesIncluded===false?"zusätzliche Pflichtkosten":p.mandatoryFeesIncluded===null?"Pflichtkosten noch nicht bestätigt":null;
+ const repeatsLabel = included.toLocaleLowerCase("de-CH") === label.toLocaleLowerCase("de-CH");
+ return { label, amount, details: [typeof p.basis==="string"?basis[p.basis]:null,age,included && !repeatsLabel?`Inklusive: ${included}`:null,fees,conditions(p.conditions)].filter((value): value is string => Boolean(value)) };
+}
+function price(input: unknown): string | null {
+ const parts = priceParts(input);
+ return parts ? [parts.label,parts.amount,...parts.details.map(detail=>detail.replace(/^Inklusive: /,"für "))].filter(Boolean).join(" · ") : null;
 }
 function times(input: unknown): string[] {
- return list(input,56).flatMap(item => {
+ const schedule = new Map<number, Set<string>>();
+ for (const item of list(input,56)) {
   const interval=row(item);
   const day=typeof interval.weekday === "number" && Number.isInteger(interval.weekday) ? days[interval.weekday-1] : null;
   const start=text(interval.start,5),end=text(interval.end,5);
-  return day && /^([01]\d|2[0-3]):[0-5]\d$/.test(start) && /^([01]\d|2[0-3]):[0-5]\d$/.test(end) ? [`${day} ${start}–${end}`] : [];
- });
+  if (!day || !/^([01]\d|2[0-3]):[0-5]\d$/.test(start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(end)) continue;
+  const weekday = interval.weekday as number;
+  const slots = schedule.get(weekday) ?? new Set<string>();
+  slots.add(`${start}–${end}`);
+  schedule.set(weekday, slots);
+ }
+ const result: string[] = [];
+ for (let day = 1; day <= 7; day++) {
+  const slots = schedule.get(day);
+  if (!slots) continue;
+  const hours = [...slots].sort().join(", ");
+  let last = day;
+  while (last < 7 && schedule.has(last + 1) && [...schedule.get(last + 1)!].sort().join(", ") === hours) last++;
+  result.push(`${days[day-1]}${last > day ? `–${days[last-1]}` : ""} ${hours}`);
+  day = last;
+ }
+ return result;
+}
+// Replace only the catalogue's technical default; preserve curated offer names.
+function visitorOfferName(value: unknown): string {
+ const name = text(value,160);
+ return name === "Essen (ohne Trennung nach Mahlzeit)" ? "Essen" : name;
 }
 export function presentSpotExperience(input: unknown): PublicSpotExperience {
  const profile=row(input);if(profile.contractVersion!=="backyrd.world-knowledge.experience-profile@1.0"||profile.reviewed!==true)return {offers:[],areas:[],shared:[]};
  const offers=list(profile.offers,30).map(row).filter(o=>text(o.id,100)&&text(o.name,160));
  const areas=list(profile.areas,30).map(row).filter(a=>text(a.id,100)&&text(a.name,160));
  return {
-  offers:offers.map(o=>({id:text(o.id,100),kind:text(o.kind,100),name:text(o.name,160),prices:list(o.prices,30).flatMap(p=>{const label=price(p);return label?[label]:[];}),facts:facts(o.properties),places:areas.filter(a=>list(o.areaIds,30).includes(a.id)).map(a=>text(a.name,160)),times:[...times(o.schedule),...([conditions({validFrom:o.validFrom,validUntil:o.validUntil})].filter((value): value is string => value !== null))]})),
-  areas:areas.map(a=>({id:text(a.id,100),kind:text(a.kind,100),name:text(a.name,160),prices:[],facts:facts(a.properties),places:offers.filter(o=>list(o.areaIds,30).includes(a.id)).map(o=>text(o.name,160)),times:[]})),
+  offers:offers.map(o=>({id:text(o.id,100),kind:text(o.kind,100),name:visitorOfferName(o.name),prices:list(o.prices,30).flatMap(p=>{const label=price(p);return label?[label]:[];}),priceDetails:list(o.prices,30).flatMap(p=>{const parts=priceParts(p);return parts?[parts]:[];}),facts:facts(o.properties),places:areas.filter(a=>list(o.areaIds,30).includes(a.id)).map(a=>text(a.name,160)),times:[...times(o.schedule),...([conditions({validFrom:o.validFrom,validUntil:o.validUntil})].filter((value): value is string => value !== null))]})),
+  areas:areas.map(a=>({id:text(a.id,100),kind:text(a.kind,100),name:text(a.name,160),prices:[],facts:facts(a.properties),places:offers.filter(o=>list(o.areaIds,30).includes(a.id)).map(o=>visitorOfferName(o.name)),times:[]})),
   shared:facts(profile.properties),
  };
 }
 
 
-export type PublicSpotDetailGroup = { title: string; items: string[] };
+export type PublicSpotDetailEntry = { label: string; text: string; tags: string[]; condition: string | null };
+export type PublicSpotDetailGroup = { title: string; items: string[]; entries: PublicSpotDetailEntry[] };
 const visitorLabels: Readonly<Record<string, string>> = {
  "experience.activity":"Erlebnis", "experience.theme":"Themen", "participation.audience":"Zugang",
  "participation.format":"Teilnahme", "participation.language":"Sprachen", "participation.age_suitability":"Altersempfehlung",
@@ -155,11 +183,28 @@ const booleanCopy: Readonly<Record<string, readonly [string, string]>> = {
  "condition.weather_protection":["Vor Regen geschützt","Nicht vor Regen geschützt"]
 };
 
+// iOS Hermes does not provide Intl.ListFormat. Keep this German conjunction
+// deterministic and available in both supported native runtimes.
+const visitorList = (value: string) => {
+ const items = value.split(" · ").filter(Boolean);
+ if (items.length < 2) return items[0] ?? "";
+ return `${items.slice(0, -1).join(", ")} und ${items[items.length - 1]}`;
+};
+const travelCopy: Readonly<Record<string,string>> = { "ÖV":"mit dem ÖV", "Zu Fuss":"zu Fuss", "Velo":"mit dem Velo", "Auto":"mit dem Auto" };
+const cuisineCopy: Readonly<Record<string,string>> = { schweizerisch:"schweizerisch", international:"international", italienisch:"italienisch", französisch:"französisch", japanisch:"japanisch", vegan:"vegan", vegetarisch:"vegetarisch" };
+
 /** Visitor copy only. Never infer suitability or move facts between scopes. */
-export function spotExperienceDetailGroups(facts: readonly PublicSpotFact[], offerKind = ""): PublicSpotDetailGroup[] {
+export function spotExperienceDetailGroups(facts: readonly PublicSpotFact[], offerKind = "", offerName = ""): PublicSpotDetailGroup[] {
  const grouped = new Map<string, Set<string>>();
+ const entries = new Map<string, PublicSpotDetailEntry[]>();
+ const tagLabels: Readonly<Record<string,string>> = {
+  "food.dish":"Auf der Karte", "food.cuisine":"Küche", "food.diet":"Ernährungsoptionen",
+  "food.drink":"Getränke", "food.option":"Ernährung & Allergene", "offer.feature":"Ausstattung",
+  "atmosphere.character":"Atmosphäre", "participation.language":"Sprachen",
+ };
  for (const fact of facts) {
   const key = fact.key;
+  if (!fact.condition && key === "experience.activity" && fact.value.toLocaleLowerCase("de-CH") === offerName.toLocaleLowerCase("de-CH")) continue;
   const meal = ["LUNCH","DINNER","BREAKFAST","BRUNCH","FULL_MEAL"].includes(offerKind);
   if (!fact.condition && meal && ((key === "experience.activity" && fact.value === "essen gehen") || (key === "food.meal_extent" && fact.value === "Essen"))) continue;
   if (!fact.condition && offerKind === "DRINKS" && key === "experience.activity" && fact.value === "etwas trinken") continue;
@@ -184,19 +229,40 @@ export function spotExperienceDetailGroups(facts: readonly PublicSpotFact[], off
   }
   const bool = booleanCopy[key];
   let sentence = bool && ["Ja","Nein"].includes(value) ? bool[value === "Ja" ? 0 : 1] : `${visitorLabels[key] ?? fact.label}: ${value}`;
-  if (key === "participation.booking") sentence = ({"Nicht erforderlich":"Keine Reservation nötig","Empfohlen":"Reservation empfohlen","Erforderlich":"Reservation erforderlich"} as Record<string,string>)[value] ?? sentence;
-  if (key === "participation.consumption_obligation" && value === "Bestellpflicht") sentence = "Eine Bestellung ist erforderlich";
-  if (key === "offer.service") sentence = ({"Bedienung am Tisch":"Bedienung am Tisch","Selbstbedienung":"Selbstbedienung"} as Record<string,string>)[value] ?? sentence;
-  if (key === "food.dish") sentence = `Auf der Karte: ${value}`;
-  if (key === "food.drink") sentence = `Zu trinken gibt es ${value}`;
+  if (key === "participation.booking") sentence = ({"Nicht erforderlich":"Du brauchst nicht zu reservieren","Empfohlen":"Reserviere am besten im Voraus","Erforderlich":"Eine Reservation ist erforderlich"} as Record<string,string>)[value] ?? sentence;
+  if (key === "participation.consumption_obligation" && value === "Bestellpflicht") sentence = "Um das Angebot zu nutzen, musst du etwas bestellen";
+  if (key === "offer.service") sentence = ({"Bedienung am Tisch":"Du wirst am Tisch bedient","Selbstbedienung":"Hier bedienst du dich selbst"} as Record<string,string>)[value] ?? sentence;
+  if (key === "food.dish") sentence = `Auf der Karte stehen ${visitorList(value)}`;
+  if (key === "food.drink") sentence = `Hier gibt es ${visitorList(value)}`;
+  if (key === "food.cuisine") {
+   const cuisines = value.split(" · ").map(item=>item.toLocaleLowerCase("de-CH"));
+   if (cuisines.every(item=>cuisineCopy[item])) sentence = `Die Küche ist ${visitorList(cuisines.map(item=>cuisineCopy[item]).join(" · "))}`;
+  }
+  if (key === "food.diet") {
+   const diets: Readonly<Record<string,string>> = { vegan:"vegane", vegetarisch:"vegetarische" };
+   const options = value.split(" · ").map(item=>item.toLocaleLowerCase("de-CH"));
+   if (options.every(item=>diets[item])) sentence = `Es gibt ${visitorList(options.map(item=>diets[item]).join(" · "))} Optionen`;
+  }
+  if (key === "travel.mode") {
+   const modes = value.split(" · ");
+   sentence = modes.every(mode=>travelCopy[mode]) ? `Du erreichst den Ort ${visitorList(modes.map(mode=>travelCopy[mode]).join(" · "))}` : value;
+  }
+  if (key === "custom.detail") { title = fact.label; sentence = value; }
   if (key === "atmosphere.character") sentence = value;
   if (key === "participation.audience" && value === "Öffentlich zugänglich") sentence = "Für alle Gäste zugänglich";
   if (key === "participation.minimum_age") sentence = `Ab ${value.replace(/ Jahre$/, " Jahren")}`;
-  if (fact.condition) sentence += ` (${fact.condition})`;
+  if (fact.condition) sentence = `${sentence.replace(/[.!?]$/, "")} (${fact.condition})`;
   if (!/[.!?]$/.test(sentence)) sentence += ".";
   const items = grouped.get(title) ?? new Set<string>();
+  if (!items.has(sentence)) {
+   const label = tagLabels[key];
+   const tags = label ? [...new Set(value.split(" · ").filter(Boolean))] : [];
+   const groupEntries = entries.get(title) ?? [];
+   groupEntries.push({label:label ?? visitorLabels[key] ?? fact.label,text:sentence,tags,condition:tags.length ? fact.condition : null});
+   entries.set(title, groupEntries);
+  }
   items.add(sentence);
   grouped.set(title, items);
  }
- return [...grouped].map(([title, items]) => ({title, items:[...items]}));
+ return [...grouped].map(([title, items]) => ({title, items:[...items], entries:entries.get(title) ?? []}));
 }

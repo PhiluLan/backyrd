@@ -7,7 +7,7 @@ import { validateDecisionProductRequest } from "@backyrd/product-decision-contra
 
 const source = fs.readFileSync(new URL("../lib/decision/wohinModel.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { createWohinRequest, visibleWohinCandidates, wohinRecommendation, wohinConsiderations, wohinClarificationQuery, wohinFollowUp, wohinLimitations, wohinPlaceMeta, wohinDiscoveryDirections, wohinIsDiscoveryPlaceholder, wohinDiscoveryCategories, wohinMessageKind } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
+const { wohinAvailability, createWohinRequest, visibleWohinCandidates, wohinRecommendation, wohinConsiderations, wohinClarificationQuery, wohinFollowUp, wohinLimitations, wohinPlaceMeta, wohinDiscoveryDirections, wohinIsDiscoveryPlaceholder, wohinDiscoveryCategories, wohinMessageKind } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
 
 test("Wohin sends only the new free text and profile city", () => {
   const request = createWohinRequest({ query: "  Sonntag   gemütlich Kaffee trinken  ", city: "Basel", requestId: "test-request-1" });
@@ -226,4 +226,44 @@ test("Wohin distinguishes another plan from refinements and explicit corrections
   assert.equal(wohinMessageKind("Doch morgen möchte ich etwas trinken", current), "REFINEMENT");
   assert.equal(wohinMessageKind("Erklär mir Quantenphysik", current), "OFF_TOPIC");
   assert.equal(wohinMessageKind("Ich suche einen Workshop über Quantenphysik"), "REFINEMENT");
+});
+
+
+test("short cards keep confirmed evidence while full visit notes retain uncertainty", () => {
+  const candidate = {actualAvailability:"open",coreIntentCoverage:"UNKNOWN",unknownHardConstraints:["LBR:unknown"],reasons:[
+    {code:"LBR:indoor",domain:"WORLD",confirmed:true,statement:"Bestätigt: ein Bereich drinnen."},
+    {code:"LBR:unknown",domain:"LIMITATION",confirmed:false,statement:"Diesen Wunsch können wir noch nicht zuverlässig prüfen: dieser Teil deines Wunsches."},
+  ]};
+  const before = JSON.stringify(candidate);
+  assert.equal(wohinRecommendation(candidate, undefined, false), "Hier könnt ihr drinnen bleiben.");
+  assert.match(wohinRecommendation(candidate), /Ein Punkt ist noch offen/);
+  const notes = wohinConsiderations(candidate, false);
+  assert.equal(notes.length, 1);
+  assert.match(notes[0], /Welche Einzelheit offen ist/);
+  assert.doesNotMatch(notes[0], /prüfen: dieser Teil/);
+  assert.equal(JSON.stringify(candidate), before, "presentation must not mutate server evidence");
+});
+
+test("opening copy is explicitly about the requested visit and never invents a time", () => {
+  const candidate = {actualAvailability:"open",reasons:[]};
+  assert.equal(wohinAvailability(candidate), "Zur gewünschten Besuchszeit laut Angaben geöffnet");
+  assert.match(wohinAvailability({...candidate,actualAvailability:"closed"}), /gewünschten Besuchszeit.*geschlossen/);
+  assert.match(wohinAvailability({...candidate,actualAvailability:"unknown"}), /kennen wir noch nicht/);
+  assert.match(wohinAvailability({...candidate,actualAvailability:"not_requested"}), /vor Besuch prüfen/);
+  assert.equal(wohinAvailability({...candidate,reasons:[{code:"requested-day-opening-hours",statement:"Freitag 17–23 Uhr"}]}), "Freitag 17–23 Uhr");
+  assert.match(wohinAvailability({...candidate,reasons:[{code:"librarian-visit-time-unconfirmed"}]}), /noch offen/);
+});
+
+test("in-app AI disclosure stays identical to the public disclosure without a network dependency", () => {
+  const screen = fs.readFileSync(new URL("../app/(tabs)/wohin.tsx", import.meta.url), "utf8");
+  const ast = ts.createSourceFile("wohin.tsx", screen, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let paragraphs;
+  const visit = node => {
+    if(ts.isVariableDeclaration(node) && node.name.getText(ast) === "searchPrivacy") paragraphs = node.initializer.elements.map(item=>item.text);
+    ts.forEachChild(node, visit);
+  };
+  visit(ast);
+  const publicPage = fs.readFileSync(new URL("../../web/app/legal/page.tsx", import.meta.url), "utf8").split('<section id="decision"')[1].split("</section>")[0];
+  const published = [...publicPage.matchAll(/<p className="b-muted">([\s\S]*?)<\/p>/g)].map(match=>match[1].replace(/\s+/g," ").trim());
+  assert.deepEqual(paragraphs, published);
 });

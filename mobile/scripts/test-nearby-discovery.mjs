@@ -58,18 +58,22 @@ const callback=ts.transpileModule(`exports.load = ${loadArrow.getText(syntax)};`
 const loadRequest={current:0},moodRequest={current:0},displayedCatalog={current:null},view={},nearCalls=[];
 let location={ok:true,source:"current",location:{coords:{latitude:47.5596,longitude:7.5886}}},pendingNear=null;
 const cityRows=[{...far,city:"Bern"}];
+let geocodeCalls=0,pendingGeocode=null;
 const ports={ loadDiscoveryOpeningSchedules:async()=>({}),user:{id:"actor"},loadRequest,moodRequest,displayedCatalog,cleanName:v=>typeof v==="string"&&v.trim()?v.trim():null,
  withRequestDeadline:task=>task(new AbortController().signal),
+ reverseGeocodePrivacySafe:async()=>{geocodeCalls++;return pendingGeocode??{city:"Basel",district:"St. Johann"};},cityFromGeocode:address=>address.city,
  supabase:{from:()=>({select(){return this;},eq(){return this;},abortSignal(){return this;},maybeSingle:async()=>({data:{city:"Bern",first_name:"Alex"}})})},
  getPrivacySafeLocation:async options=>{assert.equal(options.requestPermission,false);assert.equal(options.allowLastKnown,false);assert.equal(options.forceConsentRefresh,true);return location;},
  readRecentDecisionSearch:async()=>null,loadDiscoverySpotsByIds:async()=>[],loadNewestCitySpots:async()=>cityRows,validDiscoveryLocation,loadHomeNearbySpots:async p=>{nearCalls.push(p);return pendingNear?pendingNear:{nearest:[near],newest:[near]};},loadDiscoverySpots:async city=>{assert.equal(city,"Bern");return cityRows;},loadMoodContext:async rows=>{view.moods=rows;},
 };
-for(const name of ["OpeningSchedules","CurrentLocation","Spots","NewSpots","RecentSearch","RecentSpots","RecentError","NewError","SpotMoods","Loading","Refreshing","Error","City","FirstName","ProfileAvatar","DetailsReady"])ports[`set${name}`]=value=>{view[name]=value;};
+for(const name of ["OpeningSchedules","CurrentLocation","Spots","NewSpots","RecentSearch","RecentSpots","RecentError","NewError","SpotMoods","Loading","Refreshing","Error","City","FirstName","ProfileAvatar","DetailsReady","LocationLabel"])ports[`set${name}`]=value=>{view[name]=value;};
 const homeModule={exports:{}};
 new Function(...Object.keys(ports),"exports",callback)(...Object.values(ports),homeModule.exports);
 await homeModule.exports.load();
 assert.deepEqual(view.Spots,[near]);assert.deepEqual(view.CurrentLocation,point);assert.deepEqual(view.NewSpots,[near]);assert.equal(view.City,"Bern");
+assert.equal(view.LocationLabel,"Basel, St. Johann");assert.equal(geocodeCalls,1);
 location={ok:false};await homeModule.exports.load();assert.equal(view.CurrentLocation,null);assert.deepEqual(view.Spots,cityRows);
+assert.equal(view.LocationLabel,null);assert.equal(geocodeCalls,1,"no geocoding without a currently consented location");
 location={ok:true,source:"last_known",location:{coords:point}};await homeModule.exports.load();assert.equal(view.CurrentLocation,null);assert.deepEqual(view.Spots,cityRows);
 location={ok:true,source:"current",location:{coords:{latitude:48,longitude:8}}};await homeModule.exports.load(true);assert.deepEqual(nearCalls.at(-1),{latitude:48,longitude:8});
 let release;
@@ -80,6 +84,14 @@ assert.deepEqual(view.Spots,[near],"previously displayed places remain mounted w
 assert.equal(view.FirstName,"Alex");
 pendingNear=null;location={ok:false};await homeModule.exports.load();release({nearest:[near],newest:[near]});await older;
 assert.equal(view.CurrentLocation,null);assert.deepEqual(view.Spots,cityRows,"a late GPS search cannot overwrite a subsequent consent/location failure");
+let releaseGeocode;
+pendingGeocode=new Promise(resolve=>{releaseGeocode=resolve;});
+location={ok:true,source:"current",location:{coords:point}};
+await homeModule.exports.load();
+location={ok:false};await homeModule.exports.load();
+releaseGeocode({city:"Basel",district:"Late district"});await new Promise(resolve=>setImmediate(resolve));
+assert.equal(view.LocationLabel,null,"a late geocode cannot restore a district after losing location consent");
+pendingGeocode=null;
 ports.readRecentDecisionSearch=async()=>({query:"My actual last wish",spotIds:["a","b"],searchedAt:Date.now()});
 ports.loadDiscoverySpotsByIds=async ids=>{assert.deepEqual(ids,["a","b"]);return [far,near];};
 const recentModule={exports:{}};

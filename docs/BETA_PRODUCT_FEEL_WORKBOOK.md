@@ -1,0 +1,499 @@
+# Backyrd: Produktgefühl bis zur Basel-Beta
+
+## Punkt 1 – Produktgefühl und Bedienung
+
+### Founder-Reihenfolge und Typografie
+
+Die Hauptseite folgt nun dieser Reihenfolge: Ortsart/Preisniveau, Adresse,
+Kontakt, reguläre/Sonderöffnungszeiten, Erlebnisse, Platz vor Ort, Gut zu wissen,
+Moods, Mehr Infos, Hier erlebt, umliegende Orte, Betreiberzugang und Kontakt-Hinweis.
+Vorhandene Events und persönliche Planhinweise bleiben im Erlebnisbereich.
+Fotos, Beschreibung und Quellenangaben sind unter Mehr Infos erreichbar; der
+Foto-Viewer ist dort als untergeordnetes Modal eingebettet.
+
+Spotname: dieselbe serifenlose Libre-Franklin-Familie wie die übrige Oberfläche,
+38/45 mit dynamisch gemessener Hero-Höhe. Abschnittstitel 26/34; Öffnungszeit-Titel
+22/29. Keine globale Typografieänderung auf anderen Screens.
+
+„Stimmt etwas nicht? / Schreibe uns!“ öffnet einen Mail-Entwurf an hello@backyrd.ch
+mit URL und Name des Orts. Kein automatischer Versand und keine beigefügten
+Kontodaten. Der vorhandene Link-Öffner übernimmt die Fehlerbehandlung.
+Betreiber-Verifikation und die bestehenden Claim-Zustände bleiben unverändert.
+
+Regressionsprüfung: Reihenfolge, internes Erlebnis-/Raum-/Hinweis-Layout,
+serifenlose Titelrolle und Mail-Link mit Sonderzeichen. Vollständige Mobile-Verträge,
+Hermes-Prüfung, Typecheck und gezieltes Lint bestanden. Visuelle Abnahme bleibt offen.
+
+### Abnahme-Folgekorrektur: aufgeklappte Inhalte scannbar machen
+
+Founder: Gesamtgestaltung deutlich besser; Angebote und Räume enthalten noch zu
+viel Fliesstext. Die gemeinsamen Präsentationsgruppen liefern daher zusätzlich
+strukturierte Einträge: Gerichte, Küche, Ernährung, Getränke, Ausstattung,
+Atmosphäre und Sprachen werden als neutrale Tags dargestellt. Andere Hinweise
+bleiben einzelne Zeilen in Besuchersprache. Es werden keine weiteren Fakten
+ausgeblendet oder zu Verfügbarkeits-/Allergen-Garantien hochgestuft.
+
+Zeitliche Bedingungen bleiben direkt bei der zugehörigen Tag-Gruppe. Raum- und
+Angebotsreferenzen werden in Mobile ebenfalls als umbrechende Tags gezeigt.
+Die Tags sind reine Information, keine scheinbaren Filter-Buttons.
+
+Mobile-Typecheck, gezieltes Lint, volle Mobile-Verträge, 21 gemeinsame/Web-Tests
+und direkte Ausführung im Hermes-Runner bestanden. Die visuelle Founder-Abnahme
+dieser Folgekorrektur ist noch offen. Public-Web-Darstellung im Code angeglichen;
+eine Web-Veröffentlichung ist nicht Teil dieses OTA.
+
+### Incident: Spot-Absturz nach Besuchersprache-OTA
+
+Am 19. November meldete der Founder einen Renderfehler beim Öffnen eines Spots.
+Die vorherige funktionierende Version c5a33a90 wurde zuerst für beide iOS-Runtimes
+auf Production wiederveröffentlicht (Rollback-Gruppen
+`9df25cc6-9c27-4169-9d0b-bc46e99e2213` für 1.1.1 und
+`31a63c93-829e-41d4-944f-b751c3bf2d32` für 1.1.0).
+
+Ursache reproduziert im mit React Native gelieferten Hermes: `Intl.ListFormat`
+ist nicht vorhanden und löst bei der neuen Besuchertext-Aufzählung einen TypeError
+aus. Node-basierte Tests und Bytecode-Export hatten diese Laufzeitlücke übersehen.
+Der Fix verwendet eine einfache deutsche Aufzählung ohne diese optionale API.
+
+Regression: Der gemeinsame Testsatz läuft zusätzlich in einer VM ohne
+`Intl.ListFormat`. `npm run test:spot-copy:hermes` führt den tatsächlichen Adapter
+mit dem lokalen Hermes-Runner aus (auf dem macOS-Entwicklungsrechner). Er prüft
+einzelne und mehrteilige Aufzählungen, Bedingungen und den Tarif des Beispiels.
+Native Prüfung, 19 gemeinsame/Web-Tests, volle Mobile-Verträge, Such-/Kartenprüfung,
+Typecheck und beide Production-Hermes-Exporte bestanden.
+
+Die Wiederveröffentlichung des Fixes ersetzt nicht die physische iPhone-Abnahme.
+
+Status: OTA auf Production für iOS 1.1.0 und 1.1.1 veröffentlicht; visuelle Founder-Abnahme offen. Referenz: die vom Founder geteilte
+Volta-Bräu-Aufnahme vom 19. November 2026. Umsetzung auf `origin/main` d7005c3c
+im Branch `codex/beta-product-feel-v1`.
+
+### Umsetzung: Spot-Seite und bildlose Ortskarten
+
+- Besuchsinformationen und Erlebnisse vor der ausführlichen Mood-Auswertung.
+- Kontaktaktionen weiter unten, nach den Besuchsdetails.
+- Vorhandene Beschreibung als „Über diesen Ort“, Vorschau über drei Zeilen.
+  Ohne Beschreibung entfällt die leere Sektion. Das ersetzt keine fehlenden Daten.
+- Drei Moods mit ausgeschriebenen Personenzahlen; alle weiteren im bestehenden
+  Detaildialog. Relative Balken entfallen, um geringe Datenmengen nicht wie eine
+  belastbare Bewertung erscheinen zu lassen.
+- Angebotsdetails als einzelne Textzeilen; kompakte, zugänglich beschriftete
+  Aufklappsteuerung gibt dem Angebotsnamen mehr Platz.
+- Zusammenhängende Tage mit identischen vollständigen Angebotszeiten werden
+  zusammengefasst. Getrennte Tage, Mitternachtszeiten, Pausen und Gültigkeiten
+  bleiben erhalten. Der Adapter wird auch vom Public Web verwendet.
+- Der technische Standardname „Essen (ohne Trennung nach Mahlzeit)“ wird in
+  Angeboten und Raumreferenzen als „Essen“ angezeigt; gepflegte Namen bleiben erhalten.
+- Gemeinsame Mobile-Bildkomponente zeigt ohne Foto eine abstrakte Grafik statt
+  eines Fehlbild-Symbols. Sie suggeriert keine Ortsaufnahme. Bestehende freigegebene
+  Bilder und ihre Quellenangaben bleiben erhalten.
+- Google-Places-Fotos bleiben über die bestehende zentrale Policy deaktiviert.
+- Öffentliche Begriffe ergänzt: Brauerei, Mahlzeiten, Biergarten, Ausschank,
+  Weinbar und Cocktailbar. Preisangaben wiederholen identische Tarif-/Inhaltstexte
+  nicht mehr; abweichende Inklusivleistungen, Bedingungen und Pflichtkosten bleiben.
+
+### Prüfung und Abnahme
+
+Founder-Rückmeldung nach dem ersten OTA: visuell nicht abgenommen. Die Satzlisten
+wirken weiterhin technisch; der bildlose Hero lässt zu viel leeren Raum.
+Folgekorrektur mit Besuchersprache auf Production für beide Runtimes veröffentlicht
+(Quelle c350110d; Gruppen siehe Release-Beleg):
+
+- Bildloser Hero kompakter; keine pinke Dekoration unter der Statusleiste.
+- Ortsart und Preisniveau als ruhige Zusammenfassung statt technischer Dreispaltentabelle.
+- Angebote als Karten mit Preisvorschau und eigenem Tarifbereich. Besuchshinweise
+  werden in kurze, zusammenhängende Absätze in Besuchersprache übersetzt.
+  Die zwischenzeitliche Key-Value-Darstellung wurde verworfen. Altersregeln, Pflichtkosten und
+  zeitliche Bedingungen bleiben explizit sichtbar.
+- Wiederholung des Angebotsnamens als Aktivität wird nur ohne Bedingung entfernt.
+- 18 gemeinsame Inhalts-/Web-Render-Tests, Mobile-Vertragsprüfung, Typecheck und
+  gezieltes Lint bestanden. Visuelle Prüfung der Folgekorrektur noch offen.
+
+Die gemeinsame Präsentation übersetzt bestätigte, bekannte Angaben beispielsweise
+in „Reserviere am besten im Voraus“, „Hier bedienst du dich selbst“ und
+„Du erreichst den Ort mit dem ÖV, zu Fuss und mit dem Velo“. Auch Public Web nutzt
+diese Texte. Freie Hinweise werden nicht umgeschrieben; Bedingungen bleiben an
+der jeweiligen Aussage. Es werden keine unbestätigten Eigenschaften ergänzt.
+
+Automatisiert am 19. November 2026:
+
+- Gemeinsame Inhalts- und Web-Render-Tests bestanden.
+- Gezieltes ESLint für die geänderten Mobile-Dateien bestanden.
+- Vollständiger Mobile-Typecheck und `git diff --check` bestanden.
+- Vollständige `test:contracts` und `test:map-discovery` bestanden. Darunter:
+  Home-Laden/Refresh, Fehler und späte Antworten, Öffnungszustände, Wohin-Reihenfolge
+  und Unsicherheit, Account-Einstieg, Moments/Uploads und Navigation.
+- iOS-Export repariert durch Ausführen des vorhandenen `postinstall`-Schritts.
+  Die bereits versionierten Metro-/query-string-Patches waren bei der vorherigen
+  Installation mit `--ignore-scripts` übersprungen worden. Kein neuer Patch nötig.
+- Production-Release-Validierung bestanden (208 Quelldateien); Hermes-Export und
+  Prüfung der eingebetteten Production-URL und des öffentlichen Schlüssels bestanden.
+
+Die visuelle Geräteabnahme ist offen. Vor Freigabe prüfen:
+
+1. Volta Bräu: Reihenfolge, Angebotsdetails, ein-/ausklappen, komplette Texte.
+2. Ort ohne Foto: Karte, Detail-Hero, Empfehlungen und benachbarte Orte;
+   kein Fehlbild-Symbol, keine Google-Fotoanfrage.
+3. Große Systemschrift und schmale Displays: keine abgeschnittenen Besuchshinweise,
+   erreichbare Route-/Moment-Aktionen und Dialog-Schließen.
+4. Light/Dark: Grafik und Bildtitel lesbar; vorhandene Fotos laden weiterhin.
+5. Moods: 0, frühe Eindrücke, unbekannte Zählwerte, viele Moods und Ladefehler.
+
+### Prüfung der übrigen Oberflächen und Daten
+
+- Volta-Bräu-Profil am 19. November lesend mit der öffentlichen Schnittstelle
+  geprüft: HTTP 200, WORLD_KNOWLEDGE, `publicDescription: null`, kein Feld
+  `description.highlight`. Diese Prüfung erfasste nur das kanonische Profil.
+  Der öffentliche Owner-Kontext liefert dagegen einen verifizierten Betreibertext;
+  siehe Korrektur unten. Keine ungeprüfte Legacy-Kopie einsetzen.
+- Home, Wohin, Suche/Karte, Profil-Favoriten und benachbarte Orte verwenden die
+  gemeinsame Bildkomponente und erhalten dieselbe neue bildlose Gestaltung.
+- Home-/Wohin-/Karten-/Moments-/Profil-Fehlerzustände und vorhandene Recovery-Aktionen
+  im Code geprüft; automatisierte kritische Pfade bestanden. Das ist keine
+  manuelle Ende-zu-Ende-Abnahme und kein Nachweis eines realen Offline-Gerätetests.
+- Die visuelle Gesamtwirkung, grosse Schrift und Erreichbarkeit der Aktionen
+  werden mit dem Founder auf dem iPhone abgenommen. Punkt 1 darf erst nach dieser
+  Abnahme als vollständig abgeschlossen markiert werden.
+
+Keine Backend-, Rollen-, Ranking- oder Datenbankänderungen in diesem Paket.
+OTA-Veröffentlichung zur Abnahme ist mit IDs und Runtime in
+`docs/operations/releases/BETA_PRODUCT_FEEL_2026_11_19.json` festgehalten.
+Eine Beta-Freigabe ist damit nicht verbunden.
+
+### Folgekorrektur: Abstände und Beschreibung
+
+Founder-Feedback vom 19. November: Kategorien wirken gedrängt; Beschreibung
+direkt unter der Adresse gewünscht.
+
+- Hauptabschnitte erhalten 48 Punkte Abstand, Adresse 40 Punkte. Öffnungszeiten
+  und Sonderöffnungszeiten bilden eine Gruppe mit grosszügigeren Zeilen und
+  eigenem Abstand zum nächsten Abschnitt. Erlebnisüberschriften erhalten 24
+  Punkte Abstand zu Karten, aufgeklappte Untergruppen 28 Punkte.
+- «Über diesen Ort» steht nach der Adresse und vor Kontakt, mit drei Zeilen
+  Vorschau und «Mehr lesen». In «Mehr Infos» wird es nicht doppelt angezeigt.
+- Ursache für Volta Bräu: Das kanonische Profil enthält keine Beschreibung,
+  der bestehende öffentliche `get_spot_owner_context_v1` liefert aber einen
+  347 Zeichen langen Betreibertext. Die Datenbankansicht wählt Betreibertexte
+  nur bei `is_verified = true`, danach redaktionelle Texte aus. Mobile nutzt
+  diese beiden Quellen als Fallback; Crawl-/AI-Texte werden bei kanonischen
+  Profilen weiterhin nicht übernommen. Kanonische Beschreibungen haben Vorrang.
+- Keine Datenänderung, Migration, zusätzliche Anfrage oder Berechtigungsänderung.
+  Web geprüft: Der dortige Beschreibungspfad bleibt unverändert; diese Iteration
+  betrifft die iPhone-Abnahme. Die Oberflächenparität bleibt Roadmap-Punkt 2.
+- Typecheck, gezieltes ESLint, volle Mobile-Vertragstests, Karten-/Discovery-Tests,
+  Hermes-Ausführung und `git diff --check` bestanden. Der vorhandene Layouttest
+  prüft zusätzlich Reihenfolge, Quellenfilter, leere Texte und Vorrang.
+
+Physische iPhone-Abnahme der Abstände und des vollständigen Texts bleibt offen.
+Der Simulator-Sichttest war durch den gesperrten Mac blockiert. Der öffentliche
+App-RPC wurde zusätzlich ohne privilegierten Zugriff geprüft: HTTP 200,
+Quelle `owner`, Beschreibungslänge 347 Zeichen.
+
+### Folgekorrektur: Momente auf der Ortsseite
+
+«Hier erlebt» verwendet statt gerahmter grauer Profilkarten eine ruhige Liste
+mit feinen Trennern. Fotos stehen zuerst in voller Inhaltsbreite im Format 4:3;
+Moods erscheinen als typografische Zeile, persönliche Texte darunter. Einträge
+ohne Foto werden kompakt mit einer pinken Linie dargestellt. Name, Local-Hinweis
+und Datum folgen als zurückhaltende Quellenzeile. Die bestehende Suche nach
+ähnlichen Orten erhält nur hier eine dezente, kürzere Darstellung. Feed und Home
+bleiben in dieser Iteration unverändert.
+
+Melden, Anmeldung, Sichtbarkeitsfilter und Review-Datenquelle bleiben erhalten.
+Fehlgeschlagene Fotos werden durch einen ehrlichen kurzen Hinweis ersetzt;
+Text und Moods bleiben lesbar. Keine neuen Backend-Anfragen oder Datenänderungen.
+Mobile-Typecheck, gezieltes ESLint, vollständige Mobile-Vertragstests und direkte
+Hermes-Ausführung bestanden. Visuelle Founder-Abnahme steht aus.
+
+### Abnahme Spot-Profil und nächster Abschnitt: Entdecken
+
+Der Founder hat die Spot-Profilseite einschliesslich der neuen Momente am
+19. November ausdrücklich visuell abgenommen. Dieser Teil ist abgeschlossen;
+Punkt 1 insgesamt bleibt bis zur Abnahme der übrigen Verbraucheroberflächen offen.
+
+Entdecken erhält nun dieselbe UI-Schrift wie die Profilseite. Eine kleine
+Begrüssung, «Dein nächster guter Moment.» und die Wunschsuche bilden den Einstieg.
+Die Suchaktion ist dauerhaft sichtbar; die bestehende Eingabeprüfung bleibt
+erhalten. Abschnittsüberschriften haben 26/34 Punkte, dürfen umbrechen und werden
+nicht mehr durch Textmessung auf eine Zeile verkleinert. Die Hauptabschnitte
+erhalten 48 Punkte Abstand.
+
+Die drei Home-Ortsreihen und die Ortsliste verwenden gemeinsam `SpotPreviewCard`:
+Bild beziehungsweise vorhandene Backyrd-Grafik, darunter Name, Kategorie und
+Stadt/Adresse oder echte Entfernung, Moods und kanonischer Öffnungsstatus.
+Der Text liegt auf einer ruhigen Fläche, lange Namen dürfen vollständig umbrechen.
+Die Kartenvorschau verwendet ebenfalls die UI-Schrift. Das bisherige Bildsystem
+und seine Kosten-/Rechteregeln bleiben erhalten; Google-Fotos bleiben deaktiviert.
+
+Anfragen, Rankings, Standort-/Einwilligungsregeln, Analytics, Navigation und
+Fehler-/Leerzustände bleiben erhalten. Die Bild-Ready-Callbacks der ersten beiden
+Home-Karten werden durch die gemeinsame Komponente durchgereicht. Der entfallene
+Mess-Callback für die frühere einzeilige Begrüssung blockiert den Start nicht mehr.
+Web/Owner/Admin und «Wohin» haben keine Vertragsänderung.
+
+Typecheck, gezieltes ESLint, volle Mobile-Vertragstests, Karten-/Discovery-Tests,
+Hermes-Ausführung, Production-Validierung und beide geprüften iOS-Exporte bestanden.
+Die bestehenden Bild- und Status-Vertragstests prüfen jetzt die gemeinsame Karte.
+Der Simulator-Sichttest war wegen des gesperrten Mac nicht möglich. Zur visuellen
+Abnahme: Entdecken als Gast/angemeldet, Karten mit/ohne Foto, lange Namen,
+grosse Schrift, horizontales Blättern, Ortsliste und Öffnen der Profilseite.
+
+### Rücknahme der Entdecken-Überarbeitung
+
+Der Founder lehnt die neue Entdecken-Gestaltung ab und bevorzugt den bisherigen
+Header sowie die grossen Spot-Karten. Die gesamte letzte Entdecken-Iteration
+wird zurückgenommen: Home, Ortsliste, Überschriften, Karten und zugehörige
+Vertragstests entsprechen wieder dem Stand `2163789e`. Die neue gemeinsame
+Preview-Komponente wird entfernt. Die abgenommene Spot-Profilseite und ihre
+Moment-Darstellung bleiben erhalten.
+
+Für die Auslieferung werden die bereits geprüften OTA-Gruppen des vorherigen
+Stands erneut auf Production veröffentlicht. Dadurch gelangen exakt dieselben
+Bundles zurück auf beide iPhone-Runtimes. Eine neue Entdecken-Gestaltung ist
+damit nicht freigegeben; der bisherige Header und die Kartengrössen sind die
+Grundlage für weitere, gezielte Anpassungen.
+
+### Entdecken: gezielte Founder-Anpassungen nach Wiederherstellung
+
+Die bestehenden grossen Vollbild-Spotkarten und das Eingabefeld bleiben die
+Grundlage. Auf ausdrücklichen Wunsch umgesetzt:
+
+- Standortkopf zeigt Stadt plus Quartier, wenn die native Ortsauflösung des
+  aktuell freigegebenen Standorts ein Quartier liefert. Ohne diese Daten bleibt
+  die Stadt stehen. Keine neue Berechtigungsabfrage, Speicherung oder Logs von
+  Koordinaten. Späte Ortsantworten dürfen nach Standortverlust nichts ergänzen.
+- Begrüssung kleiner; Tageszeitfrage kleiner und einzeilig, Fragezeichen weiss.
+  Wetteranzeige samt ihrer Startbereitschafts-Abhängigkeit vollständig entfernt.
+- Keine Kommas hinter den Home-Abschnittstiteln. «backyrd Momente» heisst «Momente».
+- Moods auf Home-Spotkarten kleiner und einzeilig; bei bekanntem Nullstand
+  «Noch keine Moods». Unbekannte Zählwerte werden weiterhin nicht als null erfunden.
+- Momentkarten nutzen dieselbe Standardbreite und 234 Punkte Standardhöhe wie
+  Eventkarten. Bei grosser Systemschrift dürfen Momentkarten wachsen.
+- Eventbild reicht unter alle Inhalte, mit Verlauf ins Grau. Datum und Zeit
+  weiss, Eventart oben links. Bekannte Eintrittspreise beziehungsweise Gratis
+  stehen vor dem Pfeil; unbekannte Kostenpflicht wird als «Preis offen» angezeigt.
+  Eventkarten-Grundgrösse bleibt erhalten; der bestehende Einzelevent-Fallback
+  über die verfügbare Breite bleibt bestehen. Die gemeinsame Mobile-EventCard
+  übernimmt diese Darstellung auch ausserhalb von Home.
+- «Neu auf backyrd» verwendet weiterhin dieselben grossen Spotkarten wie die
+  Orte in der Nähe. Letzte Suchanfrage kleiner und kursiv; ausschliesslich deren
+  Ortsreihe erhält eine manuell bewegte 3D-Perspektive. Bei «Bewegung reduzieren»
+  bleibt sie flach. Keine automatische Bewegung und keine Rangfolgeänderung.
+
+Typecheck, gezieltes ESLint, volle Mobile-Vertragstests, Karten-/Discovery-Tests
+und Hermes-Prüfung bestanden. Neue Preisprüfung deckt Gratis, bekannte Beträge,
+fehlende Währung und ungültige/fehlende Preise ab. Der tatsächliche Home-Load-
+Callback wird auf Quartieranzeige, fehlende Freigabe und verspätete Geocodes geprüft.
+Keine Backend-, Schema- oder Vertragsänderung; keine Änderung der abgenommenen
+Spot-Profilseite. Native visuelle Abnahme dieser Iteration steht aus.
+
+### Kleine Header-Nachkorrektur
+
+Auf Founder-Wunsch ist die Tageszeitfrage von 20 auf 22 Punkte vergrössert
+(30 Punkte Zeilenhöhe); die einzeilige Anpassung für «Nachmittag» bleibt erhalten.
+Das Profilfoto oben rechts wurde durch ein weisses Profil-Symbol im bestehenden
+IconButton ersetzt, mit derselben Profilnavigation und zugänglicher Beschriftung.
+Home lädt das dafür nicht mehr benötigte Avatarfeld nicht mehr und wartet beim
+Start nicht mehr auf dessen Bild-Callback. Das Profil selbst bleibt unverändert.
+
+### Nuknuk-Profilbutton
+
+Der Founder wünscht statt des allgemeinen Profil-Symbols einen kleinen Nuknuk-
+Kopf als Zugang zu «Mein Backyrd»: dunkler Kreis, reduzierte pinke Gesichtskontur,
+statisch. Die vorhandene `NuknukAvatar`-Komponente erhält dafür eine Outline-
+Darstellung, angelehnt an Bob, Haarsträhne, Augen und Lächeln der vorhandenen Figur.
+Die Kontur verwendet native Formen ohne neue Bibliothek oder Bilddienst.
+Illustration und optionales Blinzeln bleiben für die bestehende Darstellung
+erhalten; die Outline wird auch bei gesetztem Animationsparameter nicht animiert.
+Der 46-Punkte-Button nutzt die bestehende Profilroute, Beschriftung
+«Mein Backyrd – Profil öffnen» und den vorhandenen Press-Zustand.
+
+Typecheck, gezieltes ESLint und vollständige Mobile-Vertragstests bestanden.
+Visuelle Founder-Abnahme des neuen Symbols steht aus.
+
+### Home-Momente: persönliche Einblicke statt weiterer Ortskarten
+
+Auf Founder-Wunsch wird ausschliesslich die Home-Momentsektion neu gestaltet.
+«Neu auf backyrd», Eventkarten und die enge Typografie bleiben unverändert.
+Die Überschrift lautet «Hier erlebt», mit ehrlicher Ortszeile statt einer
+Aktualitätsbehauptung für ältere Beiträge.
+
+- Foto über die Kartenbreite im Format 4:3, Ortsname dezent im Bild.
+- Persönlicher Text darunter; reine Textmomente als Zitat. Moods erscheinen
+  einmal. Kleine Quellenzeile mit Person und tatsächlichem Datum/Zeitabstand.
+- Antippen öffnet den konkreten Moment über die bestehende sichere Detailroute,
+  wo vollständiger Text, Ortszugang und Meldefunktion vorhanden sind.
+- Reine Mood-Einträge und als Caption wiederholte Mood-Listen erscheinen nicht.
+  Bei fehlgeschlagenen Bildern bleibt ein vorhandener Text sichtbar; ohne
+  verbleibenden Inhalt entfällt die Karte. Ohne geeignete Beiträge entfällt die
+  Sektion vollständig. Initialbereitschaft wird auch dann korrekt signalisiert.
+- Die bestehende sicherheitsgefilterte Feed-Abfrage lädt begrenzt 18 statt 6
+  Kandidaten, davon maximal 4 Vorschauen. Keine zusätzliche Anfrage oder neue
+  Datenquelle, keine Änderung an Sichtbarkeits- oder Moderationsregeln.
+- Ladefehler bieten eine lokale Wiederholung; Account, Stadt, Revision und
+  Wiederholungsversuch isolieren verspätete Antworten. Kein automatisches Blättern.
+
+Typecheck, gezieltes ESLint, vollständige Mobile-Vertragstests, Discovery-Tests
+und Hermes-Prüfung bestanden. Inhaltsprüfungen decken reine Moods, wiederholte
+Mood-Captions, persönliche Texte, Fotos, Videoausschluss und fehlgeschlagene
+Bilder ab. Native visuelle Founder-Abnahme steht aus.
+
+### Home-Momente vorerst ausgeblendet; Entwurf aufbewahrt
+
+Founder-Entscheidung: Die gesamte Momentsektion entfällt vorerst auf Home.
+Der Entwurf soll erhalten bleiben. Seine kanonische Implementierung liegt
+weiter in `mobile/components/HomeMomentsSection.tsx`, der vollständige
+Entwurfsstand ist zusätzlich durch Git-Commit `e6fd66c3` nachvollziehbar.
+Keine zweite Entwurfs- oder Backup-Datei angelegt.
+
+Home mountet die Komponente nicht mehr, lädt dort keinen Moments-Feed und wartet
+beim Start nicht mehr auf deren Ready-Callback. Der zugehörige Refresh-Zähler
+ist entfernt. Es bleibt auch kein leerer Abschnitt oder Abstand dafür zurück.
+Der eigene Momente-Tab, Moment-Details und die abgenommene Spot-Profilseite
+bleiben erhalten. Eine spätere Reaktivierung erfordert eine explizite
+Produktentscheidung und die erneute Einbindung in Home samt Start-/Refresh-
+Lebenszyklus; der Entwurf ist aktuell nicht zur Anzeige freigegeben.
+
+### Startseite vorerst abgeschlossen
+
+Der Founder ist mit dem aktuellen Stand zufrieden und hat Dark sowie Light
+anhand eigener Geräteaufnahmen beurteilt. Letzte vereinbarte Korrektur:
+Das Fragezeichen der Tageszeitfrage nutzt nun die adaptive primäre Textfarbe
+anstelle von festem Weiss. Im Light-Modus ist es dunkel, im Dark-Modus entspricht
+es der hellen Textfarbe der Frage. Layout und Typografie bleiben erhalten.
+
+Mit dieser Korrektur ist die Startseite auf ausdrücklichen Founder-Wunsch
+vorerst abgeschlossen. Die Momentsektion bleibt ausgeblendet, ihr Entwurf bleibt
+aufbewahrt. Das ist eine Abnahme der Startseite, keine vollständige Abnahme
+aller App-Oberflächen oder Beta-Freigabe. Eine separate Geräteaufnahme nach
+dem letzten Kontrastfix liegt noch nicht vor.
+
+### Nächste Oberfläche: Momente mit Erlebnis- und Ortsfokus
+
+«Wohin» ist auf Founder-Wunsch zurückgestellt, bis das iPhone am Mac angeschlossen
+ist und der ganze Ablauf direkt geprüft werden kann. Als Nächstes wird der
+Momente-Tab bearbeitet. Der Founder hat ausdrücklich «Erlebnisse und Orte im
+Fokus» gewählt; Personen und Austausch bleiben zugänglich.
+
+Erster Entwurf nur im Momente-Tab:
+
+- Klarer Kopf «Momente», kurze Einordnung «Orte, wie sie sich anfühlen.» und
+  die bestehenden Filter als «Entdecken»/«Dein Kreis». Personen-Suche und
+  Erstellen bleiben erreichbar. Der Kopf bleibt auch bei Ladefehlern sichtbar.
+- Grosse Fotos oder persönliche Texte führen die gerundeten, abgesetzten Beiträge.
+  Moods werden als ruhige Wortzeile dargestellt; reine Mood-Wiederholungen im
+  Caption-Text werden nicht doppelt gerendert. Alle Beiträge bleiben im Feed.
+- Ein deutlicher Ortsblock mit Name, Kategorie/Stadt und «Ort entdecken» folgt
+  dem Erlebnis. Die vorhandene Suche nach ähnlichen Orten bleibt dezent erreichbar.
+- Person, Datum, Folgen, Melden beziehungsweise eigene Optionen sowie Reaktionen,
+  Kommentare, Teilen und Speichern stehen darunter. Aktionen und Backend-Pfade
+  sind erhalten; ungültige Datumswerte erzeugen im neuen Layout keine Zeitbehauptung.
+- Mehrfachfotos werden tatsächlich horizontal geblättert, mit aktuellem Zähler
+  und gemessener Kartenbreite. Fehlgeschlagene Bilder entfallen aus der Galerie.
+  Bei vollständigem Bildfehler bleiben Text/Moods und eine explizite Wiederholung.
+- Die bestehende `PostCard` erhält eine optionale Erlebnisdarstellung. Profile,
+  gespeicherte Momente und Einzelansichten verwenden weiterhin die Standardansicht.
+  Die Startseite bleibt abgeschlossen und ihre Momentsektion ausgeblendet.
+
+Keine Änderungen an Sichtbarkeitsfiltern, Upload, Ranking, Einwilligung, Moderation,
+Schemata oder API-Verträgen. Die gemeinsam genutzten Konsumenten wurden geprüft.
+Typecheck, gezieltes ESLint, vollständige Mobile-Vertragstests, Karten-/Discovery-
+Tests und Hermes-Prüfung bestanden. Ein Render-Harness prüft die tatsächliche
+Komponente auf Reihenfolge, Mehrfachfotos, gemessene Breite, Bildfehler/Wiederholung,
+Mood-Duplikate, Orts-/Kommentarzugang und erhaltene Standarddarstellung.
+Native visuelle und vollständige Geräte-Interaktionsabnahme bleiben offen.
+
+### Momente: Vollbild-Versuch mit zwei Wischrichtungen
+
+Der Founder möchte die Beitragskarten durch einen testbaren, vollflächigen
+Foto-/Story-Feed ersetzen. Der Versuch ist ausschliesslich im Momente-Tab aktiv;
+der vorherige Erlebnisentwurf bleibt über Git `4f75a4de` nachvollziehbar.
+
+- Ein Moment belegt die tatsächlich gemessene Bildschirmfläche. Vertikales
+  Wischen rastet zum nächsten Beitrag ein; horizontales Wischen blättert die
+  Fotos desselben Moments. Kein scrollender Kopf verschiebt die Seitengeometrie.
+- Fotos füllen die Fläche; Verlauf und weisse Overlays halten Ort, Person,
+  Kurztext und Aktionen lesbar. Kopf, Aktionsspalte und Text berücksichtigen
+  Statusbereich und die bestehende schwebende Navigation. Der Statusbar-Stil
+  wird nur im fokussierten Feed gesetzt.
+- Ohne Foto erscheint ein eigener, flächiger Textmoment mit tatsächlichem Inhalt
+  und Moods. Fehlgeschlagene Fotos haben eine ehrliche Rückmeldung und Wiederholung.
+- Vollständiger Text, alle Moods, markierte Personen und die bestehende Suche
+  nach ähnlichen Orten bleiben über die Momentdetails erreichbar. Beim Navigieren
+  daraus wird das Textfenster zuerst geschlossen. Der Ort ist direkt erreichbar.
+- Folgen, Reaktionen, Kommentare, Teilen, Speichern, Melden und eigene Optionen
+  nutzen dieselben Funktionen und Berechtigungen wie zuvor. Filter und Erstellen
+  bleiben im schwebenden Kopf; Lade-/Leer-/Fehlerzustände bleiben eigenständig.
+- Weiterhin maximal 30 geladene Beiträge, keine automatische Wiedergabe,
+  Fortschaltung oder zusätzliche Endlos-Nachladung. Keine Ranking-, Upload-,
+  Moderations-, Datenbank- oder API-Änderung. Startseite und Spot-Profil unverändert.
+
+Typecheck, gezieltes ESLint, volle Mobile-Vertragstests, Karten-/Discovery-Tests
+und Hermes-Prüfung bestanden. Der Render-Harness prüft zusätzlich Vollbildhöhe,
+gemessene Fotobreite, horizontales Paging/Zähler, Textöffnung/-schliessen,
+Bildfehler/Wiederholung und vertikale Item-Offsets ohne Kopfversatz.
+Native Gesten-, visuelle und grosse-Schrift-Abnahme auf dem iPhone sind offen.
+Der Entwurf ist ein Versuch und keine finale Abnahme der Momente-Seite.
+
+### Wohin: persönliches Erlebnis und durchgehender Plan
+
+Auftrag vom 19. November 2026 nach dem Geräte-Audit: Wohin visuell und sprachlich
+an Startseite und Spotprofil anschliessen. Leitgedanke: «NukNuk versteht mich als
+Person». Die Entscheidungslogik bleibt unverändert. Taskklasse `PRODUCT_RELEASE`
+wegen des aktiven Mobile-Einstiegs; diese Änderung aktiviert keinen Product-
+Runtime und veröffentlicht kein OTA.
+
+Betroffene Pfade: Mobile-Wohin-Screen, seine vorhandene Präsentationslogik,
+Wartekomponente und der nur aus einer Decision sichtbare Kontext im Spotprofil.
+Web, Admin, Owner, Backend, Datenbankschema, Prompt, Matching, Eligibility und
+Ranking bleiben unverändert. Request-Erstellung, serverseitige Reihenfolge,
+sichtbares Kandidatenfenster, Rückfrage-Zusammensetzung, Auth-Gate und
+consentgebundene Interaktionen bleiben auf dem bestehenden Pfad.
+
+- Sans-Serif-Hierarchie, ruhige neutrale Flächen und die etablierten Hell-/Dunkel-
+  Farben ersetzen die Serif-/Pfirsich-/Violett-Mischung. Alte iOS-Runtime mit
+  fester dunkler Darstellung bleibt berücksichtigt.
+- NukNuk lädt persönlich zum Erzählen ein; unfertige Wünsche sind ausdrücklich
+  willkommen. Einstiegshilfen werden erst nach dem Profil-/Verlaufslesen gemeinsam
+  freigegeben. Die Stadt hat einen reservierten, beschrifteten Platz.
+- Während der Suche erscheint der Wunsch einmal. Die vorhandene NukNuk-Figur
+  blinzelt unter Beachtung von Reduce Motion und App-Hintergrundzustand.
+  Wechselnde Gedanken begleiten die Wartezeit, ohne Backend-Phasen, Prozentwerte
+  oder eine garantierte Restzeit vorzutäuschen. Nach längerer Wartezeit wird dies
+  ausdrücklich benannt. «Wunsch anpassen» verwirft die lokale Zustellung; eine
+  bereits gesendete Serveranfrage kann weiterlaufen. Generationen verhindern,
+  dass eine verspätete Antwort den bearbeiteten Wunsch überschreibt.
+- Die Vorschlagsliste zeigt den ursprünglichen Plan samt Ergänzungen, Stadt,
+  Anzahl und klare Wege zum Anpassen oder Neustarten. Karten verwenden kurze,
+  belegte Beschreibungen; Unsicherheit und weitere Besuchshinweise werden markiert
+  und bleiben unter «Vor deinem Besuch» vollständig erreichbar.
+- Öffnungsangaben beziehen sich ausdrücklich auf die gewünschte Besuchszeit.
+  Nicht genauer benannte Backend-Lücken bleiben ehrlich unbestimmt. Die UI
+  erfindet weder die fehlende Einzelheit noch persönliche Passung.
+- Der weitere Dialog bietet eine verständliche Einladung zur Verfeinerung.
+  Die Diagnoseansicht samt Rohdaten und «Übergabe & Reihenfolge» entfällt aus
+  dem Consumer-Ablauf; Fehlerdiagnostik bleibt bestehen. Neue Suche setzt auch
+  vorherige Rückfragen, Hinweise und Dialogzustände zurück.
+- Die Datenschutzinformation ist direkt in der App und offline lesbar. Ihr Text
+  entspricht unverändert der bestehenden öffentlichen Erklärung. Ein Paritätstest
+  verhindert stilles Auseinanderlaufen; es wird keine Zustimmung verändert.
+- Der actor-/spot-/origingebundene, zeitlich begrenzte Plan steht bei einem
+  Decision-Einstieg direkt unter dem Spotbild. Details sind aufklappbar;
+  Ergänzungen erscheinen ohne technische Request-Präfixe. Direkte Spotbesuche
+  erhalten weiterhin keinen persönlichen Suchkontext.
+
+Abnahme: TypeScript, gezieltes ESLint, vollständige Mobile-Vertragstests,
+Hermes-Verbrauchertextprüfung, Single-Route-Prüfung sowie Web- und iOS-Export.
+Zusätzliche Regressionen sichern kurze Karten bei vollständig erhaltenen
+Unsicherheitshinweisen, Zeitbezug und Datenschutztext-Parität.
+Ein isolierter Browserlauf im tatsächlich exportierten Expo-Bundle prüft die
+drei gewünschten Eingaben mit synthetischen, vertragsgültigen Antworten:
+Wartezeit über zehn Sekunden, spätes Ergebnis nach Verlassen, unveränderte
+Serverreihenfolge, Weiterfragen, Spotübergang, 320/390/430-Pixel-Ansichten in
+Hell und Dunkel, offene Familienangaben, Eingabehilfe, sauberer Neustart und
+eine serverseitige Rückfrage mit Antwort. Keine Production-Aktionen und keine
+Bewertung der vorgeschlagenen Orte. Testskript und Screenshots liegen lokal
+unter `/tmp/backyrd-wohin-personal-e2e.mjs` und
+`/tmp/backyrd-wohin-personal-shots/`; keine generierten Artefakte im Git.
+Native visuelle Abnahme auf dem iPhone, VoiceOver und grosse Systemschrift
+sowie OTA-Veröffentlichung sind noch offen.

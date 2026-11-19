@@ -11,6 +11,8 @@ import "./test-shell-quote.mjs";
 import "./test-recent-decision-search.mjs";
 import "./test-spot-address-presentation.mjs";
 import "./test-supabase-runtime-config.mjs";
+import "./test-spot-detail-layout.mjs";
+import "./test-event-card-price.mjs";
 
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
 const decision = read("app/(tabs)/wohin.tsx");
@@ -209,7 +211,7 @@ assert.doesNotMatch(`${decision}\n${productDecision}\n${founderLiveControl}`, /D
 assert.doesNotMatch(decision, /backyrd_record_visible_decision_impression_v1|log_decision_action_v1|recordMemoryProductAction|trackAnalyticsEvent/, "Decision must not emit legacy impression, feedback, memory, analytics or navigation writes");
 assert.match(decision, /visibleWohinCandidates/, "Wohin must show the server-ranked candidates without client ranking");
 assert.match(decision, /candidate\.actualAvailability/, "Product rendering must present server availability honestly");
-assert.match(decision, /candidate\.reasons/, "Product rendering must present server reasons");
+assert.match(read("lib/decision/wohinModel.ts"), /candidate\.reasons/, "Product presentation must use server reasons");
 assert.match(decision, /response\.limitations/, "Product rendering must present server limitations");
 assert.match(decision, /<FlatList[\s\S]*data=\{candidates\}/, "Wohin must present the bounded server-ranked window");
 assert.match(decision, /onViewableItemsChanged/, "Candidate impressions must require actual visibility");
@@ -265,6 +267,8 @@ assert.equal(closedSunday[1].open_time, "");
 assert.match(spotDetail, /Heute geschlossen/, "an explicit closed day must be labeled closed, not unknown");
 const confirmedHighlight = "Im IWB Unterwerk wird Craft Beer gebraut.";
 assert.equal(spotProfileRuntime.presentSpotProductField({ attributeKey: "description.highlight", knowledgeState: "KNOWN_VALUE", value: confirmedHighlight }), confirmedHighlight, "a confirmed World description must retain original spelling");
+assert.equal(spotProfileRuntime.presentSpotProductField({ attributeKey: "classification.place_types", knowledgeState: "KNOWN_VALUE", value: ["BAR", "BREWERY"] }), "Bar · Brauerei");
+assert.equal(spotProfileRuntime.presentSpotProductField({ attributeKey: "offering.onsite", knowledgeState: "KNOWN_VALUE", value: [{ kind: "FULL_MEALS" }] }), "Mahlzeiten");
 assert.match(spotDetail, /worldProfile\.spot\.name/, "Spot Detail must derive its displayed identity from World Knowledge");
 assert.match(spotProductProfile, /source: "WORLD_KNOWLEDGE" \| "LEGACY_COMPATIBILITY"/, "Spot profile source must be explicit");
 assert.match(spotProductProfile, /profile\.spot\.source !== "WORLD_KNOWLEDGE"/, "legacy data must not be mixed into a manifested World schedule");

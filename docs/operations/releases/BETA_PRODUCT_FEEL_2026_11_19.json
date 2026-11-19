@@ -1,0 +1,222 @@
+{
+  "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+  "sourceCommit": "c5a33a902cd91bd2c33af91e45e8e9c4f0b7cc5e",
+  "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
+  "channel": "production",
+  "platform": "ios",
+  "momentsFullscreenTrial": {
+    "sourceCommit": "689afe62124630e84cc222459698653dd1031c32",
+    "status": "PUBLISHED_FULLSCREEN_TRIAL_FOR_FOUNDER",
+    "direction": "Founder requested full-screen image/story feed; vertical post paging and horizontal photos within a post",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f40b-0209-7cd7-be2b-5d1e6d6163ea", "group": "709b9db5-6829-4b12-9710-b5a4ad288604", "previousGroup": "2200ee04-28db-4cd4-8502-be673b2ab509" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f40b-52ff-7c17-91be-7401df1732b9", "group": "61e0cf2d-e681-47dd-a95c-7781f8c7d02b", "previousGroup": "4d2de6b8-caa7-4db1-a274-c7dde3cf1157" }
+    ],
+    "validation": "Typecheck, targeted lint, full Mobile contracts, map/discovery, Hermes, Production validation and both verified iOS exports passed. Render/geometry tests cover full viewport, horizontal paging/counters, vertical offsets without header displacement, text details and image failure/retry.",
+    "nativeGestureVisualAndLargeTextAcceptance": "PENDING",
+    "scope": "Moments tab trial only; finite existing feed, safety and actions retained; accepted Home and Spot profile unchanged",
+    "databaseChanges": false
+  },
+  "momentsTabExperienceFirstDraft": {
+    "sourceCommit": "4f75a4de360cdd2b42903b3c3e964c9ab4aeefc8",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "direction": "Founder selected experiences and places first; people and social actions retained below content",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f3f9-33b1-7e34-bfeb-3b2b5fe248dd", "group": "2200ee04-28db-4cd4-8502-be673b2ab509", "previousGroup": "6b3b2dd1-9984-4413-b842-30d1e47df636" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f3f9-9696-7ec8-9cb9-bb67efe8d13f", "group": "4d2de6b8-caa7-4db1-a274-c7dde3cf1157", "previousGroup": "6ace40ce-eedf-4e94-8e7d-7c011559d2c3" }
+    ],
+    "validation": "Typecheck, targeted lint, full Mobile contracts, map/discovery, Hermes, Production validation and both verified iOS exports passed. Actual component render harness covers hierarchy, gallery paging/width, failure/retry, duplicate Mood copy and retained actions/default presentation.",
+    "nativeVisualAndInteractionAcceptance": "PENDING",
+    "scope": "Moments tab presentation; other PostCard consumers retain standard layout; accepted Home unchanged, Home moments remain hidden",
+    "databaseChanges": false
+  },
+  "homeAcceptanceAndFinalContrast": {
+    "sourceCommit": "1c1117b83ec809209e2826d5b23398472729f96c",
+    "status": "HOME_ACCEPTED_BY_FOUNDER_FOR_NOW",
+    "acceptanceBasis": "Founder accepted current Dark/Light Home with final question-mark contrast correction and explicitly requested closing Home for now",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f3e9-e947-73c6-aae7-2284a4963ec4", "group": "6b3b2dd1-9984-4413-b842-30d1e47df636" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f3ea-3e4a-7013-921b-81689235e616", "group": "6ace40ce-eedf-4e94-8e7d-7c011559d2c3" }
+    ],
+    "validation": "Adaptive primary text token replaces fixed white. Typecheck, targeted lint, full Mobile contracts, Production validation and both verified iOS exports passed.",
+    "postFixDeviceRecording": "NOT_OBSERVED",
+    "scope": "Home closed for now; not an overall app or Beta approval"
+  },
+  "homeMomentsHidden": {
+    "sourceCommit": "de357d76d39c4a7925a2fd2c0ddf434b25e6d8c5",
+    "status": "PUBLISHED_HOME_SECTION_HIDDEN",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f3e2-9e9d-7c6c-ba39-f9b36e5bd8f2", "group": "037451b2-cedc-480d-a673-77671e8a3103" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f3e2-f94a-7cb3-a168-a370187605c5", "group": "46723d2f-0334-4c55-af3f-211cbd42a317" }
+    ],
+    "savedDesign": "mobile/components/HomeMomentsSection.tsx; design source e6fd66c3; documented in BETA_PRODUCT_FEEL_WORKBOOK.md",
+    "validation": "Typecheck, targeted lint, full Mobile contracts, Production validation and both verified iOS exports passed. Home no longer mounts, fetches or waits for moments.",
+    "physicalDeviceConfirmation": "PENDING"
+  },
+  "homePersonalMomentsFollowUp": {
+    "sourceCommit": "e6fd66c3270b7f4867b424ed9bf10c062ba32631",
+    "status": "DESIGN_PARKED_HOME_HIDDEN_BY_FOUNDER",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f3d3-f003-7b83-96c6-f7df7b466404", "group": "be8e4762-ce10-4505-96ec-1025959b091a" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f3d4-4332-7bd9-8eaa-627222976161", "group": "39c36c74-2fab-42a4-8f39-a883228f3242" }
+    ],
+    "validation": "Typecheck, targeted lint, full Mobile contracts, map/discovery, Hermes, Production validation and both verified iOS exports passed. Home content tests cover bare/repeated Moods, personal text, photos, video exclusion and media failures.",
+    "visualAcceptance": "PENDING",
+    "scope": "Home moments only; existing safe feed source and Moment detail route; other Home sections unchanged"
+  },
+  "nuknukProfileButtonFollowUp": {
+    "sourceCommit": "570fe61966f31e925097fe29adab3bd5e7378e52",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f399-1940-7db5-83e7-544abe387f65", "group": "fad427ca-a3db-442b-a13b-786bacb05124" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f399-6b5f-7f16-8cc2-2b693ae7e87e", "group": "7a01c934-414a-402e-bfd8-711621e1096a" }
+    ],
+    "validation": "Typecheck, targeted lint, full Mobile contracts, Production validation and both verified iOS exports passed.",
+    "visualAcceptance": "PENDING",
+    "changes": "Static native Nuknuk outline in a dark circular profile button; existing route and accessible profile action retained"
+  },
+  "homeHeaderIconFollowUp": {
+    "sourceCommit": "c8cec1cd88e97d672c51878928ddf29d48353fad",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f393-da43-7c7a-975c-0ad9ba801a90", "group": "b6efe683-ec9e-48cc-9b23-886577a6c271" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f394-3003-7823-a5ce-7d4c07a37932", "group": "8442ad69-58a6-4858-8cc5-acd9f65011fc" }
+    ],
+    "validation": "Typecheck, targeted lint, full Mobile contracts, Production validation and both verified iOS exports passed.",
+    "visualAcceptance": "PENDING",
+    "changes": "Daypart question 22/30; profile icon replaces header avatar and removes unused image readiness dependency"
+  },
+  "founderHomeDetailsFollowUp": {
+    "sourceCommit": "5d13592ebab93ebe53af8d9ad08d3211ea039dcc",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f385-6b53-7915-b80f-fbaf86872a86", "group": "d00c99dc-ab98-4c6a-ae03-e8a99f31e9cb" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f385-f8d6-7014-bcf8-b982a7b259ce", "group": "a80ecab7-b749-4eec-86b7-51f9fa14a2fa" }
+    ],
+    "changes": "Smaller greeting/daypart, white question mark, optional current district, weather removed, heading commas removed, compact Mood row, matched Moment/Event standard dimensions, full-image Event cards with category and truthful price, italic last query and Reduce Motion-aware depth carousel",
+    "validation": "Typecheck, targeted lint, full Mobile contracts, map/discovery, Hermes, Production validation and both verified iOS exports passed. Actual Home-load district/privacy/stale-response tests and Event pricing boundary tests passed.",
+    "visualAcceptance": "PENDING",
+    "databaseChanges": false
+  },
+  "spotProfileAcceptance": {
+    "status": "ACCEPTED_BY_FOUNDER",
+    "date": "2026-11-19",
+    "scope": "Spot profile including moments presentation; overall Point 1 remains open"
+  },
+  "discoveryAndSpotCardsFollowUp": {
+    "sourceCommit": "4b0d9630ba6f79f651adc7f00c0294b3d1e7841d",
+    "status": "REJECTED_BY_FOUNDER_RESTORED_PREVIOUS",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f2d3-918e-71a9-8ef1-27495b8a8b0e", "group": "14b7870e-8916-4d2f-b32c-906bbe3d9f60" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f2d4-35de-73de-8ab9-8c6c261c4869", "group": "d3bdee3b-f95f-4720-9e94-082bd6763423" }
+    ],
+    "validation": "Full Mobile contracts, map/discovery, typecheck, targeted lint, Hermes, production validation and both verified iOS exports passed. Image and opening-status contracts now follow the shared card.",
+    "visualAcceptance": "PENDING; Simulator UI inspection blocked by locked Mac",
+    "databaseChanges": false
+  },
+  "discoveryRestoration": {
+    "restorationCommit": "f475a875",
+    "bundleSourceCommit": "b16d732a891270eab916982acfd9c008a83c6198",
+    "reason": "Founder prefers previous header and large Spot cards; discovery iteration fully reverted while retaining accepted Spot profile",
+    "status": "PREVIOUS_BUNDLES_REPUBLISHED",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f326-3c7e-7edd-b1e7-527a289f9608", "group": "3f3a83e6-2a4c-42ff-9431-843b42e4390d", "republishedFromGroup": "03f9e5ca-b99f-4b47-bf52-beb6f4f35440" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f326-990c-7a0c-b410-a91b0cf253dc", "group": "e02ab2e2-64f6-47bc-9d2d-2e6b334083f5", "republishedFromGroup": "c50eaa55-927c-4ad7-95f1-7b58f269648a" }
+    ],
+    "validation": "Mobile source exactly matches 2163789e; typecheck, full Mobile contracts and direct Hermes execution pass. Reused previously verified Production bundles; no rebuild.",
+    "physicalDeviceConfirmation": "PENDING"
+  },
+  "spotMomentsPresentationFollowUp": {
+    "sourceCommit": "b16d732a891270eab916982acfd9c008a83c6198",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f2bd-3f2e-717c-8a23-576b21c04cbf", "group": "03f9e5ca-b99f-4b47-bf52-beb6f4f35440" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f2bd-b4c8-79ce-9478-c644d3b29e90", "group": "c50eaa55-927c-4ad7-95f1-7b58f269648a" }
+    ],
+    "validation": "Full Mobile contracts, typecheck, targeted lint, actual Hermes execution, production release validation and both verified iOS exports passed.",
+    "visualAcceptance": "PENDING",
+    "databaseChanges": false
+  },
+  "spacingAndDescriptionFollowUp": {
+    "sourceCommit": "4e60ce63b3a0fed861509fe3d2b3439b40d2a6a4",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f2b3-4fe3-7ba7-a005-6080bf7a6374", "group": "9ab21f21-fc77-4278-b3fd-5d4292216461" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f2b3-f661-7e07-a642-3eb357fc49f7", "group": "d9b8579d-ab47-4c95-bba0-a951bcd46141" }
+    ],
+    "validation": "Full Mobile contracts, map/discovery, typecheck, targeted lint, Hermes and verified Production exports passed. Description ordering, trusted-source filters and canonical precedence tested. Public Volta Braeu owner-context RPC returned HTTP 200, owner source, 347 characters.",
+    "visualAcceptance": "PENDING; Simulator UI inspection blocked by locked Mac",
+    "databaseChanges": false
+  },
+  "founderSectionOrderFollowUp": {
+    "sourceCommit": "09a19f529101de68232aa8533ce1635b04fe0a47",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f29e-7660-7e41-a228-1d4f08258791", "group": "89fedbb8-5427-414c-9879-de3c6ab9bc51" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f29e-f63e-7d2c-919c-f34701e8e4b2", "group": "d4e5b9d1-c026-4506-a8fe-a1641cc05b89" }
+    ],
+    "validation": "Section ordering and encoded mail composer tests, full Mobile contracts, Hermes, typecheck, verified Production exports and targeted lint passed (existing event retry dependency warning retained).",
+    "visualAcceptance": "PENDING"
+  },
+  "scannableDetailsFollowUp": {
+    "sourceCommit": "22799d0a330af30267aac99da70bf92ebda4b3d8",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f27d-3fdf-7f0e-91cd-d76764539fd3", "group": "2103973d-6b44-4e00-a8f5-d6bcc3c48b98" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f27d-e5c3-7db8-abf3-fd18a565f63a", "group": "82436937-cc30-4fd4-b7c3-bc2835368ba3" }
+    ],
+    "validation": "21 shared/Web tests, full Mobile contracts, typecheck, targeted lint, direct Hermes execution and verified Production exports passed.",
+    "visualAcceptance": "PENDING"
+  },
+  "spotCrashHotfix": {
+    "sourceCommit": "1c4e733be0ba508e89ffd48573472b4a8e80cb83",
+    "cause": "Intl.ListFormat is undefined in iOS Hermes; reproduced with the React Native Hermes runner.",
+    "mitigation": "Both runtimes were first rolled back to c5a33a90 before republishing the tested fix.",
+    "rollbackGroups": ["9df25cc6-9c27-4169-9d0b-bc46e99e2213", "31a63c93-829e-41d4-944f-b751c3bf2d32"],
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f275-aaea-77f3-92a8-aec717119c0d", "group": "26e6a9a9-b924-4612-9bdd-bfac91876fae" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f276-2c98-7bc4-967c-fcc5c67638ae", "group": "4cac7733-a991-44d0-b57f-0d60be51a8d6" }
+    ],
+    "validation": "Actual Hermes execution, VM test without Intl.ListFormat, 19 shared/Web tests, Mobile contracts, map tests, typecheck and both verified Production exports passed.",
+    "physicalDeviceAcceptance": "PENDING"
+  },
+  "consumerCopyFollowUp": {
+    "sourceCommit": "c350110df747d4a1cf9ef57ffab61a234b284f5e",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f260-5e55-7f67-aaf8-c750cefb5c09", "group": "ebb1d3ce-f390-4b2c-816b-65f14a6bcc70" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f260-f02b-7860-bf7e-d7eb6d579070", "group": "b3d85d22-4f26-4335-845c-80c0b9f536d7" }
+    ],
+    "validation": "18 shared/Web tests, full Mobile contracts, discovery tests, typecheck, targeted lint, Production validation and both verified Hermes exports passed.",
+    "visualAcceptance": "PENDING"
+  },
+  "authorization": "Founder explicitly approved publication to all compatible Production iPhones on 2026-11-19.",
+  "updates": [
+    {
+      "runtimeVersion": "1.1.1",
+      "id": "01a1f24c-f8bf-7bc0-82a9-accb5c1c0b4f",
+      "group": "e26c0712-ce40-440c-9f56-5afc39ba92c4",
+      "createdAt": "2026-11-19T05:34:53.119Z",
+      "previousGroup": "75fe3910-5861-4010-aa33-8c56c8e29b51"
+    },
+    {
+      "runtimeVersion": "1.1.0",
+      "id": "01a1f24d-c4b5-7d02-85b6-afb15f61cea5",
+      "group": "9e863fbd-f5dc-4940-b7ab-91bb459f850c",
+      "createdAt": "2026-11-19T05:35:45.333Z",
+      "previousGroup": "cb82231f-abcc-497d-bbab-4443563bfb63"
+    }
+  ],
+  "verification": [
+    "Mobile contracts, map/discovery tests and typecheck passed",
+    "Targeted ESLint and whitespace checks passed",
+    "15 shared experience and Web render tests passed",
+    "Production release validation passed",
+    "Hermes bundles exported and embedded Production configuration verified for both runtimes"
+  ],
+  "limitations": [
+    "Physical iPhone installation and visual acceptance are not yet observed",
+    "Point 1 remains pending Founder visual acceptance",
+    "No main merge or Beta approval performed"
+  ]
+}

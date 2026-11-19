@@ -8,6 +8,11 @@ export const HOME_RAIL = {
   disableIntervalMomentum: true,
 };
 
+export const HOME_SECONDARY_CARD_HEIGHT = 234;
+export function homeSecondaryCardWidth(viewportWidth: number) {
+  return homeRailCardWidth(viewportWidth, { minimum: 220, maximum: 272 });
+}
+
 export function homeRailCardWidth(
   viewportWidth: number,
   { minimum, maximum }: { minimum: number; maximum: number },

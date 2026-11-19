@@ -5,6 +5,25 @@ const PRESENTED_TAGS: Record<string, string> = {
   lively: "Lebhaft",
 };
 
+/** Home showcases personal content, never a second rendering of bare Mood tags. */
+export function homeMomentPreview(post: {
+  caption: string | null;
+  mood_tags: string[] | null;
+  media: { public_url?: string | null; media_type?: string | null }[] | null;
+}, failedPhotos: ReadonlySet<string> = new Set()) {
+  const moods = presentMomentTags(post.mood_tags);
+  const caption = momentPersonalCaption(post.caption, moods);
+  const imageUrl = post.media?.find(item => item.public_url?.trim() && !failedPhotos.has(item.public_url) && (!item.media_type || item.media_type === "image" || item.media_type === "photo" || item.media_type.startsWith("image/")))?.public_url ?? null;
+  return imageUrl || caption ? { caption, imageUrl, moods: moods.slice(0, 2) } : null;
+}
+
+export function momentPersonalCaption(value: string | null, moods: readonly string[]) {
+  const caption = value?.trim() || null;
+  if (!caption) return null;
+  const normalize = (text: string) => text.toLocaleLowerCase("de-CH").replace(/[.,·•|&/–—-]+/g, " ").replace(/\s+/g, " ").trim();
+  return moods.length && [moods.join(" "), moods.join(" und ")].some(text => normalize(text) === normalize(caption)) ? null : caption;
+}
+
 export function formatMomentTime(value: string, now = Date.now()) {
   const createdAt = new Date(value).getTime();
   const diff = Number.isFinite(createdAt) ? Math.max(0, now - createdAt) : 0;
@@ -26,7 +45,7 @@ export function formatMomentTime(value: string, now = Date.now()) {
   });
 }
 
-export function presentMomentTags(...groups: Array<string[] | null | undefined>) {
+export function presentMomentTags(...groups: (string[] | null | undefined)[]) {
   const seen = new Set<string>();
 
   return groups.flatMap((group) => (Array.isArray(group) ? group : []))

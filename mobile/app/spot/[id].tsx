@@ -48,7 +48,6 @@ import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { SpotMoodProfile, type SpotMoodProfileItem } from "../../components/spot/SpotMoodProfile";
 import { AppText, ProductText as Text } from "../../components/foundation/AppText";
 import { StateView } from "../../components/foundation/StateView";
-import SharedAvatar from "../../components/Avatar";
 import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
 import { SPOT_OPENING_STATUS_COPY, spotOpeningStatusNow } from "../../lib/spot-opening-status";
 import { spotAddressLines } from "../../lib/spot-address-presentation";
@@ -219,23 +218,9 @@ const SpotEssentials = ({ category, placeType, price }: {
   price?: SpotProductField;
 }) => category || placeType || price ? (
   <View style={styles.essentials}>
-    <Text style={styles.essentialsHeading}>Auf einen Blick</Text>
-    <View style={styles.essentialsDetails}>
-      {category ? <View style={styles.essentialsDetail}>
-        <Feather name="grid" size={18} color={theme.colors.pink} />
-        <Text style={styles.essentialsDetailValue}>{presentSpotProductField(category)}</Text>
-        <Text style={styles.essentialsLabel}>Hauptkategorie</Text>
-      </View> : null}
-      {placeType ? <View style={styles.essentialsDetail}>
-        <Feather name="map-pin" size={18} color={theme.colors.pink} />
-        <Text style={styles.essentialsDetailValue}>{presentSpotProductField(placeType)}</Text>
-        <Text style={styles.essentialsLabel}>Art des Ortes</Text>
-      </View> : null}
-      {price ? <View style={styles.essentialsDetail}>
-        <Feather name="credit-card" size={18} color={theme.colors.pink} />
-        <Text style={styles.essentialsDetailValue}>{presentSpotProductField(price)}</Text>
-        <Text style={styles.essentialsLabel}>Preisniveau</Text>
-      </View> : null}
+    <View style={styles.placeSummary}>
+      {placeType || category ? <Text style={styles.placeSummaryType}>{presentSpotProductField((placeType ?? category)!)}</Text> : null}
+      {price ? <View style={styles.priceTag}><Text style={styles.priceTagText}>Preisniveau: {presentSpotProductField(price)}</Text></View> : null}
     </View>
   </View>
 ) : null;
@@ -265,7 +250,10 @@ export default function SpotDetailScreen() {
   const insets = useSafeAreaInsets();
   const { width: viewportWidth } = useWindowDimensions();
   const [heroContentHeight, setHeroContentHeight] = useState(0);
-  const heroHeight = Math.max(Math.round(viewportWidth * 1.05), heroContentHeight + insets.top + foundationTheme.control.standard + foundationTheme.spacing.display);
+  const [spot, setSpot] = useState<any>(null);
+  const [photos, setPhotos] = useState<any[]>([]);
+  const hasHeroPhoto = photos.length > 0 || Boolean(selectSpotImageUrl({ headerPhotoPath: spot?.header_photo_path }));
+  const heroHeight = Math.max(hasHeroPhoto ? Math.round(viewportWidth * 1.05) : 260, heroContentHeight + insets.top + foundationTheme.control.standard + foundationTheme.spacing.display);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const headerTranslateY = scrollY.interpolate({
@@ -279,15 +267,14 @@ export default function SpotDetailScreen() {
     extrapolate: "clamp",
   });
 
-  const [spot, setSpot] = useState<any>(null);
   const [sourceCredit, setSourceCredit] = useState<{ credit: string; source_url: string; license_url: string | null } | null>(null);
   const [legacyAddress, setLegacyAddress] = useState<string | null>(null);
-  const [photos, setPhotos] = useState<any[]>([]);
   const [galleryPhotos,setGalleryPhotos]=useState<SpotGalleryPhoto[]>([]);
   const [galleryFailed,setGalleryFailed]=useState(false);
   const [galleryImage,setGalleryImage]=useState<string|null>(null);
   const [mediaRevision,setMediaRevision]=useState(0);
   const [reviews, setReviews] = useState<any[]>([]);
+  const [failedMomentPhotos, setFailedMomentPhotos] = useState<Set<string>>(() => new Set());
   const [reviewsFailed, setReviewsFailed] = useState(false);
   const reviewGeneration = useRef(0);
   const [hours, setHours] = useState<Record<string, any[]>>({});
@@ -683,7 +670,10 @@ export default function SpotDetailScreen() {
   const contactKeys = ["contact.website", "contact.phone", "contact.public_email", "contact.instagram", "contact.facebook", "contact.linkedin", "contact.tiktok"];
   const contacts = canonicalWorldDetail ? contactKeys.map((key) => field(key)).filter((item): item is SpotProductField => Boolean(item)) : [];
   const descriptionField = canonicalWorldDetail ? field("description.highlight") : undefined;
-  const description = descriptionField ? presentSpotProductField(descriptionField) : canonicalWorldDetail ? (typeof productProfile?.publicDescription === "string" ? productProfile.publicDescription : null) : effectiveDesc;
+  // Only verified owner or editorial copy from the public owner-context RPC
+  // may fill a missing canonical description; scraped legacy copy may not.
+  const trustedDescription = (descSource === "owner" || descSource === "admin") && typeof effectiveDesc === "string" ? effectiveDesc.trim() || null : null;
+  const description = descriptionField ? presentSpotProductField(descriptionField) : canonicalWorldDetail ? (typeof productProfile?.publicDescription === "string" && productProfile.publicDescription.trim() ? productProfile.publicDescription : trustedDescription) : effectiveDesc;
   const specialHoursField = field("hours.special");
   const specialHoursList = specialHoursField ? specialHours(specialHoursField.value) : [];
   const additionalFields = spotProductAdditionalFields(productProfile);
@@ -865,7 +855,7 @@ export default function SpotDetailScreen() {
                 </View>
                 {!canonicalWorldDetail && spot.price_level ? <Chip text={priceToSymbols(spot.price_level)} /> : null}
               </View>
-              <AppText role="displayL" style={styles.heroTitle}>{spot.name}</AppText>
+              <AppText role="screenTitle" style={styles.heroTitle}>{spot.name}</AppText>
               <View style={{ marginTop: 10 }}><MoodSignature labels={moodProfileFailed || moodProfileLoading ? [] : rankMoodSupport(moodSummary).map(mood => mood.label)} moodCount={moodCounts[String(id)]} onImage /></View>
             </View>
           </Animated.View>
@@ -873,19 +863,18 @@ export default function SpotDetailScreen() {
 
         <View style={styles.content}>
           {journey ? <View style={styles.journeyContext}>
-            <AppText role="caption" tone="pink">FÜR DEINEN NÄCHSTEN MOMENT</AppText>
-            <AppText role="bodyStrong">{journey.wish}</AppText>
-            <AppText role="body">{journey.recommendation}</AppText>
-            {journey.notes[0] ? <AppText role="meta" tone="secondary">{journey.notes[0]}</AppText> : null}
-            {journey.notes.length > 1 ? <>
-              <Pressable accessibilityRole="button" accessibilityState={{ expanded: journeyDetailsOpen }} onPress={() => setJourneyDetailsOpen(value => !value)} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="label" tone="pink">{journeyDetailsOpen ? "Hinweise schliessen" : "Details & Hinweise"}</AppText></Pressable>
-              {journeyDetailsOpen ? journey.notes.slice(1).map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>) : null}
+            <AppText role="caption" tone="pink">DEIN PLAN MIT NUKNUK</AppText>
+            <AppText role="bodyStrong" numberOfLines={journeyDetailsOpen ? undefined : 3}>{journey.wish}</AppText>
+            <Pressable accessibilityRole="button" accessibilityState={{ expanded: journeyDetailsOpen }} onPress={() => setJourneyDetailsOpen(value => !value)} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="label" tone="pink">{journeyDetailsOpen ? "Weniger anzeigen" : "Dein Plan & Hinweise"}</AppText></Pressable>
+            {journeyDetailsOpen ? <>
+              <AppText role="body">{journey.recommendation}</AppText>
+              {journey.notes.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}
             </> : null}
             <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="label" tone="pink">Zurück zu deinen Vorschlägen</AppText></Pressable>
           </View> : null}
-          <View style={{ marginBottom: 24 }}>
-            {moodProfileLoading ? <AppText role="caption" tone="secondary">Moods werden geladen …</AppText> : moodProfileFailed ? <Pressable accessibilityRole="button" onPress={() => void refreshVisibleReviews()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="meta" tone="pink">Moods erneut laden</AppText></Pressable> : <SpotMoodProfile moods={moodSummary} />}
-          </View>
+
+          <SpotEssentials category={field("classification.primary_category")} placeType={field("classification.place_types")} price={field("operation.price_level")} />
+
           {addressLines.length ? <View style={styles.addressBlock}>
             <Feather name="map-pin" size={18} color={theme.colors.pink} style={styles.addressIcon} />
             <View style={styles.addressLines}>{addressLines.map((line, index) => (
@@ -893,16 +882,17 @@ export default function SpotDetailScreen() {
             ))}</View>
           </View> : null}
 
-
-
-          <SpotEssentials category={field("classification.primary_category")} placeType={field("classification.place_types")} price={field("operation.price_level")} />
-
-          {galleryPhotos.length>0||galleryFailed?<View style={styles.section}>
-            <SectionTitle>Fotos vom Ort</SectionTitle>
-            {galleryFailed?<View><Text style={styles.mutedText}>Die Fotos konnten nicht geladen werden.</Text><Pressable accessibilityRole="button" onPress={()=>setMediaRevision(value=>value+1)} style={styles.textAction}><Text style={styles.textActionLabel}>Erneut laden</Text></Pressable></View>:<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingVertical:12}}>
-              {galleryPhotos.map((photo,i)=><Pressable key={photo.id} accessibilityRole="button" accessibilityLabel={`Spotfoto ${i+1} vergrössern`} onPress={()=>setGalleryImage(photo.url)}><SpotArtwork imageUrl={photo.url} spotId={String(spot.id)} spotName={spot.name} showFallbackName={false} style={{width:220,height:160,borderRadius:16}}/></Pressable>)}
-            </ScrollView>}
-          </View>:null}
+          {description ? <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <SectionTitle>Über diesen Ort</SectionTitle>
+              {!canonicalWorldDetail && !!descriptionSourceLabel(descSource) ? <View style={styles.sourcePill}><Text style={styles.sourceText}>{descriptionSourceLabel(descSource)}</Text></View> : null}
+            </View>
+            <Text numberOfLines={descriptionExpanded ? undefined : 3} style={styles.bodyText}>{description}</Text>
+            {description.length > 65 ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: descriptionExpanded }} onPress={() => setDescriptionExpanded((value) => !value)} style={styles.textAction}>
+              <Text style={styles.textActionLabel}>{descriptionExpanded ? "Weniger anzeigen" : "Mehr lesen"}</Text>
+              <Feather name={descriptionExpanded ? "chevron-up" : "chevron-down"} size={16} color={theme.colors.pink} />
+            </Pressable> : null}
+          </View> : null}
 
           {contactActions.length > 0 ? <View style={styles.section}>
             <SectionTitle>Kontakt</SectionTitle>
@@ -911,37 +901,7 @@ export default function SpotDetailScreen() {
             </View>
           </View> : null}
 
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <SectionTitle>Beschreibung</SectionTitle>
-              {!canonicalWorldDetail && !!descriptionSourceLabel(descSource) ? (
-                <View style={styles.sourcePill}>
-                  <Text style={styles.sourceText}>{descriptionSourceLabel(descSource)}</Text>
-                </View>
-              ) : null}
-            </View>
-            {description ? (
-              <>
-                <Text numberOfLines={descriptionExpanded ? undefined : 2} style={styles.bodyText}>{description}</Text>
-                {description.length > 65 ? (
-                  <Pressable accessibilityRole="button" accessibilityState={{ expanded: descriptionExpanded }} onPress={() => setDescriptionExpanded((value) => !value)} style={styles.textAction}>
-                    <Text style={styles.textActionLabel}>{descriptionExpanded ? "Weniger anzeigen" : "Mehr lesen"}</Text>
-                    <Feather name={descriptionExpanded ? "chevron-up" : "chevron-down"} size={16} color={theme.colors.pink} />
-                  </Pressable>
-                ) : null}
-              </>
-            ) : <Text style={styles.mutedText}>Für diesen Ort ist noch keine Beschreibung hinterlegt.</Text>}
-          </View>
-
-          <SpotExperience profile={productProfile?.experienceProfile}/>
-          {sourceCredit ? (
-            <Text style={styles.disclosureSub}>
-              Grundangaben von{" "}
-              <Text accessibilityRole="link" onPress={() => void openWebsite(sourceCredit.source_url)}>{sourceCredit.credit}</Text>
-              {sourceCredit.license_url && <>{" · "}<Text accessibilityRole="link" onPress={() => void openWebsite(sourceCredit.license_url ?? "")}>Lizenz</Text></>}
-            </Text>
-          ) : null}
-
+          {showHours || specialHoursField ? <View style={styles.hoursSection}>
           {showHours ? (
             <View style={styles.detailLineGroup}>
               <Pressable accessibilityRole="button" accessibilityLabel="Alle Öffnungszeiten" accessibilityState={{ expanded: hoursExpanded }} onPress={() => setHoursExpanded((value) => !value)} style={styles.disclosureRow}>
@@ -998,6 +958,16 @@ export default function SpotDetailScreen() {
             </View> : null}
           </View> : null}
 
+          </View> : null}
+
+          <SpotExperience profile={productProfile?.experienceProfile}>
+            <SpotEventsSection spotId={String(spot.id)}/>
+          </SpotExperience>
+
+          <View style={styles.section}>
+            {moodProfileLoading ? <AppText role="caption" tone="secondary">Moods werden geladen …</AppText> : moodProfileFailed ? <Pressable accessibilityRole="button" onPress={() => void refreshVisibleReviews()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="meta" tone="pink">Moods erneut laden</AppText></Pressable> : <SpotMoodProfile moods={moodSummary} />}
+          </View>
+
           <View style={styles.moreInfoEntry}>
             <Pressable accessibilityRole="button" accessibilityLabel="Mehr Infos" onPress={() => setMoreInfoExpanded(true)} style={styles.moreInfoToggle}>
               <Text style={styles.moreInfoTitle}>Mehr Infos</Text>
@@ -1006,13 +976,11 @@ export default function SpotDetailScreen() {
             <Text style={styles.moreInfoSubtitle}>Ausstattung, Atmosphäre und weitere Details</Text>
           </View>
 
-          <SpotEventsSection spotId={String(spot.id)}/>
-
           <View style={styles.section}>
-              <View style={styles.sectionHeader}><SectionTitle>Hier erlebt</SectionTitle>{presentableReviews.length > 3 ? <Text style={styles.previewMeta}>Aktuell</Text> : null}</View>
+              <View style={styles.sectionHeader}><SectionTitle>Hier erlebt</SectionTitle></View>
               {reviewsFailed ? <StateView kind="error" title="Momente konnten nicht geladen werden" actionLabel="Erneut laden" onAction={() => void refreshVisibleReviews()} /> : null}
               {!reviewsFailed && presentableReviews.length === 0 ? <Text style={styles.mutedText}>Noch keine Momente von hier. Wenn du hier warst, halte deinen Eindruck fest.</Text> : null}
-              <AppText role="meta" tone="secondary" style={{ marginBottom: 16 }}>Persönliche Momente und die Atmosphäre, die geblieben ist.</AppText>
+              <AppText role="meta" tone="secondary" style={{ marginBottom: 24 }}>So fühlt es sich hier an.</AppText>
               {presentableReviews.slice(0, 3).map((rev) => {
                 const moods = [
                   presentMoodToken(rev.moodA?.token ?? rev.mood_a),
@@ -1028,19 +996,23 @@ export default function SpotDetailScreen() {
                   (rev.photo_path?.startsWith("http")
                     ? rev.photo_path
                     : publicReviewPhotoUrl);
+                const hasPhoto = Boolean(reviewPhotoUrl && !failedMomentPhotos.has(reviewPhotoUrl));
 
                 return (
-                  <View key={rev.id} style={[styles.reviewCard, !reviewPhotoUrl && !rev.text ? styles.reviewCardCompact : null]}>
-                    <View style={styles.reviewHeader}>
-                      <SharedAvatar name={name} size={40} />
+                  <View key={rev.id} style={styles.reviewCard}>
+                    {hasPhoto ? <Image source={{ uri: reviewPhotoUrl }} accessibilityLabel={`Moment bei ${spot.name}`} resizeMode="cover" onError={() => setFailedMomentPhotos(previous => new Set(previous).add(reviewPhotoUrl))} style={styles.reviewPhoto} /> : null}
+                    <View style={[styles.reviewImpression, !hasPhoto && styles.reviewImpressionTextOnly]}>
+                      {moods.length > 0 ? <Text style={styles.reviewMoods}>{moods.join(" · ")}</Text> : null}
+                      {rev.text?.trim() ? <Text style={styles.reviewText}>{rev.text.trim()}</Text> : null}
+                      {reviewPhotoUrl && !hasPhoto ? <Text style={styles.reviewDate}>Foto gerade nicht verfügbar</Text> : null}
+                    </View>
 
+                    <View style={styles.reviewHeader}>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.reviewName}>
                           {name}
                           {isLocal ? " · Local" : ""}
-                        </Text>
-
-                        <Text style={styles.reviewDate}>
+                          {"  ·  "}
                           {new Date(rev.created_at).toLocaleDateString("de-DE", {
                             day: "2-digit",
                             month: "short",
@@ -1088,14 +1060,7 @@ export default function SpotDetailScreen() {
                         )
                       ) : null}
                     </View>
-                    {rev.text ? <Text style={styles.reviewText}>{rev.text}</Text> : null}
-                    {moods.length > 0 && (
-                      <View style={styles.reviewMoods}>
-                        {moods.map((m: string) => <Chip key={m} text={m} />)}
-                      </View>
-                    )}
-                    {reviewPhotoUrl ? <Image source={{ uri: reviewPhotoUrl }} style={styles.reviewPhoto} /> : null}
-                    <DiscoverFromMoment moods={moods} city={spot.city} />
+                    <DiscoverFromMoment moods={moods} city={spot.city} compact />
                   </View>
                 );
               })}
@@ -1158,6 +1123,14 @@ export default function SpotDetailScreen() {
               </Pressable>
             )}
           </View>
+
+          <View style={styles.supportBlock}>
+            <SectionTitle>Stimmt etwas nicht?</SectionTitle>
+            <Pressable accessibilityRole="link" accessibilityLabel="Schreibe uns zu diesem Ort" onPress={() => void openExternalUrl(`mailto:hello@backyrd.ch?subject=${encodeURIComponent(`Hinweis zu ${spot.name}`)}&body=${encodeURIComponent(`Ort: ${spot.name}\nhttps://www.backyrd.ch/spots/${spot.id}\n\nMein Hinweis:\n`)}`, "Die E-Mail-App konnte nicht geöffnet werden.")} style={styles.textAction}>
+              <Text style={styles.textActionLabel}>Schreibe uns!</Text>
+              <Feather name="mail" size={18} color={theme.colors.pink} />
+            </Pressable>
+          </View>
         </View>
 
         <View style={{ height: foundationTheme.spacing.xl }} />
@@ -1203,6 +1176,21 @@ export default function SpotDetailScreen() {
             <Text style={styles.moreInfoPageSubtitle}>Alle weiteren Angaben zu {spot.name} auf einen Blick.</Text>
           </View>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.moreInfoScroll, { paddingTop: 8, paddingBottom: 40 }]}>
+          {galleryPhotos.length>0||galleryFailed?<View style={styles.section}>
+            <SectionTitle>Fotos vom Ort</SectionTitle>
+            {galleryFailed?<View><Text style={styles.mutedText}>Die Fotos konnten nicht geladen werden.</Text><Pressable accessibilityRole="button" onPress={()=>setMediaRevision(value=>value+1)} style={styles.textAction}><Text style={styles.textActionLabel}>Erneut laden</Text></Pressable></View>:<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingVertical:12}}>
+              {galleryPhotos.map((photo,i)=><Pressable key={photo.id} accessibilityRole="button" accessibilityLabel={`Spotfoto ${i+1} vergrössern`} onPress={()=>setGalleryImage(photo.url)}><SpotArtwork imageUrl={photo.url} spotId={String(spot.id)} spotName={spot.name} showFallbackName={false} style={{width:220,height:160,borderRadius:16}}/></Pressable>)}
+            </ScrollView>}
+          </View>:null}
+
+          {sourceCredit ? (
+            <Text style={styles.disclosureSub}>
+              Grundangaben von{" "}
+              <Text accessibilityRole="link" onPress={() => void openWebsite(sourceCredit.source_url)}>{sourceCredit.credit}</Text>
+              {sourceCredit.license_url && <>{" · "}<Text accessibilityRole="link" onPress={() => void openWebsite(sourceCredit.license_url ?? "")}>Lizenz</Text></>}
+            </Text>
+          ) : null}
+
             <View style={styles.moreInfoFacts}>
               {moreInfoFields.filter((detail) => ["context.typical_dayparts", "context.atmosphere", "amenity.features"].includes(detail.attributeKey)).map((detail) => <SpotFact key={`${detail.attributeKey}:${detail.scope}`} field={detail} />)}
               {moreInfoFields.some((detail) => detail.attributeKey.startsWith("accessibility.")) ? <View style={styles.accessibilityGroup}>
@@ -1215,20 +1203,25 @@ export default function SpotDetailScreen() {
                 <SpotTaxonomyDetails items={taxonomyItems} />
                 {taxonomyItems.length ? <SpotTaxonomyChips items={taxonomyItems} /> : null}
               </> : null}
-              {!hasMoreInfo ? <Text style={styles.mutedText}>Noch keine weiteren Angaben hinterlegt.</Text> : null}
+              {!hasMoreInfo && galleryPhotos.length === 0 && !galleryFailed ? <Text style={styles.mutedText}>Noch keine weiteren Angaben hinterlegt.</Text> : null}
             </View>
           </ScrollView>
+      <Modal visible={!!galleryImage} transparent animationType="fade" onRequestClose={()=>setGalleryImage(null)}><SafeAreaView style={{flex:1,backgroundColor:"rgba(0,0,0,.96)",justifyContent:"center"}}><Pressable accessibilityRole="button" accessibilityLabel="Foto schliessen" onPress={()=>setGalleryImage(null)} style={{alignSelf:"flex-end",padding:20}}><Feather name="x" size={26} color="white"/></Pressable>{galleryImage&&<Image source={{uri:galleryImage}} resizeMode="contain" accessibilityLabel="Vergrössertes Spotfoto" style={{width:"100%",height:"80%"}}/>}</SafeAreaView></Modal>
         </SafeAreaView>
         </SafeAreaProvider>
       </Modal>
-      <Modal visible={!!galleryImage} transparent animationType="fade" onRequestClose={()=>setGalleryImage(null)}><SafeAreaView style={{flex:1,backgroundColor:"rgba(0,0,0,.96)",justifyContent:"center"}}><Pressable accessibilityRole="button" accessibilityLabel="Foto schliessen" onPress={()=>setGalleryImage(null)} style={{alignSelf:"flex-end",padding:20}}><Feather name="x" size={26} color="white"/></Pressable>{galleryImage&&<Image source={{uri:galleryImage}} resizeMode="contain" accessibilityLabel="Vergrössertes Spotfoto" style={{width:"100%",height:"80%"}}/>}</SafeAreaView></Modal>
+
       <LoginPromptModal visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} message={loginPromptMessage} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  journeyContext: { marginBottom: 28, paddingBottom: 20, gap: 12, borderBottomWidth: 1, borderBottomColor: foundationTheme.color.border },
+  placeSummary: { gap: 12 },
+  placeSummaryType: { color: theme.colors.text, fontSize: 17, lineHeight: 26, fontFamily: foundationTheme.type.bodyMedium },
+  priceTag: { alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.colors.surfaceElevated },
+  priceTagText: { color: theme.colors.textSoft, fontSize: 13, lineHeight: 20 },
+  journeyContext: { marginBottom: 32, padding: 20, gap: 12, borderRadius: 24, backgroundColor: foundationTheme.color.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: foundationTheme.color.border },
   stickyNav: {
     position: "absolute",
     top: 0,
@@ -1344,13 +1337,16 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: "#FFFFFF",
+    fontFamily: foundationTheme.type.bodyBold,
+    fontSize: 38,
+    lineHeight: 45,
     letterSpacing: -1,
   },
   content: {
     paddingHorizontal: foundationTheme.layout.pageGutter,
     paddingTop: 20,
   },
-  addressBlock: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 5, marginBottom: 23 },
+  addressBlock: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 5, marginBottom: 40 },
   addressIcon: { marginTop: 2 },
   addressLines: { flex: 1, gap: 4 },
   addressStreet: { color: theme.colors.text, fontSize: 15, lineHeight: 21, fontWeight: "600" },
@@ -1407,7 +1403,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   section: {
-    marginBottom: 38,
+    marginBottom: 48,
   },
   sectionHeader: {
     minHeight: 28,
@@ -1415,19 +1411,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 20,
   },
   sectionTitle: {
     color: theme.colors.text,
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: 26,
+    lineHeight: 34,
     letterSpacing: -0.5,
   },
   essentials: {
     marginBottom: 32,
-    paddingTop: 24,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.colors.border,
   },
   essentialsHeading: {
     color: theme.colors.text,
@@ -1591,14 +1584,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.colors.border,
   },
+  hoursSection: { marginBottom: 48 },
   detailLineGroup: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
-  disclosureRow: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: 14 },
+  disclosureRow: { minHeight: 96, paddingVertical: 20, flexDirection: "row", alignItems: "center", gap: 14 },
   disclosureText: { flex: 1, gap: 4 },
-  disclosureTitle: { color: theme.colors.text, fontSize: 15, lineHeight: 21, fontWeight: "700" },
+  disclosureTitle: { color: theme.colors.text, fontSize: 22, lineHeight: 29, fontWeight: "700" },
   disclosureSub: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 18 },
   disclosureContent: { paddingLeft: 33, paddingBottom: 18 },
   hoursUncertainty: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 19, paddingLeft: 33, paddingBottom: 18 },
-  moreInfoEntry: { marginBottom: 38, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border },
+  moreInfoEntry: { marginBottom: 48, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border },
   moreInfoToggle: {
     minHeight: 53,
     flexDirection: "row",
@@ -1607,7 +1601,8 @@ const styles = StyleSheet.create({
   },
   moreInfoTitle: {
     color: theme.colors.text,
-    fontSize: 17,
+    fontSize: 26,
+    lineHeight: 34,
     fontWeight: "700",
   },
   moreInfoSubtitle: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 18, paddingBottom: 17 },
@@ -1625,6 +1620,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 26,
   },
+  supportBlock: { paddingTop: 24, paddingBottom: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
   ownerButton: {
     minHeight: 44,
     borderRadius: theme.radius.pill,
@@ -1667,16 +1663,13 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   reviewCard: {
-    marginTop: 12,
-    padding: 14,
-    borderRadius: 24,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    paddingBottom: 24,
+    marginBottom: 28,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
   },
-  reviewCardCompact: {
-    paddingVertical: 12,
-  },
+  reviewImpression: { gap: 12, marginTop: 18, marginBottom: 8 },
+  reviewImpressionTextOnly: { marginTop: 0, paddingLeft: 16, paddingVertical: 4, borderLeftWidth: 2, borderLeftColor: theme.colors.pink },
   reviewHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1703,9 +1696,10 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.97 }],
   },
   reviewName: {
-    color: theme.colors.text,
-    fontSize: 15,
-    fontWeight: "800",
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    lineHeight: 19,
+    fontWeight: "500",
   },
   reviewDate: {
     color: theme.colors.textMuted,
@@ -1714,29 +1708,22 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   reviewText: {
-    color: theme.colors.textSoft,
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 12,
-    fontWeight: "500",
+    color: theme.colors.text,
+    fontSize: 17,
+    lineHeight: 27,
+    fontWeight: "400",
   },
   reviewMoods: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 10,
+    color: theme.colors.pinkSoft,
+    fontSize: 18,
+    lineHeight: 27,
+    fontWeight: "600",
   },
   reviewPhoto: {
     width: "100%",
-    height: 160,
+    aspectRatio: 4 / 3,
     borderRadius: 18,
     backgroundColor: "#111",
-    marginTop: 12,
-  },
-  previewMeta: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-    fontWeight: "700",
   },
   momentsMore: {
     marginTop: 12,

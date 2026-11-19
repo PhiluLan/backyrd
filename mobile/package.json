@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
+    "test:spot-copy:hermes": "node scripts/test-spot-copy-hermes.mjs",
     "test:contracts": "node ./scripts/test-home-daypart.mjs && node ./scripts/test-mobile-product-contracts.mjs && node --test ./scripts/test-registration-outcome.mjs && node --test ./scripts/test-wohin-model.mjs && node ./scripts/test-environment-isolation.mjs && npm run test:canonical-spot-images && npm run test:moments-presentation && npm run test:moment-media-upload && npm run test:review-media-upload && npm run test:native-intent && npm run test:moment-place-match && npm run test:security && npm run test:account-entry",
     "test:map-discovery": "node ./scripts/test-map-discovery-scale.mjs && node --test ./scripts/test-request-deadline.mjs",
     "test:canonical-spot-images": "node ./scripts/test-canonical-spot-images.mjs",

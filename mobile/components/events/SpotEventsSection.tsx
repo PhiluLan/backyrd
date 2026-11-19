@@ -52,4 +52,4 @@ export function SpotEventsSection({ spotId }: { spotId: string }) {
     </View>
   );
 }
-const styles = StyleSheet.create({ section: { marginBottom: 38, gap: 12 }, heading: { color: theme.color.textPrimary, fontSize: 24, fontFamily: theme.type.display }, row: { paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: theme.color.borderStrong, gap: 8, minHeight: 48 }, title: { color: theme.color.textPrimary, fontSize: 18, fontFamily: theme.type.bodyMedium }, meta: { color: theme.color.textSecondary, fontSize: 14, fontFamily: theme.type.body } });
+const styles = StyleSheet.create({ section: { marginBottom: 38, gap: 12 }, heading: { color: theme.color.textPrimary, fontSize: 26, lineHeight: 34, fontFamily: theme.type.bodyBold }, row: { paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: theme.color.borderStrong, gap: 8, minHeight: 48 }, title: { color: theme.color.textPrimary, fontSize: 18, fontFamily: theme.type.bodyMedium }, meta: { color: theme.color.textSecondary, fontSize: 14, fontFamily: theme.type.body } });
