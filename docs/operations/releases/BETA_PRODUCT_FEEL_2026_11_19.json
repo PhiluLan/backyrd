@@ -4,6 +4,17 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "homePersonalMomentsFollowUp": {
+    "sourceCommit": "e6fd66c3270b7f4867b424ed9bf10c062ba32631",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f3d3-f003-7b83-96c6-f7df7b466404", "group": "be8e4762-ce10-4505-96ec-1025959b091a" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f3d4-4332-7bd9-8eaa-627222976161", "group": "39c36c74-2fab-42a4-8f39-a883228f3242" }
+    ],
+    "validation": "Typecheck, targeted lint, full Mobile contracts, map/discovery, Hermes, Production validation and both verified iOS exports passed. Home content tests cover bare/repeated Moods, personal text, photos, video exclusion and media failures.",
+    "visualAcceptance": "PENDING",
+    "scope": "Home moments only; existing safe feed source and Moment detail route; other Home sections unchanged"
+  },
   "nuknukProfileButtonFollowUp": {
     "sourceCommit": "570fe61966f31e925097fe29adab3bd5e7378e52",
     "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
