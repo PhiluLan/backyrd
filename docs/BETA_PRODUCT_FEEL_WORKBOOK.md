@@ -2,6 +2,28 @@
 
 ## Punkt 1 – Produktgefühl und Bedienung
 
+### Incident: Spot-Absturz nach Besuchersprache-OTA
+
+Am 19. November meldete der Founder einen Renderfehler beim Öffnen eines Spots.
+Die vorherige funktionierende Version c5a33a90 wurde zuerst für beide iOS-Runtimes
+auf Production wiederveröffentlicht (Rollback-Gruppen
+`9df25cc6-9c27-4169-9d0b-bc46e99e2213` für 1.1.1 und
+`31a63c93-829e-41d4-944f-b751c3bf2d32` für 1.1.0).
+
+Ursache reproduziert im mit React Native gelieferten Hermes: `Intl.ListFormat`
+ist nicht vorhanden und löst bei der neuen Besuchertext-Aufzählung einen TypeError
+aus. Node-basierte Tests und Bytecode-Export hatten diese Laufzeitlücke übersehen.
+Der Fix verwendet eine einfache deutsche Aufzählung ohne diese optionale API.
+
+Regression: Der gemeinsame Testsatz läuft zusätzlich in einer VM ohne
+`Intl.ListFormat`. `npm run test:spot-copy:hermes` führt den tatsächlichen Adapter
+mit dem lokalen Hermes-Runner aus (auf dem macOS-Entwicklungsrechner). Er prüft
+einzelne und mehrteilige Aufzählungen, Bedingungen und den Tarif des Beispiels.
+Native Prüfung, 19 gemeinsame/Web-Tests, volle Mobile-Verträge, Such-/Kartenprüfung,
+Typecheck und beide Production-Hermes-Exporte bestanden.
+
+Die Wiederveröffentlichung des Fixes ersetzt nicht die physische iPhone-Abnahme.
+
 Status: OTA auf Production für iOS 1.1.0 und 1.1.1 veröffentlicht; visuelle Founder-Abnahme offen. Referenz: die vom Founder geteilte
 Volta-Bräu-Aufnahme vom 19. November 2026. Umsetzung auf `origin/main` d7005c3c
 im Branch `codex/beta-product-feel-v1`.

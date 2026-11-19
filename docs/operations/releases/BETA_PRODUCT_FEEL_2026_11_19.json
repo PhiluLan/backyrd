@@ -4,6 +4,18 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "spotCrashHotfix": {
+    "sourceCommit": "1c4e733be0ba508e89ffd48573472b4a8e80cb83",
+    "cause": "Intl.ListFormat is undefined in iOS Hermes; reproduced with the React Native Hermes runner.",
+    "mitigation": "Both runtimes were first rolled back to c5a33a90 before republishing the tested fix.",
+    "rollbackGroups": ["9df25cc6-9c27-4169-9d0b-bc46e99e2213", "31a63c93-829e-41d4-944f-b751c3bf2d32"],
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f275-aaea-77f3-92a8-aec717119c0d", "group": "26e6a9a9-b924-4612-9bdd-bfac91876fae" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f276-2c98-7bc4-967c-fcc5c67638ae", "group": "4cac7733-a991-44d0-b57f-0d60be51a8d6" }
+    ],
+    "validation": "Actual Hermes execution, VM test without Intl.ListFormat, 19 shared/Web tests, Mobile contracts, map tests, typecheck and both verified Production exports passed.",
+    "physicalDeviceAcceptance": "PENDING"
+  },
   "consumerCopyFollowUp": {
     "sourceCommit": "c350110df747d4a1cf9ef57ffab61a234b284f5e",
     "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
