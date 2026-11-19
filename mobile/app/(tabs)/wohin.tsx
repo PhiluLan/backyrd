@@ -1,6 +1,7 @@
 import { DecisionProductClarification, DecisionProductDialogueRoute } from "@backyrd/product-decision-contract";
 import { useAuth } from "@/hooks/useAuth";
-import { readRecentDecisionSearch, rememberRecentDecisionSearch } from "@/lib/decision/recentDecisionSearch";
+import { clearRecentDecisionSearches, hasUnsavedRecentDecisionSearches, readRecentDecisionSearches, retryRecentDecisionSearches, recordRecentDecisionRequest, rememberRecentDecisionSearch, removeRecentDecisionSearch, type RecentDecisionHistoryEntry } from "@/lib/decision/recentDecisionSearch";
+import { WohinHistorySheet, WohinRecentRequests } from "@/components/WohinHistory";
 import { clearJourneySelection, rememberJourneySelection, canCarryPlaceRecommendation } from "@/lib/discovery-journey";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, useColorScheme, useWindowDimensions, View } from "react-native";
@@ -53,8 +54,8 @@ const lightColors: typeof darkColors = {
   detailText: "#53535A", chat: "#F7F7F5", brief: "#FFFFFF",
 };
 
-// Same disclosure as web/app/legal/page.tsx#decision. Kept readable in-app,
-// including offline; opening it never records or changes consent.
+// Same AI disclosure as web/app/legal/page.tsx#decision. Device-only history
+// is explained separately below. Reading never records or changes consent.
 const searchPrivacy = [
   "Wenn du nach Orten suchst, übermittelt Backyrd deinen Suchwunsch und die gewählten Suchangaben, zum Beispiel Stadt, Budget oder Begleitung, an OpenAI. Dazu kommen das Bezugsdatum und die Zeitzone, damit Angaben wie „morgen“ verstanden werden. Die KI hilft, deine Anfrage zu verstehen; passende Orte wählt Backyrd anhand seiner Spot- und Eventangaben aus.",
   "Deine Konto-ID und E-Mail-Adresse werden dabei nicht an OpenAI gesendet. Angaben, die du selbst in das Suchfeld schreibst, sind Teil der Anfrage. Bitte gib deshalb keine vertraulichen Daten oder Namen anderer Personen ein. Backyrd fordert keine dauerhafte Speicherung der Modellantwort bei OpenAI an. Technische Protokolle beim Anbieter sind davon getrennt.",
@@ -131,8 +132,16 @@ function WohinExperience() {
   const [clarificationAnswer, setClarificationAnswer] = useState("");
   const [city, setCity] = useState<string | null>(null);
   const [daypart, setDaypart] = useState(() => homeDaypart(new Date()));
-  const [recentWish, setRecentWish] = useState<{ actorId: string; query: string } | null>(null);
-  const [recentWishLoaded, setRecentWishLoaded] = useState(false);
+  const [firstName, setFirstName] = useState<string | null>(null);
+  const [recentHistory, setRecentHistory] = useState<{ actorId: string; entries: RecentDecisionHistoryEntry[] } | null>(null);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [historyUnavailable, setHistoryUnavailable] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const historyOwner = useRef(user?.id ?? null);
+  historyOwner.current = user?.id ?? null;
+  const historyMounted = useRef(true);
+  useEffect(() => { historyMounted.current = true; return () => { historyMounted.current = false; }; }, []);
   const [identityReady, setIdentityReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [verifiedActorId, setVerifiedActorId] = useState<string | null>(null);
@@ -192,8 +201,12 @@ function WohinExperience() {
     setPendingSearch(null);
     setError(null);
     setRetryRequest(null);
-    setRecentWish(null);
-    setRecentWishLoaded(false);
+    setFirstName(null);
+    setRecentHistory(null);
+    setHistoryLoaded(false);
+    setHistoryUnavailable(false);
+    setHistoryOpen(false);
+    setHistoryBusy(false);
     setVerifiedActorId(null);
     setIdentityReady(false);
     setIdentityError(false);
@@ -211,11 +224,13 @@ function WohinExperience() {
       setAuthenticated(true);
       setVerifiedActorId(data.user.id);
       const { data: profile, error: profileError } = await withinIdentityDeadline(
-        supabase.from("profiles").select("city").eq("id", data.user.id).maybeSingle(),
+        supabase.from("profiles").select("city,first_name,display_name").eq("id", data.user.id).maybeSingle(),
       );
       if (!active) return;
       if (profileError) throw profileError;
       setCity(typeof profile?.city === "string" ? profile.city.trim() : null);
+      const name = [profile?.first_name, profile?.display_name].find(value => typeof value === "string" && value.trim());
+      setFirstName(typeof name === "string" ? name.trim().split(/\s+/)[0] : null);
       setIdentityReady(true);
     })().catch(() => { if (active) { setIdentityError(true); setIdentityReady(true); } });
     return () => { active = false; };
@@ -227,14 +242,43 @@ function WohinExperience() {
     const timer = setInterval(refreshDaypart, 60_000);
     return () => clearInterval(timer);
   }, []));
-  useFocusEffect(useCallback(() => {
-    if (!verifiedActorId || verifiedActorId !== user?.id) return;
-    let active = true;
-    void readRecentDecisionSearch(verifiedActorId).then(recent => {
-      if (active) setRecentWish(recent ? { actorId: verifiedActorId, query: recent.query } : null);
-    }).catch(() => undefined).finally(() => { if (active) setRecentWishLoaded(true); });
-    return () => { active = false; };
-  }, [user?.id, verifiedActorId]));
+  const refreshHistory = useCallback(async (retrySave = false) => {
+    const id = verifiedActorId;
+    if (!id || id !== user?.id) return;
+    setHistoryLoaded(false);
+    try {
+      if (retrySave) await retryRecentDecisionSearches(id);
+      const entries = await readRecentDecisionSearches(id);
+      if (!historyMounted.current || historyOwner.current !== id) return;
+      setRecentHistory({ actorId: id, entries });
+      setHistoryUnavailable(hasUnsavedRecentDecisionSearches(id));
+    } catch { if (historyMounted.current && historyOwner.current === id) setHistoryUnavailable(true); }
+    finally { if (historyMounted.current && historyOwner.current === id) setHistoryLoaded(true); }
+  }, [user?.id, verifiedActorId]);
+  useFocusEffect(useCallback(() => { void refreshHistory(); }, [refreshHistory]));
+
+  const saveRecentRequest = useCallback(async (text: string, visible: readonly DecisionProductCandidate[], completed = false) => {
+    const id = verifiedActorId;
+    if (!id || id !== user?.id) return;
+    try {
+      const saved = completed ? await rememberRecentDecisionSearch(id, text, visible) : await recordRecentDecisionRequest(id, text);
+      if (!historyMounted.current || historyOwner.current !== id) return;
+      setHistoryUnavailable(!saved);
+      const entries = await readRecentDecisionSearches(id);
+      if (historyMounted.current && historyOwner.current === id) setRecentHistory({ actorId: id, entries });
+    } catch { if (historyMounted.current && historyOwner.current === id) setHistoryUnavailable(true); }
+  }, [user?.id, verifiedActorId]);
+  const changeHistory = async (id?: string) => {
+    const owner = verifiedActorId;
+    if (!owner || owner !== user?.id || historyBusy) return false;
+    setHistoryBusy(true);
+    const saved = id ? await removeRecentDecisionSearch(owner, id) : await clearRecentDecisionSearches(owner);
+    if (!historyMounted.current || historyOwner.current !== owner) return false;
+    await refreshHistory();
+    setHistoryUnavailable(!saved);
+    setHistoryBusy(false);
+    return saved;
+  };
 
   useEffect(() => {
     if (typeof params.query === "string") setQuery(params.query);
@@ -280,6 +324,7 @@ function WohinExperience() {
       setCandidates([]);
       setDiscovery([]);
     }
+    void saveRecentRequest(text, []);
     if (placeholder) {
       requestInFlight.current = false;
       return;
@@ -302,8 +347,7 @@ function WohinExperience() {
       setResponse(result);
       revealResults.current = true;
       setCandidates(visible);
-      setRecentWish({ actorId: verifiedActorId, query: text.trim() });
-      void rememberRecentDecisionSearch(verifiedActorId, text, visible);
+      void saveRecentRequest(text, visible, true);
     } catch (cause) {
       if (generation !== requestGeneration.current) return;
       if (cause instanceof DecisionProductDialogueRoute && userReply) {
@@ -334,7 +378,7 @@ function WohinExperience() {
         setPendingSearch(null);
       }
     }
-  }, [authenticated, city, identityError, identityReady, user?.id, verifiedActorId]);
+  }, [authenticated, city, identityError, identityReady, saveRecentRequest, user?.id, verifiedActorId]);
 
   useEffect(() => {
     const incoming = typeof params.query === "string" ? params.query.trim() : "";
@@ -514,6 +558,7 @@ function WohinExperience() {
     if (wohinMessageKind(query) === "OFF_TOPIC") {
       Keyboard.dismiss();
       setOffTopic(true);
+      void saveRecentRequest(query, []);
     } else void run(query);
   };
   const evening = daypart === "Abend" || daypart === "Nacht";
@@ -525,19 +570,28 @@ function WohinExperience() {
       : daypart === "Mittag"
         ? { icon: "restaurant-outline", title: "Etwas zum Mittagessen", wish: `Wo kann ich heute Mittag in ${city} etwas essen?` }
         : { icon: "compass-outline", title: "Eine Idee für den Nachmittag", wish: `Was kann ich heute Nachmittag in ${city} unternehmen?` };
-  const personalIdea = recentWish && recentWish.actorId === verifiedActorId && verifiedActorId === user?.id
-    ? { icon: "time-outline", title: "Dein letzter Suchwunsch", wish: recentWish.query } as const : null;
-  const nearbyIdea = city ? { icon: "location-outline", title: `${city} entdecken`, wish: `Zeig mir etwas Besonderes in ${city}.` } as const : null;
-  const ideasReady = identityReady && (!authenticated || recentWishLoaded);
-  const ideas = [localIdea, personalIdea, nearbyIdea].flatMap(idea => idea ? [idea] : []);
+  const tomorrowIdea: SearchIdea | null = city ? { icon: "sunny-outline", title: "Morgen etwas erleben", wish: `Was kann ich morgen in ${city} unternehmen?` } : null;
+  const nearbyIdea: SearchIdea | null = city ? { icon: "compass-outline", title: `${city} entdecken`, wish: `Zeig mir etwas Besonderes in ${city}.` } : null;
+  const ideasReady = identityReady;
+  const ideas = [localIdea, tomorrowIdea, nearbyIdea].flatMap(idea => idea ? [idea] : []);
+  const recentRequests = recentHistory?.actorId === verifiedActorId && verifiedActorId === user?.id ? recentHistory.entries : [];
+  const greetingName = verifiedActorId === user?.id ? firstName : null;
+  const greeting = morning ? "Guten Morgen" : evening ? "Guten Abend" : "Hallo";
   const replyMode = Boolean(conversation && !editing && !discoveryPlaceholder);
   const draft = replyMode ? clarificationAnswer : query;
   const sendEnabled = replyMode ? replyEnabled : canSearch;
   const dockPadding = keyboardVisible ? 8 : Math.max(8, insets.bottom - 2) + backyrdTheme.control.tabBarVisual + 12;
-  const selectIdea = (wish: string) => {
+  const selectIdea = (wish: string, focus = true) => {
     setQuery(wish); setEditing(true); setOffTopic(false); setError(null); setRetryRequest(null);
-    searchInputRef.current?.focus();
+    if (focus) searchInputRef.current?.focus();
   };
+  const usePreviousRequest = (entry: RecentDecisionHistoryEntry) => {
+    setHistoryOpen(false);
+    // Leave the keyboard down while the history sheet closes. Reusing a wish
+    // fills the composer; only an explicit send requests current suggestions.
+    selectIdea(entry.query, false);
+  };
+  const openHistory = () => { Keyboard.dismiss(); setHistoryOpen(true); void refreshHistory(); };
   const scrollToResults = () => {
     if (!revealResults.current || clarificationQuestion) return;
     revealResults.current = false;
@@ -549,6 +603,7 @@ function WohinExperience() {
     <View style={styles.header}>
       <NuknukAvatar height={38} appearance="outline" />
       <View style={styles.headerCopy}><AppText role="cardTitle">Wohin<AppText role="cardTitle" tone="pink">?</AppText></AppText><AppText role="caption" tone="secondary">Mit NukNuk · {city ?? (identityReady ? "Deine Stadt" : "Stadt wird geladen")}</AppText></View>
+      {!conversation && authenticated ? <Pressable accessibilityRole="button" accessibilityLabel="Letzte Anfragen öffnen" onPress={openHistory} style={styles.iconButton}><Ionicons name="time-outline" size={23} color={color.text} /></Pressable> : null}
       {conversation ? <Pressable accessibilityRole="button" accessibilityLabel="Neue Suche" disabled={loading} onPress={startNewSearch} style={styles.iconButton}><Ionicons name="create-outline" size={21} color={loading ? color.muted : color.text} /></Pressable> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Datenschutz zur KI-Suche öffnen" onPress={() => setPrivacyOpen(true)} style={styles.iconButton}><Ionicons name="information-circle-outline" size={23} color={color.muted} /></Pressable>
     </View>
@@ -567,12 +622,24 @@ function WohinExperience() {
         ItemSeparatorComponent={() => <View style={{ height: 28 }} />}
         ListHeaderComponent={<View style={styles.threadHeader} onLayout={event => { resultTop.current = event.nativeEvent.layout.height; }}>
         {!conversation ? <View style={styles.welcome}>
-          <AppText role="screenTitle" style={styles.welcomeTitle}>Worauf hast du Lust?</AppText>
-          <AppText role="body" tone="secondary" style={styles.welcomeText}>Rauskommen. Abschalten. Etwas Neues entdecken. Erzähl mir, was dir gerade durch den Kopf geht.</AppText>
-          <View style={styles.ideas}>
-            {ideasReady ? ideas.filter(idea => idea !== personalIdea).map(({ title, wish }) => <Pressable key={title} accessibilityRole="button" disabled={!canCompose} onPress={() => selectIdea(wish)} style={styles.idea}><AppText role="label">{title}</AppText><Ionicons name="arrow-forward" style={{ transform: [{ rotate: "-45deg" }] }} size={15} color={color.pink} /></Pressable>) : <ActivityIndicator color={color.pink} />}
+          <View style={styles.welcomeHero} testID="wohin-welcome-hero">
+            <View style={styles.welcomeCopy}>
+              <AppText role="screenTitle" style={styles.welcomeTitle}>{greeting}{greetingName ? `, ${greetingName}` : ""}!</AppText>
+              <AppText role="body" tone="secondary" style={styles.welcomeText}>Erzähl mir, worauf du Lust hast. Ich suche einen Ort, der zu dir passt.</AppText>
+            </View>
+            <View style={styles.welcomeCharacter}>
+              <LinearGradient colors={[color.tint, color.background]} style={styles.characterGlow} />
+              <NuknukAvatar height={156} animate />
+            </View>
           </View>
-          {personalIdea ? <Pressable accessibilityRole="button" accessibilityLabel={`Dein letzter Suchwunsch: ${personalIdea.wish}`} disabled={!canCompose} onPress={() => selectIdea(personalIdea.wish)} style={styles.lastWish}><AppText role="caption" tone="secondary">Oder an deinen letzten Gedanken anknüpfen</AppText><AppText role="meta" numberOfLines={2}>{personalIdea.wish}</AppText><Ionicons name="arrow-forward" size={18} color={color.pink} /></Pressable> : null}
+          <View style={styles.welcomeIdeas}>
+            {ideasReady ? ideas.map(({ icon, title, wish }) => <Pressable key={title} accessibilityRole="button" accessibilityLabel={title} disabled={!canCompose} onPress={() => selectIdea(wish)} style={({ pressed }) => [styles.welcomeIdea, pressed && styles.pressed, !canCompose && styles.unavailableIdea]}>
+              <View style={styles.welcomeIdeaIcon}><Ionicons name={icon} size={23} color={color.pink} /></View>
+              <View style={styles.welcomeIdeaCopy}><AppText role="bodyStrong" style={styles.welcomeIdeaTitle}>{title}</AppText><AppText role="caption" tone="secondary" numberOfLines={2}>{wish}</AppText></View>
+              <Ionicons name="arrow-forward" size={19} color={color.pink} />
+            </Pressable>) : <ActivityIndicator color={color.pink} />}
+          </View>
+          {authenticated ? <WohinRecentRequests entries={recentRequests} color={color} loading={!historyLoaded} unavailable={historyUnavailable} onSelect={usePreviousRequest} disabled={!canCompose} onOpen={openHistory} width={Math.max(180, Math.min(240, viewportWidth * 0.62))} /> : null}
         </View> : <>
           {conversationHistory}
           {searchProgress}
@@ -620,6 +687,7 @@ function WohinExperience() {
         {replyMode && replyLimit === 0 ? <AppText role="caption" tone="secondary">Dein Wunsch ist sehr lang. Bearbeite ihn, um etwas zu ergänzen.</AppText> : null}
       </View>
     </KeyboardAvoidingView>
+      <WohinHistorySheet visible={historyOpen && verifiedActorId === user?.id} onClose={() => setHistoryOpen(false)} entries={recentRequests} color={color} loading={!historyLoaded} unavailable={historyUnavailable} disabled={!canCompose} onSelect={usePreviousRequest} onRetry={() => void refreshHistory(true)} onRemove={id => changeHistory(id)} onClear={() => changeHistory()} busy={historyBusy} />
       <Modal visible={privacyOpen} transparent animationType="slide" onRequestClose={() => setPrivacyOpen(false)}>
         <View style={styles.modalBackdrop}>
           <SafeAreaView style={styles.detailSheet} edges={["bottom"]} accessibilityViewIsModal>
@@ -630,6 +698,8 @@ function WohinExperience() {
             <ScrollView contentContainerStyle={styles.sheetContent}>
               <AppText role="label" tone="pink">Datenschutz zur KI-Suche</AppText>
               {searchPrivacy.map(paragraph => <AppText key={paragraph} role="body" tone="secondary">{paragraph}</AppText>)}
+              <AppText role="label" tone="pink">Dein lokaler Verlauf</AppText>
+              <AppText role="body" tone="secondary">{"Deine letzten 20 Anfragen bleiben bis zu 30 Tage auf diesem Gerät gespeichert, auf dem iPhone verschlüsselt. Im Verlauf kannst du einzelne Anfragen oder alles löschen. Beim Abmelden wird dieser lokale Verlauf entfernt. Der Verlauf wird nicht für zusätzliche Analysen oder KI-Lernen übermittelt. In der Browser-Vorschau gilt er nur für den geöffneten Tab."}</AppText>
               <Pressable accessibilityRole="button" onPress={() => { setPrivacyOpen(false); router.push("/privacy-consent"); }} style={styles.followUpButton}><AppText role="label" tone="pink">Zum Datenschutz</AppText></Pressable>
             </ScrollView>
           </SafeAreaView>
@@ -668,12 +738,21 @@ const createStyles = (color: typeof darkColors) => StyleSheet.create({
   thread: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 20, paddingBottom: 20 },
   threadHeader: { gap: 24, paddingBottom: 24 },
   threadFooter: { gap: 16, paddingTop: 20 },
-  welcome: { paddingTop: 28, paddingBottom: 24, gap: 24 },
-  welcomeTitle: { fontSize: 42, lineHeight: 46, letterSpacing: -1.4, maxWidth: 330 },
-  welcomeText: { maxWidth: 330, lineHeight: 26 },
+  welcome: { paddingTop: 8, paddingBottom: 24, gap: 24 },
+  welcomeHero: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 168 },
+  welcomeCopy: { flex: 1, gap: 12 },
+  welcomeTitle: { fontSize: 30, lineHeight: 35, letterSpacing: -0.9 },
+  welcomeText: { fontSize: 16, lineHeight: 23 },
+  welcomeCharacter: { width: 90, height: 168, alignItems: "center", justifyContent: "center" },
+  characterGlow: { position: "absolute", width: 110, height: 146, borderRadius: 55, right: -10, top: 12, opacity: 0.8 },
+  welcomeIdeas: { gap: 2 },
+  welcomeIdea: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 13, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.border },
+  welcomeIdeaIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: color.tint, alignItems: "center", justifyContent: "center" },
+  welcomeIdeaCopy: { flex: 1, gap: 4 },
+  welcomeIdeaTitle: { fontSize: 17, lineHeight: 23 },
+  unavailableIdea: { opacity: 0.5 },
   ideas: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   idea: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 15, paddingVertical: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border, borderRadius: 24 },
-  lastWish: { alignSelf: "flex-start", gap: 8, paddingVertical: 12, maxWidth: "95%" },
   history: { gap: 20 },
   userMessage: { alignSelf: "flex-end", maxWidth: "90%", paddingVertical: 12, paddingHorizontal: 16, borderRadius: 22, borderBottomRightRadius: 6, backgroundColor: color.message },
   assistantMessage: { lineHeight: 25, paddingVertical: 4 },
