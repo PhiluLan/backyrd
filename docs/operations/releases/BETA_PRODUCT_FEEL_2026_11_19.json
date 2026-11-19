@@ -4,6 +4,16 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "founderSectionOrderFollowUp": {
+    "sourceCommit": "09a19f529101de68232aa8533ce1635b04fe0a47",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f29e-7660-7e41-a228-1d4f08258791", "group": "89fedbb8-5427-414c-9879-de3c6ab9bc51" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f29e-f63e-7d2c-919c-f34701e8e4b2", "group": "d4e5b9d1-c026-4506-a8fe-a1641cc05b89" }
+    ],
+    "validation": "Section ordering and encoded mail composer tests, full Mobile contracts, Hermes, typecheck, verified Production exports and targeted lint passed (existing event retry dependency warning retained).",
+    "visualAcceptance": "PENDING"
+  },
   "scannableDetailsFollowUp": {
     "sourceCommit": "22799d0a330af30267aac99da70bf92ebda4b3d8",
     "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
