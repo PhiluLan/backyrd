@@ -4,6 +4,18 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "founderHomeDetailsFollowUp": {
+    "sourceCommit": "5d13592ebab93ebe53af8d9ad08d3211ea039dcc",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f385-6b53-7915-b80f-fbaf86872a86", "group": "d00c99dc-ab98-4c6a-ae03-e8a99f31e9cb" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f385-f8d6-7014-bcf8-b982a7b259ce", "group": "a80ecab7-b749-4eec-86b7-51f9fa14a2fa" }
+    ],
+    "changes": "Smaller greeting/daypart, white question mark, optional current district, weather removed, heading commas removed, compact Mood row, matched Moment/Event standard dimensions, full-image Event cards with category and truthful price, italic last query and Reduce Motion-aware depth carousel",
+    "validation": "Typecheck, targeted lint, full Mobile contracts, map/discovery, Hermes, Production validation and both verified iOS exports passed. Actual Home-load district/privacy/stale-response tests and Event pricing boundary tests passed.",
+    "visualAcceptance": "PENDING",
+    "databaseChanges": false
+  },
   "spotProfileAcceptance": {
     "status": "ACCEPTED_BY_FOUNDER",
     "date": "2026-11-19",
