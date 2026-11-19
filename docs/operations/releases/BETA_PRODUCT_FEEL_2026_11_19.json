@@ -4,6 +4,17 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "spotMomentsPresentationFollowUp": {
+    "sourceCommit": "b16d732a891270eab916982acfd9c008a83c6198",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f2bd-3f2e-717c-8a23-576b21c04cbf", "group": "03f9e5ca-b99f-4b47-bf52-beb6f4f35440" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f2bd-b4c8-79ce-9478-c644d3b29e90", "group": "c50eaa55-927c-4ad7-95f1-7b58f269648a" }
+    ],
+    "validation": "Full Mobile contracts, typecheck, targeted lint, actual Hermes execution, production release validation and both verified iOS exports passed.",
+    "visualAcceptance": "PENDING",
+    "databaseChanges": false
+  },
   "spacingAndDescriptionFollowUp": {
     "sourceCommit": "4e60ce63b3a0fed861509fe3d2b3439b40d2a6a4",
     "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
