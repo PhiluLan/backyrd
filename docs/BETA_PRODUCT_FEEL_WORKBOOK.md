@@ -871,3 +871,42 @@ Gefordert sind eine getestete Light-/Dark-Vorschau im 156-dp-Wohin-Kontext,
 Reduced-Motion-Fallback, Quellen/Runtime-Assets, Trigger und klare technische
 Kompatibilität. Die neue Animation ist mit diesem Eintrag nur beauftragt,
 noch nicht abgenommen oder veröffentlicht.
+
+
+### Veröffentlichungsbeleg: Wohin ohne KI-Infodialog
+
+Am 19. November 2026 auf Production für beide iOS-Runtimes veröffentlicht.
+Quelle Main `1a1ed466add8b4dde41b9d971edbb33e2ff51bb4`,
+[PR #773](https://github.com/PhiluLan/backyrd/pull/773), sämtliche erforderlichen
+[PR-Gates erfolgreich](https://github.com/PhiluLan/backyrd/actions/runs/44630828441).
+Exakte Main- / IOS_OTA-Zertifizierungen erfolgreich:
+[1.1.1](https://github.com/PhiluLan/backyrd/actions/runs/44631795608),
+[1.1.0](https://github.com/PhiluLan/backyrd/actions/runs/44631795708).
+GitHub-Archivprüfsummen und öffentliche EAS-/CI-Konfiguration abgeglichen;
+Upload ausschliesslich aus den zertifizierten Artefakten mit `--skip-bundler`.
+
+Runtime **1.1.1**:
+
+- Update: `01a1f604-c619-7b3c-8e15-135137aef9e8`
+- Gruppe: `a5fe774b-4c5c-4496-91a4-ba0426be183b`
+- Manifest SHA-256: `1af65944d7ca9a0c06a39b0729bc359997f733e2f6676a0c66e9835caf822ff1`
+- Ausgeliefertes Bundle SHA-256: `ee4e5b28895a050cd82bd82a59240452abf0b8cb9a9082b81fe3a66ef59415e7`
+- Vorherige Gruppe als Rückfallpunkt: `7af9ba28-c53f-4d2f-a221-06e097d001cf`
+
+Runtime **1.1.0**:
+
+- Update: `01a1f605-afcd-75d5-bce6-1c8d33e8a6b5`
+- Gruppe: `34eef31e-eab3-459c-a5be-905692a627fc`
+- Manifest SHA-256: `b97fde5a81d5cdff79780c84a9bc17f047f05a728591438cf5aeeaf0f76e90fe`
+- Ausgeliefertes Bundle SHA-256: `4331e5ffe01768f209b2404d3c06ba50c613e7a836d3e17375b3cb5f7d787f76`
+- Vorherige Gruppe als Rückfallpunkt: `6568a1d0-ba2d-4b9e-8eac-73c80c7e38e0`
+
+Nach beiden Uploads beide Production-Manifeste und tatsächliche CDN-Bundle-Bytes
+gegen die zertifizierten Artefakte geprüft: erfolgreich, beide Runtimes parallel
+verfügbar. Physische OTA-Aktivierung auf dem Founder-iPhone danach nicht beobachtet.
+Die grafische NukNuk-Animation wurde mit diesem OTA nicht verändert.
+
+Der Animations-Dev hat inzwischen eine isolierte erste Layer-Rig-Vorschau mit
+22-Sekunden-Ablauf, Light/Dark, Zeitlupe und statischem Fallback geliefert.
+Die Vorschau ist noch keine native Integration oder visuelle Founder-Abnahme;
+native Performance-/Batterieprüfung bleibt vor einer Integration erforderlich.
