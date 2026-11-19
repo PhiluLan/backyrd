@@ -204,3 +204,36 @@ Fehlgeschlagene Fotos werden durch einen ehrlichen kurzen Hinweis ersetzt;
 Text und Moods bleiben lesbar. Keine neuen Backend-Anfragen oder Datenänderungen.
 Mobile-Typecheck, gezieltes ESLint, vollständige Mobile-Vertragstests und direkte
 Hermes-Ausführung bestanden. Visuelle Founder-Abnahme steht aus.
+
+### Abnahme Spot-Profil und nächster Abschnitt: Entdecken
+
+Der Founder hat die Spot-Profilseite einschliesslich der neuen Momente am
+19. November ausdrücklich visuell abgenommen. Dieser Teil ist abgeschlossen;
+Punkt 1 insgesamt bleibt bis zur Abnahme der übrigen Verbraucheroberflächen offen.
+
+Entdecken erhält nun dieselbe UI-Schrift wie die Profilseite. Eine kleine
+Begrüssung, «Dein nächster guter Moment.» und die Wunschsuche bilden den Einstieg.
+Die Suchaktion ist dauerhaft sichtbar; die bestehende Eingabeprüfung bleibt
+erhalten. Abschnittsüberschriften haben 26/34 Punkte, dürfen umbrechen und werden
+nicht mehr durch Textmessung auf eine Zeile verkleinert. Die Hauptabschnitte
+erhalten 48 Punkte Abstand.
+
+Die drei Home-Ortsreihen und die Ortsliste verwenden gemeinsam `SpotPreviewCard`:
+Bild beziehungsweise vorhandene Backyrd-Grafik, darunter Name, Kategorie und
+Stadt/Adresse oder echte Entfernung, Moods und kanonischer Öffnungsstatus.
+Der Text liegt auf einer ruhigen Fläche, lange Namen dürfen vollständig umbrechen.
+Die Kartenvorschau verwendet ebenfalls die UI-Schrift. Das bisherige Bildsystem
+und seine Kosten-/Rechteregeln bleiben erhalten; Google-Fotos bleiben deaktiviert.
+
+Anfragen, Rankings, Standort-/Einwilligungsregeln, Analytics, Navigation und
+Fehler-/Leerzustände bleiben erhalten. Die Bild-Ready-Callbacks der ersten beiden
+Home-Karten werden durch die gemeinsame Komponente durchgereicht. Der entfallene
+Mess-Callback für die frühere einzeilige Begrüssung blockiert den Start nicht mehr.
+Web/Owner/Admin und «Wohin» haben keine Vertragsänderung.
+
+Typecheck, gezieltes ESLint, volle Mobile-Vertragstests, Karten-/Discovery-Tests,
+Hermes-Ausführung, Production-Validierung und beide geprüften iOS-Exporte bestanden.
+Die bestehenden Bild- und Status-Vertragstests prüfen jetzt die gemeinsame Karte.
+Der Simulator-Sichttest war wegen des gesperrten Mac nicht möglich. Zur visuellen
+Abnahme: Entdecken als Gast/angemeldet, Karten mit/ohne Foto, lange Namen,
+grosse Schrift, horizontales Blättern, Ortsliste und Öffnen der Profilseite.

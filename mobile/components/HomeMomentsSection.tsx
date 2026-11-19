@@ -49,7 +49,7 @@ function MomentPreview({ post, onOpen }: { post: SocialFeedPost; onOpen: () => v
   </Pressable>;
 }
 const styles = StyleSheet.create({
-  section: { marginTop: theme.spacing.xxl },
+  section: { marginTop: 48 },
   heading: { paddingHorizontal: theme.layout.pageGutter },
   rail: { paddingTop: theme.spacing.lg, paddingHorizontal: theme.layout.pageGutter, gap: theme.spacing.md },
   card: { width: 240, borderRadius: theme.radius.lg, backgroundColor: theme.color.surface, overflow: "hidden" },

@@ -101,7 +101,7 @@ export function HomeEventsSection({ onInitialContentReady }: { onInitialContentR
 }
 
 const styles = StyleSheet.create({
-  section: { marginTop: theme.spacing.xxxl },
+  section: { marginTop: 48 },
   heading: { paddingHorizontal: theme.layout.pageGutter, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.sm },
   allEventsAction: { minHeight: 44, alignSelf: "flex-end", justifyContent: "center" },
   allEventsText: { color: theme.color.pink, fontFamily: theme.type.bodyBold, fontSize: 13 },
