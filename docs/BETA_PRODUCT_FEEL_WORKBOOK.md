@@ -353,3 +353,17 @@ Der eigene Momente-Tab, Moment-Details und die abgenommene Spot-Profilseite
 bleiben erhalten. Eine spätere Reaktivierung erfordert eine explizite
 Produktentscheidung und die erneute Einbindung in Home samt Start-/Refresh-
 Lebenszyklus; der Entwurf ist aktuell nicht zur Anzeige freigegeben.
+
+### Startseite vorerst abgeschlossen
+
+Der Founder ist mit dem aktuellen Stand zufrieden und hat Dark sowie Light
+anhand eigener Geräteaufnahmen beurteilt. Letzte vereinbarte Korrektur:
+Das Fragezeichen der Tageszeitfrage nutzt nun die adaptive primäre Textfarbe
+anstelle von festem Weiss. Im Light-Modus ist es dunkel, im Dark-Modus entspricht
+es der hellen Textfarbe der Frage. Layout und Typografie bleiben erhalten.
+
+Mit dieser Korrektur ist die Startseite auf ausdrücklichen Founder-Wunsch
+vorerst abgeschlossen. Die Momentsektion bleibt ausgeblendet, ihr Entwurf bleibt
+aufbewahrt. Das ist eine Abnahme der Startseite, keine vollständige Abnahme
+aller App-Oberflächen oder Beta-Freigabe. Eine separate Geräteaufnahme nach
+dem letzten Kontrastfix liegt noch nicht vor.

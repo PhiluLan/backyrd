@@ -266,7 +266,7 @@ function HomeContent() {
           }}>Hey{"  "}{headlineName},</AppText> : null}
           <AppText accessibilityLabel={headlineName ? `Hey ${headlineName},` : "Hey"} numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.pageTitle, useSFPro && styles.cockpitGreeting, useSFPro && cockpitGreetingMetrics, { color: color.textPrimary }]}>{headlineName ? <>Hey{useSFPro ? "  " : " "}<Text style={{ color: color.pink }}>{headlineName},</Text></> : "Hey"}</AppText>
           <AppText testID="home-daypart-title" accessibilityRole="header" role="displayM" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.daypartTitle}>
-            Heute <Text style={styles.daypartAccent}>{daypart}</Text> schon was{"\u00a0"}vor<Text style={{ color: "#FFFFFF" }}>?</Text>
+            Heute <Text style={styles.daypartAccent}>{daypart}</Text> schon was{"\u00a0"}vor<Text style={{ color: color.textPrimary }}>?</Text>
           </AppText>
           <View style={[styles.searchShell, { borderColor: color.border, backgroundColor: color.surfaceElevated }]}>
             <TextInput accessibilityLabel="Was willst du machen?" onChangeText={value => { setQuery(value); setSearchHint(null); }} onSubmitEditing={event => submitDecision(event.nativeEvent.text)} placeholder="was willst du machen?" placeholderTextColor={color.textSecondary} returnKeyType="search" style={[styles.searchInput, { color: color.textPrimary }]} value={query} />
