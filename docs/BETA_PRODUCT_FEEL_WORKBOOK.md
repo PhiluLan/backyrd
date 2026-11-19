@@ -608,3 +608,47 @@ nicht durch echte Kontoeingriffe.
 Status: lokaler, noch unveröffentlichter Release-Kandidat. Kein allgemeines
 Beta-Sicherheitsurteil und keine Behauptung, jede denkbare Gerätekonfiguration
 bereits geprüft zu haben.
+
+
+### Veröffentlichungsbeleg: gemeinsames App-UI und Wohin
+
+Am 19. November 2026 auf dem bestehenden Production-Kanal für beide iPhone-
+Runtimes veröffentlicht. Quelle: Main `c756914a6bae22abbd097cd9e58ad0c458205f40`,
+[PR #767](https://github.com/PhiluLan/backyrd/pull/767). Alle erforderlichen
+PR-Gates einschliesslich Risk-based merge gate bestanden. Separate exakte
+Main-Zertifizierungen für `IOS_OTA`: [1.1.1](https://github.com/PhiluLan/backyrd/actions/runs/44576084530)
+und [1.1.0](https://github.com/PhiluLan/backyrd/actions/runs/44576172268), beide erfolgreich.
+Keine lokalen Bundle-Neubauten zur Veröffentlichung; `--skip-bundler` verwendet.
+
+Runtime **1.1.1**:
+
+- Update: `01a1f4d9-bf17-7941-9e8d-db46da9dcd9e`
+- Gruppe: `c4839fd3-9329-4d42-bb6d-0e51a29ecef9`
+- Manifest SHA-256: `bd44fd63afcf690795fe7f6cfa4ad30e897fce6edf92d0a07302b10f6ccdb8ce`
+- Tatsächlich ausgeliefertes Bundle SHA-256: `c229a03ec411a47c697b09b4cbd222bebbe062c677a2c51511fa4cb2e576c13a`
+- Vorherige Gruppe als Rückfallpunkt: `0572a63c-1baf-4c4a-81cf-cf5e52d445bf`
+
+Runtime **1.1.0**:
+
+- Update: `01a1f4da-a8ed-7ca8-8243-3230c2788e00`
+- Gruppe: `a108f329-592c-4e55-9a85-7e940579d635`
+- Manifest SHA-256: `928194aa46996ee6282f0337b7666b3ecbd4770acd7d8c1f0d079e5b05e4d88a`
+- Tatsächlich ausgeliefertes Bundle SHA-256: `0c17e553874b2b956eae8fd56333f1cd9838c811d5621efd87c6ba8b828c8d53`
+- Vorherige Gruppe als Rückfallpunkt: `25d8d1d0-a5a9-49a8-8f5b-60c6c1e4f78a`
+
+Nach Veröffentlichung wurde je Runtime die aktuelle Production-Manifest-ID,
+Runtime, Production-Konfiguration, deklarierte Launch-Asset-Prüfsumme und die
+SHA-256-Prüfsumme der tatsächlich heruntergeladenen CDN-Bytes mit dem
+zertifizierten Artefakt verglichen. Beide Prüfungen bestanden.
+
+Die ergänzten UI-Regressionen bestanden in der CI auch als Teil der vollständigen
+Produktprüfung: schmale/breite Seiten in Hell/Dunkel, ganze Titelwörter,
+ein stabiler Feed-Kopf sowie Legal-Fehler ohne zugänglichen geschützten Inhalt
+und erfolgreicher Wiederherstellung. Native Kamera und Software-Tastatur sind
+keine durch die Browserprüfung belegten Fähigkeiten.
+
+**Offen:** Geräte-Nachtest des neuen OTA und visuelle Founder-Abnahme. Der Mac
+ist seit dem Ende der ersten Live-Prüfung wieder gesperrt; die native
+Simulator-/iPhone-Bedienung wird vom Betriebssystem blockiert. Der Founder wurde
+um das Entsperren des Macs gebeten. Daher keine Behauptung einer abgeschlossenen
+nativen Tastaturprüfung oder einer vollständigen Beta-Abnahme.
