@@ -849,3 +849,25 @@ veröffentlichten OTA auf dem physischen iPhone wurde danach nicht beobachtet.
 Gemäss bestehendem ON_LOAD-Verhalten wird beim vollständigen Start nachgeladen
 und beim anschliessenden Start aktiviert. Die visuelle Founder-Abnahme bleibt
 ein eigener Schritt.
+
+### Wohin: KI-Hinweis ausblenden; natürliche Charakteranimation beauftragt
+
+Auf ausdrücklichen Founder-Wunsch entfällt das KI-Info-Symbol samt zusätzlichem
+Hinweisdialog in Wohin vollständig. Der inzwischen unzugängliche Dialog, sein
+State und der doppelte Hinweistext werden entfernt. Die zugehörige Prüfung
+auf identische doppelte Texte entfällt damit; der bestehende Product-Browsertest
+prüft stattdessen, dass Wohin keinen KI-Info-Button anbietet. Datenschutzbereiche,
+öffentliche Rechtsinformationen, Einwilligungen und die Freigaben vor einer
+Decision bleiben unverändert. Keine Backend- oder Rankingänderung.
+
+Separat wurde der vom Founder benannte Animations-Dev im Thread
+`01a1d1ab-ed6e-7720-a77e-b3d900e57c25` direkt beauftragt. Die aktuelle Wiedergabe
+schaltet wenige Ganzkörperbilder als Blinzler; die Bilder variieren aber auch
+Konturen und Körperdetails. Ziel ist eine kohärente, bodengebundene Figur:
+kurze Begrüssung, dezentes Atmen/Blinzeln mit Ruhephasen, kleines bestätigendes
+Nicken beim Absenden und sanfte Zustandsübergänge. Identität und Kleidung bleiben
+erhalten. Keine schwebende/skalierende PNG-Schleife und kein Identitäts-Morphing.
+Gefordert sind eine getestete Light-/Dark-Vorschau im 156-dp-Wohin-Kontext,
+Reduced-Motion-Fallback, Quellen/Runtime-Assets, Trigger und klare technische
+Kompatibilität. Die neue Animation ist mit diesem Eintrag nur beauftragt,
+noch nicht abgenommen oder veröffentlicht.

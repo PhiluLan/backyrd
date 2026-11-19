@@ -283,7 +283,7 @@ try {
   await page.getByRole("textbox",{name:"Was willst du machen?",exact:true}).waitFor();
   await page.getByText("Wohin", { exact: true }).last().click();
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).waitFor({ timeout: 30000 });
-  await page.getByRole("button", { name: "Datenschutz zur KI-Suche öffnen", exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Datenschutz zur KI-Suche öffnen", exact: true }).count(), 0, "Wohin keeps its AI notice out of the discovery interface");
   assert.equal(await page.getByText(/Suchangaben an OpenAI/).count(), 0);
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-search-390.png`});
   await page.getByRole("button", { name:/Bern entdecken/ }).click();

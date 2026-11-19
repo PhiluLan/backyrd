@@ -54,14 +54,6 @@ const lightColors: typeof darkColors = {
   detailText: "#53535A", chat: "#F7F7F5", brief: "#FFFFFF",
 };
 
-// Same AI disclosure as web/app/legal/page.tsx#decision. Device-only history
-// is explained separately below. Reading never records or changes consent.
-const searchPrivacy = [
-  "Wenn du nach Orten suchst, übermittelt Backyrd deinen Suchwunsch und die gewählten Suchangaben, zum Beispiel Stadt, Budget oder Begleitung, an OpenAI. Dazu kommen das Bezugsdatum und die Zeitzone, damit Angaben wie „morgen“ verstanden werden. Die KI hilft, deine Anfrage zu verstehen; passende Orte wählt Backyrd anhand seiner Spot- und Eventangaben aus.",
-  "Deine Konto-ID und E-Mail-Adresse werden dabei nicht an OpenAI gesendet. Angaben, die du selbst in das Suchfeld schreibst, sind Teil der Anfrage. Bitte gib deshalb keine vertraulichen Daten oder Namen anderer Personen ein. Backyrd fordert keine dauerhafte Speicherung der Modellantwort bei OpenAI an. Technische Protokolle beim Anbieter sind davon getrennt.",
-  "Die Verarbeitung durch OpenAI kann ausserhalb der Schweiz stattfinden. Persönliche Vorlieben berücksichtigt Backyrd nur mit deiner entsprechenden Einwilligung. Du kannst sie im Privacy Center verwalten. Fragen oder Anliegen zum Datenschutz: hello@backyrd.ch.",
-];
-
 async function withinIdentityDeadline<T>(operation: PromiseLike<T>): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -116,7 +108,6 @@ function WohinExperience() {
   const [offTopic, setOffTopic] = useState(false);
   const [newPlan, setNewPlan] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [selectedDetails, setSelectedDetails] = useState<DecisionProductCandidate | null>(null);
   const searchInputRef = useRef<React.ElementRef<typeof TextInput>>(null);
   const searchScrollRef = useRef<FlatList<DecisionProductCandidate>>(null);
@@ -605,7 +596,6 @@ function WohinExperience() {
       <View style={styles.headerCopy}><AppText role="cardTitle">Wohin<AppText role="cardTitle" tone="pink">?</AppText></AppText><AppText role="caption" tone="secondary">Mit NukNuk · {city ?? (identityReady ? "Deine Stadt" : "Stadt wird geladen")}</AppText></View>
       {!conversation && authenticated ? <Pressable accessibilityRole="button" accessibilityLabel="Letzte Anfragen öffnen" onPress={openHistory} style={styles.iconButton}><Ionicons name="time-outline" size={23} color={color.text} /></Pressable> : null}
       {conversation ? <Pressable accessibilityRole="button" accessibilityLabel="Neue Suche" disabled={loading} onPress={startNewSearch} style={styles.iconButton}><Ionicons name="create-outline" size={21} color={loading ? color.muted : color.text} /></Pressable> : null}
-      <Pressable accessibilityRole="button" accessibilityLabel="Datenschutz zur KI-Suche öffnen" onPress={() => setPrivacyOpen(true)} style={styles.iconButton}><Ionicons name="information-circle-outline" size={23} color={color.muted} /></Pressable>
     </View>
     <KeyboardAvoidingView style={styles.screenBody} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <FlatList
@@ -688,23 +678,6 @@ function WohinExperience() {
       </View>
     </KeyboardAvoidingView>
       <WohinHistorySheet visible={historyOpen && verifiedActorId === user?.id} onClose={() => setHistoryOpen(false)} entries={recentRequests} color={color} loading={!historyLoaded} unavailable={historyUnavailable} disabled={!canCompose} onSelect={usePreviousRequest} onRetry={() => void refreshHistory(true)} onRemove={id => changeHistory(id)} onClear={() => changeHistory()} busy={historyBusy} />
-      <Modal visible={privacyOpen} transparent animationType="slide" onRequestClose={() => setPrivacyOpen(false)}>
-        <View style={styles.modalBackdrop}>
-          <SafeAreaView style={styles.detailSheet} edges={["bottom"]} accessibilityViewIsModal>
-            <View style={styles.sheetHeader}>
-              <AppText role="sectionTitle" style={{ flex: 1 }}>Dein Wunsch. Deine Daten.</AppText>
-              <Pressable accessibilityRole="button" accessibilityLabel="Datenschutz schliessen" onPress={() => setPrivacyOpen(false)} style={styles.pagerButton}><Ionicons name="close" size={24} color={color.text} /></Pressable>
-            </View>
-            <ScrollView contentContainerStyle={styles.sheetContent}>
-              <AppText role="label" tone="pink">Datenschutz zur KI-Suche</AppText>
-              {searchPrivacy.map(paragraph => <AppText key={paragraph} role="body" tone="secondary">{paragraph}</AppText>)}
-              <AppText role="label" tone="pink">Dein lokaler Verlauf</AppText>
-              <AppText role="body" tone="secondary">{"Deine letzten 20 Anfragen bleiben bis zu 30 Tage auf diesem Gerät gespeichert, auf dem iPhone verschlüsselt. Im Verlauf kannst du einzelne Anfragen oder alles löschen. Beim Abmelden wird dieser lokale Verlauf entfernt. Der Verlauf wird nicht für zusätzliche Analysen oder KI-Lernen übermittelt. In der Browser-Vorschau gilt er nur für den geöffneten Tab."}</AppText>
-              <Pressable accessibilityRole="button" onPress={() => { setPrivacyOpen(false); router.push("/privacy-consent"); }} style={styles.followUpButton}><AppText role="label" tone="pink">Zum Datenschutz</AppText></Pressable>
-            </ScrollView>
-          </SafeAreaView>
-        </View>
-      </Modal>
       <Modal visible={selectedDetails !== null && showingResults} transparent animationType="slide" onRequestClose={() => setSelectedDetails(null)}>
         <View style={styles.modalBackdrop}>
           <SafeAreaView style={styles.detailSheet} edges={["top", "bottom"]} accessibilityViewIsModal>

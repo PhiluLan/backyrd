@@ -253,17 +253,3 @@ test("opening copy is explicitly about the requested visit and never invents a t
   assert.equal(wohinAvailability({...candidate,reasons:[{code:"requested-day-opening-hours",statement:"Freitag 17–23 Uhr"}]}), "Freitag 17–23 Uhr");
   assert.match(wohinAvailability({...candidate,reasons:[{code:"librarian-visit-time-unconfirmed"}]}), /noch offen/);
 });
-
-test("in-app AI disclosure stays identical to the public disclosure without a network dependency", () => {
-  const screen = fs.readFileSync(new URL("../app/(tabs)/wohin.tsx", import.meta.url), "utf8");
-  const ast = ts.createSourceFile("wohin.tsx", screen, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  let paragraphs;
-  const visit = node => {
-    if(ts.isVariableDeclaration(node) && node.name.getText(ast) === "searchPrivacy") paragraphs = node.initializer.elements.map(item=>item.text);
-    ts.forEachChild(node, visit);
-  };
-  visit(ast);
-  const publicPage = fs.readFileSync(new URL("../../web/app/legal/page.tsx", import.meta.url), "utf8").split('<section id="decision"')[1].split("</section>")[0];
-  const published = [...publicPage.matchAll(/<p className="b-muted">([\s\S]*?)<\/p>/g)].map(match=>match[1].replace(/\s+/g," ").trim());
-  assert.deepEqual(paragraphs, published);
-});
