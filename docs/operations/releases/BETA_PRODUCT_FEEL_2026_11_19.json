@@ -4,6 +4,19 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "momentsTabExperienceFirstDraft": {
+    "sourceCommit": "4f75a4de360cdd2b42903b3c3e964c9ab4aeefc8",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "direction": "Founder selected experiences and places first; people and social actions retained below content",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f3f9-33b1-7e34-bfeb-3b2b5fe248dd", "group": "2200ee04-28db-4cd4-8502-be673b2ab509", "previousGroup": "6b3b2dd1-9984-4413-b842-30d1e47df636" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f3f9-9696-7ec8-9cb9-bb67efe8d13f", "group": "4d2de6b8-caa7-4db1-a274-c7dde3cf1157", "previousGroup": "6ace40ce-eedf-4e94-8e7d-7c011559d2c3" }
+    ],
+    "validation": "Typecheck, targeted lint, full Mobile contracts, map/discovery, Hermes, Production validation and both verified iOS exports passed. Actual component render harness covers hierarchy, gallery paging/width, failure/retry, duplicate Mood copy and retained actions/default presentation.",
+    "nativeVisualAndInteractionAcceptance": "PENDING",
+    "scope": "Moments tab presentation; other PostCard consumers retain standard layout; accepted Home unchanged, Home moments remain hidden",
+    "databaseChanges": false
+  },
   "homeAcceptanceAndFinalContrast": {
     "sourceCommit": "1c1117b83ec809209e2826d5b23398472729f96c",
     "status": "HOME_ACCEPTED_BY_FOUNDER_FOR_NOW",
