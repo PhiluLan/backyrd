@@ -497,3 +497,52 @@ unter `/tmp/backyrd-wohin-personal-e2e.mjs` und
 `/tmp/backyrd-wohin-personal-shots/`; keine generierten Artefakte im Git.
 Native visuelle Abnahme auf dem iPhone, VoiceOver und grosse Systemschrift
 sowie OTA-Veröffentlichung sind noch offen.
+
+
+## Folgeüberarbeitung: Wohin als durchgehendes Gespräch
+
+Founder-Rückmeldung vom 19. November: Die erste Wohin-Überarbeitung wurde
+visuell abgelehnt. Einstiegskarten, hochspringendes Eingabefeld, plötzlich
+auftauchende Ganzkörperfigur, kleine Ergebnisfotos und separater Chat wirkten
+unzusammenhängend. Die Entscheidungslogik bleibt ausdrücklich unverändert.
+
+Der lokale Folgeentwurf verwendet einen einzigen Verlauf und ein dauerhaft
+montiertes Eingabefeld. NukNuk bleibt als Outline im Kopf sichtbar. Die Suche
+antwortet inline mit einer zurückhaltenden, abschaltbaren Punktanimation;
+keine simulierten Suchschritte und keine erfundene Fortschrittsanzeige.
+Ergebnisbilder sind grossflächig, Rückfragen und Ergänzungen bleiben direkt
+in derselben Ansicht. Datenschutz und Besuchshinweise bleiben als bewusste,
+untergeordnete Dialoge erreichbar. Die iOS-Tastaturbehandlung reserviert bei
+sichtbarer Tastatur keinen zusätzlichen Platz für die ausgeblendete Tabbar.
+
+Eine gemeinsame vertikale FlatList bewahrt die tatsächliche Sichtbarkeit der
+Ergebnisse für Impressionen. Serverreihenfolge, Aufnahmebedingungen, Request-
+Vertrag, Ranking, Transport, Datenschutz und Grounding bleiben unverändert.
+Abgebrochene Requests können den bearbeitbaren Entwurf nicht überschreiben;
+beim Abbruch einer Ergänzung bleibt diese als Entwurf erhalten.
+
+Lokale Prüfung mit dem exportierten Expo-Bundle und ausschliesslich
+synthetischem Transport: die drei Founder-Szenarien, Rückfragen, Ergänzung,
+Abbruch/späte Antwort, Entwurfserhalt, erneuter Versuch, Spot-Übergabe,
+Besuchshinweise, keine Offscreen-Impressionen, grosse Bilder und kein
+horizontaler Überlauf bei 320/390/430 Punkten in Hell/Dunkel bestanden.
+Mobile-Typecheck, Vertragsprüfungen und Lint bestanden (zwei bestehende
+Warnungen ausserhalb der geänderten Dateien). Die native Tastaturprüfung
+ist noch offen: der isolierte Simulator gelangt beim Deep Link zum Login.
+Dieser Stand ist noch nicht veröffentlicht oder visuell abgenommen.
+
+## Appweiter UI/UX-Auftrag
+
+Der Founder hat am 19. November die Prüfung und Umsetzung einer gemeinsamen
+Design- und Besuchersprache für die gesamte Consumer-App einschliesslich
+Live-Tests und Veröffentlichung freigegeben. Bereits abgenommene Start- und
+Spot-Seiten bilden die Referenz. Bewertet werden Darstellung, Verständlichkeit,
+Bedienung und Übergänge; die Entscheidungslogik bleibt ausserhalb dieses Auftrags.
+
+Prüfumfang: Entdecken, Wohin, Orte/Liste/Karte/Filter, Spot und Events, Momente
+und Erstellen, Profil und Gespeichertes, Suche, Nachrichten, Account-Einstieg,
+Einstellungen, Privatsphäre und Sicherheit sowie Lade-/Leer-/Fehlerzustände.
+Native Funktionen werden am Gerät geprüft; isolierte Fixtures ergänzen seltene
+Zustände. Keine echten Momente, Meldungen, Nachrichten oder Kontoveränderungen
+als Testdaten veröffentlichen. Derzeit ist die iPhone-Synchronisierung bis zum
+Sperren des verbundenen iPhones blockiert.

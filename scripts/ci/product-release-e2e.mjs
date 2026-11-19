@@ -282,7 +282,7 @@ try {
   await page.getByRole("textbox",{name:"Was willst du machen?",exact:true}).waitFor();
   await page.getByText("Wohin", { exact: true }).last().click();
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).waitFor({ timeout: 30000 });
-  await page.getByRole("link", { name: "Datenschutz zur KI-Suche öffnen", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Datenschutz zur KI-Suche öffnen", exact: true }).waitFor();
   assert.equal(await page.getByText(/Suchangaben an OpenAI/).count(), 0);
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-search-390.png`});
   await page.getByRole("button", { name:/Bern entdecken/ }).click();
@@ -291,11 +291,11 @@ try {
   assert.equal(state.decisions.length,0,"an idea fills the draft so the user can edit before sending");
   const firstWish = "Sonntag gemütlich Kaffee trinken";
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).fill(firstWish);
-  await page.getByText("Bern", { exact: true }).filter({visible:true}).last().waitFor();
+  await page.getByText("Mit NukNuk · Bern", { exact: true }).waitFor();
   const releaseFirstDecision = holdDecisionResponse(firstWish);
   try {
     await page.getByRole("button", { name:"Orte finden", exact: true }).click();
-    await page.getByText("Dein Wunsch ist bei mir.", { exact: true }).waitFor();
+    await page.getByRole("progressbar", { name: "NukNuk sucht" }).waitFor();
     assert.equal(await page.getByText(firstWish, { exact: true }).count(), 1, "the loading view shows the wish once");
     if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-search-progress-390.png`});
   } finally {
@@ -303,14 +303,13 @@ try {
   }
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).first().waitFor();
   const cards = page.getByTestId("wohin-result-card");
-  const dock = page.getByRole("button", {name:"Mit NukNuk chatten",exact:true});
+  const dock = page.getByTestId("wohin-composer-dock");
   await dock.waitFor();
-  const paletteCard = cards.first();
-  for (const [mode, expected] of [["light", "rgb(255, 255, 255)"], ["dark", "rgb(16, 16, 16)"]]) {
+  for (const [mode, expected] of [["light", "rgb(247, 247, 245)"], ["dark", "rgb(5, 5, 5)"]]) {
     await page.emulateMedia({ colorScheme: mode });
-    await paletteCard.evaluate(async (card, background) => {
+    await dock.evaluate(async (node, background) => {
       for (let tick = 0; tick < 30; tick++) {
-        if (getComputedStyle(card).backgroundColor === background) return;
+        if (getComputedStyle(node).backgroundColor === background) return;
         await new Promise(resolve => setTimeout(resolve, 30));
       }
       throw new Error("Wohin did not adopt the system appearance");
@@ -320,9 +319,9 @@ try {
   for (let attempt=0; attempt<40 && !state.interactions.some(row=>row.eventType === "candidate_impression"); attempt++) await page.waitForTimeout(100);
   assert.ok(state.interactions.some(row => row.eventType === "candidate_impression" && row.candidateId === spots[0].spotId));
   assert.equal(state.interactions.some(row => row.eventType === "candidate_impression" && row.candidateId === spots.at(-1).spotId), false, "offscreen cards must not record impressions");
-  const second = await cards.nth(1).boundingBox();
+  const photo = await cards.first().getByRole("button", {name:"Café Vorher entdecken",exact:true}).boundingBox();
   const dockAtTop = await dock.boundingBox();
-  assert.ok(second && dockAtTop && second.y + second.height <= dockAtTop.y, "two suggestions fit above the conversation dock");
+  assert.ok(photo && dockAtTop && photo.width >= 330 && photo.height > 270, "results give the place a large photo");
   for (let attempt=0; attempt<40 && !fixturePhotoRequests; attempt++) await page.waitForTimeout(100);
   assert.ok(fixturePhotoRequests>0,"the supplied cover image is requested through the canonical artwork component");
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-390.png`});
@@ -342,7 +341,7 @@ try {
   assert.ok(compactBounds && compactDock && compactBounds.x>=0 && compactBounds.x+compactBounds.width<=320 && compactBounds.y+compactBounds.height<compactDock.y,"the first Spot and conversation actions fit on small screens");
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-320.png`});
   await page.setViewportSize({width:390,height:844});
-  await page.getByText("Vor deinem Besuch",{exact:true}).first().click();
+  await cards.first().getByRole("button",{name:/Vor deinem Besuch/}).click();
   await page.getByText("Zur gewünschten Besuchszeit laut Angaben geöffnet",{exact:true}).waitFor();
   assert.equal(await page.getByText("Auswahl ohne persönliche Vorlieben",{exact:true}).count(),0,"visit details avoid generic personal-fit claims");
   await page.getByRole("button",{name:"Hinweise schliessen",exact:true}).click();
@@ -361,7 +360,7 @@ try {
   await page.getByRole("button",{name:"Dein Plan & Hinweise",exact:true}).click();
   await page.getByText("Das Angebot hier passt zu deinem Plan.",{exact:true}).filter({visible:true}).last().waitFor();
   await page.getByRole("button",{name:"Zurück zu deinen Vorschlägen",exact:true}).click();
-  await page.getByRole("heading",{name:"Das könnte dein Moment sein",exact:true}).waitFor();
+  await page.getByRole("heading",{name:"Wie wär’s hier?",exact:true}).waitFor();
 
   state.consent = true;
   state.worldName = "Café Aktualisiert";
@@ -370,7 +369,7 @@ try {
   await page.getByRole("button", { name:"Orte finden", exact: true }).click();
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
   assert.equal(await page.getByText(/World-Version 2/).count(), 0);
-  await page.getByText("Vor deinem Besuch",{exact:true}).first().click();
+  await cards.first().getByRole("button",{name:/Vor deinem Besuch/}).click();
   await page.getByText("Zur gewünschten Besuchszeit laut Angaben geöffnet",{exact:true}).waitFor();
   assert.equal(await page.getByText("Nach deinen Vorlieben ausgewählt",{exact:true}).count(),0);
   await page.getByRole("button",{name:"Hinweise schliessen",exact:true}).click();
@@ -379,38 +378,28 @@ try {
   await page.getByRole("button",{name:/Dein letzter Suchwunsch/}).waitFor();
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).waitFor();
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).fill("ruhiges Café nach Reload");
-  await page.getByText("Bern", { exact: true }).filter({visible:true}).last().waitFor();
+  await page.getByText("Mit NukNuk · Bern", { exact: true }).waitFor();
   await page.getByRole("button", { name:"Orte finden", exact: true }).click();
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
-  await page.getByRole("button", {name:"Mit NukNuk chatten",exact:true}).click();
-  await page.getByRole("heading", {name:"Dein Plan mit NukNuk",exact:true}).waitFor();
-  await page.getByText("Dein Plan",{exact:true}).waitFor();
+  const persistentComposer = await page.getByRole("textbox", {name:"Nachricht an NukNuk",exact:true}).elementHandle();
   await page.getByRole("textbox", {name:"Nachricht an NukNuk",exact:true}).fill("Lieber mit Terrasse");
-  if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) {
-    await page.waitForFunction(() => {
-      const title = Array.from(document.querySelectorAll('[role="heading"]')).find(node => node.textContent === "Dein Plan mit NukNuk");
-      return title && title.getBoundingClientRect().top < 32;
-    });
-    await page.getByRole("textbox", {name:"Nachricht an NukNuk",exact:true}).blur();
-    await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-chat-390.png`});
-  }
+  if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-conversation-390.png`});
   const refinedWish = "ruhiges Café nach Reload Ergänzung: Lieber mit Terrasse";
   const refinedResponse = page.waitForResponse(result => result.url().endsWith("/functions/v1/decision-v13")
     && result.request().method() === "POST" && result.request().postDataJSON()?.naturalLanguage === refinedWish);
   const releaseRefinedDecision = holdDecisionResponse(refinedWish);
   try {
     await page.getByRole("button", {name:"Nachricht senden",exact:true}).click();
-    await page.getByText("Gut, das nehme ich mit.", {exact:true}).waitFor();
-    await page.getByRole("dialog").getByText("Lieber mit Terrasse", {exact:true}).waitFor();
+    await page.getByText("Alles klar, ich schaue noch einmal.", {exact:true}).waitFor();
+    await page.getByText("Lieber mit Terrasse", {exact:true}).waitFor();
   } finally {
     releaseRefinedDecision();
   }
   assert.equal((await refinedResponse).status(), 200);
-  await page.getByRole("heading", {name:"Dein Plan mit NukNuk",exact:true}).waitFor({state:"hidden"});
+  assert.equal(await page.getByRole("textbox").evaluate((node, original) => node === original, persistentComposer), true, "one composer persists across the search and follow-up");
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
   assert.equal(state.decisions.at(-1).naturalLanguage, refinedWish);
-  await page.getByRole("button", {name:"Mit NukNuk chatten",exact:true}).click();
-  await page.getByRole("dialog").getByText("Lieber mit Terrasse", {exact:true}).waitFor();
+  await page.getByText("Lieber mit Terrasse", {exact:true}).waitFor();
   const countBeforeChatChoices = state.decisions.length;
   const searchChatInput = page.getByRole("textbox", {name:"Nachricht an NukNuk",exact:true});
   const sendSearchChat = page.getByRole("button", {name:"Nachricht senden",exact:true});
@@ -428,8 +417,6 @@ try {
   await page.getByRole("button", {name:"Für den neuen Plan suchen",exact:true}).click();
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
   assert.equal(state.decisions.at(-1).naturalLanguage, tomorrow);
-  await page.getByRole("button", {name:"Mit NukNuk chatten",exact:true}).click();
-  await page.getByRole("button", {name:"Gespräch schliessen",exact:true}).click();
   await page.getByRole("button", {name:"Suche ändern",exact:true}).click();
   await page.getByRole("textbox", {name:"Dein Suchwunsch",exact:true}).fill("ruhiges Café nach Reload");
   await page.getByRole("button", {name:"Orte finden",exact:true}).click();
@@ -451,13 +438,13 @@ try {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.equal(overflow, 0);
 
-  await page.getByRole("button", {name:"Anfrage ändern",exact:true}).click();
+  await page.getByRole("button", {name:"Suche ändern",exact:true}).click();
   await page.getByRole("textbox", {name:"Dein Suchwunsch",exact:true}).fill("Teriyaki essen in Bern, es muss aber ein Club in der Nacht sein");
   await page.getByRole("button", {name:"Orte finden",exact:true}).click();
   await page.getByRole("button", {name:/Testclub/}).waitFor();
   await page.getByRole("button", {name:"Asiatisch essen",exact:true}).waitFor();
   assert.equal(await page.getByText("Zoo mit Club im Namen",{exact:true}).count(), 0);
-  await page.getByRole("button", {name:"Anfrage ändern",exact:true}).click();
+  await page.getByRole("button", {name:"Suche ändern",exact:true}).click();
   state.unavailable = false;
   await page.getByRole("textbox", {name:"Dein Suchwunsch",exact:true}).fill("XYZ");
   const placeholderRequests = [];
@@ -467,7 +454,7 @@ try {
   page.on("request", recordPlaceholderRequest);
   await page.getByRole("button", {name:"Orte finden",exact:true}).click();
   await page.getByRole("button", {name:"Kultur",exact:true}).waitFor();
-  await page.getByText(/XYZ klingt nach einem Geheimcode/).waitFor();
+  await page.getByText("Da brauche ich noch eine kleine Idee von dir. Worauf hast du Lust?",{exact:true}).waitFor();
   page.off("request", recordPlaceholderRequest);
   assert.equal(placeholderRequests.length, 0, "placeholder must reach the category chooser before any Decision request");
   assert.equal(await page.getByTestId("wohin-result-card").count(), 0);
@@ -510,7 +497,7 @@ try {
   await page.getByText("Momente",{exact:true}).last().click();
   await page.getByRole("button",{name:"Momentdetails anzeigen",exact:true}).first().click();
   await page.getByRole("button",{name:"Ähnliche Orte finden",exact:true}).first().click();
-  await page.getByRole("heading",{name:"Das könnte dein Moment sein",exact:true}).waitFor();
+  await page.getByRole("heading",{name:"Wie wär’s hier?",exact:true}).waitFor();
   assert.equal(state.decisions.at(-1).naturalLanguage,"Ich suche einen Ort (Café) mit dieser Atmosphäre: Gemütlich, Ruhig in Bern.");
   await page.getByRole("button",{name:"Café Aktualisiert entdecken",exact:true}).click();
   await page.getByText("DEIN PLAN MIT NUKNUK",{exact:true}).waitFor();

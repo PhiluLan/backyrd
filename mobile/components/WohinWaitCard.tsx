@@ -1,48 +1,53 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, AppState, Pressable, StyleSheet, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { AccessibilityInfo, Animated, AppState, Pressable, StyleSheet, View } from "react-native";
 
 import { AppText } from "./foundation/AppText";
-import { NuknukAvatar } from "./NuknukAvatar";
 import { useBackyrdTheme } from "../theme/backyrd";
 
-/** Conversation while waiting, not a claim about backend stages or progress. */
+/** An inline reply from the already-present NukNuk, with no simulated progress. */
 export function WohinWaitCard({ isReply, onLeave }: { isReply: boolean; onLeave: () => void }) {
   const { color } = useBackyrdTheme();
   const [seconds, setSeconds] = useState(0);
+  const [reduceMotion, setReduceMotion] = useState(true);
+  const [foreground, setForeground] = useState(AppState.currentState === "active");
+  const dots = useRef([new Animated.Value(0.4), new Animated.Value(0.4), new Animated.Value(0.4)]).current;
   useEffect(() => {
+    let active = true;
     const started = Date.now();
-    const timer = setInterval(() => {
-      if (AppState.currentState === "active") setSeconds(Math.floor((Date.now() - started) / 1000));
-    }, 1000);
-    return () => clearInterval(timer);
+    void AccessibilityInfo.isReduceMotionEnabled().then(value => { if (active) setReduceMotion(value); }).catch(() => undefined);
+    const motion = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
+    const app = AppState.addEventListener("change", state => setForeground(state === "active"));
+    const timer = setInterval(() => { if (AppState.currentState === "active") setSeconds(Math.floor((Date.now() - started) / 1000)); }, 1000);
+    return () => { active = false; clearInterval(timer); motion.remove(); app.remove(); };
   }, []);
-  const thought = seconds < 6
-    ? "Ein guter Plan darf sich ganz nach dir anfühlen."
-    : seconds < 12
-      ? "Manchmal braucht es nur den richtigen Ort für einen richtig guten Moment."
-      : seconds < 20
-        ? "Dein Wunsch gibt die Richtung vor. Auch die kleinen Details zählen."
-        : "Das dauert gerade etwas länger. Ich bin noch dran – du kannst deinen Wunsch auch anpassen.";
+  useEffect(() => {
+    if (reduceMotion || !foreground) { dots.forEach(dot => dot.setValue(0.65)); return; }
+    dots.forEach(dot => dot.setValue(0.4));
+    const animation = Animated.loop(Animated.sequence([
+      Animated.stagger(160, dots.map(dot => Animated.sequence([
+        Animated.timing(dot, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.timing(dot, { toValue: 0.4, duration: 300, useNativeDriver: true }),
+      ]))),
+      Animated.delay(180),
+    ]));
+    animation.start();
+    return () => animation.stop();
+  }, [dots, foreground, reduceMotion]);
 
-  return <View style={[styles.card, { backgroundColor: color.surface, borderColor: color.border }]}>
-    <View style={styles.character}><NuknukAvatar height={148} animate /></View>
-    <View style={styles.status} accessibilityLiveRegion="polite">
-      <ActivityIndicator size="small" color={color.pink} />
-      <AppText role="label" tone="pink">NukNuk sucht für dich</AppText>
+  return <View style={styles.reply}>
+    <View style={styles.status} accessibilityLabel="NukNuk sucht" accessibilityRole="progressbar">
+      {dots.map((dot, index) => <Animated.View key={index} accessible={false} style={[styles.dot, { backgroundColor: color.pink, opacity: dot }]} />)}
+      <AppText role="caption" tone="pink">NukNuk</AppText>
     </View>
-    <AppText role="sectionTitle" style={styles.center}>{isReply ? "Gut, das nehme ich mit." : "Dein Wunsch ist bei mir."}</AppText>
-    <AppText role="body" tone="secondary" style={styles.thought}>{thought}</AppText>
-    <Pressable accessibilityRole="button" onPress={onLeave} style={styles.action}>
-      <AppText role="label" tone="pink">Wunsch anpassen</AppText>
-    </Pressable>
+    <AppText role="body">{isReply ? "Alles klar, ich schaue noch einmal." : "Ich schaue, was zu deinem Plan passt."}</AppText>
+    {seconds >= 12 ? <AppText role="meta" tone="secondary" accessibilityLiveRegion="polite">{seconds >= 24 ? "Das dauert gerade länger. Ich bin noch dran. Du kannst deinen Wunsch jederzeit anpassen." : "Noch einen Moment …"}</AppText> : null}
+    <Pressable accessibilityRole="button" onPress={onLeave} style={styles.action}><AppText role="caption" tone="secondary">Wunsch anpassen</AppText></Pressable>
   </View>;
 }
 
 const styles = StyleSheet.create({
-  card: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 12, gap: 16, borderWidth: StyleSheet.hairlineWidth, borderRadius: 28 },
-  character: { alignItems: "center" },
-  status: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: 8 },
-  center: { textAlign: "center" },
-  thought: { textAlign: "center", minHeight: 72 },
-  action: { minHeight: 44, alignItems: "center", justifyContent: "center" },
+  reply: { gap: 12, paddingVertical: 6 },
+  status: { flexDirection: "row", alignItems: "center", gap: 6 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  action: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center" },
 });
