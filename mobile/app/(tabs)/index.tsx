@@ -22,6 +22,7 @@ import { HomeEventsSection } from "../../components/events/HomeEventsSection";
 import { HomeMomentsSection } from "../../components/HomeMomentsSection";
 import { HomeDisplayHeading } from "../../components/HomeDisplayHeading";
 import { IconButton } from "../../components/foundation/Button";
+import { NuknukAvatar } from "../../components/NuknukAvatar";
 import { StateView } from "../../components/foundation/StateView";
 import { loadDiscoveryOpeningSchedules } from "../../lib/discovery-opening-hours";
 import { spotOpeningStatusNow, type SpotOpeningStatus } from "../../lib/spot-opening-status";
@@ -251,8 +252,8 @@ function HomeContent() {
                 <IconButton accessibilityLabel="Benachrichtigungen" onPress={() => router.push("/safety-notifications" as never)}>
                   <Ionicons color={color.textPrimary} name="notifications-outline" size={30} />
                 </IconButton>
-                <IconButton accessibilityLabel="Profil öffnen" onPress={() => router.push("/(tabs)/profile" as never)}>
-                  <Ionicons name="person-outline" size={27} color={color.textPrimary} />
+                <IconButton accessibilityLabel="Mein Backyrd – Profil öffnen" style={styles.profileButton} onPress={() => router.push("/(tabs)/profile" as never)}>
+                  <NuknukAvatar height={29} appearance="outline" />
                 </IconButton>
               </> : <Pressable accessibilityRole="button" accessibilityLabel="Anmelden" onPress={() => router.push("/auth/login" as never)} style={[styles.guestLogin, { borderColor: color.border }]}>
                 <AppText role="label" tone="pink">Anmelden</AppText>
@@ -344,6 +345,7 @@ const styles = StyleSheet.create({
   daypartTitle: { marginTop: theme.spacing.xs, marginHorizontal: theme.layout.pageGutter, alignSelf: "stretch", fontSize: 22, lineHeight: 30 },
   daypartAccent: { textDecorationLine: "underline", textDecorationStyle: "solid", textDecorationColor: theme.color.pink },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
+  profileButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#141416", borderWidth: 1, borderColor: "rgba(255,67,142,0.28)" },
   guestLogin: { minHeight: 44, justifyContent: "center", paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.color.border },
   searchShell: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl, minHeight: 68, paddingHorizontal: theme.spacing.lg, paddingRight: theme.spacing.xs, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.lg, backgroundColor: theme.color.surfaceElevated },
   searchInput: { flex: 1, minWidth: 0, minHeight: 68, color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 18, paddingVertical: 12 },

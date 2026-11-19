@@ -295,3 +295,18 @@ Das Profilfoto oben rechts wurde durch ein weisses Profil-Symbol im bestehenden
 IconButton ersetzt, mit derselben Profilnavigation und zugänglicher Beschriftung.
 Home lädt das dafür nicht mehr benötigte Avatarfeld nicht mehr und wartet beim
 Start nicht mehr auf dessen Bild-Callback. Das Profil selbst bleibt unverändert.
+
+### Nuknuk-Profilbutton
+
+Der Founder wünscht statt des allgemeinen Profil-Symbols einen kleinen Nuknuk-
+Kopf als Zugang zu «Mein Backyrd»: dunkler Kreis, reduzierte pinke Gesichtskontur,
+statisch. Die vorhandene `NuknukAvatar`-Komponente erhält dafür eine Outline-
+Darstellung, angelehnt an Bob, Haarsträhne, Augen und Lächeln der vorhandenen Figur.
+Die Kontur verwendet native Formen ohne neue Bibliothek oder Bilddienst.
+Illustration und optionales Blinzeln bleiben für die bestehende Darstellung
+erhalten; die Outline wird auch bei gesetztem Animationsparameter nicht animiert.
+Der 46-Punkte-Button nutzt die bestehende Profilroute, Beschriftung
+«Mein Backyrd – Profil öffnen» und den vorhandenen Press-Zustand.
+
+Typecheck, gezieltes ESLint und vollständige Mobile-Vertragstests bestanden.
+Visuelle Founder-Abnahme des neuen Symbols steht aus.
