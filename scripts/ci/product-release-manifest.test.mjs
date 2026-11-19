@@ -383,3 +383,16 @@ test("a Social function and its private-media helper ship as sealed artifact byt
  put(output,'bundle/'+helperPath,'tampered\n');
  assert.throws(()=>verifyProductReleaseManifest({artifactDir:output,expectedHash:manifest.manifestHash,expectedSourceSha:head}),/release_artifact_file_mismatch/);
 });
+
+test('regional context timeout PRODUCT recovery proof is bound to exact SQL, archive and no deployed code',async()=>{
+ const {verifiedArchiveRecovery}=await import('./product-release-manifest.mjs');
+ const {DECISION_CONTEXT_TIMEOUT_SCOPE:contractVersion,DECISION_CONTEXT_TIMEOUT_MIGRATION:migration}=await import('../deployment/isolated-research-migration.mjs');
+ const proof={runId:1,artifactId:2,artifactDigest:'sha256:'+'a'.repeat(64)};
+ const plan={isolatedResearchScope:{contractVersion,executionAuthorized:false,migrations:[migration],restoreDrill:proof},authConfig:{deploy:false},deployFunctions:[]};
+ const additive={restoreDrillStatus:'ISOLATED_DATABASE_AND_MEDIA_RESTORE_PASS',restoreDrillReceipt:proof};
+ assert.equal(verifiedArchiveRecovery(plan,additive,[migration]),true);
+ for(const changed of [{...migration,sha256:'b'.repeat(64)},{...migration,path:'supabase/migrations/other.sql'}])assert.equal(verifiedArchiveRecovery(plan,additive,[changed]),false);
+ assert.equal(verifiedArchiveRecovery({...plan,deployFunctions:['decision-v13']},additive,[migration]),false);
+ assert.equal(verifiedArchiveRecovery({...plan,authConfig:{deploy:true}},additive,[migration]),false);
+ assert.equal(verifiedArchiveRecovery(plan,{...additive,restoreDrillReceipt:{...proof,artifactId:3}},[migration]),false);
+});
