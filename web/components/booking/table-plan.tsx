@@ -43,7 +43,7 @@ export function TablePlan({ snapshot, areaId, describe, onEdit }: { snapshot: Bo
   const [selected, setSelected] = useState("");
   const [zoom, setZoom] = useState("1");
   return <section aria-label="Grafischer Tischplan">
-    <div className={styles.actions}><button className={styles.secondary} onClick={onEdit}>Tischplan bearbeiten</button><label>Plan vergrössern<select value={zoom} onChange={(event) => setZoom(event.target.value)}><option value="1">100 %</option><option value="2">200 %</option><option value="3">300 %</option></select></label></div>
+    <div className={styles.actions}>{(snapshot.access?.can_manage ?? true) && <button className={styles.secondary} onClick={onEdit}>Tischplan bearbeiten</button>}<label>Plan vergrössern<select value={zoom} onChange={(event) => setZoom(event.target.value)}><option value="1">100 %</option><option value="2">200 %</option><option value="3">300 %</option></select></label></div>
     <p className={styles.help}>Schematischer Plan · Die Tischkarten darunter zeigen Reservierungen und Servicestatus. Die Anordnung verändert keine Buchungen.</p>
     {snapshot.areas.filter((area) => !areaId || area.id === areaId).map((area) => {
       const tables = snapshot.tables.filter((table) => table.area_id === area.id);
