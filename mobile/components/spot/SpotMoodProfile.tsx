@@ -81,7 +81,7 @@ export function SpotMoodProfile({ moods, appearance = "dark" }: { moods: SpotMoo
 const styles = StyleSheet.create({
   summary: { gap: 0 },
   summaryHeader: { gap: 6, marginBottom: 24 },
-  summaryTitle: { fontFamily: theme.type.bodyMedium, fontSize: 21, lineHeight: 28, letterSpacing: -0.4 },
+  summaryTitle: { fontFamily: theme.type.bodyBold, fontSize: 26, lineHeight: 34, letterSpacing: -0.4 },
   summarySubtitle: { fontSize: 13, lineHeight: 20 },
   topMoods: { gap: 19 },
   leadingLabel: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 20 },

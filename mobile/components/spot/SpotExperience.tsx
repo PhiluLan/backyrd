@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
   presentSpotExperience,
@@ -43,10 +43,11 @@ function ExperienceRow({ card, area = false }: { card: PublicSpotCard; area?: bo
   </View>;
 }
 
-export function SpotExperience({ profile }: { profile: unknown }) {
+export function SpotExperience({ profile, children }: { profile: unknown; children?: ReactNode }) {
   const experience = presentSpotExperience(profile);
   return <View>
     {experience.offers.length > 0 && <View style={styles.section}><Text style={styles.heading}>Das kannst du hier erleben</Text>{experience.offers.map(offer => <ExperienceRow key={offer.id} card={offer} />)}</View>}
+    {children}
     {experience.areas.length > 0 && <View style={styles.section}><Text style={styles.heading}>Dein Platz vor Ort</Text>{experience.areas.map(area => <ExperienceRow key={area.id} card={area} area />)}</View>}
     {experience.shared.length > 0 && <View style={styles.section}><Text style={styles.heading}>Gut zu wissen</Text><VisitorDetails facts={experience.shared} /></View>}
   </View>;
@@ -54,7 +55,7 @@ export function SpotExperience({ profile }: { profile: unknown }) {
 
 const styles = StyleSheet.create({
   section: { marginBottom: theme.spacing.xxl },
-  heading: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 22, lineHeight: 29, marginBottom: 12 },
+  heading: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 26, lineHeight: 34, marginBottom: 16 },
   row: { borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.lg, paddingHorizontal: 18, backgroundColor: theme.color.surface, marginBottom: 12 },
   summary: { minHeight: 76, paddingVertical: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   summaryCopy: { flex: 1, gap: 6 },

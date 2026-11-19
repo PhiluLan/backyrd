@@ -11,6 +11,7 @@ import "./test-shell-quote.mjs";
 import "./test-recent-decision-search.mjs";
 import "./test-spot-address-presentation.mjs";
 import "./test-supabase-runtime-config.mjs";
+import "./test-spot-detail-layout.mjs";
 
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
 const decision = read("app/(tabs)/wohin.tsx");

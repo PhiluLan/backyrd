@@ -2,6 +2,28 @@
 
 ## Punkt 1 – Produktgefühl und Bedienung
 
+### Founder-Reihenfolge und Typografie
+
+Die Hauptseite folgt nun dieser Reihenfolge: Ortsart/Preisniveau, Adresse,
+Kontakt, reguläre/Sonderöffnungszeiten, Erlebnisse, Platz vor Ort, Gut zu wissen,
+Moods, Mehr Infos, Hier erlebt, umliegende Orte, Betreiberzugang und Kontakt-Hinweis.
+Vorhandene Events und persönliche Planhinweise bleiben im Erlebnisbereich.
+Fotos, Beschreibung und Quellenangaben sind unter Mehr Infos erreichbar; der
+Foto-Viewer ist dort als untergeordnetes Modal eingebettet.
+
+Spotname: dieselbe serifenlose Libre-Franklin-Familie wie die übrige Oberfläche,
+38/45 mit dynamisch gemessener Hero-Höhe. Abschnittstitel 26/34; Öffnungszeit-Titel
+22/29. Keine globale Typografieänderung auf anderen Screens.
+
+„Stimmt etwas nicht? / Schreibe uns!“ öffnet einen Mail-Entwurf an hello@backyrd.ch
+mit URL und Name des Orts. Kein automatischer Versand und keine beigefügten
+Kontodaten. Der vorhandene Link-Öffner übernimmt die Fehlerbehandlung.
+Betreiber-Verifikation und die bestehenden Claim-Zustände bleiben unverändert.
+
+Regressionsprüfung: Reihenfolge, internes Erlebnis-/Raum-/Hinweis-Layout,
+serifenlose Titelrolle und Mail-Link mit Sonderzeichen. Vollständige Mobile-Verträge,
+Hermes-Prüfung, Typecheck und gezieltes Lint bestanden. Visuelle Abnahme bleibt offen.
+
 ### Abnahme-Folgekorrektur: aufgeklappte Inhalte scannbar machen
 
 Founder: Gesamtgestaltung deutlich besser; Angebote und Räume enthalten noch zu
