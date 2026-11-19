@@ -647,8 +647,69 @@ ein stabiler Feed-Kopf sowie Legal-Fehler ohne zugänglichen geschützten Inhalt
 und erfolgreicher Wiederherstellung. Native Kamera und Software-Tastatur sind
 keine durch die Browserprüfung belegten Fähigkeiten.
 
-**Offen:** Geräte-Nachtest des neuen OTA und visuelle Founder-Abnahme. Der Mac
-ist seit dem Ende der ersten Live-Prüfung wieder gesperrt; die native
-Simulator-/iPhone-Bedienung wird vom Betriebssystem blockiert. Der Founder wurde
-um das Entsperren des Macs gebeten. Daher keine Behauptung einer abgeschlossenen
-nativen Tastaturprüfung oder einer vollständigen Beta-Abnahme.
+**Geräte-Nachtest, 19. November 2026:** Die interne Release-Diagnose auf dem
+angeschlossenen iPhone bestätigt Runtime `1.1.1`, Kanal `production`, Startquelle
+OTA und exakt Update `01a1f4d9-bf17-7941-9e8d-db46da9dcd9e`; Emergency Launch
+ist `NEIN`. Die grossen Ergebnisbilder, der gemeinsame Gesprächskopf und das
+durchgängige Eingabefeld sind damit auch im installierten Release nachgewiesen.
+
+Live geprüft: neuer Getränkewunsch, Ergänzung im selben Verlauf, Wechsel ins
+Volta-Bräu-Profil und Rückkehr, neuer Familienwunsch mit vierjährigem Kind und
+Indoor-Wunsch sowie `xyz haha asdfasdfasdf`. Bei den ersten beiden per
+Mac-Tastatur automatisierten Eingaben wurden Zeichen vertauscht; diese belegen
+den UI-Verlauf, nicht die exakte semantische Eingabe. Getrenntes Fokussieren und
+anschliessendes Tippen lieferte danach den Familien- und Unsinn-Wunsch korrekt.
+Die Auswahl bzw. Relevanz der Orte wurde nicht bewertet. Der Familienwunsch
+zeigte einmal den ehrlichen Fehlerzustand; derselbe Wunsch gelang nach dem
+angebotenen erneuten Versuch. Die Unsinn-Eingabe zeigte eine verständliche
+Bitte um Präzisierung. Home, Profil und die neuen Einstellungen wurden erneut
+visuell kontrolliert. Es wurden keine Momente, Kommentare oder Meldungen
+veröffentlicht; normale Entscheidungs- und Ansichtsereignisse können entstehen.
+
+**Gerätefund:** Bei einem längeren Wunsch scrollte das native Eingabefeld zu
+früh intern. Die Korrektur in [PR #769](https://github.com/PhiluLan/backyrd/pull/769)
+wurde nach erneuter Mac-Entsperrung mit der echten iOS-Software-Tastatur geprüft;
+Details folgen im Nachtrag. Die visuelle Founder-Abnahme bleibt davon getrennt.
+Dies ist keine vollständige Beta- oder Sicherheitsabnahme.
+
+
+### Native Wohin-Eingabe: gezielter Nachtrag
+
+Arbeitsklasse `PRODUCT_RELEASE`; betroffene Implementierung nur
+`mobile/app/(tabs)/wohin.tsx`, dazu der bestehende kanonische Browser-Test.
+Die native Zeilenbegrenzung wird entfernt. Statt der Scrollhöhe eines bereits
+bemessenen Eingabefelds misst ein für Bedienung und Screenreader ausgeblendeter
+Text denselben Inhalt mit derselben Schrift und Breite. Dadurch kann die Höhe
+zwischen 44 und 120 Punkten wachsen und wieder schrumpfen. Erst an der Grenze
+scrollt das Eingabefeld intern; dasselbe Feld bleibt durch alle Zustände bestehen.
+Keine Änderungen an Requests, Interpretation, Ranking oder Serverantworten.
+
+Lokale Validierung des Kandidaten: Typprüfung, gezielter Lint ohne Fehler,
+betroffene Mobile-Produktverträge und vollständige kanonische App-Journey gegen
+den exportierten tatsächlichen App-Code bestanden. Die Journey prüft zusätzlich
+mehrzeiliges Wachsen, die Höhenbegrenzung sowie Rückkehr auf 44 Punkte nach
+Kürzen und Leeren. Alle Antworten sind synthetisch, ohne Produktionsaktionen.
+Nach erneuter Mac-Entsperrung bestand der native Nachtest auf dem iPhone-16e-
+Simulator mit iOS 18.3: ein vierzeiliger Wunsch vollständig lesbar über der
+Software-Tastatur, zusätzliche Zeile mit begrenzter Höhe und sichtbarem Cursor,
+Kürzen und vollständiges Leeren zurück auf kompakte Höhe, direktes Tippen über
+die Bildschirmtasten, Absenden, zehn Sekunden synthetischer Wartezustand,
+Ergebnisdarstellung und mehrzeilige Ergänzung im selben Verlauf. Kopf und
+Senden-Button bleiben erreichbar; die Tab-Navigation ist bei offener Tastatur
+ausgeblendet. Hellmodus, Ergebnisdarstellung und erneutes Öffnen der Tastatur
+wurden ebenfalls nativ visuell geprüft.
+
+Der Native-Test nutzte den exakt gleichen Wohin-Dateiinhalt wie der PR
+(SHA-256 `cc5440776b5bdcc65b740083d40544e3afe6f1e698a4fc04d7fe19f81a781e9d`). Nur im temporären,
+nicht veröffentlichten Testverzeichnis simuliert ein vorgeschalteter Transport
+die reservierte Adresse `https://example.invalid` über den lokalen Fixture-
+Server. Die bestehende HTTPS-Konfigurationsprüfung und SecureStore bleiben
+unverändert. Der lokale Simulator-Client wurde regulär mit Simulator-
+Entitlements signiert; fehlende Entitlements des ersten unsignierten
+Test-Builds wurden nicht durch einen Auth- oder Speicher-Bypass umgangen.
+Keine echten Zugangsdaten oder Produktionsverbindungen im Simulator-Test.
+
+Die erforderlichen CI-Gates für den Implementierungsstand `7f864df0` bestanden:
+[Risk Gate](https://github.com/PhiluLan/backyrd/actions/runs/44608289690).
+Dieser Nachtrag ist noch kein Veröffentlichungsbeleg; die neue Main-
+Zertifizierung und der OTA-Nachweis werden separat festgehalten.

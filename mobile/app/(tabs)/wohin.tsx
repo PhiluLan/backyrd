@@ -607,9 +607,14 @@ function WohinExperience() {
       <View style={[styles.dock, { paddingBottom: dockPadding }]} testID="wohin-composer-dock">
         {editing && conversation ? <AppText role="caption" tone="secondary" style={styles.editLabel}>Wunsch bearbeiten</AppText> : null}
         <View style={styles.chatDock}>
-          <TextInput ref={searchInputRef} accessibilityLabel={replyMode ? clarificationQuestion ? "Antwort auf NukNuks Rückfrage" : "Nachricht an NukNuk" : "Dein Suchwunsch"} placeholder={replyMode ? clarificationQuestion ? "Deine Antwort …" : "Schreib einfach weiter …" : "Erzähl mir …"} placeholderTextColor={color.muted} style={[styles.searchInput, { height: inputHeight }]} autoCapitalize="sentences" multiline numberOfLines={1} onContentSizeChange={event => setInputHeight(Math.max(44, Math.min(120, event.nativeEvent.contentSize.height)))} maxLength={replyMode ? replyLimit : 2000} editable={!loading && (!replyMode || replyLimit > 0)} value={draft}
+          <View style={styles.inputColumn}>
+          {/* Measure the same wrapped text independently: a sized input's scroll
+              height cannot reliably shrink again on every platform. */}
+          <Text accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" pointerEvents="none" style={[styles.inputText, styles.inputMeasure]} onLayout={event => setInputHeight(Math.max(44, Math.min(120, Math.ceil(event.nativeEvent.layout.height))))}>{draft}{"\u200b"}</Text>
+          <TextInput ref={searchInputRef} accessibilityLabel={replyMode ? clarificationQuestion ? "Antwort auf NukNuks Rückfrage" : "Nachricht an NukNuk" : "Dein Suchwunsch"} placeholder={replyMode ? clarificationQuestion ? "Deine Antwort …" : "Schreib einfach weiter …" : "Erzähl mir …"} placeholderTextColor={color.muted} style={[styles.inputText, styles.searchInput, { height: inputHeight }]} autoCapitalize="sentences" multiline scrollEnabled={inputHeight >= 120} maxLength={replyMode ? replyLimit : 2000} editable={!loading && (!replyMode || replyLimit > 0)} value={draft}
             onChangeText={value => { if (replyMode) setClarificationAnswer(value); else setQuery(value); setOffTopic(false); setError(null); setRetryRequest(null); }}
           />
+          </View>
           <Pressable accessibilityRole="button" accessibilityLabel={loading ? "Suche stoppen und Wunsch bearbeiten" : replyMode ? replyLabel : "Orte finden"} accessibilityState={{ disabled: !loading && !sendEnabled }} disabled={!loading && !sendEnabled} onPress={loading ? leaveSearch : replyMode ? submitReply : submitWish} style={({ pressed }) => [styles.sendButton, !loading && !sendEnabled && styles.primaryDisabled, pressed && styles.pressed]}><Ionicons name={loading ? "stop" : "arrow-up"} size={21} color={loading || sendEnabled ? color.onAccent : color.muted} /></Pressable>
         </View>
         {replyMode && replyLimit === 0 ? <AppText role="caption" tone="secondary">Dein Wunsch ist sehr lang. Bearbeite ihn, um etwas zu ergänzen.</AppText> : null}
@@ -678,7 +683,10 @@ const createStyles = (color: typeof darkColors) => StyleSheet.create({
   dock: { paddingHorizontal: 18, paddingTop: 10, backgroundColor: color.background },
   editLabel: { marginBottom: 7, paddingHorizontal: 10 },
   chatDock: { minHeight: 56, flexDirection: "row", alignItems: "flex-end", gap: 10, backgroundColor: color.dock, borderRadius: 28, padding: 6 },
-  searchInput: { flex: 1, color: color.text, fontSize: 17, lineHeight: 24, minHeight: 44, maxHeight: 120, paddingHorizontal: 12, paddingVertical: 10, textAlignVertical: "top" },
+  inputColumn: { flex: 1 },
+  inputText: { color: color.text, fontSize: 17, lineHeight: 24, paddingHorizontal: 12, paddingVertical: 10 },
+  inputMeasure: { position: "absolute", top: 0, left: 0, right: 0, opacity: 0 },
+  searchInput: { minHeight: 44, maxHeight: 120, textAlignVertical: "top" },
   sendButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: color.pink, alignItems: "center", justifyContent: "center" },
   primaryDisabled: { backgroundColor: color.disabled },
   pressed: { opacity: 0.75 },

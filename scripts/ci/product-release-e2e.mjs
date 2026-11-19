@@ -290,6 +290,23 @@ try {
   assert.equal(await page.getByRole("textbox", { name:"Dein Suchwunsch", exact:true }).inputValue(),"Zeig mir etwas Besonderes in Bern.");
   assert.equal(await page.getByRole("button", { name:/Kaffee am Vormittag|Etwas zum Mittagessen|Eine Idee für den Nachmittag|Gemütlich ausgehen|Noch etwas trinken/ }).count(),1,"one idea uses the current daypart");
   assert.equal(state.decisions.length,0,"an idea fills the draft so the user can edit before sending");
+  const wishComposer = page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true });
+  await wishComposer.fill("");
+  const compactComposer = await wishComposer.boundingBox();
+  await wishComposer.fill("Morgen mit meiner vierjährigen Tochter etwas machen.\nAm besten drinnen.\nWir haben den ganzen Nachmittag Zeit.");
+  await page.waitForFunction(() => {
+    const field = document.querySelector('textarea[aria-label="Dein Suchwunsch"]');
+    return field && field.getBoundingClientRect().height >= 92;
+  });
+  const expandedComposer = await wishComposer.boundingBox();
+  assert.ok(compactComposer && expandedComposer && expandedComposer.height > compactComposer.height + 24 && expandedComposer.height <= 120,
+    "a longer wish expands the existing composer within its height limit");
+  await wishComposer.fill("Ein weiterer Gedanke zu unserem Nachmittag.\n".repeat(10));
+  await page.waitForFunction(() => document.querySelector('textarea[aria-label="Dein Suchwunsch"]')?.getBoundingClientRect().height === 120);
+  await wishComposer.fill("Kurz");
+  await page.waitForFunction(() => document.querySelector('textarea[aria-label="Dein Suchwunsch"]')?.getBoundingClientRect().height === 44);
+  await wishComposer.fill("");
+  await page.waitForFunction(() => document.querySelector('textarea[aria-label="Dein Suchwunsch"]')?.getBoundingClientRect().height === 44);
   const firstWish = "Sonntag gemütlich Kaffee trinken";
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).fill(firstWish);
   await page.getByText("Mit NukNuk · Bern", { exact: true }).waitFor();
@@ -717,7 +734,7 @@ try {
   assert.equal(await guestPage.getByText("Wohin", { exact: true }).count(), 0, "personalized Decision tab is unavailable to guests");
   await guestContext.close();
 
-  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, protectedDraftDiscard: true, favoriteWriteRecovery: true, placeSafetyFailClosed: true, unavailablePlaceRetry: true, forwardedPlaceSearch: true, passwordVisibility: true, safetyLockPreserved: true, passwordRecoverySmallLarge: true, cancelledEventActions: true, chatLoadRecovery: true, chatDraftFailureRecovery: true, chatRetryIdempotency: true, chatPendingEditPreserved: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, verticalSpotList: true, persistentConversation: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableShowsCatalogWithoutDecisionMatch: true, utilityAppearanceSmallLarge: true, wholeUtilityTitleWords: true, stableMomentHeader: true, productionActions: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, protectedDraftDiscard: true, favoriteWriteRecovery: true, placeSafetyFailClosed: true, unavailablePlaceRetry: true, forwardedPlaceSearch: true, passwordVisibility: true, safetyLockPreserved: true, passwordRecoverySmallLarge: true, cancelledEventActions: true, chatLoadRecovery: true, chatDraftFailureRecovery: true, chatRetryIdempotency: true, chatPendingEditPreserved: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, verticalSpotList: true, persistentConversation: true, composerGrowsAndShrinks: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableShowsCatalogWithoutDecisionMatch: true, utilityAppearanceSmallLarge: true, wholeUtilityTitleWords: true, stableMomentHeader: true, productionActions: 0 })}\n`);
 } catch (error) {
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) {
     for (const ctx of browser.contexts()) for (const [index, tab] of ctx.pages().entries()) await tab.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/failure-${index}.png`}).catch(()=>undefined);
