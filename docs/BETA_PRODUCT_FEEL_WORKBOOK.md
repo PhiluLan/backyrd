@@ -647,8 +647,51 @@ ein stabiler Feed-Kopf sowie Legal-Fehler ohne zugänglichen geschützten Inhalt
 und erfolgreicher Wiederherstellung. Native Kamera und Software-Tastatur sind
 keine durch die Browserprüfung belegten Fähigkeiten.
 
-**Offen:** Geräte-Nachtest des neuen OTA und visuelle Founder-Abnahme. Der Mac
-ist seit dem Ende der ersten Live-Prüfung wieder gesperrt; die native
-Simulator-/iPhone-Bedienung wird vom Betriebssystem blockiert. Der Founder wurde
-um das Entsperren des Macs gebeten. Daher keine Behauptung einer abgeschlossenen
-nativen Tastaturprüfung oder einer vollständigen Beta-Abnahme.
+**Geräte-Nachtest, 19. November 2026:** Die interne Release-Diagnose auf dem
+angeschlossenen iPhone bestätigt Runtime `1.1.1`, Kanal `production`, Startquelle
+OTA und exakt Update `01a1f4d9-bf17-7941-9e8d-db46da9dcd9e`; Emergency Launch
+ist `NEIN`. Die grossen Ergebnisbilder, der gemeinsame Gesprächskopf und das
+durchgängige Eingabefeld sind damit auch im installierten Release nachgewiesen.
+
+Live geprüft: neuer Getränkewunsch, Ergänzung im selben Verlauf, Wechsel ins
+Volta-Bräu-Profil und Rückkehr, neuer Familienwunsch mit vierjährigem Kind und
+Indoor-Wunsch sowie `xyz haha asdfasdfasdf`. Bei den ersten beiden per
+Mac-Tastatur automatisierten Eingaben wurden Zeichen vertauscht; diese belegen
+den UI-Verlauf, nicht die exakte semantische Eingabe. Getrenntes Fokussieren und
+anschliessendes Tippen lieferte danach den Familien- und Unsinn-Wunsch korrekt.
+Die Auswahl bzw. Relevanz der Orte wurde nicht bewertet. Der Familienwunsch
+zeigte einmal den ehrlichen Fehlerzustand; derselbe Wunsch gelang nach dem
+angebotenen erneuten Versuch. Die Unsinn-Eingabe zeigte eine verständliche
+Bitte um Präzisierung. Home, Profil und die neuen Einstellungen wurden erneut
+visuell kontrolliert. Es wurden keine Momente, Kommentare oder Meldungen
+veröffentlicht; normale Entscheidungs- und Ansichtsereignisse können entstehen.
+
+**Offen:** Bei einem längeren Wunsch scrollt das native Eingabefeld zu früh
+intern. Die Korrektur wird separat nativ nachgetestet. Die Software-Tastatur
+ist durch die iPhone-Synchronisierung nicht sichtbar; der dafür lokal
+kompilierte, isolierte Simulator-Client verwendet ausschliesslich synthetische
+Antworten von `127.0.0.1`. Der Mac hat sich während dessen Vorbereitung erneut
+gesperrt; der Founder wurde um Entsperrung gebeten. Native Tastaturprüfung und
+visuelle Founder-Abnahme sind deshalb noch nicht abgeschlossen. Dies ist keine
+vollständige Beta- oder Sicherheitsabnahme.
+
+
+### Native Wohin-Eingabe: gezielter Nachtrag
+
+Arbeitsklasse `PRODUCT_RELEASE`; betroffene Implementierung nur
+`mobile/app/(tabs)/wohin.tsx`, dazu der bestehende kanonische Browser-Test.
+Die native Zeilenbegrenzung wird entfernt. Statt der Scrollhöhe eines bereits
+bemessenen Eingabefelds misst ein für Bedienung und Screenreader ausgeblendeter
+Text denselben Inhalt mit derselben Schrift und Breite. Dadurch kann die Höhe
+zwischen 44 und 120 Punkten wachsen und wieder schrumpfen. Erst an der Grenze
+scrollt das Eingabefeld intern; dasselbe Feld bleibt durch alle Zustände bestehen.
+Keine Änderungen an Requests, Interpretation, Ranking oder Serverantworten.
+
+Lokale Validierung des Kandidaten: Typprüfung, gezielter Lint ohne Fehler,
+betroffene Mobile-Produktverträge und vollständige kanonische App-Journey gegen
+den exportierten tatsächlichen App-Code bestanden. Die Journey prüft zusätzlich
+mehrzeiliges Wachsen, die Höhenbegrenzung sowie Rückkehr auf 44 Punkte nach
+Kürzen und Leeren. Alle Antworten sind synthetisch, ohne Produktionsaktionen.
+Die native Software-Tastatur und die korrigierte Darstellung auf dem iPhone
+bleiben bis zur erneuten Mac-Entsperrung offen. Dieser Nachtrag ist noch kein
+Beleg für eine Veröffentlichung der Eingabefeld-Korrektur.
