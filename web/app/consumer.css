@@ -1753,6 +1753,12 @@
 .b-experience-group h4 { margin: 0 0 6px; color: var(--muted); font-size: 13px; line-height: 20px; font-weight: 600; }
 .b-experience-group p, .b-experience-group li { margin: 0; font-size: 15px; line-height: 25px; font-weight: 400; }
 .b-experience-group ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.b-experience-entries { display: grid; gap: 14px; margin-top: 8px; }
+.b-experience-entries h5 { color: var(--muted); font-size: 12px; line-height: 18px; margin: 0 0 8px; }
+.b-experience-group ul.b-experience-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.b-experience-tags li { border: 1px solid var(--border); border-radius: 10px; padding: 5px 10px; max-width: 100%; overflow-wrap: anywhere; }
+.b-experience-visit-line { padding-left: 14px; border-left: 2px solid var(--pink); }
+.b-experience-group .b-experience-condition { color: var(--muted); font-size: 13px; margin-top: 6px; }
 @media (max-width: 480px) {
   .b-experience-row summary { min-height: 68px; gap: 12px; }
   .b-experience-name { font-size: 17px; }

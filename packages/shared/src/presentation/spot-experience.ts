@@ -149,7 +149,8 @@ export function presentSpotExperience(input: unknown): PublicSpotExperience {
 }
 
 
-export type PublicSpotDetailGroup = { title: string; items: string[] };
+export type PublicSpotDetailEntry = { label: string; text: string; tags: string[]; condition: string | null };
+export type PublicSpotDetailGroup = { title: string; items: string[]; entries: PublicSpotDetailEntry[] };
 const visitorLabels: Readonly<Record<string, string>> = {
  "experience.activity":"Erlebnis", "experience.theme":"Themen", "participation.audience":"Zugang",
  "participation.format":"Teilnahme", "participation.language":"Sprachen", "participation.age_suitability":"Altersempfehlung",
@@ -195,6 +196,12 @@ const cuisineCopy: Readonly<Record<string,string>> = { schweizerisch:"schweizeri
 /** Visitor copy only. Never infer suitability or move facts between scopes. */
 export function spotExperienceDetailGroups(facts: readonly PublicSpotFact[], offerKind = "", offerName = ""): PublicSpotDetailGroup[] {
  const grouped = new Map<string, Set<string>>();
+ const entries = new Map<string, PublicSpotDetailEntry[]>();
+ const tagLabels: Readonly<Record<string,string>> = {
+  "food.dish":"Auf der Karte", "food.cuisine":"Küche", "food.diet":"Ernährungsoptionen",
+  "food.drink":"Getränke", "food.option":"Ernährung & Allergene", "offer.feature":"Ausstattung",
+  "atmosphere.character":"Atmosphäre", "participation.language":"Sprachen",
+ };
  for (const fact of facts) {
   const key = fact.key;
   if (!fact.condition && key === "experience.activity" && fact.value.toLocaleLowerCase("de-CH") === offerName.toLocaleLowerCase("de-CH")) continue;
@@ -247,8 +254,15 @@ export function spotExperienceDetailGroups(facts: readonly PublicSpotFact[], off
   if (fact.condition) sentence = `${sentence.replace(/[.!?]$/, "")} (${fact.condition})`;
   if (!/[.!?]$/.test(sentence)) sentence += ".";
   const items = grouped.get(title) ?? new Set<string>();
+  if (!items.has(sentence)) {
+   const label = tagLabels[key];
+   const tags = label ? [...new Set(value.split(" · ").filter(Boolean))] : [];
+   const groupEntries = entries.get(title) ?? [];
+   groupEntries.push({label:label ?? visitorLabels[key] ?? fact.label,text:sentence,tags,condition:tags.length ? fact.condition : null});
+   entries.set(title, groupEntries);
+  }
   items.add(sentence);
   grouped.set(title, items);
  }
- return [...grouped].map(([title, items]) => ({title, items:[...items]}));
+ return [...grouped].map(([title, items]) => ({title, items:[...items], entries:entries.get(title) ?? []}));
 }

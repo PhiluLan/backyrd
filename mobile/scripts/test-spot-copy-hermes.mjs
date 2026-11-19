@@ -21,6 +21,10 @@ try {
     check(exports.spotExperienceDetailGroups([]).length, 0);
     var visit = exports.spotExperienceDetailGroups([{key:'participation.booking',label:'Reservation',value:'Erforderlich',condition:'Samstag'}]);
     check(visit[0].items[0], 'Eine Reservation ist erforderlich (Samstag).');
+    var food = exports.spotExperienceDetailGroups([{key:'food.option',label:'Ernährung',value:'Glutenfreie Option · Anpassung auf Anfrage',condition:'Samstag'}]);
+    check(food[0].entries[0].tags.length, 2);
+    check(food[0].entries[0].tags[1], 'Anpassung auf Anfrage');
+    check(food[0].entries[0].condition, 'Samstag');
     var result = exports.presentSpotExperience({contractVersion:'backyrd.world-knowledge.experience-profile@1.0',reviewed:true,offers:[{id:'tasting',name:'Degustation',prices:[{label:'Vier Biere',currency:'CHF',min:11,max:11,basis:'PER_PERSON'}],properties:[],schedule:[],areaIds:[]}],areas:[],properties:[]});
     check(result.offers[0].priceDetails[0].amount, '11 CHF');
     print('SPOT_COPY_HERMES_PASS');

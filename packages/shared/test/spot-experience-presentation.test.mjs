@@ -53,6 +53,16 @@ test('structured tariffs retain mandatory fees and age restrictions separately f
  assert.ok(shown.offers[0].priceDetails[0].details.includes('ab 14 Jahren'));
  assert.ok(shown.offers[0].priceDetails[0].details.includes('zusätzliche Pflichtkosten'));
 });
+test('scannable food entries keep categories and qualifiers attached to tags',()=>{
+ const shown=presentSpotExperience({...profile,offers:[{...profile.offers[0],properties:[known('food.dish','Burger'),known('food.dish','Pizza'),known('food.option','Glutenfreie Option',{conditions:{...conditions,weekdays:[6]}}),known('food.option','Anpassung auf Anfrage',{conditions:{...conditions,weekdays:[6]}}),known('participation.booking','Erforderlich')]}]});
+ const groups=spotExperienceDetailGroups(shown.offers[0].facts);
+ const food=groups.find(group=>group.title==='Essen & Trinken').entries;
+ assert.deepEqual(food.find(entry=>entry.label==='Auf der Karte').tags,['Burger','Pizza']);
+ assert.deepEqual(food.find(entry=>entry.label==='Ernährung & Allergene').tags,['Glutenfreie Option','Anpassung auf Anfrage']);
+ assert.equal(food.find(entry=>entry.label==='Ernährung & Allergene').condition,'Samstag');
+ assert.equal(groups.find(group=>group.title==='Dein Besuch').entries[0].text,'Eine Reservation ist erforderlich.');
+ assert.deepEqual(groups.find(group=>group.title==='Dein Besuch').entries[0].tags,[]);
+});
 test('Volta visitor copy reads as visit advice, not a form export',()=>{
  const shown=presentSpotExperience({...profile,offers:[{...profile.offers[0],name:'Degustation',properties:[known('experience.activity','Degustation'),known('participation.booking','Empfohlen'),known('offer.service','Selbstbedienung'),known('food.drink','Craft-Bier'),known('participation.consumption_obligation','Bestellpflicht')]}],properties:[known('travel.mode','ÖV'),known('travel.mode','Zu Fuss'),known('travel.mode','Velo'),known('custom.detail','Ganzjährig geöffnet, für Anlässe auf Anfrage',{label:'Biergarten'})]});
  const copy=spotExperienceDetailGroups(shown.offers[0].facts,'','Degustation').flatMap(group=>group.items).join(' ');

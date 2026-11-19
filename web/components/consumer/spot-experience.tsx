@@ -9,7 +9,11 @@ function VisitorDetails({ facts, offerKind = "", offerName = "" }: { facts: Publ
   return <>{spotExperienceDetailGroups(facts, offerKind, offerName).map(group => (
     <div className="b-experience-group" key={group.title}>
       <h4>{group.title}</h4>
-      <p>{group.items.join(" ")}</p>
+      <div className="b-experience-entries">{group.entries.map((entry,index)=>entry.tags.length ? <div key={index}>
+        {entry.label !== group.title ? <h5>{entry.label}</h5> : null}
+        <ul className="b-experience-tags">{entry.tags.map(tag=><li key={tag}>{tag}</li>)}</ul>
+        {entry.condition ? <p className="b-experience-condition">{entry.condition}</p> : null}
+      </div> : <p className="b-experience-visit-line" key={index}>{entry.text}</p>)}</div>
     </div>
   ))}</>;
 }

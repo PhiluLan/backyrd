@@ -11,7 +11,13 @@ import { backyrdTheme as theme } from "../../theme/backyrd";
 function VisitorDetails({ facts, offerName = "", offerKind = "" }: { facts: PublicSpotFact[]; offerName?: string; offerKind?: string }) {
   return <>{spotExperienceDetailGroups(facts, offerKind, offerName).map(group => <View key={group.title} style={styles.group}>
     <Text style={styles.label}>{group.title}</Text>
-    <Text style={styles.body}>{group.items.join(" ")}</Text>
+    <View style={styles.entries}>{group.entries.map((entry,index) => entry.tags.length ? <View key={index} style={styles.tagSection}>
+      {entry.label !== group.title ? <Text style={styles.tagLabel}>{entry.label}</Text> : null}
+      <View style={styles.tags}>{entry.tags.map(tag => <View key={tag} style={styles.tag}><Text style={styles.tagText}>{tag}</Text></View>)}</View>
+      {entry.condition ? <Text style={styles.condition}>{entry.condition}</Text> : null}
+    </View> : <View key={index} style={styles.visitLine}>
+      <Text accessible={false} style={styles.bullet}>•</Text><Text style={[styles.body,styles.visitText]}>{entry.text}</Text>
+    </View>)}</View>
   </View>)}</>;
 }
 
@@ -32,7 +38,7 @@ function ExperienceRow({ card, area = false }: { card: PublicSpotCard; area?: bo
       </View>)}</View> : card.prices.length > 0 ? <View style={styles.group}>{card.prices.map((price,index)=><Text key={index} style={styles.body}>{price}</Text>)}</View> : null}
       {card.times.length > 0 && <View style={styles.group}><Text style={styles.label}>Wann du kommen kannst</Text>{card.times.map(time => <Text key={time} style={styles.body}>{time}</Text>)}</View>}
       <VisitorDetails facts={card.facts} offerName={card.name} offerKind={area ? "" : card.kind} />
-      {card.places.length > 0 && <View style={styles.group}><Text style={styles.label}>{area ? "Das kannst du hier machen" : "Hier findet es statt"}</Text><Text style={styles.body}>{card.places.join(" · ")}</Text></View>}
+      {card.places.length > 0 && <View style={styles.group}><Text style={styles.label}>{area ? "Das kannst du hier machen" : "Hier findet es statt"}</Text><View style={styles.tags}>{card.places.map(place=><View key={place} style={styles.tag}><Text style={styles.tagText}>{place}</Text></View>)}</View></View>}
     </View>}
   </View>;
 }
@@ -61,6 +67,15 @@ const styles = StyleSheet.create({
   group: { marginTop: 18 },
   label: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 13, lineHeight: 20, marginBottom: 5 },
   body: { width: "100%", flexShrink: 1, color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 15, lineHeight: 25 },
+  entries: { gap: 14, marginTop: 4 },
+  tagSection: { gap: 8 },
+  tagLabel: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 12, lineHeight: 18 },
+  tags: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  tag: { maxWidth: "100%", paddingHorizontal: 11, paddingVertical: 7, borderRadius: theme.radius.sm, backgroundColor: theme.color.surfaceElevated },
+  tagText: { flexShrink: 1, color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 14, lineHeight: 21 },
+  visitLine: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  visitText: { width: undefined, flex: 1 },
+  bullet: { color: theme.color.pink, fontSize: 16, lineHeight: 25 },
   condition: { color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 13, lineHeight: 21 },
   tariffs: { gap: 12, marginTop: 4 },
   tariff: { padding: 16, gap: 4, backgroundColor: theme.color.surfaceElevated, borderRadius: theme.radius.md },

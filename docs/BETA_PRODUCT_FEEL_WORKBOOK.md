@@ -2,6 +2,24 @@
 
 ## Punkt 1 – Produktgefühl und Bedienung
 
+### Abnahme-Folgekorrektur: aufgeklappte Inhalte scannbar machen
+
+Founder: Gesamtgestaltung deutlich besser; Angebote und Räume enthalten noch zu
+viel Fliesstext. Die gemeinsamen Präsentationsgruppen liefern daher zusätzlich
+strukturierte Einträge: Gerichte, Küche, Ernährung, Getränke, Ausstattung,
+Atmosphäre und Sprachen werden als neutrale Tags dargestellt. Andere Hinweise
+bleiben einzelne Zeilen in Besuchersprache. Es werden keine weiteren Fakten
+ausgeblendet oder zu Verfügbarkeits-/Allergen-Garantien hochgestuft.
+
+Zeitliche Bedingungen bleiben direkt bei der zugehörigen Tag-Gruppe. Raum- und
+Angebotsreferenzen werden in Mobile ebenfalls als umbrechende Tags gezeigt.
+Die Tags sind reine Information, keine scheinbaren Filter-Buttons.
+
+Mobile-Typecheck, gezieltes Lint, volle Mobile-Verträge, 21 gemeinsame/Web-Tests
+und direkte Ausführung im Hermes-Runner bestanden. Die visuelle Founder-Abnahme
+dieser Folgekorrektur ist noch offen. Public-Web-Darstellung im Code angeglichen;
+eine Web-Veröffentlichung ist nicht Teil dieses OTA.
+
 ### Incident: Spot-Absturz nach Besuchersprache-OTA
 
 Am 19. November meldete der Founder einen Renderfehler beim Öffnen eines Spots.
