@@ -293,11 +293,10 @@ assert.match(homeEvents, /snapToInterval/, "Events must use the shared Home rail
 assert.match(homeRail, /HOME_RAIL/, "Spots must use the shared Home rail contract");
 assert.match(homeRail, /snapToInterval/, "Spots must use the shared Home rail snap contract");
 assert.match(home, /getPrivacySafeLocation\(\{ purpose: "nearby_discovery", requestPermission: false/, "Home must never prompt for location merely to decorate a card");
-assert.match(homeRail, /status=\{openingStatuses\[spot\.id\] \?\? "unknown"\}/, "Home cards must pass the canonical projection status, never unchecked legacy hours");
-assert.match(read("components/spot/SpotPreviewCard.tsx"), /<OpeningStatusBadge status=\{status\}/, "the shared preview must display the passed canonical status");
+assert.match(homeRail, /<OpeningStatusBadge status=\{openingStatuses\[spot\.id\] \?\? "unknown"\}/, "Home cards must show the canonical projection status, never unchecked legacy hours");
 assert.match(home, /loadDiscoveryOpeningSchedules/, "all Home rails must load the Place Detail hours projection");
 assert.match(fs.readFileSync(new URL("../components/spot/OpeningStatusBadge.tsx", import.meta.url), "utf8"), /SPOT_OPENING_STATUS_COPY\[status\]/, "Shared status badges must use canonical opening-status copy");
-assert.match(homeRail, /spot\.city \?\? spot\.address/, "Home cards must fall back to the address when no current location is available");
+assert.match(homeRail, /spot\.category_name.*spot\.address/, "Home cards must fall back to the address when no current location is available");
 assert.match(spotOpeningStatus, /openingSoon: "Öffnet bald"/, "opening-soon status must remain explicit");
 assert.match(spotOpeningStatus, /closingSoon: "Schließt bald"/, "closing-soon status must remain explicit");
 assert.match(spotOpeningStatus, /SOON_WINDOW_MINUTES = 30/, "opening-status urgency must remain bounded to 30 minutes");

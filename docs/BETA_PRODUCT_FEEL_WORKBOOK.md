@@ -237,3 +237,18 @@ Die bestehenden Bild- und Status-Vertragstests prüfen jetzt die gemeinsame Kart
 Der Simulator-Sichttest war wegen des gesperrten Mac nicht möglich. Zur visuellen
 Abnahme: Entdecken als Gast/angemeldet, Karten mit/ohne Foto, lange Namen,
 grosse Schrift, horizontales Blättern, Ortsliste und Öffnen der Profilseite.
+
+### Rücknahme der Entdecken-Überarbeitung
+
+Der Founder lehnt die neue Entdecken-Gestaltung ab und bevorzugt den bisherigen
+Header sowie die grossen Spot-Karten. Die gesamte letzte Entdecken-Iteration
+wird zurückgenommen: Home, Ortsliste, Überschriften, Karten und zugehörige
+Vertragstests entsprechen wieder dem Stand `2163789e`. Die neue gemeinsame
+Preview-Komponente wird entfernt. Die abgenommene Spot-Profilseite und ihre
+Moment-Darstellung bleiben erhalten.
+
+Für die Auslieferung werden die bereits geprüften OTA-Gruppen des vorherigen
+Stands erneut auf Production veröffentlicht. Dadurch gelangen exakt dieselben
+Bundles zurück auf beide iPhone-Runtimes. Eine neue Entdecken-Gestaltung ist
+damit nicht freigegeben; der bisherige Header und die Kartengrössen sind die
+Grundlage für weitere, gezielte Anpassungen.

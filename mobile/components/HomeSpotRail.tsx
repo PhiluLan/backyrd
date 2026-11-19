@@ -1,12 +1,16 @@
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { ScrollView, StyleSheet, useWindowDimensions } from "react-native";
-import { SpotPreviewCard } from "./spot/SpotPreviewCard";
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { AppText } from "./foundation/AppText";
+import { MoodSignature, moodCountDescription } from "./spot/MoodSignature";
+import { OpeningStatusBadge } from "./spot/OpeningStatusBadge";
+import { SpotArtwork } from "./spot/SpotArtwork";
 import { HOME_RAIL, homeRailCardWidth } from "../lib/home-rail";
 import type { LocationCoordinates } from "../lib/locationContext";
 import type { DiscoverySpot } from "../lib/spot-images";
 import type { SpotOpeningStatus } from "../lib/spot-opening-status";
 import { haversineKm } from "../lib/utils/haversine";
-import { backyrdTheme as theme } from "../theme/backyrd";
+import { backyrdTheme as theme, useSFPro } from "../theme/backyrd";
 
 /** The same place card and rail geometry for all Home discovery entry points. */
 export function HomeSpotRail({ spots, moods, moodCounts, location, label, openingStatuses, onVisibleArtworkReady }: {
@@ -21,23 +25,49 @@ export function HomeSpotRail({ spots, moods, moodCounts, location, label, openin
   const router = useRouter();
   const { width } = useWindowDimensions();
   const cardWidth = homeRailCardWidth(width, { minimum: 248, maximum: 356 });
+  const cardHeight = Math.round(cardWidth * 1.08);
+  const spotNameSize = Math.max(28, Math.min(40, Math.round(cardWidth * 0.11)));
+  const cockpitSpotName = {
+    fontSize: spotNameSize,
+    lineHeight: Math.round(spotNameSize * 1.06),
+    letterSpacing: spotNameSize * -0.075,
+  };
   function meta(spot: DiscoverySpot) {
     if (location && spot.lat !== null && spot.lng !== null) {
       const distance = haversineKm(location, { latitude: spot.lat, longitude: spot.lng });
-      return distance < 1 ? `${Math.round(distance * 1000)} m entfernt` : `${distance.toFixed(1)} km entfernt`;
+      return `${spot.category_name ?? "Ort"} · ${distance < 1 ? `${Math.round(distance * 1000)} m` : `${distance.toFixed(1)} km`}`;
     }
-    return spot.city ?? spot.address;
+    return [spot.category_name, spot.city ?? spot.address].filter(Boolean).join(" · ");
   }
   return <ScrollView accessibilityLabel={label} horizontal contentContainerStyle={styles.cards}
     decelerationRate={HOME_RAIL.decelerationRate} disableIntervalMomentum={HOME_RAIL.disableIntervalMomentum}
     showsHorizontalScrollIndicator={false} snapToInterval={cardWidth + HOME_RAIL.gap}
     snapToOffsets={spots.map((_, index) => index * (cardWidth + HOME_RAIL.gap))}>
-    {spots.map((spot, index) => <SpotPreviewCard key={spot.id} id={spot.id} name={spot.name} imageUrl={spot.header_photo_url}
-      category={spot.category_name} context={meta(spot)} moods={moods[spot.id] ?? []} moodCount={moodCounts[spot.id]}
-      status={openingStatuses[spot.id] ?? "unknown"} onPress={() => router.push(`/spot/${spot.id}` as never)} style={{ width: cardWidth }}
-      priority={index < 2 ? "high" : "normal"} onArtworkReady={index < 2 && onVisibleArtworkReady ? () => onVisibleArtworkReady(spot.id) : undefined} />)}
+    {spots.map((spot, index) => <Pressable accessibilityRole="button"
+      accessibilityLabel={`${spot.name} öffnen${moods[spot.id]?.length ? `. Moods: ${moods[spot.id].slice(0, 3).join(", ")}` : ""}${moodCountDescription(moodCounts[spot.id]) ? `. ${moodCountDescription(moodCounts[spot.id])}` : ""}`}
+      key={spot.id} onPress={() => router.push(`/spot/${spot.id}` as never)}
+      style={({ pressed }) => [styles.card, { width: cardWidth, minHeight: cardHeight, paddingTop: theme.spacing.display * 2 }, pressed && styles.pressed]}>
+      <SpotArtwork imageUrl={spot.header_photo_url} priority={index < 2 ? "high" : "normal"} spotId={spot.id} spotName={spot.name} showFallbackName={false} style={StyleSheet.absoluteFill}
+        onArtworkReady={index < 2 && onVisibleArtworkReady ? () => onVisibleArtworkReady(spot.id) : undefined} />
+      <LinearGradient colors={["rgba(5,5,5,0.02)", "rgba(5,5,5,0.18)", "rgba(5,5,5,0.92)"]} locations={[0.2, 0.54, 1]} style={StyleSheet.absoluteFill} />
+      <OpeningStatusBadge status={openingStatuses[spot.id] ?? "unknown"} style={styles.statusPill} />
+      <View style={styles.cardContent}>
+        <LinearGradient pointerEvents="none" colors={["rgba(5,5,5,0)", "rgba(5,5,5,0.32)", "rgba(5,5,5,0.56)"]} locations={[0, 0.3, 1]} style={[StyleSheet.absoluteFill, styles.textScrim]} />
+        <AppText role={useSFPro ? "displayXL" : "displayM"} numberOfLines={useSFPro ? 2 : undefined} style={[styles.name, useSFPro && styles.cockpitSpotName, useSFPro && cockpitSpotName]}>{spot.name}</AppText>
+        <MoodSignature labels={moods[spot.id] ?? []} moodCount={moodCounts[spot.id]} compact onImage />
+        <AppText role="meta" style={styles.meta}>{meta(spot)}</AppText>
+      </View>
+    </Pressable>)}
   </ScrollView>;
 }
 const styles = StyleSheet.create({
   cards: { paddingTop: theme.spacing.lg, paddingHorizontal: HOME_RAIL.horizontalInset, gap: HOME_RAIL.gap },
+  card: { overflow: "hidden", borderRadius: theme.radius.xl, justifyContent: "flex-end", backgroundColor: theme.color.surface },
+  cardContent: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.lg },
+  statusPill: { position: "absolute", top: theme.spacing.md, left: theme.spacing.md, maxWidth: "88%", zIndex: 1 },
+  textScrim: { top: -36 },
+  name: { color: "#FFFFFF" },
+  cockpitSpotName: { color: "#F8F8F8" },
+  meta: { marginTop: 8, color: "rgba(246,240,232,0.78)" },
+  pressed: { opacity: 0.9, transform: [{ scale: theme.motion.pressScale }] },
 });
