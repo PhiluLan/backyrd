@@ -4,6 +4,17 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "homeHeaderIconFollowUp": {
+    "sourceCommit": "c8cec1cd88e97d672c51878928ddf29d48353fad",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f393-da43-7c7a-975c-0ad9ba801a90", "group": "b6efe683-ec9e-48cc-9b23-886577a6c271" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f394-3003-7823-a5ce-7d4c07a37932", "group": "8442ad69-58a6-4858-8cc5-acd9f65011fc" }
+    ],
+    "validation": "Typecheck, targeted lint, full Mobile contracts, Production validation and both verified iOS exports passed.",
+    "visualAcceptance": "PENDING",
+    "changes": "Daypart question 22/30; profile icon replaces header avatar and removes unused image readiness dependency"
+  },
   "founderHomeDetailsFollowUp": {
     "sourceCommit": "5d13592ebab93ebe53af8d9ad08d3211ea039dcc",
     "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
