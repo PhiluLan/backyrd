@@ -758,3 +758,49 @@ Veröffentlichung nicht erneut beobachtet. Beim nächsten vollständigen App-Sta
 wird gemäss bestehendem `ON_LOAD`-Verhalten nach Updates gesucht; ein geladener
 Stand wird beim anschliessenden Start aktiv. Die visuelle Founder-Abnahme bleibt
 ein eigener Schritt.
+
+### Wohin: persönlicher Einstieg und lokaler Anfragenverlauf
+
+Task-Klasse **PRODUCT_RELEASE**. Betroffen sind ausschliesslich die mobile
+Wohin-Oberfläche, der bestehende lokale Letzte-Suche-Speicher und dessen Tests.
+Ranking, Interpretation, Decision-Anfragen und Backend-Verträge bleiben gleich.
+
+Der Einstieg begrüsst nach Tageszeit und vorhandenem Profilnamen. NukNuk ist
+bereits hier präsent; drei konkrete Beispiele werden zum Bearbeiten übernommen.
+„Zuletzt mit NukNuk“ zeigt bis zu fünf Anfragen, „Verlauf“ die letzten 20
+unterschiedlichen Anfragen innerhalb von 30 Tagen. Wiederaufnahme füllt nur das
+bestehende Eingabefeld. Eine neue Suche erfordert ausdrücklich Senden; alte
+Ergebnisse werden nicht als aktuell wiederhergestellt. Auch fehlgeschlagene
+Anfragen und Rückfragen bleiben wiederauffindbar.
+
+Der Verlauf bleibt gerätegebunden: auf iOS in verschlüsseltem SecureStore,
+im Web weiterhin nur im aktuellen Tab. Keine neue Cloud-Speicherung, Telemetrie
+oder Verwendung für KI-Lernen. Abmelden und Kontowechsel entfernen den lokalen
+Verlauf. Einzelnes Löschen und Leeren erfordern eine ausdrückliche Bestätigung;
+Fehler bleiben sichtbar und wiederholbar. Die bestehende Home-Rail verwendet
+weiterhin die letzte erfolgreich beantwortete Anfrage und deren Spotreihenfolge.
+
+Der bisherige v1-Schlüssel bleibt atomarer Commit-Zeiger für begrenzte v2-
+Speicherstücke. Dadurch entfernt auch das Abmelden in einer alten OTA-Version
+den lesbaren Zeiger; ein neuer Client kann den Verlauf danach nicht wieder
+aufleben lassen. Jedes native Speicherstück bleibt unter der SecureStore-
+Grössengrenze. Geschriebene Revisionen werden erst nach vollständig gespeicherten
+Stücken sichtbar. Konto-/Logout-Rennen und Speicherfehler sind getestet.
+
+Validierung am 19. November 2026: bestehender Product-Browserdurchlauf erfolgreich,
+einschliesslich fehlgeschlagener/unklarer Anfragen, Wiederaufnahme ohne Absenden,
+Einzellöschung, Abbrechen, vollständigem Leeren und Neuladen. Speicher-Vertragstests
+prüfen Migration, Unicode, 20er-Grenze, persistente Ablaufentfernung nach 30 Tagen,
+Schreibfehler/Retry, Home-Kompatibilität und Kontowechsel. Browser-Sichtprüfung bei
+320/390/430 Pixeln in Light und Dark ohne horizontalen Überlauf.
+
+Native Sichtprüfung im regulär signierten iPhone-16e-Simulator mit identischem
+Wohin-, Verlauf- und Speicherquellcode: Light/Dark, Begrüssung, Beispielübernahme,
+mehrzeilige Softwaretastatur, zwei Anfragen, Wiederaufnahme ohne automatische
+Tastatur/Absenden, Löschabfrage mit Abbrechen und Erhalt beider Anfragen nach
+vollständigem JS-Neuladen über echten SecureStore. Nur synthetische Daten am
+lokalen Fixture-Transport; keine Produktionsverbindung und kein Auth- oder
+Speicher-Bypass. Der Test-Harness ist temporär und wird nicht veröffentlicht.
+
+Dieser Eintrag dokumentiert Umsetzung und Prüfung; ein OTA-Veröffentlichungsbeleg
+folgt separat nach erfolgreicher Main-Zertifizierung.

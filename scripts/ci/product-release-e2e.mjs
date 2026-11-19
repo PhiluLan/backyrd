@@ -209,7 +209,7 @@ try {
       const event = {event_id:"33333333-3333-4333-a333-333333333333",occurrence_id:"44444444-4444-4444-a444-444444444444",source:"MANUAL",source_event_id:"fixture",title:"Open Court Testevent",short_description:"Ein synthetischer abgesagter Termin.",category:"COMMUNITY",categories:["COMMUNITY"],event_status:"CANCELLED",occurrence_status:"CANCELLED",start_at:"2026-10-24T16:00:00Z",end_at:"2026-10-24T18:00:00Z",venue_name:"Testhalle",address_line:"Testgasse 2",city:"Basel",country_code:"CH",latitude:47.56,longitude:7.59,matched_spot_id:null,is_free:true,source_url:"https://example.org/event",ticket_url:"https://example.org/ticket",updated_at:"2026-10-20T10:00:00Z"};
       return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(detail ? event : [])});
     }
-    if (path === "/rest/v1/profiles") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ city: "Bern" }]) });
+    if (path === "/rest/v1/profiles") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ city: "Bern", first_name: "Lea", display_name: "Lea" }]) });
     if (path === "/functions/v1/decision-v13") {
       assert.match(request.headers().authorization ?? "", /^Bearer\s+\S+$/);
       if (state.unavailable) return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "DECISION_UNAVAILABLE" } }) });
@@ -393,7 +393,7 @@ try {
   await page.getByRole("button",{name:"Hinweise schliessen",exact:true}).click();
   await page.reload({ waitUntil: "domcontentloaded" });
   // A refresh now preserves the current route instead of remounting Home.
-  await page.getByRole("button",{name:/Dein letzter Suchwunsch/}).waitFor();
+  await page.getByRole("button",{name:`Anfrage übernehmen: ${firstWish}`,exact:true}).waitFor();
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).waitFor();
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).fill("ruhiges Café nach Reload");
   await page.getByText("Mit NukNuk · Bern", { exact: true }).waitFor();
@@ -481,6 +481,30 @@ try {
   assert.match(await page.getByRole("textbox", {name:"Dein Suchwunsch",exact:true}).inputValue(), /Kulturelles/);
 
   state.unavailable = false;
+  await page.getByRole("button",{name:"Neue Suche",exact:true}).click();
+  await page.getByRole("button",{name:"Letzte Anfragen öffnen",exact:true}).click();
+  await page.getByText("Deine Anfragen",{exact:true}).waitFor();
+  const historySheet = page.getByRole("dialog");
+  await historySheet.getByRole("button",{name:"Anfrage übernehmen: XYZ",exact:true}).waitFor();
+  await historySheet.getByRole("button",{name:`Anfrage übernehmen: ${firstWish}`,exact:true}).waitFor();
+  assert.ok(await historySheet.getByRole("button",{name:/^Anfrage übernehmen:/}).count() >= 3,"history retains several requests, including unsuccessful ones");
+  const decisionsBeforeReuse = state.decisions.length;
+  await historySheet.getByRole("button",{name:`Anfrage übernehmen: ${firstWish}`,exact:true}).click();
+  await page.getByRole("textbox",{name:"Dein Suchwunsch",exact:true}).waitFor();
+  assert.equal(await page.getByRole("textbox",{name:"Dein Suchwunsch",exact:true}).inputValue(),firstWish);
+  assert.equal(state.decisions.length,decisionsBeforeReuse,"history only restores an editable wish; it never submits automatically");
+  await page.getByRole("button",{name:"Letzte Anfragen öffnen",exact:true}).click();
+  await page.getByRole("button",{name:"Anfrage löschen: XYZ",exact:true}).click();
+  await page.getByRole("button",{name:"Abbrechen",exact:true}).click();
+  assert.equal(await page.getByRole("dialog").getByRole("button",{name:"Anfrage übernehmen: XYZ",exact:true}).count(),1,"cancelling deletion keeps the request");
+  await page.getByRole("button",{name:"Anfrage löschen: XYZ",exact:true}).click();
+  await page.getByRole("button",{name:"Löschen bestätigen",exact:true}).click();
+  await page.getByRole("button",{name:"Anfragen schliessen",exact:true}).click();
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.getByRole("button",{name:"Letzte Anfragen öffnen",exact:true}).click();
+  await page.getByText("Deine Anfragen",{exact:true}).waitFor();
+  assert.equal(await page.getByRole("dialog").getByRole("button",{name:"Anfrage übernehmen: XYZ",exact:true}).count(),0,"removed requests stay removed after reload");
+  await page.getByRole("button",{name:"Anfragen schliessen",exact:true}).click();
   await page.goto(appUrl, {waitUntil:"domcontentloaded"});
   await page.getByRole("textbox",{name:"Was willst du machen?",exact:true}).waitFor();
   assert.equal(await page.getByText("backyrd Momente,",{exact:true}).count(),0,"Home moments remain parked");
@@ -721,6 +745,19 @@ try {
   await page.getByRole("textbox",{name:"Was willst du machen?",exact:true}).waitFor();
   assert.equal(await page.getByRole("alert").getByText("Verbindung unterbrochen",{exact:true}).count(),0,"retry restores the app after a successful legal check");
 
+  await page.goto(`${appUrl}/wohin`,{waitUntil:"domcontentloaded"});
+  await page.getByRole("button",{name:"Letzte Anfragen öffnen",exact:true}).click();
+  await page.getByRole("button",{name:"Verlauf leeren",exact:true}).click();
+  await page.getByRole("button",{name:"Abbrechen",exact:true}).click();
+  assert.ok(await page.getByRole("dialog").getByRole("button",{name:/^Anfrage übernehmen:/}).count()>0,"clearing history also requires confirmation");
+  await page.getByRole("button",{name:"Verlauf leeren",exact:true}).click();
+  await page.getByRole("button",{name:"Löschen bestätigen",exact:true}).click();
+  await page.getByText("Platz für deine nächsten Ideen.",{exact:true}).waitFor();
+  await page.getByRole("button",{name:"Anfragen schliessen",exact:true}).click();
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.getByText("Hier findest du deine Anfragen später wieder.",{exact:true}).waitFor();
+  assert.equal(await page.getByRole("button",{name:/^Anfrage übernehmen:/}).count(),0,"cleared history remains empty across reload");
+
   const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await guestContext.route(`${endpoint}/**`, remoteFixture);
   const guestPage = await guestContext.newPage();
@@ -734,7 +771,7 @@ try {
   assert.equal(await guestPage.getByText("Wohin", { exact: true }).count(), 0, "personalized Decision tab is unavailable to guests");
   await guestContext.close();
 
-  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, protectedDraftDiscard: true, favoriteWriteRecovery: true, placeSafetyFailClosed: true, unavailablePlaceRetry: true, forwardedPlaceSearch: true, passwordVisibility: true, safetyLockPreserved: true, passwordRecoverySmallLarge: true, cancelledEventActions: true, chatLoadRecovery: true, chatDraftFailureRecovery: true, chatRetryIdempotency: true, chatPendingEditPreserved: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, verticalSpotList: true, persistentConversation: true, composerGrowsAndShrinks: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableShowsCatalogWithoutDecisionMatch: true, utilityAppearanceSmallLarge: true, wholeUtilityTitleWords: true, stableMomentHeader: true, productionActions: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, protectedDraftDiscard: true, favoriteWriteRecovery: true, placeSafetyFailClosed: true, unavailablePlaceRetry: true, forwardedPlaceSearch: true, passwordVisibility: true, safetyLockPreserved: true, passwordRecoverySmallLarge: true, cancelledEventActions: true, chatLoadRecovery: true, chatDraftFailureRecovery: true, chatRetryIdempotency: true, chatPendingEditPreserved: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, verticalSpotList: true, persistentConversation: true, requestHistory: true, requestReuseRequiresSend: true, requestDeletionPersists: true, composerGrowsAndShrinks: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableShowsCatalogWithoutDecisionMatch: true, utilityAppearanceSmallLarge: true, wholeUtilityTitleWords: true, stableMomentHeader: true, productionActions: 0 })}\n`);
 } catch (error) {
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) {
     for (const ctx of browser.contexts()) for (const [index, tab] of ctx.pages().entries()) await tab.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/failure-${index}.png`}).catch(()=>undefined);
