@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-reservation-history-v1",
+  "previousEvidence": "booking-restaurant-team-access-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "2109c959ffba71150b81074de98b0219c2fcf3b5f6765237d071ebe424f58dd2",
+    "applicationSchemaSha256": "72a5815b867517a69a9b54d71661edd3ca62e1d909c76b1290c30ea1495c7ee3"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261020212626_booking_reservation_history_v1.sql",
+      "sha256": "43bd12c634a414eb41f1fd41c821d7a49fea960ba8f9a29018e04df7334425b9"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_reservation_history_safety_v1.sql",
+      "sha256": "5f0721af59cb0391dbfc0aecabfc98996cc6160bce40afa8b95e07dfaa105fe5"
+    },
+    {
+      "path": "supabase/tests/booking_reservation_history_v1.sql",
+      "sha256": "5c2f6cc8664ebab3be763e39aee2daca152723342cfe20298ad7f835c5753a79"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "6abb690ad769026425396492116516c35d1bc89a3d00ccc269d54b2b40c3092d",
+    "applicationSchemaSha256": "fed1180ab9645f9ad25e09f08cf147a0ed8ebbd5b96decfe9747b62959c6f29c"
+  }
+}
