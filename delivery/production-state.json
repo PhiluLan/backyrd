@@ -731,6 +731,17 @@
       "deploymentRunId": 44382113529,
       "certificationRunId": 44381205195,
       "manifestHash": "e4038701fb2f69ef2024b20a3dcc6d88b24f4e5ad6cdea8fc8f17ac24a27dba8"
+    },
+    "decisionContextTimeoutRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "migration": {
+        "path": "supabase/migrations/20261119113523_decision_context_timeout_budget_v1.sql",
+        "sha256": "393e0d7bf6035eea0697b5b708705be6ba8fb47dfa28d17785c7d24da64bd958"
+      },
+      "sourceSha": "d059fbe57671f16f6689d17fcd9b3d97f6d9efd8",
+      "deploymentRunId": 44522509592,
+      "certificationRunId": 44521550113,
+      "manifestHash": "72b881b66eb82400695b96746c45a3da01cc1d9315ab6cf6688e9a10a133b71c"
     }
   },
   "mobile": {
