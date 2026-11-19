@@ -310,3 +310,30 @@ Der 46-Punkte-Button nutzt die bestehende Profilroute, Beschriftung
 
 Typecheck, gezieltes ESLint und vollständige Mobile-Vertragstests bestanden.
 Visuelle Founder-Abnahme des neuen Symbols steht aus.
+
+### Home-Momente: persönliche Einblicke statt weiterer Ortskarten
+
+Auf Founder-Wunsch wird ausschliesslich die Home-Momentsektion neu gestaltet.
+«Neu auf backyrd», Eventkarten und die enge Typografie bleiben unverändert.
+Die Überschrift lautet «Hier erlebt», mit ehrlicher Ortszeile statt einer
+Aktualitätsbehauptung für ältere Beiträge.
+
+- Foto über die Kartenbreite im Format 4:3, Ortsname dezent im Bild.
+- Persönlicher Text darunter; reine Textmomente als Zitat. Moods erscheinen
+  einmal. Kleine Quellenzeile mit Person und tatsächlichem Datum/Zeitabstand.
+- Antippen öffnet den konkreten Moment über die bestehende sichere Detailroute,
+  wo vollständiger Text, Ortszugang und Meldefunktion vorhanden sind.
+- Reine Mood-Einträge und als Caption wiederholte Mood-Listen erscheinen nicht.
+  Bei fehlgeschlagenen Bildern bleibt ein vorhandener Text sichtbar; ohne
+  verbleibenden Inhalt entfällt die Karte. Ohne geeignete Beiträge entfällt die
+  Sektion vollständig. Initialbereitschaft wird auch dann korrekt signalisiert.
+- Die bestehende sicherheitsgefilterte Feed-Abfrage lädt begrenzt 18 statt 6
+  Kandidaten, davon maximal 4 Vorschauen. Keine zusätzliche Anfrage oder neue
+  Datenquelle, keine Änderung an Sichtbarkeits- oder Moderationsregeln.
+- Ladefehler bieten eine lokale Wiederholung; Account, Stadt, Revision und
+  Wiederholungsversuch isolieren verspätete Antworten. Kein automatisches Blättern.
+
+Typecheck, gezieltes ESLint, vollständige Mobile-Vertragstests, Discovery-Tests
+und Hermes-Prüfung bestanden. Inhaltsprüfungen decken reine Moods, wiederholte
+Mood-Captions, persönliche Texte, Fotos, Videoausschluss und fehlgeschlagene
+Bilder ab. Native visuelle Founder-Abnahme steht aus.

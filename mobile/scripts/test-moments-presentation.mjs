@@ -34,11 +34,24 @@ new Function("exports", "require", "module", helperOutput)(
 
 const {
   formatMomentTime,
+  homeMomentPreview,
   momentHasRenderableImage,
   momentMediaAspectRatio,
   momentTagPreview,
   presentMomentTags,
 } = helperModule.exports;
+
+const homePost = { caption: null, mood_tags: ["cozy", "calm"], media: [] };
+assert.equal(homeMomentPreview(homePost), null, "bare Moods do not create a Home story");
+assert.equal(homeMomentPreview({ ...homePost, caption: "Gemütlich · Ruhig" }), null);
+assert.equal(homeMomentPreview({ ...homePost, caption: "  Gemütlich und Ruhig  " }), null);
+assert.equal(homeMomentPreview({ ...homePost, caption: "   " }), null);
+assert.equal(homeMomentPreview({ ...homePost, caption: "Der Innenhof war mein Lieblingsplatz." }).caption, "Der Innenhof war mein Lieblingsplatz.");
+const photoPost = { ...homePost, media: [{ public_url: "https://media.example/photo.jpg", media_type: "image" }] };
+assert.equal(homeMomentPreview(photoPost).imageUrl, "https://media.example/photo.jpg");
+assert.equal(homeMomentPreview(photoPost, new Set(["https://media.example/photo.jpg"])), null, "failed photos cannot leave empty story cards");
+assert.equal(homeMomentPreview({ ...photoPost, caption: "Ein schöner Abend." }, new Set(["https://media.example/photo.jpg"])).caption, "Ein schöner Abend.");
+assert.equal(homeMomentPreview({ ...homePost, media: [{ public_url: "https://media.example/video.mp4", media_type: "video" }] }), null);
 
 // No-image is an intentional compact card state, including failed media.
 assert.equal(momentHasRenderableImage(null), false);
