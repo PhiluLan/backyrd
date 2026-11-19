@@ -2,7 +2,7 @@
 
 ## Punkt 1 – Produktgefühl und Bedienung
 
-Status: OTA-Abnahmekandidat vorbereitet; visuelle Founder-Abnahme offen. Referenz: die vom Founder geteilte
+Status: OTA auf Production für iOS 1.1.0 und 1.1.1 veröffentlicht; visuelle Founder-Abnahme offen. Referenz: die vom Founder geteilte
 Volta-Bräu-Aufnahme vom 19. November 2026. Umsetzung auf `origin/main` d7005c3c
 im Branch `codex/beta-product-feel-v1`.
 
@@ -72,5 +72,6 @@ Die visuelle Geräteabnahme ist offen. Vor Freigabe prüfen:
   Abnahme als vollständig abgeschlossen markiert werden.
 
 Keine Backend-, Rollen-, Ranking- oder Datenbankänderungen in diesem Paket.
-OTA-Veröffentlichung zur Abnahme wird mit IDs und Runtime in einem Release-Beleg
-festgehalten. Eine Beta-Freigabe ist damit nicht verbunden.
+OTA-Veröffentlichung zur Abnahme ist mit IDs und Runtime in
+`docs/operations/releases/BETA_PRODUCT_FEEL_2026_11_19.json` festgehalten.
+Eine Beta-Freigabe ist damit nicht verbunden.

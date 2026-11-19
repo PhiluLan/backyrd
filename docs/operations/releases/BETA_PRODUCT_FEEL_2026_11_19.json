@@ -1,0 +1,36 @@
+{
+  "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+  "sourceCommit": "c5a33a902cd91bd2c33af91e45e8e9c4f0b7cc5e",
+  "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
+  "channel": "production",
+  "platform": "ios",
+  "authorization": "Founder explicitly approved publication to all compatible Production iPhones on 2026-11-19.",
+  "updates": [
+    {
+      "runtimeVersion": "1.1.1",
+      "id": "01a1f24c-f8bf-7bc0-82a9-accb5c1c0b4f",
+      "group": "e26c0712-ce40-440c-9f56-5afc39ba92c4",
+      "createdAt": "2026-11-19T05:34:53.119Z",
+      "previousGroup": "75fe3910-5861-4010-aa33-8c56c8e29b51"
+    },
+    {
+      "runtimeVersion": "1.1.0",
+      "id": "01a1f24d-c4b5-7d02-85b6-afb15f61cea5",
+      "group": "9e863fbd-f5dc-4940-b7ab-91bb459f850c",
+      "createdAt": "2026-11-19T05:35:45.333Z",
+      "previousGroup": "cb82231f-abcc-497d-bbab-4443563bfb63"
+    }
+  ],
+  "verification": [
+    "Mobile contracts, map/discovery tests and typecheck passed",
+    "Targeted ESLint and whitespace checks passed",
+    "15 shared experience and Web render tests passed",
+    "Production release validation passed",
+    "Hermes bundles exported and embedded Production configuration verified for both runtimes"
+  ],
+  "limitations": [
+    "Physical iPhone installation and visual acceptance are not yet observed",
+    "Point 1 remains pending Founder visual acceptance",
+    "No main merge or Beta approval performed"
+  ]
+}
