@@ -54,13 +54,12 @@ const lightColors: typeof darkColors = {
   detailText: "#53535A", chat: "#F7F7F5", brief: "#FFFFFF",
 };
 
-// AI disclosure follows web/app/legal/page.tsx#decision, with the device-only
-// history explained here too. Reading it never records or changes consent.
+// Same AI disclosure as web/app/legal/page.tsx#decision. Device-only history
+// is explained separately below. Reading never records or changes consent.
 const searchPrivacy = [
   "Wenn du nach Orten suchst, übermittelt Backyrd deinen Suchwunsch und die gewählten Suchangaben, zum Beispiel Stadt, Budget oder Begleitung, an OpenAI. Dazu kommen das Bezugsdatum und die Zeitzone, damit Angaben wie „morgen“ verstanden werden. Die KI hilft, deine Anfrage zu verstehen; passende Orte wählt Backyrd anhand seiner Spot- und Eventangaben aus.",
   "Deine Konto-ID und E-Mail-Adresse werden dabei nicht an OpenAI gesendet. Angaben, die du selbst in das Suchfeld schreibst, sind Teil der Anfrage. Bitte gib deshalb keine vertraulichen Daten oder Namen anderer Personen ein. Backyrd fordert keine dauerhafte Speicherung der Modellantwort bei OpenAI an. Technische Protokolle beim Anbieter sind davon getrennt.",
-  "Deine letzten 20 Anfragen bleiben bis zu 30 Tage auf diesem Gerät gespeichert, auf dem iPhone verschlüsselt. Im Verlauf kannst du einzelne Anfragen oder alles löschen. Beim Abmelden wird dieser lokale Verlauf entfernt. Der Verlauf wird nicht für zusätzliche Analysen oder KI-Lernen übermittelt. In der Browser-Vorschau gilt er nur für den geöffneten Tab.",
-  "Die Verarbeitung durch OpenAI kann ausserhalb der Schweiz stattfinden. Persönliche Vorlieben berücksichtigt Backyrd nur mit deiner entsprechenden Einwilligung. Du kannst sie unter Datenschutz verwalten. Fragen oder Anliegen zum Datenschutz: hello@backyrd.ch.",
+  "Die Verarbeitung durch OpenAI kann ausserhalb der Schweiz stattfinden. Persönliche Vorlieben berücksichtigt Backyrd nur mit deiner entsprechenden Einwilligung. Du kannst sie im Privacy Center verwalten. Fragen oder Anliegen zum Datenschutz: hello@backyrd.ch.",
 ];
 
 async function withinIdentityDeadline<T>(operation: PromiseLike<T>): Promise<T> {
@@ -699,6 +698,8 @@ function WohinExperience() {
             <ScrollView contentContainerStyle={styles.sheetContent}>
               <AppText role="label" tone="pink">Datenschutz zur KI-Suche</AppText>
               {searchPrivacy.map(paragraph => <AppText key={paragraph} role="body" tone="secondary">{paragraph}</AppText>)}
+              <AppText role="label" tone="pink">Dein lokaler Verlauf</AppText>
+              <AppText role="body" tone="secondary">{"Deine letzten 20 Anfragen bleiben bis zu 30 Tage auf diesem Gerät gespeichert, auf dem iPhone verschlüsselt. Im Verlauf kannst du einzelne Anfragen oder alles löschen. Beim Abmelden wird dieser lokale Verlauf entfernt. Der Verlauf wird nicht für zusätzliche Analysen oder KI-Lernen übermittelt. In der Browser-Vorschau gilt er nur für den geöffneten Tab."}</AppText>
               <Pressable accessibilityRole="button" onPress={() => { setPrivacyOpen(false); router.push("/privacy-consent"); }} style={styles.followUpButton}><AppText role="label" tone="pink">Zum Datenschutz</AppText></Pressable>
             </ScrollView>
           </SafeAreaView>
