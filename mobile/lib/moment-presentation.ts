@@ -12,12 +12,16 @@ export function homeMomentPreview(post: {
   media: { public_url?: string | null; media_type?: string | null }[] | null;
 }, failedPhotos: ReadonlySet<string> = new Set()) {
   const moods = presentMomentTags(post.mood_tags);
-  const normalize = (value: string) => value.toLocaleLowerCase("de-CH").replace(/[.,·•|&/–—-]+/g, " ").replace(/\s+/g, " ").trim();
-  const rawCaption = post.caption?.trim() || null;
-  const moodOnly = rawCaption && moods.length && [moods.join(" "), moods.join(" und ")].some(value => normalize(value) === normalize(rawCaption));
-  const caption = moodOnly ? null : rawCaption;
+  const caption = momentPersonalCaption(post.caption, moods);
   const imageUrl = post.media?.find(item => item.public_url?.trim() && !failedPhotos.has(item.public_url) && (!item.media_type || item.media_type === "image" || item.media_type === "photo" || item.media_type.startsWith("image/")))?.public_url ?? null;
   return imageUrl || caption ? { caption, imageUrl, moods: moods.slice(0, 2) } : null;
+}
+
+export function momentPersonalCaption(value: string | null, moods: readonly string[]) {
+  const caption = value?.trim() || null;
+  if (!caption) return null;
+  const normalize = (text: string) => text.toLocaleLowerCase("de-CH").replace(/[.,·•|&/–—-]+/g, " ").replace(/\s+/g, " ").trim();
+  return moods.length && [moods.join(" "), moods.join(" und ")].some(text => normalize(text) === normalize(caption)) ? null : caption;
 }
 
 export function formatMomentTime(value: string, now = Date.now()) {

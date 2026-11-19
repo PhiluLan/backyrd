@@ -367,3 +367,38 @@ vorerst abgeschlossen. Die Momentsektion bleibt ausgeblendet, ihr Entwurf bleibt
 aufbewahrt. Das ist eine Abnahme der Startseite, keine vollständige Abnahme
 aller App-Oberflächen oder Beta-Freigabe. Eine separate Geräteaufnahme nach
 dem letzten Kontrastfix liegt noch nicht vor.
+
+### Nächste Oberfläche: Momente mit Erlebnis- und Ortsfokus
+
+«Wohin» ist auf Founder-Wunsch zurückgestellt, bis das iPhone am Mac angeschlossen
+ist und der ganze Ablauf direkt geprüft werden kann. Als Nächstes wird der
+Momente-Tab bearbeitet. Der Founder hat ausdrücklich «Erlebnisse und Orte im
+Fokus» gewählt; Personen und Austausch bleiben zugänglich.
+
+Erster Entwurf nur im Momente-Tab:
+
+- Klarer Kopf «Momente», kurze Einordnung «Orte, wie sie sich anfühlen.» und
+  die bestehenden Filter als «Entdecken»/«Dein Kreis». Personen-Suche und
+  Erstellen bleiben erreichbar. Der Kopf bleibt auch bei Ladefehlern sichtbar.
+- Grosse Fotos oder persönliche Texte führen die gerundeten, abgesetzten Beiträge.
+  Moods werden als ruhige Wortzeile dargestellt; reine Mood-Wiederholungen im
+  Caption-Text werden nicht doppelt gerendert. Alle Beiträge bleiben im Feed.
+- Ein deutlicher Ortsblock mit Name, Kategorie/Stadt und «Ort entdecken» folgt
+  dem Erlebnis. Die vorhandene Suche nach ähnlichen Orten bleibt dezent erreichbar.
+- Person, Datum, Folgen, Melden beziehungsweise eigene Optionen sowie Reaktionen,
+  Kommentare, Teilen und Speichern stehen darunter. Aktionen und Backend-Pfade
+  sind erhalten; ungültige Datumswerte erzeugen im neuen Layout keine Zeitbehauptung.
+- Mehrfachfotos werden tatsächlich horizontal geblättert, mit aktuellem Zähler
+  und gemessener Kartenbreite. Fehlgeschlagene Bilder entfallen aus der Galerie.
+  Bei vollständigem Bildfehler bleiben Text/Moods und eine explizite Wiederholung.
+- Die bestehende `PostCard` erhält eine optionale Erlebnisdarstellung. Profile,
+  gespeicherte Momente und Einzelansichten verwenden weiterhin die Standardansicht.
+  Die Startseite bleibt abgeschlossen und ihre Momentsektion ausgeblendet.
+
+Keine Änderungen an Sichtbarkeitsfiltern, Upload, Ranking, Einwilligung, Moderation,
+Schemata oder API-Verträgen. Die gemeinsam genutzten Konsumenten wurden geprüft.
+Typecheck, gezieltes ESLint, vollständige Mobile-Vertragstests, Karten-/Discovery-
+Tests und Hermes-Prüfung bestanden. Ein Render-Harness prüft die tatsächliche
+Komponente auf Reihenfolge, Mehrfachfotos, gemessene Breite, Bildfehler/Wiederholung,
+Mood-Duplikate, Orts-/Kommentarzugang und erhaltene Standarddarstellung.
+Native visuelle und vollständige Geräte-Interaktionsabnahme bleiben offen.

@@ -566,15 +566,11 @@ export default function FeedScreen() {
             onPress={() => setComposerVisible(true)}
           >
             <Ionicons name="add" size={18} color={theme.color.onAccent} />
-            <Text style={styles.createButtonText}>Moment</Text>
           </Pressable>
         </View>
       </View>
 
-      <View style={{ gap: 7, paddingBottom: 18 }}>
-        <Text style={{ color: theme.color.textPrimary, fontFamily: theme.type.display, fontSize: 28 }}>Erlebt. Festgehalten.</Text>
-        <Text style={{ color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 15, lineHeight: 22 }}>Moods machen dein Erlebnis spürbar. Entdecke durch die Momente anderer deinen nächsten Ort.</Text>
-      </View>
+      <Text style={styles.intro}>Orte, wie sie sich anfühlen.</Text>
 
       <View style={styles.modeShell}>
         <Pressable
@@ -592,7 +588,7 @@ export default function FeedScreen() {
               mode === "for_you" && styles.modeTextActive,
             ]}
           >
-            Für dich
+            Entdecken
           </Text>
         </Pressable>
 
@@ -611,7 +607,7 @@ export default function FeedScreen() {
               mode === "following" && styles.modeTextActive,
             ]}
           >
-            Folge ich
+            Dein Kreis
           </Text>
         </Pressable>
       </View>
@@ -635,7 +631,7 @@ export default function FeedScreen() {
 
       <Text style={styles.emptyText}>
         {mode === "following"
-          ? "Hier erscheinen Momente von Menschen, denen du folgst. Entdecke Menschen mit gutem Geschmack."
+          ? "Hier erscheinen Erlebnisse von Menschen, denen du folgst."
           : "Hier sind noch keine Momente. Entdecke einen echten Ort und teile danach, wie es sich dort angefühlt hat."}
       </Text>
 
@@ -672,13 +668,13 @@ export default function FeedScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       {loading && posts.length === 0 ? (
-        <View style={styles.loadingWrap}>
-          <StateView kind="loading" title="Momente kommen zusammen" message="Backyrd lädt gerade, was in deiner Stadt passiert." />
-        </View>
+        <View style={{ flex: 1 }}>{renderHeader}<View style={styles.loadingWrap}>
+          <StateView kind="loading" title="Momente werden geladen" message="Persönliche Eindrücke und die Orte dahinter." />
+        </View></View>
       ) : feedError && posts.length === 0 ? (
-        <View style={styles.loadingWrap}>
+        <View style={{ flex: 1 }}>{renderHeader}<View style={styles.loadingWrap}>
           <StateView kind="error" title="Momente gerade nicht erreichbar" message={feedError} actionLabel="Noch einmal versuchen" onAction={() => void loadFeed(mode)} />
-        </View>
+        </View></View>
       ) : (
         <FlatList
           data={posts}
@@ -688,6 +684,7 @@ export default function FeedScreen() {
           renderItem={({ item }) => (
             <View style={styles.fullWidthPost}>
               <SocialPostCard
+                presentation="experience"
                 post={item}
                 onChanged={() => { void loadFeed(mode); }}
                 currentUserId={currentUserId}
@@ -914,11 +911,11 @@ const styles = StyleSheet.create({
   },
   headerWrap: {
     paddingTop: theme.spacing.xs,
-    paddingBottom: theme.spacing.md,
+    paddingBottom: 24,
     backgroundColor: theme.color.background,
   },
   appBar: {
-    minHeight: 64,
+    minHeight: 76,
     paddingHorizontal: theme.layout.pageGutter,
     flexDirection: "row",
     alignItems: "center",
@@ -927,8 +924,11 @@ const styles = StyleSheet.create({
   appBarTitle: {
     color: theme.color.textPrimary,
     fontFamily: theme.type.bodyBold,
-    ...theme.typeScale.screenTitle,
+    fontSize: 38,
+    lineHeight: 46,
+    letterSpacing: -1.9,
   },
+  intro: { paddingHorizontal: theme.layout.pageGutter, marginTop: 4, marginBottom: 22, color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 16, lineHeight: 25 },
   appBarActions: {
     flexDirection: "row",
     alignItems: "center",
@@ -946,7 +946,7 @@ const styles = StyleSheet.create({
   },
   createButton: {
     height: 44,
-    paddingHorizontal: 15,
+    width: 44,
     borderRadius: theme.radius.pill,
     backgroundColor: theme.color.pink,
     flexDirection: "row",
@@ -954,14 +954,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
   },
-  createButtonText: {
-    color: theme.color.onAccent,
-    fontFamily: theme.type.bodyBold,
-    fontSize: 13,
-  },
   modeShell: {
-    marginHorizontal: theme.spacing.md,
-    height: 42,
+    marginHorizontal: theme.layout.pageGutter,
+    height: 46,
     borderRadius: theme.radius.pill,
     backgroundColor: theme.color.surface,
     borderWidth: 1,

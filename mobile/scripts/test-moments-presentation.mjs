@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
+import "./test-moment-experience-card.mjs";
 
 const helperSource = fs.readFileSync(
   path.resolve("lib/moment-presentation.ts"),
@@ -95,7 +96,7 @@ assert.equal(formatMomentTime(new Date(now - 6 * 86_400_000).toISOString(), now)
 // enough scroll clearance for the floating tab bar.
 assert.doesNotMatch(feedSource, /LOCAL \/ JETZT|localPrompt/);
 assert.match(feedSource, /accessibilityLabel="Moment erstellen"/);
-assert.match(feedSource, /height: 42,/);
+assert.match(feedSource, /modeShell:[\s\S]*?height: 46,/, "feed tabs keep an accessible touch height");
 assert.match(
   feedSource,
   /paddingBottom: theme\.control\.tabBar \+ theme\.spacing\.display/,
