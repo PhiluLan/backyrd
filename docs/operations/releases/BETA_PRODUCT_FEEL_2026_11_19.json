@@ -4,6 +4,16 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "scannableDetailsFollowUp": {
+    "sourceCommit": "22799d0a330af30267aac99da70bf92ebda4b3d8",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f27d-3fdf-7f0e-91cd-d76764539fd3", "group": "2103973d-6b44-4e00-a8f5-d6bcc3c48b98" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f27d-e5c3-7db8-abf3-fd18a565f63a", "group": "82436937-cc30-4fd4-b7c3-bc2835368ba3" }
+    ],
+    "validation": "21 shared/Web tests, full Mobile contracts, typecheck, targeted lint, direct Hermes execution and verified Production exports passed.",
+    "visualAcceptance": "PENDING"
+  },
   "spotCrashHotfix": {
     "sourceCommit": "1c4e733be0ba508e89ffd48573472b4a8e80cb83",
     "cause": "Intl.ListFormat is undefined in iOS Hermes; reproduced with the React Native Hermes runner.",
