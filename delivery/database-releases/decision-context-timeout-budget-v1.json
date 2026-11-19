@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "decision-context-timeout-budget-v1",
+  "previousEvidence": "crawler-verified-visit-facts",
+  "previousFingerprints": {
+    "publicAclSha256": "7cf29f2fd15944a32b2d4990d662bf6393c5f9e52ab87a786aeb695917ef49ff",
+    "applicationSchemaSha256": "370a3934551034c498d8101a6ff9362206bbde13d7c372071575d18f464d4fb9"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261119113523_decision_context_timeout_budget_v1.sql",
+      "sha256": "393e0d7bf6035eea0697b5b708705be6ba8fb47dfa28d17785c7d24da64bd958"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/decision_context_timeout_budget_v1.sql",
+      "sha256": "f93a5902ff5f108e2930897c0703fd134a483ffb0fc571ccd25fa64b02cc44dc"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "7cf29f2fd15944a32b2d4990d662bf6393c5f9e52ab87a786aeb695917ef49ff",
+    "applicationSchemaSha256": "845ba8edea07b547b2d1eb151b272e92d132009c8ae3368713d07500a3837e1a"
+  }
+}

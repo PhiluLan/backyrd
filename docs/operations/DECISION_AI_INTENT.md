@@ -310,3 +310,16 @@ error. In accordance with the pilot quality rollback rule, the manual
 `EMERGENCY_OFF` run `37125040938` succeeded. The AI pilot remains OFF until a
 new exact Product/Database release has passed canonical-value and live-account
 verification. No all-account activation is authorized.
+
+### 2026-11-19: bounded regional catalog timeout
+
+The Bier/tonight request reached NukNuk successfully (9.341s), but the parallel
+regional catalog RPC was cancelled by PostgREST's inherited 8s statement timeout.
+Its measured historical mean was 5.261s and maximum successful duration 7.800s.
+Migration `20261119113523` assigns only the existing service-only v7 context RPC a
+15s statement budget, within the existing 30s request deadline, and reloads the
+PostgREST schema cache. It does not change the query, catalog freshness, manifest
+validation, release binding, consent, ranking, grants, role-wide limits or model.
+This is bounded timeout headroom, not a claim of faster catalog computation.
+Monitor RPC latency and timeout errors; rollback with a forward migration that
+resets this function's `statement_timeout` and reloads the schema cache.

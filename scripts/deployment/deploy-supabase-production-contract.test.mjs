@@ -65,3 +65,16 @@ test("Production workflow is manual-only and retains the source-aware plan", asy
     assert.doesNotMatch(text,/db push[^\n]*--include-all/);
   }
  });
+
+test('every registered archive-backed SQL scope receives the actual archive integrity check in Production', async()=>{
+ const scopes=await import('./isolated-research-migration.mjs');
+ const workflow=await readFile(new URL('../../.github/workflows/supabase-production.yml',import.meta.url),'utf8');
+ const line=workflow.split('\n').find(line=>line.includes('.isolatedResearchScope.contractVersion | IN('));
+ assert.ok(line,'archive-backed scope condition missing');
+ for(const [name,scope] of Object.entries(scopes).filter(([name])=>name.endsWith('_SCOPE')))
+  assert.ok(line.includes(JSON.stringify(scope)),`${name} must not skip archive verification`);
+ const block=workflow.slice(workflow.indexOf(line),workflow.indexOf('supabase functions list',workflow.indexOf(line)));
+ assert.match(block,/verifyNuknukActivityRestore/);
+ assert.match(block,/artifact_digest/);
+ assert.match(workflow,/age>24\*60\*60\*1000/);
+});
