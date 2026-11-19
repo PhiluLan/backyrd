@@ -4,6 +4,16 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "consumerCopyFollowUp": {
+    "sourceCommit": "c350110df747d4a1cf9ef57ffab61a234b284f5e",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f260-5e55-7f67-aaf8-c750cefb5c09", "group": "ebb1d3ce-f390-4b2c-816b-65f14a6bcc70" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f260-f02b-7860-bf7e-d7eb6d579070", "group": "b3d85d22-4f26-4335-845c-80c0b9f536d7" }
+    ],
+    "validation": "18 shared/Web tests, full Mobile contracts, discovery tests, typecheck, targeted lint, Production validation and both verified Hermes exports passed.",
+    "visualAcceptance": "PENDING"
+  },
   "authorization": "Founder explicitly approved publication to all compatible Production iPhones on 2026-11-19.",
   "updates": [
     {

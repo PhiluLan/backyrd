@@ -34,7 +34,8 @@ im Branch `codex/beta-product-feel-v1`.
 
 Founder-Rückmeldung nach dem ersten OTA: visuell nicht abgenommen. Die Satzlisten
 wirken weiterhin technisch; der bildlose Hero lässt zu viel leeren Raum.
-Folgekorrektur im Code (noch nicht im ersten OTA):
+Folgekorrektur mit Besuchersprache auf Production für beide Runtimes veröffentlicht
+(Quelle c350110d; Gruppen siehe Release-Beleg):
 
 - Bildloser Hero kompakter; keine pinke Dekoration unter der Statusleiste.
 - Ortsart und Preisniveau als ruhige Zusammenfassung statt technischer Dreispaltentabelle.
