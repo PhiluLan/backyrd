@@ -3,7 +3,8 @@ import { MomentEditor } from "./MomentEditor";
 import type { MentionPerson } from "../../packages/shared/src/presentation/social";
 // mobile/components/PostCard.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, type AlertButton, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Alert, type AlertButton, Image, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { ProductText as Text } from "./foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -60,7 +61,9 @@ export type SocialFeedPost = {
 };
 
 type Props = {
-  presentation?: "social" | "experience";
+  presentation?: "social" | "experience" | "immersive";
+  viewportHeight?: number;
+  overlayInsets?: { top: number; bottom: number };
   post: SocialFeedPost;
   currentUserId?: string | null;
   onToggleReaction: (
@@ -96,6 +99,8 @@ function isReviewMoment(post: SocialFeedPost) {
 export default function SocialPostCard({
   post,
   presentation = "social",
+  viewportHeight,
+  overlayInsets,
   currentUserId = null,
   onToggleReaction,
   onOpenSpot,
@@ -107,11 +112,14 @@ export default function SocialPostCard({
 }: Props) {
   const router = useRouter();
   const experience = presentation === "experience";
-  const { width, fontScale } = useWindowDimensions();
+  const immersive = presentation === "immersive";
+  const { width, height: windowHeight, fontScale } = useWindowDimensions();
   const [measuredMediaWidth, setMeasuredMediaWidth] = useState<number | null>(null);
-  const mediaWidth = measuredMediaWidth ?? width - 2 * theme.layout.pageGutter;
+  const mediaWidth = measuredMediaWidth ?? (immersive ? width : width - 2 * theme.layout.pageGutter);
   const [failedImages, setFailedImages] = useState<ReadonlySet<string>>(() => new Set());
   const [imageIndex, setImageIndex] = useState(0);
+  const [captionExpanded, setCaptionExpanded] = useState(false);
+  useEffect(() => { setImageIndex(0); }, [post.post_id, mediaWidth]);
   const [editing, setEditing] = useState(false);
   const [liked, setLiked] = useState(Boolean(post.viewer_has_liked));
   const [saved, setSaved] = useState(Boolean(post.viewer_has_saved));
@@ -145,9 +153,10 @@ export default function SocialPostCard({
     post.display_name?.trim() || post.username?.trim() || "Mitglied";
   const handle = post.username?.trim() ? `@${post.username.trim()}` : null;
   const images = useMemo(() => mediaUrls(post), [post]);
+  const mediaIdentity = JSON.stringify(images);
   const imageUrl = images[0] ?? null;
   const experienceImages = images.filter(url => !failedImages.has(url));
-  useEffect(() => { setFailedImages(new Set()); setImageIndex(0); }, [post.post_id, images]);
+  useEffect(() => { setFailedImages(new Set()); setImageIndex(0); }, [post.post_id, mediaIdentity]);
   const primaryMedia = post.media?.find(
     (item) => item.public_url || item.storage_path,
   );
@@ -161,8 +170,8 @@ export default function SocialPostCard({
     primaryMedia?.width,
     primaryMedia?.height,
   );
-  const hasImage = experience ? experienceImages.length > 0 : momentHasRenderableImage(imageUrl, mediaFailed);
-  const personalCaption = experience ? momentPersonalCaption(post.caption, tags) : post.caption;
+  const hasImage = experience || immersive ? experienceImages.length > 0 : momentHasRenderableImage(imageUrl, mediaFailed);
+  const personalCaption = experience || immersive ? momentPersonalCaption(post.caption, tags) : post.caption;
   const reactionInFlight = useRef(false);
   const ownPost = Boolean(currentUserId && post.user_id === currentUserId);
   const reviewMoment = isReviewMoment(post);
@@ -266,6 +275,63 @@ export default function SocialPostCard({
 
     Alert.alert("Moment", "Was möchtest du tun?", options);
   };
+
+  if (immersive) {
+    const pageHeight = viewportHeight ?? windowHeight;
+    const bottom = overlayInsets?.bottom ?? theme.control.tabBar + 24;
+    const top = overlayInsets?.top ?? 80;
+    const time = Number.isFinite(Date.parse(post.created_at)) ? formatMomentTime(post.created_at) : null;
+    return <View style={[styles.immersivePage, { height: pageHeight }]} onLayout={event => {
+      const nextWidth = event.nativeEvent.layout.width;
+      if (nextWidth > 0 && (measuredMediaWidth === null || Math.abs(nextWidth - measuredMediaWidth) > 0.5)) setMeasuredMediaWidth(nextWidth);
+    }}>
+      <MomentEditor postId={editing ? post.post_id : null} onClose={() => setEditing(false)} onChanged={() => onChanged?.()} />
+      {hasImage ? <ScrollView key={`${mediaWidth}:${mediaIdentity}`} horizontal pagingEnabled directionalLockEnabled nestedScrollEnabled showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={event => setImageIndex(Math.max(0, Math.min(experienceImages.length - 1, Math.round(event.nativeEvent.contentOffset.x / mediaWidth))))}>
+        {experienceImages.map((url, index) => <Image key={url} source={{ uri: url }} resizeMode="cover" style={{ width: mediaWidth, height: pageHeight }}
+          onError={() => setFailedImages(previous => new Set(previous).add(url))} accessibilityLabel={`Foto ${index + 1} von ${experienceImages.length}, Moment von ${displayName}`} />)}
+      </ScrollView> : <LinearGradient colors={["#402336", "#1C1725", "#0B0B10"]} style={StyleSheet.absoluteFill} />}
+      <LinearGradient pointerEvents="none" colors={["rgba(0,0,0,0.6)", "transparent", "rgba(0,0,0,0.12)", "rgba(0,0,0,0.9)"]} locations={[0, 0.26, 0.48, 1]} style={StyleSheet.absoluteFill} />
+      {!hasImage ? <View style={[styles.immersiveText, { top: top + 60, bottom: bottom + 170 }]}>
+        <Text style={styles.immersiveEyebrow}>{post.spot_name ? `Ein Moment bei ${post.spot_name}` : "Ein persönlicher Moment"}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Vollständigen Momenttext anzeigen" onPress={() => setCaptionExpanded(true)}>
+          <Text numberOfLines={fontScale > 1.3 ? 4 : 7} style={styles.immersiveQuote}>{personalCaption || tags.join(" · ") || "Für diesen Moment ist gerade kein Inhalt verfügbar."}</Text>
+        </Pressable>
+        {images.length > 0 ? <Pressable accessibilityRole="button" accessibilityLabel="Fotos erneut laden" onPress={() => setFailedImages(new Set())} style={styles.immersiveRetry}><Text style={styles.immersiveSecondary}>Fotos gerade nicht verfügbar.</Text><Text style={styles.immersiveWhite}>Fotos erneut laden</Text></Pressable> : null}
+      </View> : null}
+      {hasImage && experienceImages.length > 1 ? <View pointerEvents="none" style={[styles.immersiveCounter, { top }]}><Text style={styles.immersiveWhite}>{Math.min(imageIndex + 1, experienceImages.length)} / {experienceImages.length}</Text></View> : null}
+      <View style={[styles.immersiveOptions, { top: top - 8 }]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Momentdetails anzeigen" onPress={() => setCaptionExpanded(true)} style={styles.immersiveAction}><Ionicons name="information-circle-outline" size={25} color="#FFFFFF" /></Pressable>
+        {!ownPost ? <ReportContentButton entityType="social_post" entityId={post.post_id} contentType="moment" actorUserId={post.user_id} spotId={post.spot_id} textContent={post.caption} imageUrls={images} locale="de-CH" sourceSurface="social_post_card" sourceContext={{ screen: "social_feed", post_id: post.post_id, review_id: post.review_id ?? null, source_type: post.source_type ?? null }} /> : <Pressable accessibilityRole="button" accessibilityLabel="Moment Optionen öffnen" onPress={openOwnPostMenu} style={styles.immersiveAction}><Ionicons name="ellipsis-horizontal" size={26} color="#FFFFFF" /></Pressable>}
+      </View>
+      <View style={[styles.immersiveCopy, { bottom }]}>
+        {post.spot_name ? <Pressable accessibilityRole="button" accessibilityLabel={`${post.spot_name} ansehen`} onPress={() => onOpenSpot(post)} style={styles.immersivePlace}>
+          <Ionicons name="location-outline" size={20} color="#FFFFFF" /><View style={{ flex: 1 }}><Text numberOfLines={2} style={styles.immersivePlaceName}>{post.spot_name}</Text>{[post.category_name, post.spot_city].filter(Boolean).length ? <Text numberOfLines={1} style={styles.immersiveSecondary}>{[post.category_name, post.spot_city].filter(Boolean).join(" · ")}</Text> : null}</View><Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+        </Pressable> : null}
+        <View style={styles.immersiveAuthorRow}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Profil von ${displayName} öffnen`} onPress={openUser} style={styles.immersiveAuthor}>
+            <Avatar uri={post.avatar_url ?? undefined} name={displayName} size={28} /><View style={{ flex: 1 }}><Text style={styles.immersiveWhite} numberOfLines={1}>{displayName}</Text>{time ? <Text style={styles.immersiveSecondary}>{time}</Text> : null}</View>
+          </Pressable>
+          {!ownPost && showFollowAction ? <Pressable accessibilityRole="button" accessibilityLabel={following ? `${displayName} nicht mehr folgen` : `${displayName} folgen`} accessibilityState={{ selected: following, busy: busyFollow }} disabled={busyFollow} onPress={toggleFollow} style={styles.immersiveFollow}><Text style={styles.immersiveWhite}>{following ? "Gefolgt" : "Folgen"}</Text></Pressable> : null}
+        </View>
+        {hasImage && personalCaption ? <Pressable accessibilityRole="button" accessibilityLabel="Vollständigen Momenttext anzeigen" onPress={() => setCaptionExpanded(true)} style={{ paddingVertical: 4 }}><Text numberOfLines={fontScale > 1.3 ? 2 : 3} style={styles.immersiveCaption}>{personalCaption}</Text>{personalCaption.length > 120 ? <Text style={styles.immersiveSecondary}>Mehr lesen</Text> : null}</Pressable> : null}
+        {tags.length && (hasImage || personalCaption) ? <Text numberOfLines={fontScale > 1.3 ? 1 : 2} style={styles.immersiveMoods}>{tags.join(" · ")}</Text> : null}
+        {post.mentions?.length ? <Pressable accessibilityRole="button" accessibilityLabel="Markierte Personen ansehen" onPress={() => setCaptionExpanded(true)} style={{ minHeight: 44, justifyContent: "center" }}><Text style={styles.immersiveSecondary}>Mit {post.mentions.map(person => person.display_name).join(", ")}</Text></Pressable> : null}
+      </View>
+      <View style={[styles.immersiveActions, { bottom }]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={liked ? "Gefällt mir entfernen" : "Gefällt mir"} accessibilityState={{ selected: liked, busy: busyReaction === "like" }} onPress={toggleLike} style={styles.immersiveAction}><Ionicons name={liked ? "heart" : "heart-outline"} size={28} color={liked ? "#FF438E" : "#FFFFFF"} />{likeCount > 0 ? <Text style={styles.immersiveCount}>{likeCount}</Text> : null}</Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Kommentare öffnen" onPress={() => onOpenComments(post)} style={styles.immersiveAction}><Ionicons name="chatbubble-outline" size={27} color="#FFFFFF" />{commentCount > 0 ? <Text style={styles.immersiveCount}>{commentCount}</Text> : null}</Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Moment teilen" onPress={sharePost} style={styles.immersiveAction}><Ionicons name="paper-plane-outline" size={26} color="#FFFFFF" /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={saved ? "Aus Gespeichert entfernen" : "Moment speichern"} accessibilityState={{ selected: saved, busy: busyReaction === "save" }} onPress={toggleSave} style={styles.immersiveAction}><Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={27} color={saved ? "#FF438E" : "#FFFFFF"} /></Pressable>
+      </View>
+      <Modal visible={captionExpanded} transparent animationType="fade" onRequestClose={() => setCaptionExpanded(false)}>
+        <View style={styles.immersiveDetailBackdrop}><View style={[styles.immersiveDetail, { maxHeight: pageHeight * 0.8, paddingBottom: 24 }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Momenttext schliessen" onPress={() => setCaptionExpanded(false)} style={styles.immersiveClose}><Ionicons name="close" size={25} color="#FFFFFF" /></Pressable>
+          <ScrollView><Text style={styles.immersivePlaceName}>{post.spot_name ?? "Moment"}</Text><Text style={[styles.immersiveSecondary, { marginVertical: 12 }]}>{[displayName, time].filter(Boolean).join(" · ")}</Text>{personalCaption ? <Text style={styles.immersiveCaption}>{personalCaption}</Text> : null}{tags.length ? <Text style={[styles.immersiveMoods, { marginTop: 16 }]}>{tags.join(" · ")}</Text> : null}{post.mentions?.map(person => <Pressable key={person.user_id} accessibilityRole="link" accessibilityLabel={`Profil von ${person.display_name}`} onPress={() => { setCaptionExpanded(false); router.push(`/user/${person.user_id}`); }} style={{ minHeight: 44, justifyContent: "center" }}><Text style={styles.immersiveWhite}>Mit {person.display_name}</Text></Pressable>)}{post.spot_id ? <View style={{ backgroundColor: theme.color.surface, borderRadius: 16, paddingHorizontal: 12, marginTop: 16 }}><DiscoverFromMoment moods={presentMomentTags(post.mood_tags)} city={post.spot_city} category={post.category_name} onNavigate={() => setCaptionExpanded(false)} /></View> : null}</ScrollView>
+        </View></View>
+      </Modal>
+    </View>;
+  }
 
   const authorHeader = (
       <View style={[styles.header, experience && styles.experienceHeader, experience && fontScale > 1.3 && styles.largeHeader]}>
@@ -417,7 +483,7 @@ export default function SocialPostCard({
       {hasImage ? (
         experience ? (
         <View style={[styles.media, { aspectRatio: mediaAspectRatio }]}>
-          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={event => setImageIndex(Math.max(0, Math.min(experienceImages.length - 1, Math.round(event.nativeEvent.contentOffset.x / mediaWidth))))}>
+          <ScrollView key={`${mediaWidth}:${mediaIdentity}`} horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={event => setImageIndex(Math.max(0, Math.min(experienceImages.length - 1, Math.round(event.nativeEvent.contentOffset.x / mediaWidth))))}>
             {experienceImages.map((url, index) => <Pressable key={url} accessibilityRole="button" accessibilityLabel={`Foto ${index + 1} von ${experienceImages.length}, ${post.spot_name ?? displayName}. Ort ansehen`} onPress={() => (post.spot_id ? onOpenSpot(post) : openUser())} style={{ width: mediaWidth, height: mediaWidth / mediaAspectRatio }}>
               <Image source={{ uri: url }} style={styles.mediaImage} resizeMode="cover" onError={() => setFailedImages(previous => new Set(previous).add(url))} accessibilityLabel={`Moment von ${displayName}`} />
             </Pressable>)}
@@ -569,6 +635,29 @@ export default function SocialPostCard({
 }
 
 const styles = StyleSheet.create({
+  immersivePage: { width: "100%", backgroundColor: "#0B0B10", overflow: "hidden" },
+  immersiveText: { position: "absolute", left: 26, right: 80, justifyContent: "center", gap: 18 },
+  immersiveEyebrow: { color: "#FF87B1", fontSize: 14, lineHeight: 22 },
+  immersiveQuote: { color: "#FFFFFF", fontFamily: theme.type.bodyMedium, fontSize: 26, lineHeight: 38 },
+  immersiveRetry: { minHeight: 44, paddingVertical: 8, gap: 4 },
+  immersiveCounter: { position: "absolute", left: 22, backgroundColor: "rgba(0,0,0,0.4)", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
+  immersiveOptions: { position: "absolute", right: 14, flexDirection: "row", alignItems: "center" },
+  immersiveCopy: { position: "absolute", left: 22, right: 82, gap: 8 },
+  immersivePlace: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 48, paddingVertical: 8 },
+  immersivePlaceName: { color: "#FFFFFF", fontFamily: theme.type.bodyBold, fontSize: 21, lineHeight: 28 },
+  immersiveWhite: { color: "#FFFFFF", fontSize: 13, lineHeight: 20 },
+  immersiveSecondary: { color: "#D8D8DD", fontSize: 12, lineHeight: 19 },
+  immersiveAuthorRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  immersiveAuthor: { flex: 1, minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8 },
+  immersiveFollow: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
+  immersiveCaption: { color: "#FFFFFF", fontSize: 15, lineHeight: 23 },
+  immersiveMoods: { color: "#FF87B1", fontFamily: theme.type.bodyMedium, fontSize: 13, lineHeight: 21 },
+  immersiveActions: { position: "absolute", right: 10, gap: 8 },
+  immersiveAction: { width: 52, minHeight: 48, alignItems: "center", justifyContent: "center", gap: 3 },
+  immersiveCount: { color: "#FFFFFF", fontSize: 11, lineHeight: 16 },
+  immersiveDetailBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: 20 },
+  immersiveDetail: { backgroundColor: "#17171C", borderRadius: 24, padding: 22 },
+  immersiveClose: { minHeight: 44, minWidth: 44, alignSelf: "flex-end", alignItems: "center", justifyContent: "center" },
   experiencePost: { marginHorizontal: theme.layout.pageGutter, marginBottom: 32, paddingBottom: 12, borderRadius: theme.radius.xl, overflow: "hidden", borderBottomWidth: 0, backgroundColor: theme.color.surface },
   experienceHeader: { paddingTop: 16, paddingHorizontal: 18, minHeight: 64, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.color.border, marginTop: 12 },
   largeHeader: { flexDirection: "column", alignItems: "stretch", gap: 8 },

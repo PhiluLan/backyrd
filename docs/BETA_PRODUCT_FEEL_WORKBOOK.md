@@ -402,3 +402,35 @@ Tests und Hermes-Prüfung bestanden. Ein Render-Harness prüft die tatsächliche
 Komponente auf Reihenfolge, Mehrfachfotos, gemessene Breite, Bildfehler/Wiederholung,
 Mood-Duplikate, Orts-/Kommentarzugang und erhaltene Standarddarstellung.
 Native visuelle und vollständige Geräte-Interaktionsabnahme bleiben offen.
+
+### Momente: Vollbild-Versuch mit zwei Wischrichtungen
+
+Der Founder möchte die Beitragskarten durch einen testbaren, vollflächigen
+Foto-/Story-Feed ersetzen. Der Versuch ist ausschliesslich im Momente-Tab aktiv;
+der vorherige Erlebnisentwurf bleibt über Git `4f75a4de` nachvollziehbar.
+
+- Ein Moment belegt die tatsächlich gemessene Bildschirmfläche. Vertikales
+  Wischen rastet zum nächsten Beitrag ein; horizontales Wischen blättert die
+  Fotos desselben Moments. Kein scrollender Kopf verschiebt die Seitengeometrie.
+- Fotos füllen die Fläche; Verlauf und weisse Overlays halten Ort, Person,
+  Kurztext und Aktionen lesbar. Kopf, Aktionsspalte und Text berücksichtigen
+  Statusbereich und die bestehende schwebende Navigation. Der Statusbar-Stil
+  wird nur im fokussierten Feed gesetzt.
+- Ohne Foto erscheint ein eigener, flächiger Textmoment mit tatsächlichem Inhalt
+  und Moods. Fehlgeschlagene Fotos haben eine ehrliche Rückmeldung und Wiederholung.
+- Vollständiger Text, alle Moods, markierte Personen und die bestehende Suche
+  nach ähnlichen Orten bleiben über die Momentdetails erreichbar. Beim Navigieren
+  daraus wird das Textfenster zuerst geschlossen. Der Ort ist direkt erreichbar.
+- Folgen, Reaktionen, Kommentare, Teilen, Speichern, Melden und eigene Optionen
+  nutzen dieselben Funktionen und Berechtigungen wie zuvor. Filter und Erstellen
+  bleiben im schwebenden Kopf; Lade-/Leer-/Fehlerzustände bleiben eigenständig.
+- Weiterhin maximal 30 geladene Beiträge, keine automatische Wiedergabe,
+  Fortschaltung oder zusätzliche Endlos-Nachladung. Keine Ranking-, Upload-,
+  Moderations-, Datenbank- oder API-Änderung. Startseite und Spot-Profil unverändert.
+
+Typecheck, gezieltes ESLint, volle Mobile-Vertragstests, Karten-/Discovery-Tests
+und Hermes-Prüfung bestanden. Der Render-Harness prüft zusätzlich Vollbildhöhe,
+gemessene Fotobreite, horizontales Paging/Zähler, Textöffnung/-schliessen,
+Bildfehler/Wiederholung und vertikale Item-Offsets ohne Kopfversatz.
+Native Gesten-, visuelle und grosse-Schrift-Abnahme auf dem iPhone sind offen.
+Der Entwurf ist ein Versuch und keine finale Abnahme der Momente-Seite.

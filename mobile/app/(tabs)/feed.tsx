@@ -5,12 +5,14 @@ import { MoodSelection } from "../../components/MoodSelection";
 // mobile/app/(tabs)/feed.tsx
 import "react-native-get-random-values";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { v4 as uuidv4 } from "uuid";
 
 import CommentsSheet from "../../components/CommentsSheet";
@@ -132,6 +134,11 @@ function momentCreateErrorMessage(error: unknown) {
 
 export default function FeedScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const focused = useIsFocused();
+  const { height: windowHeight } = useWindowDimensions();
+  const [viewportHeight, setViewportHeight] = useState(windowHeight);
+  const overlayInsets = { top: insets.top + 64, bottom: Math.max(8, insets.bottom - 2) + theme.control.tabBarVisual + 16 };
   const pendingPostRequest = useRef<{
     fingerprint: string;
     id: string;
@@ -663,28 +670,54 @@ export default function FeedScreen() {
     </View>
   );
 
+  const immersiveHeader = <View pointerEvents="box-none" style={[styles.immersiveHeader, { top: insets.top + 8 }]}>
+    <Pressable accessibilityRole="button" accessibilityLabel="Leute entdecken" onPress={() => router.push("/users/search" as never)} style={styles.immersiveHeaderAction}><Ionicons name="people-outline" size={23} color="#FFFFFF" /></Pressable>
+    <View accessibilityRole="tablist" style={styles.immersiveModes}>
+      <Pressable accessibilityRole="tab" accessibilityState={{ selected: mode === "for_you" }} onPress={() => switchMode("for_you")} style={styles.immersiveMode}><Text style={[styles.immersiveModeText, mode === "for_you" && styles.immersiveSelected]}>Entdecken</Text></Pressable>
+      <Pressable accessibilityRole="tab" accessibilityState={{ selected: mode === "following" }} onPress={() => switchMode("following")} style={styles.immersiveMode}><Text style={[styles.immersiveModeText, mode === "following" && styles.immersiveSelected]}>Dein Kreis</Text></Pressable>
+    </View>
+    <Pressable accessibilityRole="button" accessibilityLabel="Moment erstellen" onPress={() => setComposerVisible(true)} style={styles.immersiveHeaderAction}><Ionicons name="add-circle-outline" size={27} color="#FFFFFF" /></Pressable>
+  </View>;
+
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={[styles.screen, posts.length > 0 && { backgroundColor: "#0B0B10" }]} onLayout={event => {
+      const nextHeight = event.nativeEvent.layout.height;
+      if (nextHeight > 0 && Math.abs(nextHeight - viewportHeight) > 0.5) setViewportHeight(nextHeight);
+    }}>
+      {focused ? <StatusBar style={posts.length > 0 && !composerVisible && !commentsPost ? "light" : "auto"} /> : null}
       <Stack.Screen options={{ headerShown: false }} />
 
       {loading && posts.length === 0 ? (
-        <View style={{ flex: 1 }}>{renderHeader}<View style={styles.loadingWrap}>
+        <View style={{ flex: 1, paddingTop: insets.top }}>{renderHeader}<View style={styles.loadingWrap}>
           <StateView kind="loading" title="Momente werden geladen" message="Persönliche Eindrücke und die Orte dahinter." />
         </View></View>
       ) : feedError && posts.length === 0 ? (
-        <View style={{ flex: 1 }}>{renderHeader}<View style={styles.loadingWrap}>
+        <View style={{ flex: 1, paddingTop: insets.top }}>{renderHeader}<View style={styles.loadingWrap}>
           <StateView kind="error" title="Momente gerade nicht erreichbar" message={feedError} actionLabel="Noch einmal versuchen" onAction={() => void loadFeed(mode)} />
         </View></View>
       ) : (
         <FlatList
+          key={`${mode}:${Math.round(viewportHeight)}`}
           data={posts}
+          pagingEnabled
+          snapToInterval={posts.length ? viewportHeight : undefined}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          disableIntervalMomentum
+          directionalLockEnabled
+          initialNumToRender={2}
+          maxToRenderPerBatch={2}
+          windowSize={3}
+          getItemLayout={posts.length ? (_, index) => ({ length: viewportHeight, offset: viewportHeight * index, index }) : undefined}
           keyExtractor={(item) => item.post_id}
-          ListHeaderComponent={renderHeader}
+          ListHeaderComponent={posts.length ? undefined : renderHeader}
           ListEmptyComponent={emptyState}
           renderItem={({ item }) => (
-            <View style={styles.fullWidthPost}>
+            <View style={[styles.fullWidthPost, { height: viewportHeight }]}>
               <SocialPostCard
-                presentation="experience"
+                presentation="immersive"
+                viewportHeight={viewportHeight}
+                overlayInsets={overlayInsets}
                 post={item}
                 onChanged={() => { void loadFeed(mode); }}
                 currentUserId={currentUserId}
@@ -702,7 +735,7 @@ export default function FeedScreen() {
               />
             </View>
           )}
-          contentContainerStyle={styles.feedContent}
+          contentContainerStyle={posts.length ? undefined : [styles.feedContent, { paddingTop: insets.top }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -713,6 +746,8 @@ export default function FeedScreen() {
           }
         />
       )}
+
+      {posts.length ? immersiveHeader : null}
 
       <CommentsSheet
         visible={Boolean(commentsPost)}
@@ -883,11 +918,17 @@ export default function FeedScreen() {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  immersiveHeader: { position: "absolute", left: 12, right: 12, zIndex: 3, flexDirection: "row", alignItems: "center", gap: 4 },
+  immersiveHeaderAction: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  immersiveModes: { flex: 1, flexDirection: "row", justifyContent: "center", gap: 12 },
+  immersiveMode: { minHeight: 44, justifyContent: "center" },
+  immersiveModeText: { color: "#D9D9DE", fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 22 },
+  immersiveSelected: { color: "#FFFFFF", fontFamily: theme.type.bodyBold, textDecorationLine: "underline", textDecorationColor: "#FF438E" },
   screen: {
     flex: 1,
     backgroundColor: theme.color.background,
