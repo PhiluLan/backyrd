@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-table-combinations-v1",
+  "previousEvidence": "booking-table-allocations-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "98fe2267d38cf817ab053e4f391f06a9d63de4df17bd817b5377bf2cc39322ad",
+    "applicationSchemaSha256": "8071e259d0053111d84f9472daf7da8a7a1c72b9bf5260ecf5d880c41b7ee912"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261020221656_booking_table_combinations_v1.sql",
+      "sha256": "44dcae5816eeb6f7dfac6e0c74b897be8722bd76552ac8e5596d23b65ccbb8ab"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_table_combinations_safety_v1.sql",
+      "sha256": "75c1bf70e27cbfb8ce66d27e7963759751d222f35c84673275485217b6e1255c"
+    },
+    {
+      "path": "supabase/tests/booking_table_combinations_v1.sql",
+      "sha256": "ab812080e7ca3e7f68395aeeabf21f47c28f860752a44d0cd6453d3fe5e2bbf7"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "64ded47d4a712c39383049ecd9b4a3f5914c59214b50de031dcc8fa3e27eb640",
+    "applicationSchemaSha256": "fcdd41e28d307598120816c078d81993a5e6d11b9f53ff7856c08b0760ce69c2"
+  }
+}
