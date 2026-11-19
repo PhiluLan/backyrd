@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { readRecentDecisionSearch, rememberRecentDecisionSearch } from "@/lib/decision/recentDecisionSearch";
 import { clearJourneySelection, rememberJourneySelection, canCarryPlaceRecommendation } from "@/lib/discovery-journey";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, useColorScheme, View } from "react-native";
+import { ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, useColorScheme, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -76,47 +76,30 @@ async function withinIdentityDeadline<T>(operation: PromiseLike<T>): Promise<T> 
 }
 
 
-function DecisionResultCard({ candidate, recommendation, imageUrl, onOpen, onDetails }: {
-  candidate: DecisionProductCandidate;
-  recommendation: string;
-  imageUrl: string | null;
-  onOpen: () => void;
-  onDetails: () => void;
+function DecisionResultCard({ candidate, recommendation, imageUrl, width, onOpen, onDetails }: {
+  candidate: DecisionProductCandidate; recommendation: string; imageUrl: string | null;
+  width: number; onOpen: () => void; onDetails: () => void;
 }) {
   const { styles, color } = useWohinPresentation();
-  const meta = wohinPlaceMeta(candidate);
-  const hasVisitNotes = wohinConsiderations(candidate, false).length > 0 || candidate.actualAvailability === "unknown";
-  const openLabel = candidate.presentation.event ? "Event entdecken" : "Ort entdecken";
-
-  return (
-    <View style={styles.resultCard} testID="wohin-result-card">
-      <View style={styles.cardMain}>
-        <View style={styles.cardArtwork}>
-          {candidate.presentation.event
-            ? imageUrl
-              ? <Image source={{ uri: imageUrl }} accessibilityLabel={candidate.presentation.name} style={StyleSheet.absoluteFill} contentFit="cover" />
-              : <Ionicons name="calendar-outline" size={30} color={color.muted} />
-            : <SpotArtwork imageUrl={imageUrl} spotId={candidate.spotId} spotName={candidate.presentation.name} showFallbackName={false} attributionPosition="top" style={StyleSheet.absoluteFill} />}
-        </View>
-        <View style={styles.cardBody}>
-          {meta ? <AppText role="caption" style={styles.resultMeta}>{meta}</AppText> : null}
-          <AppText role="cardTitle" accessibilityRole="header">{candidate.presentation.name}</AppText>
-          {candidate.tier === "UNCONFIRMED_FALLBACK" ? <AppText role="caption" style={styles.provisional}>Vor Besuch klären</AppText> : null}
-          {candidate.tier !== "UNCONFIRMED_FALLBACK" && hasVisitNotes ? <AppText role="caption" style={styles.provisional}>Hinweise zum Besuch</AppText> : null}
-          <AppText role="body" style={styles.cardReason}>{recommendation}</AppText>
-        </View>
+  const provisional = candidate.tier === "UNCONFIRMED_FALLBACK" || candidate.actualAvailability === "unknown";
+  return <View style={[styles.resultCard, { width }]} testID="wohin-result-card">
+    <Pressable accessibilityRole="button" accessibilityLabel={`${candidate.presentation.name} entdecken`} onPress={onOpen} style={({ pressed }) => [styles.cardArtwork, { height: Math.round(width * 0.86) }, pressed && styles.pressed]}>
+      {candidate.presentation.event
+        ? imageUrl ? <Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" /> : <View style={styles.eventArtwork}><Ionicons name="calendar-outline" size={50} color={color.pink} /></View>
+        : <SpotArtwork imageUrl={imageUrl} spotId={candidate.spotId} spotName={candidate.presentation.name} showFallbackName={false} attributionPosition="top" style={StyleSheet.absoluteFill} />}
+      <LinearGradient pointerEvents="none" colors={["transparent", "rgba(0,0,0,0.15)", "rgba(0,0,0,0.9)"]} style={StyleSheet.absoluteFill} />
+      <View style={styles.photoCopy}>
+        <AppText role="caption" style={styles.photoMeta}>{wohinPlaceMeta(candidate)}</AppText>
+        <AppText role="screenTitle" accessibilityRole="header" style={styles.photoTitle}>{candidate.presentation.name}</AppText>
+        <View style={styles.cardOpen}><AppText role="label" style={styles.photoMeta}>{candidate.presentation.event ? "Event ansehen" : "Ort ansehen"}</AppText><Ionicons name="arrow-forward" style={{ transform: [{ rotate: "-45deg" }] }} size={19} color="#FFFFFF" /></View>
       </View>
-      <View style={styles.cardActions}>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${candidate.presentation.name} entdecken`} onPress={onOpen} style={({ pressed }) => [styles.cardAction, pressed && styles.pressed]}>
-          <AppText role="label" tone="pink">{openLabel}</AppText>
-          <Ionicons name="arrow-forward" size={16} color={color.pink} />
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Vor deinem Besuch bei ${candidate.presentation.name}`} onPress={onDetails} style={({ pressed }) => [styles.cardAction, pressed && styles.pressed]}>
-          <AppText role="label" style={styles.detailsText}>Vor deinem Besuch</AppText>
-        </Pressable>
-      </View>
-    </View>
-  );
+    </Pressable>
+    <AppText role="body" style={styles.cardReason}>{recommendation}</AppText>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Vor deinem Besuch bei ${candidate.presentation.name}`} onPress={onDetails} style={styles.cardNote}>
+      <Ionicons name={provisional ? "alert-circle-outline" : "information-circle-outline"} size={17} color={provisional ? color.warning : color.muted} />
+      <AppText role="caption" style={{ color: provisional ? color.warning : color.muted }}>{provisional ? "Vor Besuch klären" : "Gut zu wissen"}</AppText><Ionicons name="chevron-forward" size={14} color={color.muted} />
+    </Pressable>
+  </View>;
 }
 
 export default function WohinScreen() {
@@ -129,15 +112,19 @@ function WohinExperience() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [conversation, setConversation] = useState<SearchConversation | null>(null);
-  const [conversationOpen, setConversationOpen] = useState(false);
   const [offTopic, setOffTopic] = useState(false);
   const [newPlan, setNewPlan] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [selectedDetails, setSelectedDetails] = useState<DecisionProductCandidate | null>(null);
   const searchInputRef = useRef<React.ElementRef<typeof TextInput>>(null);
-  const searchScrollRef = useRef<ScrollView>(null);
-  const conversationScrollRef = useRef<ScrollView>(null);
+  const searchScrollRef = useRef<FlatList<DecisionProductCandidate>>(null);
+  const resultTop = useRef(0);
+  const revealResults = useRef(false);
+  const { width: viewportWidth } = useWindowDimensions();
+  const cardWidth = Math.max(240, Math.min(420, viewportWidth - 48));
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [inputHeight, setInputHeight] = useState(44);
   const params = useLocalSearchParams<{ query?: string; auto?: string }>();
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
@@ -195,7 +182,6 @@ function WohinExperience() {
     setSubmittedQuery("");
     setClarificationAnswer("");
     setConversation(null);
-    setConversationOpen(false);
     setSelectedDetails(null);
     setOffTopic(false);
     setNewPlan(null);
@@ -276,7 +262,6 @@ function WohinExperience() {
     if (!nextConversation) {
       setSubmittedQuery(text.trim());
       if (!retry) setConversation({ wish: text.trim(), turns: [] });
-      setConversationOpen(false);
     }
     setOffTopic(false);
     setNewPlan(null);
@@ -312,10 +297,10 @@ function WohinExperience() {
         setSubmittedQuery(text.trim());
         setConversation(nextConversation);
         setStandaloneQuestion(null);
-        setConversationOpen(false);
       }
       responseRef.current = result;
       setResponse(result);
+      revealResults.current = true;
       setCandidates(visible);
       setRecentWish({ actorId: verifiedActorId, query: text.trim() });
       void rememberRecentDecisionSearch(verifiedActorId, text, visible);
@@ -324,7 +309,6 @@ function WohinExperience() {
       if (cause instanceof DecisionProductDialogueRoute && userReply) {
         if (cause.route === "NEW_PLAN") setNewPlan(userReply);
         else setOffTopic(true);
-        setConversationOpen(true);
         return;
       }
       if (cause instanceof DecisionProductClarification) {
@@ -403,30 +387,6 @@ function WohinExperience() {
   const replyLimit = Math.max(0, 2000 - submittedQuery.length - replyPrefixLength);
   const replyLabel = clarificationQuestion ? "Antwort senden" : "Nachricht senden";
   const replyEnabled = Boolean(refinedQuery && !loading);
-  const replyComposer = replyLimit > 0 ? (
-    <View style={styles.chatDock}>
-      <TextInput
-        style={styles.searchInput}
-        accessibilityLabel={clarificationQuestion ? "Antwort auf NukNuks Rückfrage" : "Nachricht an NukNuk"}
-        placeholder={clarificationQuestion ? "Deine Antwort …" : "Was soll ich bei der Suche ändern?"}
-        placeholderTextColor={color.muted}
-        autoCapitalize="sentences"
-        multiline
-        value={clarificationAnswer}
-        onChangeText={(text) => {
-          setOffTopic(false);
-          setClarificationAnswer(text);
-        }}
-        maxLength={replyLimit}
-        editable={!loading}
-      />
-      <Pressable accessibilityRole="button" accessibilityLabel={replyLabel}
-        disabled={!replyEnabled} accessibilityState={{ disabled: !replyEnabled }}
-        onPress={submitReply} style={({ pressed }) => [styles.sendButton, !replyEnabled && styles.primaryDisabled, pressed && styles.pressed]}>
-        <Ionicons name="arrow-up" size={21} color={replyEnabled ? color.onAccent : color.muted} />
-      </Pressable>
-    </View>
-  ) : <AppText role="body" tone="secondary">Dein Suchwunsch ist schon sehr lang. Passe deine ursprüngliche Anfrage an, um die Antwort zu ergänzen.</AppText>;
 
   const conversationPrompt = newPlan ? (
     <View style={styles.questionCard} accessibilityLiveRegion="polite">
@@ -449,42 +409,24 @@ function WohinExperience() {
     </View> : null}
   </>;
 
-  const conversationHistory = (fullScreen = false) => conversation ? (
-    <View style={styles.history}>
-      <View style={fullScreen ? styles.chatBrief : styles.userMessage}>
-        <AppText role="caption" tone="pink">{fullScreen ? "Dein Plan" : "Deine Anfrage"}</AppText>
-        <AppText role={fullScreen ? "sectionTitle" : "body"}>{conversation.wish}</AppText>
-        {fullScreen ? <Pressable accessibilityRole="button" onPress={() => setConversationOpen(false)} style={styles.followUpButton}>
-          <AppText role="label" tone="pink">{candidates.length === 1 ? "Zum Vorschlag" : `Zu den ${candidates.length} Vorschlägen`}</AppText>
-        </Pressable> : null}
-      </View>
-      {conversation.turns.map(({ question, answer }, index) => (
-        <View key={index} style={styles.history}>
-          {question ? <View style={fullScreen ? styles.chatQuestion : styles.assistantMessage}>
-            <View style={styles.guideRow}>
-              <View style={styles.querySummary}>
-                <AppText role="caption" tone="pink">NukNuk</AppText>
-                <AppText role="body">{question}</AppText>
-              </View>
-            </View>
-          </View> : null}
-          <View style={fullScreen ? styles.chatTurn : styles.userMessage}>
-            <AppText role="caption" tone="pink">{question ? "Deine Antwort" : "Deine Ergänzung"}</AppText>
-            <AppText role="body">{answer}</AppText>
-          </View>
-        </View>
-      ))}
-    </View>
-  ) : null;
+  const conversationHistory = conversation ? <View style={styles.history}>
+    <View style={styles.userMessage}><AppText role="body">{conversation.wish}</AppText></View>
+    {conversation.turns.map(({ question, answer }, index) => <View key={index} style={styles.history}>
+      {question ? <AppText role="body" style={styles.assistantMessage}>{question}</AppText> : null}
+      <View style={styles.userMessage}><AppText role="body">{answer}</AppText></View>
+    </View>)}
+  </View> : null;
   const leaveSearch = () => {
-    // Invalidate local delivery; an already sent request may finish on the server.
     ++requestGeneration.current;
     requestInFlight.current = false;
+    const reply = pendingSearch?.isReply ? pendingSearch.message : null;
     setPendingSearch(null);
-    setQuery(conversation?.wish ?? submittedQuery);
-    setClarificationAnswer("");
-    setConversationOpen(false);
-    setEditing(true);
+    setClarificationAnswer(reply ?? "");
+    if (!reply || !response) {
+      setQuery(conversation?.wish ?? submittedQuery);
+      setEditing(true);
+    }
+    searchInputRef.current?.focus();
   };
   const searchProgress = pendingSearch ? <>
     {pendingSearch.isReply ? <View style={styles.userMessage}><AppText role="caption" tone="pink">Deine Ergänzung</AppText><AppText role="body">{pendingSearch.message}</AppText></View> : null}
@@ -524,25 +466,25 @@ function WohinExperience() {
     ? wohinLimitations(response.limitations.filter(code => code !== followUp.explainedLimitation), 0)
     : [];
 
-  const showingResults = Boolean(response && candidates.length && !editing);
-  const showConversation = Boolean(conversation && !editing && (loading || discoveryPlaceholder || clarificationQuestion || followUp || error || newPlan || offTopic));
+  const showingResults = Boolean(response && candidates.length && !loading && !editing && !newPlan && !offTopic);
   useEffect(() => {
-    if (!showConversation || (!clarificationQuestion && !loading)) return;
-    const frame = requestAnimationFrame(() => searchScrollRef.current?.scrollToEnd({ animated: true }));
-    return () => cancelAnimationFrame(frame);
-  }, [clarificationQuestion, conversation, loading, showConversation]);
-  useEffect(() => {
-    if (!conversationOpen || !showingResults) return;
-    const frame = requestAnimationFrame(() => conversationScrollRef.current?.scrollToEnd({ animated: false }));
-    return () => cancelAnimationFrame(frame);
-  }, [clarificationQuestion, conversationOpen, loading, newPlan, offTopic, showingResults]);
+    const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", event => {
+      if (Platform.OS === "ios") Keyboard.scheduleLayoutAnimation(event);
+      setKeyboardVisible(true);
+    });
+    const hide = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", event => {
+      if (Platform.OS === "ios") Keyboard.scheduleLayoutAnimation(event);
+      setKeyboardVisible(false);
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   const canSearch = !loading && identityReady && !identityError && authenticated && Boolean(city) && query.trim().length >= 3;
   const editQuery = () => {
     if (conversation) setQuery(conversation.wish);
     setError(null);
     setRetryRequest(null);
-    setConversationOpen(false);
     setEditing(true);
+    searchInputRef.current?.focus();
   };
   const startNewSearch = () => {
     if (loading) return;
@@ -552,7 +494,6 @@ function WohinExperience() {
     setCandidates([]);
     setDiscovery([]);
     setConversation(null);
-    setConversationOpen(false);
     setSelectedDetails(null);
     setStandaloneQuestion(null);
     setSubmittedQuery("");
@@ -562,6 +503,7 @@ function WohinExperience() {
     setError(null);
     setRetryRequest(null);
     setQuery("");
+    searchScrollRef.current?.scrollToOffset({ offset: 0, animated: false });
     Keyboard.dismiss();
     setEditing(false);
   };
@@ -588,226 +530,91 @@ function WohinExperience() {
   const nearbyIdea = city ? { icon: "location-outline", title: `${city} entdecken`, wish: `Zeig mir etwas Besonderes in ${city}.` } as const : null;
   const ideasReady = identityReady && (!authenticated || recentWishLoaded);
   const ideas = [localIdea, personalIdea, nearbyIdea].flatMap(idea => idea ? [idea] : []);
-  const resultHeader = (
-    <View style={styles.resultHeader}>
-      <View style={styles.resultHeading}>
-        <AppText role="screenTitle" accessibilityRole="header" style={styles.querySummary}>
-          {candidates.every(candidate => candidate.tier === "UNCONFIRMED_FALLBACK") ? "Zum Entdecken" : "Das könnte dein Moment sein"}
-        </AppText>
-        <Pressable accessibilityRole="button" accessibilityLabel="Suche ändern" onPress={editQuery} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
-          <Ionicons name="create-outline" size={20} color={color.text} />
-        </Pressable>
-      </View>
-      <View style={styles.planSummary}>
-        <View style={styles.guideRow}>
-          <NuknukAvatar height={30} appearance="outline" />
-          <AppText role="caption" tone="pink">Dein Plan · {response?.interpretation.targetCity ?? city}</AppText>
-        </View>
-        <AppText role="bodyStrong">{conversation?.wish ?? submittedQuery}</AppText>
-        {conversation?.turns.map(({ answer }, index) => <AppText key={index} role="meta" tone="secondary">{answer}</AppText>)}
-        <View style={styles.searchActions}>
-          <Pressable accessibilityRole="button" onPress={editQuery} style={styles.followUpButton}><AppText role="label" tone="pink">Wunsch anpassen</AppText></Pressable>
-          <Pressable accessibilityRole="button" onPress={startNewSearch} style={styles.followUpButton}><AppText role="label">Neue Suche</AppText></Pressable>
-        </View>
-      </View>
-      {candidates.some(candidate => candidate.tier === "UNCONFIRMED_FALLBACK") ? <AppText role="meta" tone="secondary">Bei den markierten Orten sind noch Angaben offen. Unter «Vor deinem Besuch» erfährst du mehr.</AppText> : null}
-      <AppText role="caption" tone="secondary">{candidates.length === 1 ? "1 Möglichkeit für deinen Plan" : `${candidates.length} Möglichkeiten für deinen Plan`}</AppText>
-      {clarificationQuestion ? <Pressable
-        accessibilityRole="button" accessibilityLabel={`NukNuk fragt: ${clarificationQuestion} Gespräch öffnen`}
-        onPress={() => setConversationOpen(true)} style={({ pressed }) => [styles.conversationLink, pressed && styles.pressed]}
-      >
-        <Ionicons name="chatbubble-outline" size={18} color={color.pink} />
-        <AppText role="meta" style={styles.querySummary}>{clarificationQuestion}</AppText>
-        <Ionicons name="chevron-forward" size={16} color={color.muted} />
-      </Pressable> : null}
+  const replyMode = Boolean(conversation && !editing && !discoveryPlaceholder);
+  const draft = replyMode ? clarificationAnswer : query;
+  const sendEnabled = replyMode ? replyEnabled : canSearch;
+  const dockPadding = keyboardVisible ? 8 : Math.max(8, insets.bottom - 2) + backyrdTheme.control.tabBarVisual + 12;
+  const selectIdea = (wish: string) => {
+    setQuery(wish); setEditing(true); setOffTopic(false); setError(null); setRetryRequest(null);
+    searchInputRef.current?.focus();
+  };
+  const scrollToResults = () => {
+    if (!revealResults.current || clarificationQuestion) return;
+    revealResults.current = false;
+    searchScrollRef.current?.scrollToOffset({ offset: conversation?.turns.length ? Math.max(0, resultTop.current - 220) : 0, animated: false });
+  };
+  return <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
+    <Stack.Screen options={{ title: "Wohin", headerShown: false }} />
+    <LinearGradient pointerEvents="none" colors={color.gradient} style={styles.ambient} />
+    <View style={styles.header}>
+      <NuknukAvatar height={38} appearance="outline" />
+      <View style={styles.headerCopy}><AppText role="cardTitle">Wohin<AppText role="cardTitle" tone="pink">?</AppText></AppText><AppText role="caption" tone="secondary">Mit NukNuk · {city ?? (identityReady ? "Deine Stadt" : "Stadt wird geladen")}</AppText></View>
+      {conversation ? <Pressable accessibilityRole="button" accessibilityLabel="Neue Suche" disabled={loading} onPress={startNewSearch} style={styles.iconButton}><Ionicons name="create-outline" size={21} color={loading ? color.muted : color.text} /></Pressable> : null}
+      <Pressable accessibilityRole="button" accessibilityLabel="Datenschutz zur KI-Suche öffnen" onPress={() => setPrivacyOpen(true)} style={styles.iconButton}><Ionicons name="information-circle-outline" size={23} color={color.muted} /></Pressable>
     </View>
-  );
-  const dockPadding = { paddingBottom: Math.max(8, insets.bottom - 2) + backyrdTheme.control.tabBarVisual + 12 };
-
-  return (
-    <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
-      <Stack.Screen options={{ title: "Wohin", headerShown: false }} />
-      <LinearGradient pointerEvents="none" colors={color.gradient} style={styles.ambient} />
-      {showingResults ? <View style={styles.screenBody}>
-        <FlatList
-          key={response!.decisionId}
-          data={candidates}
-          ListHeaderComponent={resultHeader}
-          contentContainerStyle={styles.results}
-          viewabilityConfig={viewabilityConfig}
-          onViewableItemsChanged={onViewableItemsChanged}
-          extraData={coverImages}
-          keyExtractor={(candidate) => candidate.spotId}
-          renderItem={({ item: candidate }) => <DecisionResultCard
-            candidate={candidate}
-            recommendation={wohinRecommendation(candidate, response?.interpretation, false)}
-            imageUrl={coverImages.has(candidate.spotId) ? coverImages.get(candidate.spotId)! : (candidate.presentation.event ? eventImageUrl(candidate.presentation.event.imageStoragePath) ?? candidate.presentation.imageUrl : candidate.presentation.imageUrl)}
-            onOpen={() => openSpot(candidate)}
-            onDetails={() => setSelectedDetails(candidate)}
-          />}
-        />
-        <View style={[styles.dock, dockPadding]}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Mit NukNuk chatten"
-            onPress={() => setConversationOpen(true)} style={({ pressed }) => [styles.chatDock, pressed && styles.pressed]}>
-            <NuknukAvatar height={32} appearance="outline" />
-            <AppText role="bodyStrong" style={styles.querySummary}>{clarificationQuestion ? "NukNuk antworten" : "Was darf noch anders sein?"}</AppText>
-            <Ionicons name="chevron-forward" size={19} color={color.pink} />
-          </Pressable>
-        </View>
-      </View> : <KeyboardAvoidingView style={styles.screenBody} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView ref={searchScrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: backyrdTheme.layout.pageGutter, paddingTop: backyrdTheme.spacing.lg, paddingBottom: showConversation ? backyrdTheme.control.tabBar + insets.bottom + backyrdTheme.spacing.xl : backyrdTheme.spacing.sm }}>
-          {editing && conversation ? <Pressable accessibilityRole="button" accessibilityLabel={candidates.length ? "Zurück zu deinen Vorschlägen" : "Zurück zum Gespräch"} onPress={() => { setEditing(false); Keyboard.dismiss(); }} style={styles.backToResults}>
-            <Ionicons name="arrow-back" size={18} color={color.pink} />
-            <AppText role="label" tone="pink">{candidates.length ? "Zurück zu deinen Vorschlägen" : "Zurück zum Gespräch"}</AppText>
-          </Pressable> : null}
-          <View style={styles.searchHeader}>
-            <AppText role="screenTitle" style={styles.pageTitle} accessibilityRole="header">Wohin<AppText role="screenTitle" style={styles.pageTitle} tone="pink">?</AppText></AppText>
-            <View style={styles.location}>
-              <Ionicons name="location-outline" size={16} color={color.pink} />
-              <AppText role="meta" style={styles.resultMeta}>{city ?? (identityReady ? "Deine Stadt" : "Stadt wird geladen")}</AppText>
-            </View>
+    <KeyboardAvoidingView style={styles.screenBody} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <FlatList
+        ref={searchScrollRef}
+        data={showingResults ? candidates : []}
+        contentContainerStyle={styles.thread}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        viewabilityConfig={viewabilityConfig}
+        onViewableItemsChanged={onViewableItemsChanged}
+        extraData={coverImages}
+        keyExtractor={candidate => `${response?.decisionId}:${candidate.spotId}`}
+        onContentSizeChange={() => { if (showingResults) requestAnimationFrame(scrollToResults); }}
+        ItemSeparatorComponent={() => <View style={{ height: 28 }} />}
+        ListHeaderComponent={<View style={styles.threadHeader} onLayout={event => { resultTop.current = event.nativeEvent.layout.height; }}>
+        {!conversation ? <View style={styles.welcome}>
+          <AppText role="screenTitle" style={styles.welcomeTitle}>Worauf hast du Lust?</AppText>
+          <AppText role="body" tone="secondary" style={styles.welcomeText}>Rauskommen. Abschalten. Etwas Neues entdecken. Erzähl mir, was dir gerade durch den Kopf geht.</AppText>
+          <View style={styles.ideas}>
+            {ideasReady ? ideas.filter(idea => idea !== personalIdea).map(({ title, wish }) => <Pressable key={title} accessibilityRole="button" disabled={!canCompose} onPress={() => selectIdea(wish)} style={styles.idea}><AppText role="label">{title}</AppText><Ionicons name="arrow-forward" style={{ transform: [{ rotate: "-45deg" }] }} size={15} color={color.pink} /></Pressable>) : <ActivityIndicator color={color.pink} />}
           </View>
-
-          {showConversation ? <View style={styles.searchFlow}>
-            {conversationHistory()}
-            {searchProgress ?? (clarificationQuestion || newPlan || offTopic ? <>
-              {conversationPrompt}
-              {!newPlan ? replyComposer : null}
-            </> : null)}
-          </View> : <>
-            {!editing ? <>
-              <View style={styles.welcome}>
-                <View style={styles.querySummary}>
-                  <View style={styles.guideRow}><NuknukAvatar height={36} appearance="outline" /><AppText role="label" tone="pink">Hey, ich bin NukNuk.</AppText></View>
-                  <AppText role="screenTitle" style={styles.welcomeTitle}>Was würde dir guttun?</AppText>
-                  <AppText role="body" style={styles.welcomeText}>Erzähl mir, worauf du Lust hast. Mit wem du losziehst. Oder einfach, wie sich dein nächster Moment anfühlen soll.</AppText>
-                  <AppText role="meta" tone="secondary" style={styles.welcomeText}>Du musst noch keinen fertigen Plan haben.</AppText>
-                </View>
-              </View>
-              <View style={styles.ideas}>
-                <AppText role="caption" tone="secondary">Ein Gedanke zum Loslegen</AppText>
-                {!ideasReady ? <View style={styles.idea}><ActivityIndicator color={color.pink} /><AppText role="meta" tone="secondary">Ein paar Ideen für dich …</AppText></View> : ideas.map(({ icon, title, wish }) => (
-                  <Pressable key={title} accessibilityRole="button" disabled={!canCompose}
-                    onPress={() => { setQuery(wish); setOffTopic(false); setError(null); setRetryRequest(null); searchInputRef.current?.focus(); }}
-                    style={({ pressed }) => [styles.idea, pressed && styles.pressed]}>
-                    <View style={styles.ideaIcon}><Ionicons name={icon} color={color.pink} size={21} /></View>
-                    <View style={styles.querySummary}>
-                      <AppText role="bodyStrong">{title}</AppText>
-                      <AppText role="caption" style={styles.resultMeta} numberOfLines={2}>{wish}</AppText>
-                    </View>
-                    <Ionicons name="chevron-forward" size={17} color={color.muted} />
-                  </Pressable>
-                ))}
-              </View>
-            </> : <View style={styles.emptyState}><AppText role="sectionTitle">Was darf anders sein?</AppText><AppText role="body" tone="secondary">Dein Wunsch darf sich ändern. Erzähl mir, was dir jetzt wichtig ist.</AppText></View>}
-            {offTopic ? <AppText role="body" accessibilityLiveRegion="polite" style={styles.offTopic}>{wohinOffTopicMessage}</AppText> : null}
-          </>}
-          {identityError ? <View style={{ marginTop: 20 }}><Text style={{ color: color.warning }}>Dein Profil konnte gerade nicht geprüft werden. Wohin ist vorübergehend nicht verfügbar.</Text><Pressable accessibilityRole="button" onPress={() => setIdentityAttempt((value) => value + 1)}><Text style={{ color: color.pink, marginTop: 12, fontWeight: "800" }}>Erneut prüfen</Text></Pressable></View> : null}
-          {identityReady && !identityError && !authenticated ? <Text style={{ color: color.warning, marginTop: 20 }}>Bitte melde dich an, um Wohin zu nutzen.</Text> : null}
-          {identityReady && !identityError && authenticated && !city ? <Text style={{ color: color.warning, marginTop: 20 }}>Deine Stadt fehlt noch im Profil. Ergänze sie, damit wir passende Orte in deiner Nähe finden können.</Text> : null}
-          {error ? <View style={styles.emptyState} accessibilityLiveRegion="polite">
-            <Text style={{ color: color.warning }}>{error}</Text>
-            {retryRequest && identityReady && !identityError && authenticated && city ? (
-              <Pressable accessibilityRole="button" disabled={loading} onPress={() => void run(retryRequest.request.naturalLanguage, retryRequest.request, retryRequest.conversation)} style={styles.followUpButton}>
-                <AppText role="label" tone="pink">Dieselbe Suche erneut versuchen</AppText>
-              </Pressable>
-            ) : null}
-          </View> : null}
-
-          {followUp ? <View style={styles.emptyState} accessibilityLiveRegion="polite">
-            <AppText role="sectionTitle">So können wir weitersuchen</AppText>
-            <AppText role="body" tone="secondary">{followUp.message}</AppText>
-            {followUpNotes.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}
-          </View> : null}
-          {needsDiscovery ? <View style={styles.emptyState} accessibilityLiveRegion="polite">
-            <AppText role="sectionTitle">{discovery.length ? "Orte zum Entdecken" : "Worauf hast du Lust?"}</AppText>
-            {discoveryPlaceholder ? <AppText role="body" tone="secondary">XYZ klingt nach einem Geheimcode. Gib mir eine Richtung, dann suche ich los.</AppText> : null}
-            {discovery.length ? <AppText role="body" tone="secondary">Vielleicht ist hier etwas für dich dabei. Ob dein ganzer Plan dort klappt, ist noch offen.</AppText> : null}
-            {discovery.map(spot => (
-              <Pressable key={spot.id} accessibilityRole="button" onPress={() => router.push(`/spot/${spot.id}` as never)}
-                style={styles.discoverySpot}>
-                <View style={styles.querySummary}>
-                  <AppText role="bodyStrong">{spot.name}</AppText>
-                  <AppText role="caption" tone="secondary">{[spot.category_name, spot.city].filter(Boolean).join(" · ")}</AppText>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={color.muted} />
-              </Pressable>
-            ))}
-            {discoveryLoading ? <ActivityIndicator color={color.pink} /> : null}
-            {!discoveryLoading ? <View style={styles.searchActions}>
-              {(discovery.length ? discoveryDirections.slice(1)
-                : discoveryDirections.length ? discoveryDirections : wohinDiscoveryCategories()).map(direction => (
-                <Pressable key={direction.label} accessibilityRole="button" onPress={() => {
-                  setQuery(direction.query);
-                  setEditing(true);
-                }} style={styles.editSearch}>
-                  <AppText role="label">{direction.label}</AppText>
-                </Pressable>
-              ))}
-            </View> : null}
-          </View> : null}
-          {showConversation && !loading ? <>
-            <View style={styles.searchActions}>
-              <Pressable accessibilityRole="button" onPress={editQuery} style={styles.followUpButton}>
-                <AppText role="label" tone="pink">{followUp?.actionLabel ?? "Anfrage ändern"}</AppText>
-              </Pressable>
-              <Pressable accessibilityRole="button" onPress={startNewSearch} style={styles.followUpButton}>
-                <AppText role="label">Neue Suche</AppText>
-              </Pressable>
-            </View>
-          </> : null}
-          {!showConversation ? <View style={styles.privacy}>
-            <Pressable accessibilityRole="link" accessibilityLabel="Datenschutz zur KI-Suche öffnen" onPress={() => setPrivacyOpen(true)} style={styles.followUpButton}>
-              <AppText role="caption" tone="pink">Datenschutz zur KI-Suche</AppText>
-            </Pressable>
-          </View> : null}
-        </ScrollView>
-        {!showConversation ? <View style={[styles.dock, dockPadding]}>
-          <View style={styles.chatDock}>
-            <TextInput
-              ref={searchInputRef}
-              accessibilityLabel="Dein Suchwunsch"
-              autoCapitalize="sentences"
-              multiline
-              maxLength={2000}
-              onChangeText={(value) => { setQuery(value); setOffTopic(false); setError(null); setRetryRequest(null); }}
-              placeholder="Was hast du im Kopf?"
-              placeholderTextColor={color.muted}
-              style={styles.searchInput}
-              value={query}
-            />
-            <Pressable accessibilityRole="button" accessibilityLabel="Orte finden"
-              accessibilityState={{ disabled: !canSearch }} disabled={!canSearch} onPress={submitWish}
-              style={({ pressed }) => [styles.sendButton, !canSearch && styles.primaryDisabled, pressed && styles.pressed]}>
-              <Ionicons name="arrow-up" size={21} color={canSearch ? color.onAccent : color.muted} />
-            </Pressable>
-          </View>
+          {personalIdea ? <Pressable accessibilityRole="button" accessibilityLabel={`Dein letzter Suchwunsch: ${personalIdea.wish}`} disabled={!canCompose} onPress={() => selectIdea(personalIdea.wish)} style={styles.lastWish}><AppText role="caption" tone="secondary">Oder an deinen letzten Gedanken anknüpfen</AppText><AppText role="meta" numberOfLines={2}>{personalIdea.wish}</AppText><Ionicons name="arrow-forward" size={18} color={color.pink} /></Pressable> : null}
+        </View> : <>
+          {conversationHistory}
+          {searchProgress}
+          {!loading ? conversationPrompt : null}
+          {editing ? <View style={styles.inlineActions}><AppText role="meta" tone="secondary">Dein Wunsch ist unten bereit zum Bearbeiten.</AppText><Pressable accessibilityRole="button" accessibilityLabel={candidates.length ? "Zurück zu deinen Vorschlägen" : "Zurück zum Gespräch"} onPress={() => { setEditing(false); Keyboard.dismiss(); }} style={styles.followUpButton}><AppText role="label" tone="pink">{candidates.length ? "Vorschläge behalten" : "Beim Gespräch bleiben"}</AppText></Pressable></View> : null}
+        </>}
+        {offTopic && !conversation ? conversationPrompt : null}
+        {identityError ? <View style={styles.emptyState}><Text style={{ color: color.warning }}>Dein Profil konnte gerade nicht geprüft werden. Wohin ist vorübergehend nicht verfügbar.</Text><Pressable accessibilityRole="button" onPress={() => setIdentityAttempt(value => value + 1)} style={styles.followUpButton}><AppText role="label" tone="pink">Erneut prüfen</AppText></Pressable></View> : null}
+        {identityReady && !identityError && !authenticated ? <AppText role="body" tone="secondary">Bitte melde dich an, um Wohin zu nutzen.</AppText> : null}
+        {identityReady && !identityError && authenticated && !city ? <AppText role="body" tone="secondary">Deine Stadt fehlt noch im Profil. Ergänze sie, damit ich in deiner Nähe suchen kann.</AppText> : null}
+        {error ? <View style={styles.emptyState} accessibilityLiveRegion="polite"><AppText role="body" tone="error">{error}</AppText>{retryRequest ? <Pressable accessibilityRole="button" disabled={!canCompose} onPress={() => void run(retryRequest.request.naturalLanguage, retryRequest.request, retryRequest.conversation)} style={styles.followUpButton}><AppText role="label" tone="pink">Dieselbe Suche erneut versuchen</AppText></Pressable> : null}</View> : null}
+        {showingResults ? <View style={styles.results}>
+          <AppText role="sectionTitle" accessibilityRole="header">Wie wär’s hier?</AppText>
+          <AppText role="meta" tone="secondary">{candidates.length === 1 ? "Eine Möglichkeit für deinen Plan" : `${candidates.length} Möglichkeiten. Schau dich um.`}</AppText>
+          {candidates.some(candidate => candidate.tier === "UNCONFIRMED_FALLBACK") ? <AppText role="meta" tone="secondary">Bei den markierten Orten sind noch Angaben offen. Die Hinweise stehen direkt am Vorschlag.</AppText> : null}
         </View> : null}
-      </KeyboardAvoidingView>}
-      <Modal visible={conversationOpen && showingResults} animationType="slide" onShow={() => {
-        conversationScrollRef.current?.scrollToEnd({ animated: false });
-      }} onRequestClose={() => setConversationOpen(false)}>
-        <SafeAreaView style={styles.conversationScreen} edges={["top", "bottom", "left", "right"]} accessibilityViewIsModal>
-          <KeyboardAvoidingView style={styles.screenBody} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-            <View style={styles.conversationHeader}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Gespräch schliessen" onPress={() => setConversationOpen(false)} style={styles.iconButton}>
-                <Ionicons name="arrow-back" size={21} color={color.text} />
-              </Pressable>
-              <View style={styles.querySummary}>
-                <AppText role="cardTitle" accessibilityRole="header">Dein Plan mit NukNuk</AppText>
-                {city ? <AppText role="caption" style={styles.resultMeta}>{response?.interpretation.targetCity ?? city}</AppText> : null}
-              </View>
-            </View>
-            <ScrollView ref={conversationScrollRef} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.conversationBody}>
-              {conversationHistory(true)}
-              {!clarificationQuestion && !newPlan && !offTopic && !loading ? <View style={styles.chatQuestion}><AppText role="label" tone="pink">NukNuk</AppText><AppText role="body">Was würde deinen Plan noch besser machen? Mehr Ruhe, ein anderer Zeitpunkt oder etwas ganz anderes? Sag mir, was dir wichtig ist.</AppText></View> : null}
-              {conversationPrompt}
-              {searchProgress}
-            </ScrollView>
-            {!newPlan ? <View style={styles.conversationComposer}>{replyComposer}</View> : null}
-          </KeyboardAvoidingView>
-        </SafeAreaView>
-      </Modal>
+        {followUp ? <View style={styles.emptyState} accessibilityLiveRegion="polite"><AppText role="body">{followUp.message}</AppText>{followUpNotes.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}</View> : null}
+        {needsDiscovery ? <View style={styles.emptyState}>
+          {discoveryPlaceholder ? <AppText role="body">Da brauche ich noch eine kleine Idee von dir. Worauf hast du Lust?</AppText> : null}
+          {discovery.length ? <AppText role="bodyStrong">Orte zum Entdecken</AppText> : null}
+          {discovery.length ? <AppText role="body" tone="secondary">Diese Orte kannst du unabhängig von deiner Suche entdecken. Ob dein ganzer Plan dort klappt, ist noch offen.</AppText> : null}
+          {discovery.map(spot => <Pressable key={spot.id} accessibilityRole="button" onPress={() => router.push(`/spot/${spot.id}` as never)} style={styles.discoverySpot}><View style={styles.headerCopy}><AppText role="bodyStrong">{spot.name}</AppText><AppText role="caption" tone="secondary">{[spot.category_name, spot.city].filter(Boolean).join(" · ")}</AppText></View><Ionicons name="arrow-forward" size={18} color={color.pink} /></Pressable>)}
+          {discoveryLoading ? <ActivityIndicator color={color.pink} /> : <View style={styles.ideas}>{(discovery.length ? discoveryDirections.slice(1) : discoveryDirections.length ? discoveryDirections : wohinDiscoveryCategories()).map(direction => <Pressable key={direction.label} accessibilityRole="button" onPress={() => selectIdea(direction.query)} style={styles.idea}><AppText role="label">{direction.label}</AppText></Pressable>)}</View>}
+        </View> : null}
+        </View>}
+        ListFooterComponent={<View style={styles.threadFooter}>
+          {showingResults ? <AppText role="body" tone="secondary">Was meinst du? Wenn dir noch etwas wichtig ist, schreib’s mir einfach.</AppText> : null}
+        {conversation && !loading && !editing ? <Pressable accessibilityRole="button" accessibilityLabel="Suche ändern" onPress={editQuery} style={styles.followUpButton}><AppText role="caption" tone="secondary">Ursprünglichen Wunsch bearbeiten</AppText></Pressable> : null}
+        </View>}
+        renderItem={({ item: candidate }) => <DecisionResultCard candidate={candidate} width={cardWidth} recommendation={wohinRecommendation(candidate, response?.interpretation, false)} imageUrl={coverImages.has(candidate.spotId) ? coverImages.get(candidate.spotId)! : (candidate.presentation.event ? eventImageUrl(candidate.presentation.event.imageStoragePath) ?? candidate.presentation.imageUrl : candidate.presentation.imageUrl)} onOpen={() => openSpot(candidate)} onDetails={() => setSelectedDetails(candidate)} />}
+      />
+      <View style={[styles.dock, { paddingBottom: dockPadding }]} testID="wohin-composer-dock">
+        {editing && conversation ? <AppText role="caption" tone="secondary" style={styles.editLabel}>Wunsch bearbeiten</AppText> : null}
+        <View style={styles.chatDock}>
+          <TextInput ref={searchInputRef} accessibilityLabel={replyMode ? clarificationQuestion ? "Antwort auf NukNuks Rückfrage" : "Nachricht an NukNuk" : "Dein Suchwunsch"} placeholder={replyMode ? clarificationQuestion ? "Deine Antwort …" : "Schreib einfach weiter …" : "Erzähl mir …"} placeholderTextColor={color.muted} style={[styles.searchInput, { height: inputHeight }]} autoCapitalize="sentences" multiline numberOfLines={1} onContentSizeChange={event => setInputHeight(Math.max(44, Math.min(120, event.nativeEvent.contentSize.height)))} maxLength={replyMode ? replyLimit : 2000} editable={!loading && (!replyMode || replyLimit > 0)} value={draft}
+            onChangeText={value => { if (replyMode) setClarificationAnswer(value); else setQuery(value); setOffTopic(false); setError(null); setRetryRequest(null); }}
+          />
+          <Pressable accessibilityRole="button" accessibilityLabel={loading ? "Suche stoppen und Wunsch bearbeiten" : replyMode ? replyLabel : "Orte finden"} accessibilityState={{ disabled: !loading && !sendEnabled }} disabled={!loading && !sendEnabled} onPress={loading ? leaveSearch : replyMode ? submitReply : submitWish} style={({ pressed }) => [styles.sendButton, !loading && !sendEnabled && styles.primaryDisabled, pressed && styles.pressed]}><Ionicons name={loading ? "stop" : "arrow-up"} size={21} color={loading || sendEnabled ? color.onAccent : color.muted} /></Pressable>
+        </View>
+        {replyMode && replyLimit === 0 ? <AppText role="caption" tone="secondary">Dein Wunsch ist sehr lang. Bearbeite ihn, um etwas zu ergänzen.</AppText> : null}
+      </View>
+    </KeyboardAvoidingView>
       <Modal visible={privacyOpen} transparent animationType="slide" onRequestClose={() => setPrivacyOpen(false)}>
         <View style={styles.modalBackdrop}>
           <SafeAreaView style={styles.detailSheet} edges={["bottom"]} accessibilityViewIsModal>
@@ -818,7 +625,7 @@ function WohinExperience() {
             <ScrollView contentContainerStyle={styles.sheetContent}>
               <AppText role="label" tone="pink">Datenschutz zur KI-Suche</AppText>
               {searchPrivacy.map(paragraph => <AppText key={paragraph} role="body" tone="secondary">{paragraph}</AppText>)}
-              <Pressable accessibilityRole="button" onPress={() => { setPrivacyOpen(false); router.push("/settings/privacy"); }} style={styles.followUpButton}><AppText role="label" tone="pink">Zum Privacy Center</AppText></Pressable>
+              <Pressable accessibilityRole="button" onPress={() => { setPrivacyOpen(false); router.push("/privacy-consent"); }} style={styles.followUpButton}><AppText role="label" tone="pink">Zum Datenschutz</AppText></Pressable>
             </ScrollView>
           </SafeAreaView>
         </View>
@@ -843,75 +650,60 @@ function WohinExperience() {
           </SafeAreaView>
         </View>
       </Modal>
-    </SafeAreaView>
-  );
+    </SafeAreaView>;
 }
 
 const createStyles = (color: typeof darkColors) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.background },
-  ambient: { position: "absolute", left: 0, right: 0, top: 0, height: 560 },
+  ambient: { position: "absolute", left: 0, right: 0, top: 0, height: 420 },
   screenBody: { flex: 1 },
-  pageTitle: { fontSize: 46, lineHeight: 52, letterSpacing: -1.8 },
-  planSummary: { padding: 18, gap: 12, borderRadius: 24, backgroundColor: color.card, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border },
-  searchHeader: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 22 },
-  guideRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  visitNote: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  location: { flexDirection: "row", alignItems: "center", gap: 5 },
-  welcome: { flexDirection: "row", alignItems: "center", gap: 15, borderRadius: 26, backgroundColor: color.card, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border, padding: 22 },
-  welcomeTitle: { color: color.text, fontSize: 30, lineHeight: 35, marginTop: 20, letterSpacing: -1 },
-  welcomeText: { color: color.muted, marginTop: 12 },
-  ideas: { marginTop: 28, gap: 12, minHeight: 270 },
-  idea: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 13, paddingVertical: 10, minHeight: 64, borderRadius: 18, backgroundColor: color.panel, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border },
-  ideaIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: color.tint },
-  offTopic: { marginTop: 16 },
-  dock: { paddingHorizontal: 18, paddingTop: 9, backgroundColor: color.background, borderTopWidth: StyleSheet.hairlineWidth, borderColor: color.border },
-  chatDock: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: color.dockBorder, backgroundColor: color.dock, borderRadius: 27, paddingHorizontal: 13, paddingVertical: 5 },
-  searchInput: { flex: 1, color: color.text, fontSize: 16, lineHeight: 23, minHeight: 44, maxHeight: 112, paddingHorizontal: 3, paddingVertical: 10, textAlignVertical: "top" },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 24, paddingTop: 10, paddingBottom: 14 },
+  headerCopy: { flex: 1, gap: 3 },
+  iconButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+  thread: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 20, paddingBottom: 20 },
+  threadHeader: { gap: 24, paddingBottom: 24 },
+  threadFooter: { gap: 16, paddingTop: 20 },
+  welcome: { paddingTop: 28, paddingBottom: 24, gap: 24 },
+  welcomeTitle: { fontSize: 42, lineHeight: 46, letterSpacing: -1.4, maxWidth: 330 },
+  welcomeText: { maxWidth: 330, lineHeight: 26 },
+  ideas: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  idea: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 15, paddingVertical: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border, borderRadius: 24 },
+  lastWish: { alignSelf: "flex-start", gap: 8, paddingVertical: 12, maxWidth: "95%" },
+  history: { gap: 20 },
+  userMessage: { alignSelf: "flex-end", maxWidth: "90%", paddingVertical: 12, paddingHorizontal: 16, borderRadius: 22, borderBottomRightRadius: 6, backgroundColor: color.message },
+  assistantMessage: { lineHeight: 25, paddingVertical: 4 },
+  questionCard: { gap: 12 },
+  chatQuestion: { gap: 10, paddingVertical: 4 },
+  inlineActions: { gap: 6 },
+  dock: { paddingHorizontal: 18, paddingTop: 10, backgroundColor: color.background },
+  editLabel: { marginBottom: 7, paddingHorizontal: 10 },
+  chatDock: { minHeight: 56, flexDirection: "row", alignItems: "flex-end", gap: 10, backgroundColor: color.dock, borderRadius: 28, padding: 6 },
+  searchInput: { flex: 1, color: color.text, fontSize: 17, lineHeight: 24, minHeight: 44, maxHeight: 120, paddingHorizontal: 12, paddingVertical: 10, textAlignVertical: "top" },
   sendButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: color.pink, alignItems: "center", justifyContent: "center" },
-  primaryButton: { minHeight: 52, paddingVertical: 12, paddingHorizontal: 18, borderRadius: 999, backgroundColor: color.pink, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center" },
-  primaryLabel: { color: color.onAccent, flexShrink: 1 },
   primaryDisabled: { backgroundColor: color.disabled },
   pressed: { opacity: 0.75 },
-  privacy: { marginTop: 16, paddingHorizontal: 4 },
-  searchFlow: { gap: 18 },
-  history: { gap: 12 },
-  userMessage: { maxWidth: "92%", alignSelf: "flex-end", gap: 5, backgroundColor: color.message, borderRadius: 18, borderBottomRightRadius: 6, padding: 14 },
-  assistantMessage: { gap: 5, backgroundColor: color.card, borderRadius: 18, borderBottomLeftRadius: 6, padding: 14 },
-  questionCard: { padding: 16, gap: 12, borderWidth: 1, borderColor: color.focusBorder, borderRadius: 22, backgroundColor: color.prompt },
-  searchActions: { flexDirection: "row", flexWrap: "wrap", gap: 16, marginTop: 10 },
-  results: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 16, gap: 12 },
-  resultHeader: { gap: 18, paddingBottom: 12 },
-  resultHeading: { flexDirection: "row", alignItems: "center", gap: 12 },
-  querySummary: { flex: 1, gap: 2 },
-  iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: color.subButton },
-  editSearch: { flexDirection: "row", gap: 6, alignItems: "center", minHeight: 44, paddingHorizontal: 10, borderRadius: 22, backgroundColor: color.card },
-  conversationLink: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: color.question },
-  resultCard: { gap: 10, paddingHorizontal: 13, paddingTop: 13, paddingBottom: 3, borderRadius: 22, backgroundColor: color.panel, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border },
-  cardMain: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  cardArtwork: { width: 78, height: 88, flexShrink: 0, borderRadius: 13, overflow: "hidden", alignItems: "center", justifyContent: "center", backgroundColor: color.artwork },
-  cardBody: { flex: 1, gap: 3 },
-  cardReason: { marginTop: 3, color: color.detailText },
-  resultMeta: { color: color.muted },
-  provisional: { color: color.warning },
-  cardActions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", columnGap: 12, borderTopWidth: StyleSheet.hairlineWidth, borderColor: color.border },
-  cardAction: { flexDirection: "row", alignItems: "center", gap: 5, minHeight: 44 },
-  detailsText: { color: color.detailText, flexShrink: 1 },
-  pagerButton: { minWidth: 44, minHeight: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: color.card },
-  backToResults: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 },
-  discoverySpot: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, minHeight: 52, borderRadius: 16, backgroundColor: color.card },
-  emptyState: { marginTop: 28, gap: 12 },
-  followUpButton: { minHeight: 44, justifyContent: "center", alignSelf: "flex-start" },
-  conversationScreen: { flex: 1, backgroundColor: color.chat },
-  conversationHeader: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 18, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: color.border },
-  conversationBody: { flexGrow: 1, padding: 22, gap: 18 },
-  chatBrief: { padding: 20, borderRadius: 18, backgroundColor: color.brief, gap: 9 },
-  chatTurn: { paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: color.border, gap: 6 },
-  chatQuestion: { paddingVertical: 10, paddingLeft: 15, borderLeftWidth: 2, borderColor: color.pink, gap: 6 },
-  conversationComposer: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 8, borderTopWidth: StyleSheet.hairlineWidth, borderColor: color.border },
+  results: { gap: 12 },
+  resultCard: { gap: 12 },
+  cardArtwork: { borderRadius: 26, overflow: "hidden", backgroundColor: color.artwork },
+  eventArtwork: { flex: 1, alignItems: "center", justifyContent: "center" },
+  photoCopy: { position: "absolute", left: 20, right: 20, bottom: 20, gap: 8 },
+  photoMeta: { color: "#FFFFFF" },
+  photoTitle: { color: "#FFFFFF", fontSize: 29, lineHeight: 33, letterSpacing: -0.7 },
+  cardOpen: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 4 },
+  cardReason: { color: color.detailText, paddingHorizontal: 2 },
+  cardNote: { alignSelf: "flex-start", minHeight: 44, flexDirection: "row", alignItems: "center", gap: 7 },
+  emptyState: { gap: 14 },
+  followUpButton: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center" },
+  discoverySpot: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 60, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: color.border },
+  primaryButton: { minHeight: 52, paddingVertical: 12, paddingHorizontal: 18, borderRadius: 999, backgroundColor: color.pink, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center" },
+  primaryLabel: { color: color.onAccent, flexShrink: 1 },
+  visitNote: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  querySummary: { flex: 1 },
   modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.7)" },
   detailSheet: { maxHeight: "88%", backgroundColor: color.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 24, paddingTop: 18, paddingBottom: 20 },
   sheetHeader: { flexDirection: "row", alignItems: "center", gap: 16 },
   sheetContent: { gap: 16, paddingTop: 18, paddingBottom: 24 },
+  pagerButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
 });
 
 const darkPresentation = { color: darkColors, styles: createStyles(darkColors) };

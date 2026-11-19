@@ -871,7 +871,7 @@ export default function ChatScreen() {
                 {sending ? (
                   <ActivityIndicator
                     size="small"
-                    color="#FF4F91"
+                    color={backyrdTheme.color.pink}
                   />
                 ) : (
                   <Text style={styles.sendText}>
@@ -1033,7 +1033,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   bubbleMine: {
-    backgroundColor: "#FF4F91",
+    backgroundColor: backyrdTheme.color.pink,
     borderBottomRightRadius: 7,
   },
   bubbleOther: {
@@ -1104,7 +1104,7 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FF4F91",
+    backgroundColor: backyrdTheme.color.pink,
   },
   input: {
     flex: 1,

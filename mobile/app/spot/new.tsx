@@ -352,7 +352,7 @@ export default function NewSpotScreen() {
         <Pressable onPress={() => router.back()} hitSlop={10}>
           <Ionicons name="chevron-back" size={28} color={backyrdTheme.color.textPrimary} />
         </Pressable>
-        <Text style={styles.headerTitle}>Neuen Spot hinzufügen</Text>
+        <Text style={styles.headerTitle}>Ort vorschlagen</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -360,7 +360,7 @@ export default function NewSpotScreen() {
         <View style={styles.hero}>
           <Text style={styles.kicker}>BACKYRD SPOT</Text>
           <Text style={styles.heroTitle}>Neuen Ort anlegen</Text>
-          <Text style={styles.heroText}>Erfasse die Basics. Details helfen später der Decision Engine.</Text>
+          <Text style={styles.heroText}>Kennst du einen Ort, der hier fehlt? Teile die wichtigsten Angaben mit uns.</Text>
         </View>
 
         {/* Name */}
@@ -424,7 +424,7 @@ export default function NewSpotScreen() {
           />
         ) : (
           <View style={styles.photoEmpty}>
-            <Ionicons name="image-outline" size={26} color="rgba(255,255,255,0.42)" />
+            <Ionicons name="image-outline" size={26} color={backyrdTheme.color.textMuted} />
             <Text style={styles.photoEmptyText}>Noch kein Foto ausgewählt</Text>
           </View>
         )}
@@ -446,12 +446,12 @@ export default function NewSpotScreen() {
         {/* Beschreibung / Intelligence */}
         <Text style={styles.sectionTitle}>Für bessere Empfehlungen</Text>
         <Text style={styles.helperText}>
-          Optional, aber sehr wertvoll für die Decision Engine.
+          Was macht diesen Ort besonders? Deine Angaben helfen anderen, ihn zu entdecken.
         </Text>
 
         <Text style={styles.label}>Beschreibung</Text>
         <TextInput
-          placeholder="Was macht diesen Ort besonders? Stimmung, Angebot, Vibe…"
+          placeholder="Was macht diesen Ort besonders? Stimmung, Angebot, Atmosphäre …"
           placeholderTextColor={backyrdTheme.color.textMuted}
           value={description}
           onChangeText={setDescription}
@@ -589,7 +589,7 @@ export default function NewSpotScreen() {
                         categoryId === item.id
                           ? "rgba(255,125,167,0.14)"
                           : "#111113",
-                      borderColor: categoryId === item.id ? "#FF4F91" : "rgba(255,255,255,0.09)",
+                      borderColor: categoryId === item.id ? backyrdTheme.color.pink : "rgba(255,255,255,0.09)",
                     },
                   ]}
                 >
@@ -600,7 +600,7 @@ export default function NewSpotScreen() {
                     {item.name}
                   </Text>
                   {categoryId === item.id && (
-                    <Ionicons name="checkmark" size={18} color="#FF4F91" />
+                    <Ionicons name="checkmark" size={18} color={backyrdTheme.color.pink} />
                   )}
                 </Pressable>
               )}
@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   kicker: {
-    color: "#FF4F91",
+    color: backyrdTheme.color.pink,
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 3,
@@ -715,8 +715,8 @@ const styles = StyleSheet.create({
     backgroundColor: backyrdTheme.color.surfaceElevated,
   },
   segmentPillActive: {
-    borderColor: "#FF4F91",
-    backgroundColor: "#FF4F91",
+    borderColor: backyrdTheme.color.pink,
+    backgroundColor: backyrdTheme.color.pink,
   },
   segmentText: {
     color: backyrdTheme.color.textSecondary,
@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
   photoBtnText: { color: backyrdTheme.color.textPrimary, fontWeight: "800" },
   submitBtn: {
     marginTop: 28,
-    backgroundColor: "#FF4F91",
+    backgroundColor: backyrdTheme.color.pink,
     padding: 16,
     borderRadius: 999,
     alignItems: "center",

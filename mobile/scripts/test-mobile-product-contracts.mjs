@@ -213,9 +213,9 @@ assert.match(decision, /visibleWohinCandidates/, "Wohin must show the server-ran
 assert.match(decision, /candidate\.actualAvailability/, "Product rendering must present server availability honestly");
 assert.match(read("lib/decision/wohinModel.ts"), /candidate\.reasons/, "Product presentation must use server reasons");
 assert.match(decision, /response\.limitations/, "Product rendering must present server limitations");
-assert.match(decision, /<FlatList[\s\S]*data=\{candidates\}/, "Wohin must present the bounded server-ranked window");
+assert.match(decision, /<FlatList[\s\S]*data=\{showingResults \? candidates : \[\]\}/, "Wohin must present the bounded server-ranked window");
 assert.match(decision, /onViewableItemsChanged/, "Candidate impressions must require actual visibility");
-assert.equal((decision.match(/<TextInput\b/g) ?? []).length, 2, "Wohin uses one initial composer and one shared dialogue composer");
+assert.equal((decision.match(/<TextInput\b/g) ?? []).length, 1, "Wohin retains one composer across wishes, results and follow-ups");
 assert.match(decision, /accessibilityLabel={[^}]*"Antwort auf NukNuks Rückfrage"[^}]*"Nachricht an NukNuk"/,
   "Wohin distinguishes answers to questions from free chat messages");
 assert.match(decision, /DecisionProductDialogueRoute[\s\S]*?setNewPlan\(userReply\)/,

@@ -551,76 +551,6 @@ export default function FeedScreen() {
     }
   }, [caption, moods, mentions, loadFeed, media, resetComposer, selectedSpot?.id]);
 
-  const renderHeader = (
-    <View style={styles.headerWrap}>
-      <View style={styles.appBar}>
-        <Text style={styles.appBarTitle}>Momente</Text>
-
-        <View style={styles.appBarActions}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Leute entdecken"
-            style={styles.communityButton}
-            onPress={() => router.push("/users/search" as any)}
-          >
-            <Ionicons name="people-outline" size={21} color={theme.color.textSecondary} />
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Moment erstellen"
-            style={styles.createButton}
-            onPress={() => setComposerVisible(true)}
-          >
-            <Ionicons name="add" size={18} color={theme.color.onAccent} />
-          </Pressable>
-        </View>
-      </View>
-
-      <Text style={styles.intro}>Orte, wie sie sich anfühlen.</Text>
-
-      <View style={styles.modeShell}>
-        <Pressable
-          accessibilityRole="tab"
-          accessibilityState={{ selected: mode === "for_you" }}
-          style={[
-            styles.modeButton,
-            mode === "for_you" && styles.modeButtonActive,
-          ]}
-          onPress={() => switchMode("for_you")}
-        >
-          <Text
-            style={[
-              styles.modeText,
-              mode === "for_you" && styles.modeTextActive,
-            ]}
-          >
-            Entdecken
-          </Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="tab"
-          accessibilityState={{ selected: mode === "following" }}
-          style={[
-            styles.modeButton,
-            mode === "following" && styles.modeButtonActive,
-          ]}
-          onPress={() => switchMode("following")}
-        >
-          <Text
-            style={[
-              styles.modeText,
-              mode === "following" && styles.modeTextActive,
-            ]}
-          >
-            Dein Kreis
-          </Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-
   const emptyState = (
     <View>
     <View style={styles.emptyCard}>
@@ -670,13 +600,14 @@ export default function FeedScreen() {
     </View>
   );
 
+  const headerColor = posts.length ? "#FFFFFF" : theme.color.textPrimary;
   const immersiveHeader = <View pointerEvents="box-none" style={[styles.immersiveHeader, { top: insets.top + 8 }]}>
-    <Pressable accessibilityRole="button" accessibilityLabel="Leute entdecken" onPress={() => router.push("/users/search" as never)} style={styles.immersiveHeaderAction}><Ionicons name="people-outline" size={23} color="#FFFFFF" /></Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel="Leute entdecken" onPress={() => router.push("/users/search" as never)} style={styles.immersiveHeaderAction}><Ionicons name="people-outline" size={23} color={headerColor} /></Pressable>
     <View accessibilityRole="tablist" style={styles.immersiveModes}>
-      <Pressable accessibilityRole="tab" accessibilityState={{ selected: mode === "for_you" }} onPress={() => switchMode("for_you")} style={styles.immersiveMode}><Text style={[styles.immersiveModeText, mode === "for_you" && styles.immersiveSelected]}>Entdecken</Text></Pressable>
-      <Pressable accessibilityRole="tab" accessibilityState={{ selected: mode === "following" }} onPress={() => switchMode("following")} style={styles.immersiveMode}><Text style={[styles.immersiveModeText, mode === "following" && styles.immersiveSelected]}>Dein Kreis</Text></Pressable>
+      <Pressable accessibilityRole="tab" accessibilityState={{ selected: mode === "for_you" }} onPress={() => switchMode("for_you")} style={styles.immersiveMode}><Text style={[styles.immersiveModeText, { color: headerColor }, mode === "for_you" && styles.immersiveSelected, mode === "for_you" && { color: headerColor }]}>Entdecken</Text></Pressable>
+      <Pressable accessibilityRole="tab" accessibilityState={{ selected: mode === "following" }} onPress={() => switchMode("following")} style={styles.immersiveMode}><Text style={[styles.immersiveModeText, { color: headerColor }, mode === "following" && styles.immersiveSelected, mode === "following" && { color: headerColor }]}>Dein Kreis</Text></Pressable>
     </View>
-    <Pressable accessibilityRole="button" accessibilityLabel="Moment erstellen" onPress={() => setComposerVisible(true)} style={styles.immersiveHeaderAction}><Ionicons name="add-circle-outline" size={27} color="#FFFFFF" /></Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel="Moment erstellen" onPress={() => setComposerVisible(true)} style={styles.immersiveHeaderAction}><Ionicons name="add-circle-outline" size={27} color={headerColor} /></Pressable>
   </View>;
 
   return (
@@ -688,11 +619,11 @@ export default function FeedScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       {loading && posts.length === 0 ? (
-        <View style={{ flex: 1, paddingTop: insets.top }}>{renderHeader}<View style={styles.loadingWrap}>
+        <View style={{ flex: 1, paddingTop: insets.top + 60 }}><View style={styles.loadingWrap}>
           <StateView kind="loading" title="Momente werden geladen" message="Persönliche Eindrücke und die Orte dahinter." />
         </View></View>
       ) : feedError && posts.length === 0 ? (
-        <View style={{ flex: 1, paddingTop: insets.top }}>{renderHeader}<View style={styles.loadingWrap}>
+        <View style={{ flex: 1, paddingTop: insets.top + 60 }}><View style={styles.loadingWrap}>
           <StateView kind="error" title="Momente gerade nicht erreichbar" message={feedError} actionLabel="Noch einmal versuchen" onAction={() => void loadFeed(mode)} />
         </View></View>
       ) : (
@@ -710,7 +641,6 @@ export default function FeedScreen() {
           windowSize={3}
           getItemLayout={posts.length ? (_, index) => ({ length: viewportHeight, offset: viewportHeight * index, index }) : undefined}
           keyExtractor={(item) => item.post_id}
-          ListHeaderComponent={posts.length ? undefined : renderHeader}
           ListEmptyComponent={emptyState}
           renderItem={({ item }) => (
             <View style={[styles.fullWidthPost, { height: viewportHeight }]}>
@@ -735,7 +665,7 @@ export default function FeedScreen() {
               />
             </View>
           )}
-          contentContainerStyle={posts.length ? undefined : [styles.feedContent, { paddingTop: insets.top }]}
+          contentContainerStyle={posts.length ? undefined : [styles.feedContent, { paddingTop: insets.top + 72 }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -747,7 +677,7 @@ export default function FeedScreen() {
         />
       )}
 
-      {posts.length ? immersiveHeader : null}
+      {immersiveHeader}
 
       <CommentsSheet
         visible={Boolean(commentsPost)}
@@ -944,85 +874,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 12,
-  },
-  loadingText: {
-    color: theme.color.textSecondary,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  headerWrap: {
-    paddingTop: theme.spacing.xs,
-    paddingBottom: 24,
-    backgroundColor: theme.color.background,
-  },
-  appBar: {
-    minHeight: 76,
-    paddingHorizontal: theme.layout.pageGutter,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  appBarTitle: {
-    color: theme.color.textPrimary,
-    fontFamily: theme.type.bodyBold,
-    fontSize: 38,
-    lineHeight: 46,
-    letterSpacing: -1.9,
-  },
-  intro: { paddingHorizontal: theme.layout.pageGutter, marginTop: 4, marginBottom: 22, color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 16, lineHeight: 25 },
-  appBarActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.xs,
-  },
-  communityButton: {
-    width: 44,
-    height: 44,
-    borderRadius: theme.radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: theme.color.border,
-  },
-  createButton: {
-    height: 44,
-    width: 44,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.color.pink,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  modeShell: {
-    marginHorizontal: theme.layout.pageGutter,
-    height: 46,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.color.surface,
-    borderWidth: 1,
-    borderColor: theme.color.border,
-    padding: 3,
-    flexDirection: "row",
-  },
-  modeButton: {
-    flex: 1,
-    borderRadius: theme.radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modeButtonActive: {
-    backgroundColor: "rgba(255,79,145,0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(255,79,145,0.34)",
-  },
-  modeText: {
-    color: theme.color.textSecondary,
-    fontFamily: theme.type.bodyMedium,
-    fontSize: 13,
-  },
-  modeTextActive: {
-    color: theme.color.pink,
   },
   emptyCard: {
     minHeight: 260,

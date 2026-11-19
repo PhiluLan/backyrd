@@ -161,7 +161,7 @@ export function ReviewMediaField({
       <View style={styles.headingRow}>
         <View style={styles.headingCopy}>
           <Text style={styles.title}>Bild</Text>
-          <Text style={styles.optional}>Optional · maximal {maxAssets}</Text>
+          <Text style={styles.optional}>{maxAssets === 1 ? "Ein Foto · wenn du magst" : `Bis zu ${maxAssets} Fotos · wenn du magst`}</Text>
         </View>
         {picking ? <ActivityIndicator accessibilityLabel="Bild wird vorbereitet" color={theme.color.pink} /> : null}
       </View>
@@ -205,7 +205,7 @@ export function ReviewMediaField({
       ) : (
         <View style={styles.empty} accessible accessibilityLabel="Noch kein Bild ausgewählt">
           <Ionicons name="image-outline" size={28} color={theme.color.textSecondary} />
-          <Text style={styles.emptyText}>Dein Moment funktioniert auch ohne Bild.</Text>
+          <Text style={styles.emptyText}>Was möchtest du in Erinnerung behalten?</Text>
         </View>
       )}
 

@@ -64,11 +64,11 @@ export default function PrivacyCenterScreen() {
           onPress={() => router.back()}
           style={styles.backButton}
         >
-          <Ionicons accessibilityElementsHidden name="chevron-back" size={24} color="#FFFFFF" />
+          <Ionicons accessibilityElementsHidden name="chevron-back" size={24} color={backyrdTheme.color.textPrimary} />
         </Pressable>
 
         <View style={styles.headerCopy}>
-          <Text style={styles.eyebrow}>PRIVACY CENTER</Text>
+          <Text style={styles.eyebrow}>DATENSCHUTZ</Text>
           <Text style={styles.title}>Deine Daten. Deine Kontrolle.</Text>
         </View>
       </View>
@@ -79,7 +79,7 @@ export default function PrivacyCenterScreen() {
       >
         <View style={styles.hero}>
           <View style={styles.heroIcon}>
-            <Ionicons accessibilityElementsHidden name="shield-checkmark" size={31} color="#FF4F91" />
+            <Ionicons accessibilityElementsHidden name="shield-checkmark" size={31} color={backyrdTheme.color.pink} />
           </View>
           <Text style={styles.heroTitle}>Privatsphäre bei Backyrd</Text>
           <Text style={styles.heroText}>
@@ -88,7 +88,7 @@ export default function PrivacyCenterScreen() {
           </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>DEIN PRIVACY CENTER</Text>
+        <Text style={styles.sectionTitle}>DEIN DATENSCHUTZ</Text>
 
         {ITEMS.map((item) => (
           <Pressable
@@ -97,7 +97,7 @@ export default function PrivacyCenterScreen() {
             onPress={() => router.push(item.route as never)}
           >
             <View style={[styles.itemIcon, styles[`tone_${item.tone ?? "pink"}`]]}>
-              <Ionicons accessibilityElementsHidden name={item.icon} size={23} color="#FFFFFF" />
+              <Ionicons accessibilityElementsHidden name={item.icon} size={23} color={backyrdTheme.color.textPrimary} />
             </View>
 
             <View style={styles.itemCopy}>
@@ -109,13 +109,13 @@ export default function PrivacyCenterScreen() {
               accessibilityElementsHidden
               name="chevron-forward"
               size={21}
-              color="rgba(255,255,255,0.48)"
+              color={backyrdTheme.color.textMuted}
             />
           </Pressable>
         ))}
 
         <View style={styles.contactCard}>
-          <Ionicons accessibilityElementsHidden name="mail-outline" size={21} color="#FF4F91" />
+          <Ionicons accessibilityElementsHidden name="mail-outline" size={21} color={backyrdTheme.color.pink} />
           <View style={styles.contactCopy}>
             <Text style={styles.contactTitle}>Datenschutzkontakt</Text>
             <Text style={styles.contactText}>hello@backyrd.ch</Text>
@@ -137,12 +137,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.12)",
+    borderBottomColor: backyrdTheme.color.border,
   },
   backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: backyrdTheme.color.surfaceElevated,
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   },
   headerCopy: { flex: 1 },
   eyebrow: {
-    color: "#FF4F91",
+    color: backyrdTheme.color.pink,
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 1.3,
@@ -180,13 +180,13 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   heroText: {
-    color: "#B4B4BD",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 15,
     lineHeight: 22,
     marginTop: 9,
   },
   sectionTitle: {
-    color: "#81818C",
+    color: backyrdTheme.color.textMuted,
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 1.2,
@@ -232,9 +232,9 @@ const styles = StyleSheet.create({
   },
   contactCopy: { flex: 1, marginLeft: 13 },
   contactTitle: { color: backyrdTheme.color.textPrimary, fontSize: 15, fontWeight: "900" },
-  contactText: { color: "#FF4F91", fontWeight: "800", marginTop: 6 },
+  contactText: { color: backyrdTheme.color.pink, fontWeight: "800", marginTop: 6 },
   contactAddress: {
-    color: "#868690",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 12,
     lineHeight: 17,
     marginTop: 5,

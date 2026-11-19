@@ -194,7 +194,7 @@ export default function PrivacyDataRightsScreen() {
           onPress={() => router.back()}
           style={styles.backButton}
         >
-          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={24} color={backyrdTheme.color.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>Meine Daten</Text>
       </View>
@@ -218,12 +218,12 @@ export default function PrivacyDataRightsScreen() {
             <RefreshControl
               refreshing={false}
               onRefresh={() => void load()}
-              tintColor="#FF4F91"
+              tintColor={backyrdTheme.color.pink}
             />
           }
         >
           <View style={styles.intro}>
-            <Ionicons name="archive-outline" size={28} color="#FF4F91" />
+            <Ionicons name="archive-outline" size={28} color={backyrdTheme.color.pink} />
             <Text style={styles.introTitle}>Deine Datenschutzrechte</Text>
             <Text style={styles.introText}>
               Du kannst eine maschinenlesbare Kopie deiner Daten anfordern oder
@@ -234,13 +234,13 @@ export default function PrivacyDataRightsScreen() {
           <View style={styles.card}>
             <View style={styles.cardHead}>
               <View style={styles.iconWrap}>
-                <Ionicons name="download-outline" size={23} color="#FF4F91" />
+                <Ionicons name="download-outline" size={23} color={backyrdTheme.color.pink} />
               </View>
               <View style={styles.cardCopy}>
                 <Text style={styles.cardTitle}>Datenexport</Text>
                 <Text style={styles.cardText}>
                   Erstellt eine JSON-Datei mit Profil, Eindrücken, Momenten,
-                  Nachrichten, Decisions, Analytics und Einwilligungen.
+                  Nachrichten, Suchverlauf, Nutzungsdaten und Einwilligungen.
                 </Text>
               </View>
             </View>
@@ -277,7 +277,7 @@ export default function PrivacyDataRightsScreen() {
                 <>
                   <Ionicons name="download-outline" size={19} color="#050506" />
                   <Text style={styles.primaryButtonText}>
-                    JSON-Export erstellen
+                    Datenexport erstellen
                   </Text>
                 </>
               )}
@@ -293,7 +293,7 @@ export default function PrivacyDataRightsScreen() {
                 <Text style={styles.cardTitle}>Konto und Daten löschen</Text>
                 <Text style={styles.cardText}>
                   Die Anfrage erhält eine 14-tägige Sicherheitsfrist. Orts-
-                  Ownership, öffentlich relevante Inhalte und Safety-Daten
+                  Verknüpfungen zu verwalteten Orten, öffentlich relevante Inhalte und sicherheitsrelevante Daten
                   werden anschließend kontrolliert behandelt.
                 </Text>
               </View>
@@ -316,7 +316,7 @@ export default function PrivacyDataRightsScreen() {
                   onPress={confirmCancellation}
                 >
                   {working === "cancel" ? (
-                    <ActivityIndicator color="#FFFFFF" />
+                    <ActivityIndicator color={backyrdTheme.color.textPrimary} />
                   ) : (
                     <Text style={styles.cancelButtonText}>
                       Löschanfrage stornieren
@@ -331,7 +331,7 @@ export default function PrivacyDataRightsScreen() {
                 onPress={confirmDeletion}
               >
                 {working === "delete" ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color={backyrdTheme.color.textPrimary} />
                 ) : (
                   <Text style={styles.deleteButtonText}>
                     Kontolöschung vormerken
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     minHeight: 52,
     borderRadius: 17,
-    backgroundColor: "#FF4F91",
+    backgroundColor: backyrdTheme.color.pink,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 16,
   },
-  deleteButtonText: { color: backyrdTheme.color.textPrimary, fontWeight: "900", fontSize: 15 },
+  deleteButtonText: { color: "#FFFFFF", fontWeight: "900", fontSize: 15 },
   cancelButton: {
     minHeight: 52,
     borderRadius: 17,

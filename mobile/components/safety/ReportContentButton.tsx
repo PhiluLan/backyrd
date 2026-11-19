@@ -373,7 +373,7 @@ export default function ReportContentButton({
                   <Ionicons
                     name="chevron-back"
                     size={18}
-                    color="#FF4F91"
+                    color={backyrdTheme.color.pink}
                   />
                   <Text style={styles.backText}>
                     Grund ändern
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   eyebrow: {
-    color: "#FF4F91",
+    color: backyrdTheme.color.pink,
     fontSize: 11,
     lineHeight: 14,
     fontWeight: "800",
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
     marginBottom: 7,
   },
   title: {
-    color: "#F8F8FA",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 25,
     lineHeight: 30,
     fontWeight: "800",
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.07)",
   },
   reasonRowPressed: {
-    backgroundColor: "rgba(255,255,255,0.035)",
+    backgroundColor: backyrdTheme.color.surface,
     borderRadius: 14,
   },
   reasonIcon: {
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   reasonTitle: {
-    color: "#F4F4F7",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 16,
     lineHeight: 20,
     fontWeight: "700",
@@ -648,32 +648,32 @@ const styles = StyleSheet.create({
     marginBottom: 17,
   },
   backText: {
-    color: "#FF4F91",
+    color: backyrdTheme.color.pink,
     fontSize: 14,
     fontWeight: "700",
   },
   previewCard: {
     padding: 16,
     borderRadius: 17,
-    backgroundColor: "rgba(0,0,0,0.24)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.075)",
     marginBottom: 22,
   },
   previewLabel: {
-    color: "#777780",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1.1,
     marginBottom: 8,
   },
   previewText: {
-    color: "#E8E8EC",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 15,
     lineHeight: 22,
   },
   inputLabel: {
-    color: "#F4F4F7",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 16,
     lineHeight: 21,
     fontWeight: "800",
@@ -693,14 +693,14 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     borderWidth: 1,
     borderColor: backyrdTheme.color.border,
-    backgroundColor: "rgba(255,255,255,0.035)",
-    color: "#F6F6F8",
+    backgroundColor: backyrdTheme.color.surface,
+    color: backyrdTheme.color.textPrimary,
     fontSize: 15,
     lineHeight: 21,
   },
   counter: {
     alignSelf: "flex-end",
-    color: "#6E6E77",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 11,
     marginTop: 6,
   },
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 9,
-    backgroundColor: "#E93678",
+    backgroundColor: backyrdTheme.color.pink,
   },
   submitButtonPressed: {
     opacity: 0.78,
@@ -722,7 +722,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   submitButtonText: {
-    color: backyrdTheme.color.textPrimary,
+    color: backyrdTheme.color.onAccent,
     fontSize: 16,
     fontWeight: "800",
   },
@@ -738,18 +738,18 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#E93678",
+    backgroundColor: backyrdTheme.color.pink,
     marginBottom: 20,
   },
   successTitle: {
-    color: "#F8F8FA",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 23,
     lineHeight: 28,
     fontWeight: "800",
     textAlign: "center",
   },
   successText: {
-    color: "#96969F",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 14,
     lineHeight: 21,
     textAlign: "center",
@@ -763,10 +763,10 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#E93678",
+    backgroundColor: backyrdTheme.color.pink,
   },
   doneButtonText: {
-    color: backyrdTheme.color.textPrimary,
+    color: backyrdTheme.color.onAccent,
     fontSize: 16,
     fontWeight: "800",
   },

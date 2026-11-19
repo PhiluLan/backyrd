@@ -171,11 +171,11 @@ export default function MapWebScreen() {
                     onPress={() => router.push(`/spot/${spot.id}`)}
                     style={[styles.button, styles.smallButton]}
                   >
-                    <Text style={styles.buttonText}>Details</Text>
+                    <Text style={styles.buttonText}>Ort ansehen</Text>
                   </Pressable>
 
                   <Pressable accessibilityRole="button" accessibilityLabel={`Route zu ${spot.name}`} onPress={() => openInMaps(spot)} style={[styles.button, styles.smallButton]}>
-                    <Text style={styles.buttonText}>In Maps</Text>
+                    <Text style={styles.buttonText}>Route</Text>
                   </Pressable>
                 </View>
               </View>
@@ -223,20 +223,20 @@ const styles = StyleSheet.create({
     minWidth: 82,
     alignItems: "center",
   },
-  buttonText: { color: theme.color.background, fontWeight: "600", fontSize: 13 },
+  buttonText: { color: theme.color.onAccent, fontWeight: "600", fontSize: 13 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   list: { padding: 16, gap: 12, paddingBottom: 120 },
   card: {
-    borderRadius: 14,
+    borderRadius: theme.radius.xl,
     borderWidth: 1,
-    borderColor: "#2a2a34",
-    backgroundColor: "#141419",
+    borderColor: theme.color.border,
+    backgroundColor: theme.color.surface,
     padding: 12,
     gap: 10,
   },
   cardMain: { gap: 2 },
-  name: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  meta: { color: "#b1b1ba", fontSize: 13 },
+  name: { color: theme.color.textPrimary, fontSize: 24, lineHeight: 29, fontWeight: "700" },
+  meta: { color: theme.color.textSecondary, fontSize: 14, lineHeight: 20 },
   distance: { color: theme.color.textSecondary, marginTop: 3, fontSize: 12, fontWeight: "600" },
   actions: { flexDirection: "row", gap: 8 },
   empty: { color: "#888", textAlign: "center", marginTop: 20 },

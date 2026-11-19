@@ -59,7 +59,7 @@ export default function ProfilePrivacySettingsScreen() {
         </Pressable>
         <Text style={styles.kicker}>DEIN PROFIL</Text>
       </View>
-      <Text style={styles.title}>SICHTBARKEIT</Text>
+      <Text style={styles.title}>Sichtbarkeit</Text>
       <Text style={styles.subtitle}>
         Entscheide, ob andere dein Profil und deine Momente finden können.
       </Text>
@@ -87,10 +87,10 @@ export default function ProfilePrivacySettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: backyrdTheme.color.background, paddingHorizontal: 20 },
+  safe: { flex: 1, backgroundColor: backyrdTheme.color.background, paddingHorizontal: backyrdTheme.layout.pageGutter },
   header: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 12 },
   backButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: backyrdTheme.color.surface },
-  kicker: { color: backyrdTheme.color.acid, fontFamily: backyrdTheme.type.bodyBold, fontSize: 11, letterSpacing: 2 },
-  title: { marginTop: 20, color: backyrdTheme.color.textPrimary, fontFamily: backyrdTheme.type.display, fontSize: 42, lineHeight: 48 },
+  kicker: { color: backyrdTheme.color.pink, fontFamily: backyrdTheme.type.bodyBold, fontSize: 11, letterSpacing: 2 },
+  title: { marginTop: 20, color: backyrdTheme.color.textPrimary, fontFamily: backyrdTheme.type.display, fontSize: 36, lineHeight: 42 },
   subtitle: { marginTop: 8, color: backyrdTheme.color.textSecondary, fontSize: 16, lineHeight: 23 },
 });

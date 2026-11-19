@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "expo-router";
 
 import { supabase } from "@/lib/supabase";
 import { getMyLegalGateStatus } from "@/lib/consent";
-import { StateView } from "@/components/foundation/StateView";
+import { ProductState } from "@/components/ui/ProductState";
 import { rootStartupNavigationAuthority } from "@/lib/root-startup-navigation";
 
 const ALLOWED_WHEN_GATED = new Set([
@@ -67,6 +67,6 @@ export default function LegalGateGuard({ children }: PropsWithChildren) {
     };
   }, [pathname, router, attempt]);
 
-  if (failed && !ALLOWED_WHEN_GATED.has(pathname)) return <StateView kind="error" title="Verbindung unterbrochen" message="Deine Bestätigungen konnten gerade nicht geprüft werden. Bitte versuche es erneut." actionLabel="Erneut versuchen" onAction={() => setAttempt((value) => value + 1)} />;
+  if (failed && !ALLOWED_WHEN_GATED.has(pathname)) return <ProductState kind="error" title="Verbindung unterbrochen" message="Deine Bestätigungen konnten gerade nicht geprüft werden. Bitte versuche es erneut." actionLabel="Erneut versuchen" onAction={() => setAttempt((value) => value + 1)} />;
   return <>{children}</>;
 }

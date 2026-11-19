@@ -169,10 +169,10 @@ export default function EventsScreen() {
   useEffect(() => { void fetchEvents(); const generationRef = request; return () => { ++generationRef.current; }; }, [fetchEvents]);
 
   const emptyCopy = useMemo(() => {
-    if (timeFilter === "today") return "Für heute sind noch keine Events bestätigt.";
-    if (timeFilter === "tomorrow") return "Für morgen sind noch keine Events bestätigt.";
-    if (timeFilter === "weekend") return "Für dieses Wochenende ist noch nichts bestätigt.";
-    return "Aktuell sind keine Basler Events veröffentlicht.";
+    if (timeFilter === "today") return "Für heute haben wir noch keine Events.";
+    if (timeFilter === "tomorrow") return "Für morgen haben wir noch keine Events.";
+    if (timeFilter === "weekend") return "Für dieses Wochenende haben wir noch keine Events.";
+    return "Aktuell haben wir noch keine Events in Basel.";
   }, [timeFilter]);
 
   return (
@@ -245,7 +245,7 @@ export default function EventsScreen() {
           ) : (
             <View style={styles.state}>
               <Ionicons name="calendar-outline" size={34} color="#A9A5A0" />
-              <Text style={styles.stateTitle}>Noch nichts bestätigt</Text>
+              <Text style={styles.stateTitle}>Noch nichts dabei</Text>
               <Text style={styles.stateText}>{emptyCopy}</Text>
               <Pressable onPress={() => setTimeFilter("all")}><Text style={styles.allLink}>Alle kommenden Events ansehen</Text></Pressable>
             </View>

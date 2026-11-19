@@ -54,7 +54,12 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: color.background }]}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={[styles.kicker, { color: color.pink }]}>DEIN backyrd</Text>
+        <View style={styles.header}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Zurück zum Profil" onPress={() => router.canGoBack() ? router.back() : router.replace("/profile")} style={[styles.backButton, { backgroundColor: color.surface }]}>
+            <Ionicons accessibilityElementsHidden name="chevron-back" size={22} color={color.textPrimary} />
+          </Pressable>
+          <Text style={[styles.kicker, { color: color.pink }]}>DEIN BACKYRD</Text>
+        </View>
         <Text style={[styles.title, { color: color.textPrimary }]}>Einstellungen</Text>
         <Text style={[styles.subtitle, { color: color.textSecondary }]}>Profil, Privatsphäre und deine App.</Text>
 
@@ -92,7 +97,7 @@ export default function SettingsScreen() {
           <SettingsRow
             icon="eye-outline"
             title="Sichtbarkeit"
-            subtitle="Öffentlichkeit deines Profils und deiner Momente"
+            subtitle="Wer dein Profil und deine Momente sehen kann"
             onPress={() => router.push("/settings/privacy" as any)}
           />
           <SettingsRow
@@ -108,13 +113,13 @@ export default function SettingsScreen() {
           <SettingsRow
             icon="shield-checkmark-outline"
             title="Datenschutz & Einwilligungen"
-            subtitle="Kontrolle über deine Daten und Zustimmung"
+            subtitle="Du entscheidest, welche Daten du freigibst"
             onPress={() => router.push("/privacy-consent" as any)}
           />
           <SettingsRow
             icon="help-buoy-outline"
             title="Sicherheit & Support"
-            subtitle="Moderationsentscheidungen und Hilfe"
+            subtitle="Hilfe, Meldungen und Entscheidungen zu deinen Inhalten"
             onPress={() => router.push("/safety-center" as any)}
           />
         </View>
@@ -140,10 +145,12 @@ const styles = StyleSheet.create({
     padding: productTheme.layout.pageGutter,
     paddingBottom: 120,
   },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 18 },
+  backButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   title: {
     color: productTheme.color.textPrimary,
     fontFamily: productTheme.type.display,
-    ...productTheme.typeScale.displayL,
+    ...productTheme.typeScale.displayM,
   },
   kicker: { color: productTheme.color.pink, fontFamily: productTheme.type.bodyBold, fontSize: productTheme.typeScale.label.fontSize, letterSpacing: 2.5 },
   subtitle: {

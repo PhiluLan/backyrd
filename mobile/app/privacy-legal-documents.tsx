@@ -48,7 +48,7 @@ export default function PrivacyLegalDocumentsScreen() {
           onPress={() => router.back()}
           style={styles.backButton}
         >
-          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={24} color={backyrdTheme.color.textPrimary} />
         </Pressable>
 
         <Text style={styles.headerTitle}>Rechtsdokumente</Text>
@@ -101,7 +101,7 @@ export default function PrivacyLegalDocumentsScreen() {
                     <Ionicons
                       name={open ? "chevron-up" : "chevron-down"}
                       size={20}
-                      color="#FFFFFF"
+                      color={backyrdTheme.color.textPrimary}
                     />
                   </Pressable>
 

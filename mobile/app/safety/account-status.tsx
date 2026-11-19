@@ -84,7 +84,7 @@ export default function SafetyAccountStatusScreen() {
         </Pressable>
 
         <Text style={styles.headerTitle}>
-          Account-Sicherheit
+          Konto & Sicherheit
         </Text>
 
         <View style={styles.iconButton} />
@@ -94,14 +94,14 @@ export default function SafetyAccountStatusScreen() {
         contentContainerStyle={styles.content}
       >
         <Text style={styles.kicker}>
-          SAFETY & INTEGRITY
+          KONTO & SICHERHEIT
         </Text>
         <Text style={styles.title}>
-          Dein Account-Status
+          Dein Konto-Status
         </Text>
         <Text style={styles.subtitle}>
           Hier siehst du Verwarnungen,
-          Schreibsperren und laufende Maßnahmen.
+          Schreibsperren und laufende Massnahmen.
         </Text>
 
         {loading ? (
@@ -142,7 +142,7 @@ export default function SafetyAccountStatusScreen() {
             </View>
 
             <Text style={styles.sectionTitle}>
-              Maßnahmen
+              Massnahmen
             </Text>
 
             {measures.length === 0 ? (
@@ -153,7 +153,7 @@ export default function SafetyAccountStatusScreen() {
                   color="#7CDD9F"
                 />
                 <Text style={styles.emptyTitle}>
-                  Keine aktiven Maßnahmen
+                  Keine aktiven Massnahmen
                 </Text>
                 <Text style={styles.emptyText}>
                   Dein Account ist ohne Einschränkungen aktiv.
@@ -177,7 +177,7 @@ export default function SafetyAccountStatusScreen() {
 
                   <Text style={styles.measureText}>
                     {measure.public_explanation ??
-                      "Für deinen Account gilt eine Safety-Maßnahme."}
+                      "Für deinen Account gilt eine Safety-Massnahme."}
                   </Text>
 
                   {measure.ends_at ? (
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   kicker: {
-    color: "#FF4F91",
+    color: backyrdTheme.color.pink,
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 2.5,
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,79,139,0.24)",
   },
   ackButtonText: {
-    color: "#FF4F91",
+    color: backyrdTheme.color.pink,
     fontWeight: "900",
   },
 });

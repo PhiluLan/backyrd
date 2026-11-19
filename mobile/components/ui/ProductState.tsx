@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
 type StateProps = {
+  kind?: "empty" | "error" | "offline" | "permission";
   eyebrow?: string;
   title: string;
   message?: string;
@@ -14,10 +15,10 @@ type StateProps = {
   onAction?: () => void;
 };
 
-export function ProductState({ eyebrow, title, message, actionLabel, onAction }: StateProps) {
+export function ProductState({ kind = "empty", eyebrow, title, message, actionLabel, onAction }: StateProps) {
   return <SafeAreaView style={styles.root}>
     {eyebrow ? <AppText role="caption" tone="pink" style={{ marginBottom: theme.spacing.sm }}>{eyebrow}</AppText> : null}
-    <StateView kind="empty" title={title} message={message} actionLabel={actionLabel} onAction={onAction} />
+    <StateView kind={kind} title={title} message={message} actionLabel={actionLabel} onAction={onAction} />
   </SafeAreaView>;
 }
 

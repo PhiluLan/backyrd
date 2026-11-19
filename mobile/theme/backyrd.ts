@@ -16,7 +16,7 @@ function appearanceColor(name: AppearanceColorName): string {
     const resourceName = name.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
     return PlatformColor(`@color/backyrd_${resourceName}`) as unknown as string;
   }
-  return appearanceColors.dark[name];
+  return `var(--backyrd-${name}, ${appearanceColors.dark[name]})`;
 }
 
 // Native SF Pro is available for the Home presentation on iOS.
@@ -58,7 +58,7 @@ export const backyrdTheme = {
   border: { hairline: 1, standard: 1 },
   motion: { image: 180, pressScale: 0.98 },
   type: {
-    display: "DMSerifDisplay_400Regular",
+    display: "LibreFranklin_700Bold",
     body: "LibreFranklin_400Regular",
     bodyMedium: "LibreFranklin_600SemiBold",
     bodyBold: "LibreFranklin_700Bold",

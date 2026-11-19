@@ -294,11 +294,11 @@ export default function PrivacyConsentScreen() {
           onPress={() => router.back()}
           style={styles.backButton}
         >
-          <Ionicons accessibilityElementsHidden name="chevron-back" size={24} color="#FFFFFF" />
+          <Ionicons accessibilityElementsHidden name="chevron-back" size={24} color={theme.color.textPrimary} />
         </Pressable>
 
         <View style={styles.headerCopy}>
-          <AppText role="label" tone="pink" style={styles.eyebrow}>PRIVACY CENTER</AppText>
+          <AppText role="label" tone="pink" style={styles.eyebrow}>DATENSCHUTZ</AppText>
           <AppText role="screenTitle" style={styles.title}>Datenschutz & Einwilligungen</AppText>
         </View>
       </View>
@@ -317,7 +317,7 @@ export default function PrivacyConsentScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.introCard}>
-            <Ionicons accessibilityElementsHidden name="shield-checkmark-outline" size={25} color="#FF4F91" />
+            <Ionicons accessibilityElementsHidden name="shield-checkmark-outline" size={25} color={theme.color.pink} />
             <Text style={styles.introTitle}>Du entscheidest.</Text>
             <Text style={styles.introText}>
               Du kannst Backyrd ohne Standort durchsuchen und Spots entdecken.
@@ -340,7 +340,7 @@ export default function PrivacyConsentScreen() {
                     accessibilityElementsHidden
                     name={ICONS[row.purpose_key]}
                     size={22}
-                    color="#FF4F91"
+                    color={theme.color.pink}
                   />
                 </View>
 
@@ -375,7 +375,7 @@ export default function PrivacyConsentScreen() {
                 </View>
 
                 {saving ? (
-                  <ActivityIndicator color="#FF4F91" />
+                  <ActivityIndicator color={theme.color.pink} />
                 ) : (
                   <Switch
                     value={enabled}
@@ -386,7 +386,7 @@ export default function PrivacyConsentScreen() {
                       false: "rgba(255,255,255,0.16)",
                       true: "rgba(255,125,167,0.48)",
                     }}
-                    thumbColor={enabled ? "#FF4F91" : "#D8D8DC"}
+                    thumbColor={enabled ? theme.color.pink : "#D8D8DC"}
                   />
                 )}
               </View>
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.surfaceElevated,
   },
   necessaryTitle: { color: theme.color.textPrimary, fontSize: 15, fontWeight: "800" },
-  necessaryText: { color: "#A3A3AC", lineHeight: 19, marginTop: 7 },
+  necessaryText: { color: theme.color.textSecondary, lineHeight: 19, marginTop: 7 },
   footerText: {
     color: "#73737D",
     fontSize: 12,
