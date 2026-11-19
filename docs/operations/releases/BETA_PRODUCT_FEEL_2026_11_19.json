@@ -4,9 +4,20 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "homeMomentsHidden": {
+    "sourceCommit": "de357d76d39c4a7925a2fd2c0ddf434b25e6d8c5",
+    "status": "PUBLISHED_HOME_SECTION_HIDDEN",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f3e2-9e9d-7c6c-ba39-f9b36e5bd8f2", "group": "037451b2-cedc-480d-a673-77671e8a3103" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f3e2-f94a-7cb3-a168-a370187605c5", "group": "46723d2f-0334-4c55-af3f-211cbd42a317" }
+    ],
+    "savedDesign": "mobile/components/HomeMomentsSection.tsx; design source e6fd66c3; documented in BETA_PRODUCT_FEEL_WORKBOOK.md",
+    "validation": "Typecheck, targeted lint, full Mobile contracts, Production validation and both verified iOS exports passed. Home no longer mounts, fetches or waits for moments.",
+    "physicalDeviceConfirmation": "PENDING"
+  },
   "homePersonalMomentsFollowUp": {
     "sourceCommit": "e6fd66c3270b7f4867b424ed9bf10c062ba32631",
-    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "status": "DESIGN_PARKED_HOME_HIDDEN_BY_FOUNDER",
     "updates": [
       { "runtimeVersion": "1.1.1", "id": "01a1f3d3-f003-7b83-96c6-f7df7b466404", "group": "be8e4762-ce10-4505-96ec-1025959b091a" },
       { "runtimeVersion": "1.1.0", "id": "01a1f3d4-4332-7bd9-8eaa-627222976161", "group": "39c36c74-2fab-42a4-8f39-a883228f3242" }
