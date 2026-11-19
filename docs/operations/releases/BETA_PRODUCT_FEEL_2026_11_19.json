@@ -4,6 +4,17 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "nuknukProfileButtonFollowUp": {
+    "sourceCommit": "570fe61966f31e925097fe29adab3bd5e7378e52",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f399-1940-7db5-83e7-544abe387f65", "group": "fad427ca-a3db-442b-a13b-786bacb05124" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f399-6b5f-7f16-8cc2-2b693ae7e87e", "group": "7a01c934-414a-402e-bfd8-711621e1096a" }
+    ],
+    "validation": "Typecheck, targeted lint, full Mobile contracts, Production validation and both verified iOS exports passed.",
+    "visualAcceptance": "PENDING",
+    "changes": "Static native Nuknuk outline in a dark circular profile button; existing route and accessible profile action retained"
+  },
   "homeHeaderIconFollowUp": {
     "sourceCommit": "c8cec1cd88e97d672c51878928ddf29d48353fad",
     "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
