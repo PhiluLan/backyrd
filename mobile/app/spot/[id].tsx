@@ -862,6 +862,17 @@ export default function SpotDetailScreen() {
         </Animated.View>
 
         <View style={styles.content}>
+          {journey ? <View style={styles.journeyContext}>
+            <AppText role="caption" tone="pink">DEIN PLAN MIT NUKNUK</AppText>
+            <AppText role="bodyStrong" numberOfLines={journeyDetailsOpen ? undefined : 3}>{journey.wish}</AppText>
+            <Pressable accessibilityRole="button" accessibilityState={{ expanded: journeyDetailsOpen }} onPress={() => setJourneyDetailsOpen(value => !value)} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="label" tone="pink">{journeyDetailsOpen ? "Weniger anzeigen" : "Dein Plan & Hinweise"}</AppText></Pressable>
+            {journeyDetailsOpen ? <>
+              <AppText role="body">{journey.recommendation}</AppText>
+              {journey.notes.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}
+            </> : null}
+            <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="label" tone="pink">Zurück zu deinen Vorschlägen</AppText></Pressable>
+          </View> : null}
+
           <SpotEssentials category={field("classification.primary_category")} placeType={field("classification.place_types")} price={field("operation.price_level")} />
 
           {addressLines.length ? <View style={styles.addressBlock}>
@@ -950,20 +961,7 @@ export default function SpotDetailScreen() {
           </View> : null}
 
           <SpotExperience profile={productProfile?.experienceProfile}>
-          {journey ? <View style={styles.journeyContext}>
-            <AppText role="caption" tone="pink">FÜR DEINEN NÄCHSTEN MOMENT</AppText>
-            <AppText role="bodyStrong">{journey.wish}</AppText>
-            <AppText role="body">{journey.recommendation}</AppText>
-            {journey.notes[0] ? <AppText role="meta" tone="secondary">{journey.notes[0]}</AppText> : null}
-            {journey.notes.length > 1 ? <>
-              <Pressable accessibilityRole="button" accessibilityState={{ expanded: journeyDetailsOpen }} onPress={() => setJourneyDetailsOpen(value => !value)} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="label" tone="pink">{journeyDetailsOpen ? "Hinweise schliessen" : "Details & Hinweise"}</AppText></Pressable>
-              {journeyDetailsOpen ? journey.notes.slice(1).map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>) : null}
-            </> : null}
-            <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="label" tone="pink">Zurück zu deinen Vorschlägen</AppText></Pressable>
-          </View> : null}
-
-          <SpotEventsSection spotId={String(spot.id)}/>
-
+            <SpotEventsSection spotId={String(spot.id)}/>
           </SpotExperience>
 
           <View style={styles.section}>
@@ -1223,7 +1221,7 @@ const styles = StyleSheet.create({
   placeSummaryType: { color: theme.colors.text, fontSize: 17, lineHeight: 26, fontFamily: foundationTheme.type.bodyMedium },
   priceTag: { alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.colors.surfaceElevated },
   priceTagText: { color: theme.colors.textSoft, fontSize: 13, lineHeight: 20 },
-  journeyContext: { marginBottom: 28, paddingBottom: 20, gap: 12, borderBottomWidth: 1, borderBottomColor: foundationTheme.color.border },
+  journeyContext: { marginBottom: 32, padding: 20, gap: 12, borderRadius: 24, backgroundColor: foundationTheme.color.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: foundationTheme.color.border },
   stickyNav: {
     position: "absolute",
     top: 0,

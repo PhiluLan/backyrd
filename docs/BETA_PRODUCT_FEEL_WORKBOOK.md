@@ -434,3 +434,66 @@ gemessene Fotobreite, horizontales Paging/Zähler, Textöffnung/-schliessen,
 Bildfehler/Wiederholung und vertikale Item-Offsets ohne Kopfversatz.
 Native Gesten-, visuelle und grosse-Schrift-Abnahme auf dem iPhone sind offen.
 Der Entwurf ist ein Versuch und keine finale Abnahme der Momente-Seite.
+
+### Wohin: persönliches Erlebnis und durchgehender Plan
+
+Auftrag vom 19. November 2026 nach dem Geräte-Audit: Wohin visuell und sprachlich
+an Startseite und Spotprofil anschliessen. Leitgedanke: «NukNuk versteht mich als
+Person». Die Entscheidungslogik bleibt unverändert. Taskklasse `PRODUCT_RELEASE`
+wegen des aktiven Mobile-Einstiegs; diese Änderung aktiviert keinen Product-
+Runtime und veröffentlicht kein OTA.
+
+Betroffene Pfade: Mobile-Wohin-Screen, seine vorhandene Präsentationslogik,
+Wartekomponente und der nur aus einer Decision sichtbare Kontext im Spotprofil.
+Web, Admin, Owner, Backend, Datenbankschema, Prompt, Matching, Eligibility und
+Ranking bleiben unverändert. Request-Erstellung, serverseitige Reihenfolge,
+sichtbares Kandidatenfenster, Rückfrage-Zusammensetzung, Auth-Gate und
+consentgebundene Interaktionen bleiben auf dem bestehenden Pfad.
+
+- Sans-Serif-Hierarchie, ruhige neutrale Flächen und die etablierten Hell-/Dunkel-
+  Farben ersetzen die Serif-/Pfirsich-/Violett-Mischung. Alte iOS-Runtime mit
+  fester dunkler Darstellung bleibt berücksichtigt.
+- NukNuk lädt persönlich zum Erzählen ein; unfertige Wünsche sind ausdrücklich
+  willkommen. Einstiegshilfen werden erst nach dem Profil-/Verlaufslesen gemeinsam
+  freigegeben. Die Stadt hat einen reservierten, beschrifteten Platz.
+- Während der Suche erscheint der Wunsch einmal. Die vorhandene NukNuk-Figur
+  blinzelt unter Beachtung von Reduce Motion und App-Hintergrundzustand.
+  Wechselnde Gedanken begleiten die Wartezeit, ohne Backend-Phasen, Prozentwerte
+  oder eine garantierte Restzeit vorzutäuschen. Nach längerer Wartezeit wird dies
+  ausdrücklich benannt. «Wunsch anpassen» verwirft die lokale Zustellung; eine
+  bereits gesendete Serveranfrage kann weiterlaufen. Generationen verhindern,
+  dass eine verspätete Antwort den bearbeiteten Wunsch überschreibt.
+- Die Vorschlagsliste zeigt den ursprünglichen Plan samt Ergänzungen, Stadt,
+  Anzahl und klare Wege zum Anpassen oder Neustarten. Karten verwenden kurze,
+  belegte Beschreibungen; Unsicherheit und weitere Besuchshinweise werden markiert
+  und bleiben unter «Vor deinem Besuch» vollständig erreichbar.
+- Öffnungsangaben beziehen sich ausdrücklich auf die gewünschte Besuchszeit.
+  Nicht genauer benannte Backend-Lücken bleiben ehrlich unbestimmt. Die UI
+  erfindet weder die fehlende Einzelheit noch persönliche Passung.
+- Der weitere Dialog bietet eine verständliche Einladung zur Verfeinerung.
+  Die Diagnoseansicht samt Rohdaten und «Übergabe & Reihenfolge» entfällt aus
+  dem Consumer-Ablauf; Fehlerdiagnostik bleibt bestehen. Neue Suche setzt auch
+  vorherige Rückfragen, Hinweise und Dialogzustände zurück.
+- Die Datenschutzinformation ist direkt in der App und offline lesbar. Ihr Text
+  entspricht unverändert der bestehenden öffentlichen Erklärung. Ein Paritätstest
+  verhindert stilles Auseinanderlaufen; es wird keine Zustimmung verändert.
+- Der actor-/spot-/origingebundene, zeitlich begrenzte Plan steht bei einem
+  Decision-Einstieg direkt unter dem Spotbild. Details sind aufklappbar;
+  Ergänzungen erscheinen ohne technische Request-Präfixe. Direkte Spotbesuche
+  erhalten weiterhin keinen persönlichen Suchkontext.
+
+Abnahme: TypeScript, gezieltes ESLint, vollständige Mobile-Vertragstests,
+Hermes-Verbrauchertextprüfung, Single-Route-Prüfung sowie Web- und iOS-Export.
+Zusätzliche Regressionen sichern kurze Karten bei vollständig erhaltenen
+Unsicherheitshinweisen, Zeitbezug und Datenschutztext-Parität.
+Ein isolierter Browserlauf im tatsächlich exportierten Expo-Bundle prüft die
+drei gewünschten Eingaben mit synthetischen, vertragsgültigen Antworten:
+Wartezeit über zehn Sekunden, spätes Ergebnis nach Verlassen, unveränderte
+Serverreihenfolge, Weiterfragen, Spotübergang, 320/390/430-Pixel-Ansichten in
+Hell und Dunkel, offene Familienangaben, Eingabehilfe, sauberer Neustart und
+eine serverseitige Rückfrage mit Antwort. Keine Production-Aktionen und keine
+Bewertung der vorgeschlagenen Orte. Testskript und Screenshots liegen lokal
+unter `/tmp/backyrd-wohin-personal-e2e.mjs` und
+`/tmp/backyrd-wohin-personal-shots/`; keine generierten Artefakte im Git.
+Native visuelle Abnahme auf dem iPhone, VoiceOver und grosse Systemschrift
+sowie OTA-Veröffentlichung sind noch offen.
