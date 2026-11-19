@@ -4,6 +4,57 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "wohinPersonalExperience": {
+    "sourceCommit": "0b721761c0bb1d490ad8b0c7cc20b2d873cf5791",
+    "implementationCommit": "3ddfd10c341eb7abd6b0676f61758bf679ed2492",
+    "releaseJourneyCommit": "3f389b45ff0e8b478d7144793a9f4974ffbf8003",
+    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
+    "authorization": "Founder approved Production OTA for both compatible iPhone runtimes and explicitly approved merging PR #761 on 2026-11-19.",
+    "pullRequestCiRun": 44554174124,
+    "mainCiRun": 44556632405,
+    "certifications": [
+      {
+        "runtimeVersion": "1.1.1",
+        "runId": 44556662401,
+        "artifactId": 14545687326,
+        "manifestHash": "5538a9474151f13df7ebc8a7393e041d4150a021e43263a1ae57c8624d2bab0c",
+        "deliveryTarget": "IOS_OTA",
+        "mode": "POST_MERGE_MAIN"
+      },
+      {
+        "runtimeVersion": "1.1.0",
+        "runId": 44556669681,
+        "artifactId": 14545613143,
+        "manifestHash": "68a992abcb19af2aa76f56f591bb593bc1bd8326949c50699ab83ff2fae71437",
+        "deliveryTarget": "IOS_OTA",
+        "mode": "POST_MERGE_MAIN"
+      }
+    ],
+    "updates": [
+      {
+        "runtimeVersion": "1.1.1",
+        "id": "01a1f47a-55d9-766c-90cb-ee2da1990354",
+        "group": "0572a63c-1baf-4c4a-81cf-cf5e52d445bf",
+        "createdAt": "2026-11-19T15:43:40.505Z",
+        "previousGroup": "709b9db5-6829-4b12-9710-b5a4ad288604",
+        "servedCertifiedBundleVerified": true
+      },
+      {
+        "runtimeVersion": "1.1.0",
+        "id": "01a1f47b-8d08-7abf-bc07-d7ef887b430e",
+        "group": "25d8d1d0-a5a9-49a8-8f5b-60c6c1e4f78a",
+        "createdAt": "2026-11-19T15:45:00.168Z",
+        "previousGroup": "61e0cf2d-e681-47dd-a95c-7781f8c7d02b",
+        "servedCertifiedBundleVerified": true
+      }
+    ],
+    "validation": "Complete Mobile release journey, Mobile contracts, map/discovery checks, typecheck, lint, Hermes, 775 Decision tests and all required PR/Main gates passed. Both exact-Main IOS_OTA certification runs succeeded. Local manifest/source/runtime/Production-config verification passed. Production update endpoint selected the new ID for each runtime; downloaded launch-asset bytes match each certified artifact SHA-256.",
+    "publication": "Published the certified bundle/mobile-update directories with --skip-bundler; no artifact rebuild during publication.",
+    "decisionLogicChanged": false,
+    "databaseOrEdgeDeployment": false,
+    "physicalDeviceConfirmation": "PENDING_FOUNDER_RESTART_AND_VISUAL_ACCEPTANCE"
+  },
   "momentsFullscreenTrial": {
     "sourceCommit": "689afe62124630e84cc222459698653dd1031c32",
     "status": "PUBLISHED_FULLSCREEN_TRIAL_FOR_FOUNDER",

@@ -497,3 +497,28 @@ unter `/tmp/backyrd-wohin-personal-e2e.mjs` und
 `/tmp/backyrd-wohin-personal-shots/`; keine generierten Artefakte im Git.
 Native visuelle Abnahme auf dem iPhone, VoiceOver und grosse Systemschrift
 sowie OTA-Veröffentlichung sind noch offen.
+
+
+### Wohin: Production-OTA nach Main-Freigabe veröffentlicht
+
+Am 19. November 2026 hat der Founder die Übernahme von PR #761 in Main
+ausdrücklich freigegeben. Main `0b721761c0bb1d490ad8b0c7cc20b2d873cf5791`
+ist inhaltlich identisch mit dem grün geprüften PR-Stand. Die erforderlichen
+PR- und Main-Gates sowie beide manuellen, auf diesen Main-Commit gebundenen
+`IOS_OTA`-Zertifizierungen sind erfolgreich. Die Release-Journey bildet jetzt
+die bereits abgenommenen Home-/Moments-Änderungen und die neue Wohin-UI ab.
+Während einer Folgesuche bleibt auch die gerade gesendete Ergänzung sichtbar.
+
+Die zertifizierten Artefakte wurden unverändert und ohne erneutes Bundling für
+iOS-Runtimes 1.1.1 und 1.1.0 auf Production veröffentlicht. Für beide Runtimes
+lieferte der Production-Update-Endpunkt die neue Update-ID aus; der tatsächliche
+Download des Start-Bundles stimmt jeweils mit dem SHA-256 des zertifizierten
+Artefakts überein. Runtime, Source-Commit, Production-Konfiguration und die neuen
+Wohin-Texte wurden vor dem Upload nochmals geprüft. Die Update-IDs, Manifest-
+Hashes, Zertifizierungsläufe und vorherigen Gruppen zur gezielten Rücknahme
+stehen in `docs/operations/releases/BETA_PRODUCT_FEEL_2026_11_19.json` unter
+`wohinPersonalExperience`.
+
+Die Veröffentlichung ändert weder Entscheidungslogik noch Backend oder
+Datenbankschema. Die physische Installation und visuelle Founder-Abnahme der
+neuen Wohin-Fassung bleiben offen; eine Beta-Freigabe ist damit nicht verbunden.
