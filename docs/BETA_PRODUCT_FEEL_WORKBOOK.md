@@ -252,3 +252,37 @@ Stands erneut auf Production veröffentlicht. Dadurch gelangen exakt dieselben
 Bundles zurück auf beide iPhone-Runtimes. Eine neue Entdecken-Gestaltung ist
 damit nicht freigegeben; der bisherige Header und die Kartengrössen sind die
 Grundlage für weitere, gezielte Anpassungen.
+
+### Entdecken: gezielte Founder-Anpassungen nach Wiederherstellung
+
+Die bestehenden grossen Vollbild-Spotkarten und das Eingabefeld bleiben die
+Grundlage. Auf ausdrücklichen Wunsch umgesetzt:
+
+- Standortkopf zeigt Stadt plus Quartier, wenn die native Ortsauflösung des
+  aktuell freigegebenen Standorts ein Quartier liefert. Ohne diese Daten bleibt
+  die Stadt stehen. Keine neue Berechtigungsabfrage, Speicherung oder Logs von
+  Koordinaten. Späte Ortsantworten dürfen nach Standortverlust nichts ergänzen.
+- Begrüssung kleiner; Tageszeitfrage kleiner und einzeilig, Fragezeichen weiss.
+  Wetteranzeige samt ihrer Startbereitschafts-Abhängigkeit vollständig entfernt.
+- Keine Kommas hinter den Home-Abschnittstiteln. «backyrd Momente» heisst «Momente».
+- Moods auf Home-Spotkarten kleiner und einzeilig; bei bekanntem Nullstand
+  «Noch keine Moods». Unbekannte Zählwerte werden weiterhin nicht als null erfunden.
+- Momentkarten nutzen dieselbe Standardbreite und 234 Punkte Standardhöhe wie
+  Eventkarten. Bei grosser Systemschrift dürfen Momentkarten wachsen.
+- Eventbild reicht unter alle Inhalte, mit Verlauf ins Grau. Datum und Zeit
+  weiss, Eventart oben links. Bekannte Eintrittspreise beziehungsweise Gratis
+  stehen vor dem Pfeil; unbekannte Kostenpflicht wird als «Preis offen» angezeigt.
+  Eventkarten-Grundgrösse bleibt erhalten; der bestehende Einzelevent-Fallback
+  über die verfügbare Breite bleibt bestehen. Die gemeinsame Mobile-EventCard
+  übernimmt diese Darstellung auch ausserhalb von Home.
+- «Neu auf backyrd» verwendet weiterhin dieselben grossen Spotkarten wie die
+  Orte in der Nähe. Letzte Suchanfrage kleiner und kursiv; ausschliesslich deren
+  Ortsreihe erhält eine manuell bewegte 3D-Perspektive. Bei «Bewegung reduzieren»
+  bleibt sie flach. Keine automatische Bewegung und keine Rangfolgeänderung.
+
+Typecheck, gezieltes ESLint, volle Mobile-Vertragstests, Karten-/Discovery-Tests
+und Hermes-Prüfung bestanden. Neue Preisprüfung deckt Gratis, bekannte Beträge,
+fehlende Währung und ungültige/fehlende Preise ab. Der tatsächliche Home-Load-
+Callback wird auf Quartieranzeige, fehlende Freigabe und verspätete Geocodes geprüft.
+Keine Backend-, Schema- oder Vertragsänderung; keine Änderung der abgenommenen
+Spot-Profilseite. Native visuelle Abnahme dieser Iteration steht aus.

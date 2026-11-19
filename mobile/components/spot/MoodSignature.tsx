@@ -7,11 +7,15 @@ export function moodCountDescription(count: number | null | undefined) {
   return count === 0 ? "Noch keine Eindrücke" : moodCountCopy(count);
 }
 
-export function MoodSignature({ labels, compact = false, onImage = false, onPress, onRemove, moodCount }: {
-  labels: readonly string[]; compact?: boolean; onImage?: boolean; moodCount?: number | null; onPress?: () => void; onRemove?: (label: string) => void;
+export function MoodSignature({ labels, compact = false, onImage = false, onPress, onRemove, moodCount, singleLine = false }: {
+  labels: readonly string[]; compact?: boolean; onImage?: boolean; moodCount?: number | null; onPress?: () => void; onRemove?: (label: string) => void; singleLine?: boolean;
 }) {
   const visible = [...new Set(labels.filter(Boolean))].slice(0, 3);
   const countCopy = moodCount === 0 ? null : moodCountCopy(moodCount);
+  if (singleLine) {
+    const copy = visible.length ? visible.join(" · ") : moodCount === 0 ? "Noch keine Moods" : countCopy;
+    return copy ? <AppText role="caption" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.singleLine, onImage && styles.imagePink]}>{copy}</AppText> : null;
+  }
   if (!visible.length && moodCount === 0) return <AppText role="caption" tone="secondary" style={onImage ? styles.imageText : undefined}>Noch keine Eindrücke</AppText>;
   if (!visible.length && !countCopy) return null;
   const content = <View style={styles.row}>
@@ -28,6 +32,7 @@ const styles = StyleSheet.create({
   word: { flexDirection: "row", alignItems: "center", gap: 7 },
   label: { fontSize: 15, lineHeight: 22, fontFamily: theme.type.bodyMedium },
   compact: { fontSize: 14, lineHeight: 21, fontFamily: theme.type.bodyMedium },
+  singleLine: { fontSize: 12, lineHeight: 19, fontFamily: theme.type.bodyMedium },
   touch: { minHeight: 44, justifyContent: "center" },
   imageText: { color: "#FFFFFF" },
   imagePink: { color: "#FF87B1" },

@@ -1,6 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import { AccessibilityInfo, Animated, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { AppText } from "./foundation/AppText";
 import { MoodSignature, moodCountDescription } from "./spot/MoodSignature";
 import { OpeningStatusBadge } from "./spot/OpeningStatusBadge";
@@ -13,7 +14,7 @@ import { haversineKm } from "../lib/utils/haversine";
 import { backyrdTheme as theme, useSFPro } from "../theme/backyrd";
 
 /** The same place card and rail geometry for all Home discovery entry points. */
-export function HomeSpotRail({ spots, moods, moodCounts, location, label, openingStatuses, onVisibleArtworkReady }: {
+export function HomeSpotRail({ spots, moods, moodCounts, location, label, openingStatuses, onVisibleArtworkReady, presentation = "flat" }: {
   spots: readonly DiscoverySpot[];
   moods: Record<string, string[]>;
   moodCounts: Record<string, number | null | undefined>;
@@ -21,9 +22,19 @@ export function HomeSpotRail({ spots, moods, moodCounts, location, label, openin
   label: string;
   openingStatuses: Record<string, SpotOpeningStatus>;
   onVisibleArtworkReady?: (spotId: string) => void;
+  presentation?: "flat" | "depth";
 }) {
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const [reduceMotion, setReduceMotion] = useState(true);
+  useEffect(() => {
+    if (presentation !== "depth") return;
+    let active = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then(value => { if (active) setReduceMotion(value); }).catch(() => undefined);
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
+    return () => { active = false; subscription.remove(); };
+  }, [presentation]);
   const cardWidth = homeRailCardWidth(width, { minimum: 248, maximum: 356 });
   const cardHeight = Math.round(cardWidth * 1.08);
   const spotNameSize = Math.max(28, Math.min(40, Math.round(cardWidth * 0.11)));
@@ -39,11 +50,18 @@ export function HomeSpotRail({ spots, moods, moodCounts, location, label, openin
     }
     return [spot.category_name, spot.city ?? spot.address].filter(Boolean).join(" · ");
   }
-  return <ScrollView accessibilityLabel={label} horizontal contentContainerStyle={styles.cards}
+  const depth = presentation === "depth" && !reduceMotion;
+  return <Animated.ScrollView accessibilityLabel={label} horizontal contentContainerStyle={[styles.cards, depth && styles.depthCards]}
+    onScroll={depth ? Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: true }) : undefined} scrollEventThrottle={16}
     decelerationRate={HOME_RAIL.decelerationRate} disableIntervalMomentum={HOME_RAIL.disableIntervalMomentum}
     showsHorizontalScrollIndicator={false} snapToInterval={cardWidth + HOME_RAIL.gap}
     snapToOffsets={spots.map((_, index) => index * (cardWidth + HOME_RAIL.gap))}>
-    {spots.map((spot, index) => <Pressable accessibilityRole="button"
+    {spots.map((spot, index) => {
+      const inputRange = [(index - 1) * (cardWidth + HOME_RAIL.gap), index * (cardWidth + HOME_RAIL.gap), (index + 1) * (cardWidth + HOME_RAIL.gap)];
+      return <Animated.View key={spot.id} style={depth ? {
+      opacity: scrollX.interpolate({ inputRange, outputRange: [0.7, 1, 0.7], extrapolate: "clamp" }),
+      transform: [{ perspective: 900 }, { scale: scrollX.interpolate({ inputRange, outputRange: [0.91, 1, 0.91], extrapolate: "clamp" }) }, { rotateY: scrollX.interpolate({ inputRange, outputRange: ["9deg", "0deg", "-9deg"], extrapolate: "clamp" }) }],
+    } : undefined}><Pressable accessibilityRole="button"
       accessibilityLabel={`${spot.name} öffnen${moods[spot.id]?.length ? `. Moods: ${moods[spot.id].slice(0, 3).join(", ")}` : ""}${moodCountDescription(moodCounts[spot.id]) ? `. ${moodCountDescription(moodCounts[spot.id])}` : ""}`}
       key={spot.id} onPress={() => router.push(`/spot/${spot.id}` as never)}
       style={({ pressed }) => [styles.card, { width: cardWidth, minHeight: cardHeight, paddingTop: theme.spacing.display * 2 }, pressed && styles.pressed]}>
@@ -54,14 +72,16 @@ export function HomeSpotRail({ spots, moods, moodCounts, location, label, openin
       <View style={styles.cardContent}>
         <LinearGradient pointerEvents="none" colors={["rgba(5,5,5,0)", "rgba(5,5,5,0.32)", "rgba(5,5,5,0.56)"]} locations={[0, 0.3, 1]} style={[StyleSheet.absoluteFill, styles.textScrim]} />
         <AppText role={useSFPro ? "displayXL" : "displayM"} numberOfLines={useSFPro ? 2 : undefined} style={[styles.name, useSFPro && styles.cockpitSpotName, useSFPro && cockpitSpotName]}>{spot.name}</AppText>
-        <MoodSignature labels={moods[spot.id] ?? []} moodCount={moodCounts[spot.id]} compact onImage />
+        <MoodSignature labels={moods[spot.id] ?? []} moodCount={moodCounts[spot.id]} compact onImage singleLine />
         <AppText role="meta" style={styles.meta}>{meta(spot)}</AppText>
       </View>
-    </Pressable>)}
-  </ScrollView>;
+    </Pressable></Animated.View>;
+    })}
+  </Animated.ScrollView>;
 }
 const styles = StyleSheet.create({
   cards: { paddingTop: theme.spacing.lg, paddingHorizontal: HOME_RAIL.horizontalInset, gap: HOME_RAIL.gap },
+  depthCards: { paddingTop: 24, paddingBottom: 20 },
   card: { overflow: "hidden", borderRadius: theme.radius.xl, justifyContent: "flex-end", backgroundColor: theme.color.surface },
   cardContent: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.lg },
   statusPill: { position: "absolute", top: theme.spacing.md, left: theme.spacing.md, maxWidth: "88%", zIndex: 1 },

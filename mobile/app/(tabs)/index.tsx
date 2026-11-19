@@ -21,7 +21,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { HomeEventsSection } from "../../components/events/HomeEventsSection";
 import { HomeMomentsSection } from "../../components/HomeMomentsSection";
 import { HomeDisplayHeading } from "../../components/HomeDisplayHeading";
-import { WeatherContext } from "../../components/WeatherContext";
 import Avatar from "../../components/Avatar";
 import { IconButton } from "../../components/foundation/Button";
 import { StateView } from "../../components/foundation/StateView";
@@ -32,8 +31,8 @@ import { readRecentDecisionSearch, type RecentDecisionSearch } from "../../lib/d
 import { useSpotMoodCounts, loadSpotBrowseMoods } from "../../lib/mood-catalog";
 import { useAuth } from "../../hooks/useAuth";
 import { loadDiscoverySpots, type DiscoverySpot } from "../../lib/spot-images";
-import type { LocationCoordinates } from "../../lib/locationContext";
-import { getPrivacySafeLocation } from "../../lib/locationPrivacy";
+import { cityFromGeocode, type LocationCoordinates } from "../../lib/locationContext";
+import { getPrivacySafeLocation, reverseGeocodePrivacySafe } from "../../lib/locationPrivacy";
 import { loadHomeNearbySpots, loadNewestCitySpots, loadDiscoverySpotsByIds, validDiscoveryLocation, HOME_NEARBY_RADIUS_KM } from "../../lib/nearby-discovery";
 import { withRequestDeadline } from "../../lib/requestDeadline";
 import { supabase } from "../../lib/supabase";
@@ -61,6 +60,7 @@ function HomeContent() {
   const [searchHint, setSearchHint] = useState<string | null>(null);
   const [momentRevision, setMomentRevision] = useState(0);
   const [city, setCity] = useState("Basel");
+  const [locationLabel, setLocationLabel] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [measuredGreeting, setMeasuredGreeting] = useState<{ name: string; width: number } | null>(null);
   const [profileAvatar, setProfileAvatar] = useState<{ userId: string; uri: string | null } | null>(null);
@@ -74,7 +74,7 @@ function HomeContent() {
   const now = useMinuteClock();
   const daypart = homeDaypart(now);
   const headlineName = user ? firstName ?? "du" : null;
-  const greetingBaseSize = Math.max(56, Math.min(72, Math.round(width * 0.18)));
+  const greetingBaseSize = Math.max(36, Math.min(48, Math.round(width * 0.12)));
   const greetingAvailableWidth = width - 2 * theme.layout.pageGutter - 8;
   const greetingDisplaySize = measuredGreeting?.name === headlineName
     ? Math.max(28, Math.min(greetingBaseSize, Math.floor(greetingBaseSize * greetingAvailableWidth / measuredGreeting.width)))
@@ -94,7 +94,6 @@ function HomeContent() {
   const [detailsReady, setDetailsReady] = useState(false);
   const [eventsReady, setEventsReady] = useState(false);
   const [readyAvatarUri, setReadyAvatarUri] = useState<string | null>(null);
-  const [weatherReadyCity, setWeatherReadyCity] = useState<string>();
   const [momentsReadyCity, setMomentsReadyCity] = useState<string>();
   const [readyArtworkIds, setReadyArtworkIds] = useState<ReadonlySet<string>>(() => new Set());
   const onEventsReady = useCallback(() => setEventsReady(true), []);
@@ -126,6 +125,7 @@ function HomeContent() {
     setDetailsReady(false);
     setRefreshing(refresh);
     setError(null);
+    setLocationLabel(null);
     try {
       const [profile, location] = await Promise.all([
         user?.id ? withRequestDeadline(async signal => {
@@ -145,6 +145,14 @@ function HomeContent() {
       }
       const point = location?.ok && location.source === "current" ? { latitude: location.location.coords.latitude, longitude: location.location.coords.longitude } : null;
       const current = validDiscoveryLocation(point) ? point : null;
+      if (current && location?.ok && location.source === "current") {
+        void withRequestDeadline(() => reverseGeocodePrivacySafe(location.location), 3_000).then(address => {
+          if (requestId !== loadRequest.current || !address) return;
+          const locatedCity = cityFromGeocode(address) ?? productCity;
+          const district = cleanName(address.district);
+          setLocationLabel(district && district.toLocaleLowerCase("de-CH") !== locatedCity.toLocaleLowerCase("de-CH") ? `${locatedCity}, ${district}` : locatedCity);
+        }).catch(() => undefined);
+      }
       if (!current && displayedCatalog.current?.location) {
         // A nearby catalog is no longer valid after losing the current location.
         displayedCatalog.current = null;
@@ -210,7 +218,7 @@ function HomeContent() {
   const avatarReady = !avatarUri || readyAvatarUri === avatarUri;
   const initialArtworkReady = topSpots.slice(0, 2).every(spot => readyArtworkIds.has(spot.id));
   const greetingReady = !useSFPro || !headlineName || measuredGreeting?.name === headlineName;
-  const initialSectionsReady = eventsReady && (!user || (weatherReadyCity === city && momentsReadyCity === city));
+  const initialSectionsReady = eventsReady && (!user || (momentsReadyCity === city));
   useEffect(() => {
     if (!loading && (error || (detailsReady && avatarReady && initialArtworkReady && greetingReady && initialSectionsReady))) reportHomeReady?.();
   }, [avatarReady, detailsReady, error, greetingReady, initialArtworkReady, initialSectionsReady, loading, reportHomeReady]);
@@ -242,7 +250,7 @@ function HomeContent() {
             <View style={[styles.greetingBlock, fontScale > 1.3 && styles.greetingBlockLargeType]}>
               <View style={styles.locationRow}>
                 <Ionicons name="location-sharp" size={21} color={color.textSecondary} />
-                <AppText role="bodyStrong" tone="secondary" style={styles.locationText}>{city}</AppText>
+                <AppText role="bodyStrong" tone="secondary" style={styles.locationText}>{locationLabel ?? city}</AppText>
               </View>
             </View>
             <View style={[styles.headerActions, fontScale > 1.3 && styles.headerActionsLargeType]}>
@@ -266,8 +274,8 @@ function HomeContent() {
             }
           }}>Hey{"  "}{headlineName},</AppText> : null}
           <AppText accessibilityLabel={headlineName ? `Hey ${headlineName},` : "Hey"} numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.pageTitle, useSFPro && styles.cockpitGreeting, useSFPro && cockpitGreetingMetrics, { color: color.textPrimary }]}>{headlineName ? <>Hey{useSFPro ? "  " : " "}<Text style={{ color: color.pink }}>{headlineName},</Text></> : "Hey"}</AppText>
-          <AppText testID="home-daypart-title" accessibilityRole="header" role="displayM" style={styles.daypartTitle}>
-            Heute <Text style={styles.daypartAccent}>{daypart}</Text> schon was{"\u00a0"}vor<Text style={{ color: color.pink }}>?</Text>
+          <AppText testID="home-daypart-title" accessibilityRole="header" role="displayM" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.daypartTitle}>
+            Heute <Text style={styles.daypartAccent}>{daypart}</Text> schon was{"\u00a0"}vor<Text style={{ color: "#FFFFFF" }}>?</Text>
           </AppText>
           <View style={[styles.searchShell, { borderColor: color.border, backgroundColor: color.surfaceElevated }]}>
             <TextInput accessibilityLabel="Was willst du machen?" onChangeText={value => { setQuery(value); setSearchHint(null); }} onSubmitEditing={event => submitDecision(event.nativeEvent.text)} placeholder="was willst du machen?" placeholderTextColor={color.textSecondary} returnKeyType="search" style={[styles.searchInput, { color: color.textPrimary }]} value={query} />
@@ -276,12 +284,11 @@ function HomeContent() {
             </Pressable> : null}
           </View>
           {searchHint ? <AppText role="caption" tone="error" style={styles.searchHint}>{searchHint}</AppText> : null}
-          {user?.id ? <WeatherContext city={city} actorId={user.id} revision={momentRevision} onInitialContentReady={reportHomeReady ? setWeatherReadyCity : undefined} /> : null}
 
           <View style={[styles.sectionHeader, currentLocation && styles.nearbySectionHeader, fontScale > 1.3 && { flexDirection: "column", alignItems: "flex-start" }]}>
             <View style={currentLocation ? styles.nearbyTitleBlock : styles.sectionTitleBlock}>
               {currentLocation
-                ? <HomeDisplayHeading title="Orte in deiner Nähe" displayTitle="Orte  in  deiner  Nähe" accent="," />
+                ? <HomeDisplayHeading title="Orte in deiner Nähe" displayTitle="Orte  in  deiner  Nähe" accent="" />
                 : <AppText role="sectionTitle">{currentLocation ? "Orte in deiner Nähe" : `Orte in ${city} entdecken`}</AppText>}
               {!loading && !currentLocation ? <AppText role="meta" tone="secondary">Ohne aktuellen Standort · Auswahl nach Stadt</AppText> : null}
             </View>
@@ -303,7 +310,7 @@ function HomeContent() {
 
           {!loading && !error ? (
             <View>
-              <View style={styles.newSpotsHeading}><HomeDisplayHeading title="Neu auf backyrd" accent="," /></View>
+              <View style={styles.newSpotsHeading}><HomeDisplayHeading title="Neu auf backyrd" accent="" /></View>
               {newError ? <View style={styles.stateWrap}><StateView kind="error" title="Neue Orte konnten nicht geladen werden" actionLabel="Noch einmal" onAction={() => void load()} /></View>
                 : newSpots.length ? <HomeSpotRail spots={newSpots} moods={spotMoods} moodCounts={moodCounts} openingStatuses={openingStatuses} location={currentLocation} label="Neu auf Backyrd" />
                 : <View style={styles.stateWrap}><StateView kind="empty" title="Hier kommt bald Neues dazu" message="Sobald neue Orte in dieser Gegend auf Backyrd sind, findest du sie hier." /></View>}
@@ -312,11 +319,11 @@ function HomeContent() {
 
           {!loading && activeRecent ? <View>
             <View style={styles.newSpotsHeading}>
-              <HomeDisplayHeading title="Deine letzte Suche" accent="," />
-              <AppText role="sectionTitle" style={styles.recentQuery}>{activeRecent.query}</AppText>
+              <HomeDisplayHeading title="Deine letzte Suche" accent="" />
+              <AppText role="body" style={styles.recentQuery}>{activeRecent.query}</AppText>
             </View>
             {recentError ? <View style={styles.stateWrap}><StateView kind="error" title="Deine Orte konnten nicht geladen werden" actionLabel="Noch einmal" onAction={() => void load()} /></View>
-              : recentSpots.length ? <HomeSpotRail spots={recentSpots} moods={spotMoods} moodCounts={moodCounts} openingStatuses={openingStatuses} location={currentLocation} label={`Deine letzte Suche: ${activeRecent.query}`} />
+              : recentSpots.length ? <HomeSpotRail spots={recentSpots} moods={spotMoods} moodCounts={moodCounts} openingStatuses={openingStatuses} location={currentLocation} label={`Deine letzte Suche: ${activeRecent.query}`} presentation="depth" />
               : <View style={styles.stateWrap}><StateView kind="empty" title="Keine Orte zum Anzeigen" message="Zu dieser Suche sind gerade keine Orte verfügbar." /></View>}
           </View> : null}
         </ScrollView>
@@ -341,7 +348,7 @@ const styles = StyleSheet.create({
   pageTitle: { marginTop: theme.spacing.lg, marginHorizontal: theme.layout.pageGutter, textAlign: "left" },
   greetingMeasure: { position: "absolute", left: 0, top: 0, width: 10000, opacity: 0 },
   cockpitGreeting: { color: "#F8F8F8", fontWeight: "700" },
-  daypartTitle: { marginTop: theme.spacing.xs, marginHorizontal: theme.layout.pageGutter, alignSelf: "stretch", fontSize: 31, lineHeight: 38 },
+  daypartTitle: { marginTop: theme.spacing.xs, marginHorizontal: theme.layout.pageGutter, alignSelf: "stretch", fontSize: 20, lineHeight: 28 },
   daypartAccent: { textDecorationLine: "underline", textDecorationStyle: "solid", textDecorationColor: theme.color.pink },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   guestLogin: { minHeight: 44, justifyContent: "center", paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.color.border },
@@ -353,7 +360,7 @@ const styles = StyleSheet.create({
   sectionHeader: { marginTop: theme.spacing.xxl, paddingHorizontal: theme.spacing.xl, minHeight: 52, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: theme.spacing.md },
   nearbySectionHeader: { flexDirection: "column", alignItems: "stretch", gap: 0 },
   newSpotsHeading: { marginTop: theme.spacing.xxl, paddingHorizontal: theme.layout.pageGutter },
-  recentQuery: { marginTop: theme.spacing.sm },
+  recentQuery: { marginTop: theme.spacing.sm, fontSize: 16, lineHeight: 24, fontStyle: "italic" },
   heroSkeleton: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl, borderRadius: theme.radius.xl, backgroundColor: theme.color.surfaceElevated },
   stateWrap: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl },
 });

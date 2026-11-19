@@ -7,7 +7,7 @@ import { ProductText as Text } from "../foundation/AppText";
 import type { EventDiscoveryDTO } from "../../../packages/shared/src/dto/event";
 import { groupSeasonalEvents } from "../../../packages/shared/src/seasonal-events";
 import { loadEvents } from "../../lib/events-v1";
-import { HOME_RAIL, homeRailCardWidth } from "../../lib/home-rail";
+import { HOME_RAIL, homeSecondaryCardWidth } from "../../lib/home-rail";
 import { backyrdTheme as theme, useBackyrdTheme } from "../../theme/backyrd";
 import { EventCard } from "./EventCard";
 import { HomeDisplayHeading } from "../HomeDisplayHeading";
@@ -47,12 +47,12 @@ export function HomeEventsSection({ onInitialContentReady }: { onInitialContentR
 
   // Events stay recognisable as a rail on every phone width: smaller than the
   // primary Spot cards, but with the same snap physics and intentional peek.
-  const carouselCardWidth = homeRailCardWidth(width, { minimum: 220, maximum: 272 });
+  const carouselCardWidth = homeSecondaryCardWidth(width);
 
   return (
     <View style={styles.section}>
       <View style={styles.heading}>
-        <HomeDisplayHeading title="Was läuft" accent="," />
+        <HomeDisplayHeading title="Was läuft" accent="" />
         <Pressable accessibilityRole="button" onPress={() => router.push("/events" as never)} hitSlop={10} style={styles.allEventsAction}>
           <Text style={[styles.allEventsText, { color: color.pink }]}>Alle ansehen</Text>
         </Pressable>
