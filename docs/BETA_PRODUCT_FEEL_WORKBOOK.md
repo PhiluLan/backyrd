@@ -666,14 +666,11 @@ Bitte um Präzisierung. Home, Profil und die neuen Einstellungen wurden erneut
 visuell kontrolliert. Es wurden keine Momente, Kommentare oder Meldungen
 veröffentlicht; normale Entscheidungs- und Ansichtsereignisse können entstehen.
 
-**Offen:** Bei einem längeren Wunsch scrollt das native Eingabefeld zu früh
-intern. Die Korrektur wird separat nativ nachgetestet. Die Software-Tastatur
-ist durch die iPhone-Synchronisierung nicht sichtbar; der dafür lokal
-kompilierte, isolierte Simulator-Client verwendet ausschliesslich synthetische
-Antworten von `127.0.0.1`. Der Mac hat sich während dessen Vorbereitung erneut
-gesperrt; der Founder wurde um Entsperrung gebeten. Native Tastaturprüfung und
-visuelle Founder-Abnahme sind deshalb noch nicht abgeschlossen. Dies ist keine
-vollständige Beta- oder Sicherheitsabnahme.
+**Gerätefund:** Bei einem längeren Wunsch scrollte das native Eingabefeld zu
+früh intern. Die Korrektur in [PR #769](https://github.com/PhiluLan/backyrd/pull/769)
+wurde nach erneuter Mac-Entsperrung mit der echten iOS-Software-Tastatur geprüft;
+Details folgen im Nachtrag. Die visuelle Founder-Abnahme bleibt davon getrennt.
+Dies ist keine vollständige Beta- oder Sicherheitsabnahme.
 
 
 ### Native Wohin-Eingabe: gezielter Nachtrag
@@ -692,6 +689,27 @@ betroffene Mobile-Produktverträge und vollständige kanonische App-Journey gege
 den exportierten tatsächlichen App-Code bestanden. Die Journey prüft zusätzlich
 mehrzeiliges Wachsen, die Höhenbegrenzung sowie Rückkehr auf 44 Punkte nach
 Kürzen und Leeren. Alle Antworten sind synthetisch, ohne Produktionsaktionen.
-Die native Software-Tastatur und die korrigierte Darstellung auf dem iPhone
-bleiben bis zur erneuten Mac-Entsperrung offen. Dieser Nachtrag ist noch kein
-Beleg für eine Veröffentlichung der Eingabefeld-Korrektur.
+Nach erneuter Mac-Entsperrung bestand der native Nachtest auf dem iPhone-16e-
+Simulator mit iOS 18.3: ein vierzeiliger Wunsch vollständig lesbar über der
+Software-Tastatur, zusätzliche Zeile mit begrenzter Höhe und sichtbarem Cursor,
+Kürzen und vollständiges Leeren zurück auf kompakte Höhe, direktes Tippen über
+die Bildschirmtasten, Absenden, zehn Sekunden synthetischer Wartezustand,
+Ergebnisdarstellung und mehrzeilige Ergänzung im selben Verlauf. Kopf und
+Senden-Button bleiben erreichbar; die Tab-Navigation ist bei offener Tastatur
+ausgeblendet. Hellmodus, Ergebnisdarstellung und erneutes Öffnen der Tastatur
+wurden ebenfalls nativ visuell geprüft.
+
+Der Native-Test nutzte den exakt gleichen Wohin-Dateiinhalt wie der PR
+(SHA-256 `cc5440776b5bdcc65b740083d40544e3afe6f1e698a4fc04d7fe19f81a781e9d`). Nur im temporären,
+nicht veröffentlichten Testverzeichnis simuliert ein vorgeschalteter Transport
+die reservierte Adresse `https://example.invalid` über den lokalen Fixture-
+Server. Die bestehende HTTPS-Konfigurationsprüfung und SecureStore bleiben
+unverändert. Der lokale Simulator-Client wurde regulär mit Simulator-
+Entitlements signiert; fehlende Entitlements des ersten unsignierten
+Test-Builds wurden nicht durch einen Auth- oder Speicher-Bypass umgangen.
+Keine echten Zugangsdaten oder Produktionsverbindungen im Simulator-Test.
+
+Die erforderlichen CI-Gates für den Implementierungsstand `7f864df0` bestanden:
+[Risk Gate](https://github.com/PhiluLan/backyrd/actions/runs/44608289690).
+Dieser Nachtrag ist noch kein Veröffentlichungsbeleg; die neue Main-
+Zertifizierung und der OTA-Nachweis werden separat festgehalten.
