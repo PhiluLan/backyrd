@@ -219,23 +219,9 @@ const SpotEssentials = ({ category, placeType, price }: {
   price?: SpotProductField;
 }) => category || placeType || price ? (
   <View style={styles.essentials}>
-    <Text style={styles.essentialsHeading}>Auf einen Blick</Text>
-    <View style={styles.essentialsDetails}>
-      {category ? <View style={styles.essentialsDetail}>
-        <Feather name="grid" size={18} color={theme.colors.pink} />
-        <Text style={styles.essentialsDetailValue}>{presentSpotProductField(category)}</Text>
-        <Text style={styles.essentialsLabel}>Kategorie</Text>
-      </View> : null}
-      {placeType ? <View style={styles.essentialsDetail}>
-        <Feather name="map-pin" size={18} color={theme.colors.pink} />
-        <Text style={styles.essentialsDetailValue}>{presentSpotProductField(placeType)}</Text>
-        <Text style={styles.essentialsLabel}>Art des Ortes</Text>
-      </View> : null}
-      {price ? <View style={styles.essentialsDetail}>
-        <Feather name="credit-card" size={18} color={theme.colors.pink} />
-        <Text style={styles.essentialsDetailValue}>{presentSpotProductField(price)}</Text>
-        <Text style={styles.essentialsLabel}>Preisniveau</Text>
-      </View> : null}
+    <View style={styles.placeSummary}>
+      {placeType || category ? <Text style={styles.placeSummaryType}>{presentSpotProductField((placeType ?? category)!)}</Text> : null}
+      {price ? <View style={styles.priceTag}><Text style={styles.priceTagText}>Preisniveau: {presentSpotProductField(price)}</Text></View> : null}
     </View>
   </View>
 ) : null;
@@ -265,7 +251,10 @@ export default function SpotDetailScreen() {
   const insets = useSafeAreaInsets();
   const { width: viewportWidth } = useWindowDimensions();
   const [heroContentHeight, setHeroContentHeight] = useState(0);
-  const heroHeight = Math.max(Math.round(viewportWidth * 1.05), heroContentHeight + insets.top + foundationTheme.control.standard + foundationTheme.spacing.display);
+  const [spot, setSpot] = useState<any>(null);
+  const [photos, setPhotos] = useState<any[]>([]);
+  const hasHeroPhoto = photos.length > 0 || Boolean(selectSpotImageUrl({ headerPhotoPath: spot?.header_photo_path }));
+  const heroHeight = Math.max(hasHeroPhoto ? Math.round(viewportWidth * 1.05) : 260, heroContentHeight + insets.top + foundationTheme.control.standard + foundationTheme.spacing.display);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const headerTranslateY = scrollY.interpolate({
@@ -279,10 +268,8 @@ export default function SpotDetailScreen() {
     extrapolate: "clamp",
   });
 
-  const [spot, setSpot] = useState<any>(null);
   const [sourceCredit, setSourceCredit] = useState<{ credit: string; source_url: string; license_url: string | null } | null>(null);
   const [legacyAddress, setLegacyAddress] = useState<string | null>(null);
-  const [photos, setPhotos] = useState<any[]>([]);
   const [galleryPhotos,setGalleryPhotos]=useState<SpotGalleryPhoto[]>([]);
   const [galleryFailed,setGalleryFailed]=useState(false);
   const [galleryImage,setGalleryImage]=useState<string|null>(null);
@@ -1229,6 +1216,10 @@ export default function SpotDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  placeSummary: { gap: 12 },
+  placeSummaryType: { color: theme.colors.text, fontSize: 17, lineHeight: 26, fontFamily: foundationTheme.type.bodyMedium },
+  priceTag: { alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.colors.surfaceElevated },
+  priceTagText: { color: theme.colors.textSoft, fontSize: 13, lineHeight: 20 },
   journeyContext: { marginBottom: 28, paddingBottom: 20, gap: 12, borderBottomWidth: 1, borderBottomColor: foundationTheme.color.border },
   stickyNav: {
     position: "absolute",

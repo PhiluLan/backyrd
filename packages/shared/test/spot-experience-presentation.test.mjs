@@ -28,6 +28,32 @@ test('price omits only inclusion copy identical to the tariff label',()=>{
  assert.doesNotMatch(shown.offers[0].prices[0],/für Essen/);
  assert.match(shown.offers[0].prices[1],/für Essen und Getränke/);
 });
+test('structured visit facts remove only repeated activities and preserve restrictions and conditions',()=>{
+ const shown=presentSpotExperience({...profile,offers:[{...profile.offers[0],name:'Degustation',properties:[known('experience.activity','Degustation'),known('participation.booking','Erforderlich',{conditions:{...conditions,weekdays:[6]}}),known('food.drink','Craft-Bier'),known('participation.minimum_age',18)]}]});
+ const copy=spotExperienceDetailGroups(shown.offers[0].facts,'','Degustation').flatMap(group=>group.items).join(' ');
+ assert.doesNotMatch(copy,/Erlebnis: Degustation/);
+ assert.match(copy,/Eine Reservation ist erforderlich \(Samstag\)/);
+ assert.match(copy,/Hier gibt es Craft-Bier/);
+ assert.match(copy,/Ab 18 Jahren/);
+});
+test('structured tariffs retain mandatory fees and age restrictions separately from amount',()=>{
+ const shown=presentSpotExperience({...profile,offers:[{...profile.offers[0],prices:[{...price,mandatoryFeesIncluded:false}]}]});
+ assert.equal(shown.offers[0].priceDetails[0].amount,'ab 42 CHF');
+ assert.ok(shown.offers[0].priceDetails[0].details.includes('ab 14 Jahren'));
+ assert.ok(shown.offers[0].priceDetails[0].details.includes('zusätzliche Pflichtkosten'));
+});
+test('Volta visitor copy reads as visit advice, not a form export',()=>{
+ const shown=presentSpotExperience({...profile,offers:[{...profile.offers[0],name:'Degustation',properties:[known('experience.activity','Degustation'),known('participation.booking','Empfohlen'),known('offer.service','Selbstbedienung'),known('food.drink','Craft-Bier'),known('participation.consumption_obligation','Bestellpflicht')]}],properties:[known('travel.mode','ÖV'),known('travel.mode','Zu Fuss'),known('travel.mode','Velo'),known('custom.detail','Ganzjährig geöffnet, für Anlässe auf Anfrage',{label:'Biergarten'})]});
+ const copy=spotExperienceDetailGroups(shown.offers[0].facts,'','Degustation').flatMap(group=>group.items).join(' ');
+ assert.match(copy,/Reserviere am besten im Voraus/);
+ assert.match(copy,/Hier bedienst du dich selbst/);
+ assert.match(copy,/Hier gibt es Craft-Bier/);
+ assert.match(copy,/musst du etwas bestellen/);
+ assert.doesNotMatch(copy,/Erlebnis:|Konsumation:|Service:|Getränke:/);
+ const shared=spotExperienceDetailGroups(shown.shared);
+ assert.match(shared.flatMap(group=>group.items).join(' '),/mit dem ÖV, zu Fuss und mit dem Velo/);
+ assert.deepEqual(shared.find(group=>group.title==='Biergarten').items,['Ganzjährig geöffnet, für Anlässe auf Anfrage.']);
+});
 test('offers retain their own prices, age scope, places and conditions',()=>{
  const displayed=presentSpotExperience(profile);assert.equal(displayed.offers[0].name,'Brunch');assert.match(displayed.offers[0].prices[0],/ab 42 CHF.*pro Person.*ab 14 Jahren.*für Essen/);assert.deepEqual(displayed.offers[0].places,['Terrasse']);
  assert.deepEqual(displayed.offers[0].facts.find(f=>f.label==='Getränke einschließlich alkoholfreier Auswahl')?.value,'Kaffee · Tee');assert.match(displayed.offers[0].facts.find(f=>f.label==='Was kann man hier machen?')?.condition,/Sonntag.*vormittags/);assert.match(displayed.offers[0].facts.find(f=>f.label==='Mindestalter für dieses Angebot')?.value??'',/18/);
@@ -53,8 +79,8 @@ test('visitor details preserve scope and conditions without form questions or du
  const shown=presentSpotExperience(input);
  const groups=spotExperienceDetailGroups(shown.offers[0].facts);
  const copy=groups.flatMap(group=>group.items).join(' ');
- assert.match(copy,/Keine Reservation nötig/);assert.match(copy,/Ab 18 Jahren.*Samstag/);
- assert.match(copy,/Ernährungsangebot: vegetarisch/);assert.equal((copy.match(/vegan/g)??[]).length,1);
+ assert.match(copy,/Du brauchst nicht zu reservieren/);assert.match(copy,/Ab 18 Jahren.*Samstag/);
+ assert.match(copy,/vegetarische Optionen/);assert.equal((copy.match(/vegan/g)??[]).length,1);
  assert.doesNotMatch(copy,/Wer kann|Was kann|erforderlich\?/);
  assert.equal(spotExperienceDetailGroups(shown.areas[0].facts).flatMap(g=>g.items).some(t=>t.includes('18')),false);
  assert.match(spotExperienceDetailGroups(shown.shared).flatMap(g=>g.items).join(' '),/Kein Wickeltisch/);
@@ -63,7 +89,7 @@ test('visitor details preserve scope and conditions without form questions or du
 test('meal copy omits only unconditional repeated defaults and retains dishes and conditional activities',()=>{
  const input={...profile,offers:[{...profile.offers[0],kind:'LUNCH',properties:[known('food.cuisine','vegan'),known('food.dish','vegane Gerichte'),known('food.dish','Ramen'),known('experience.activity','essen gehen'),known('food.meal_extent','Essen'),known('experience.activity','essen gehen',{conditions:{...conditions,weekdays:[7]}}),known('participation.consumption_obligation','Bestellpflicht')]}]};
  const card=presentSpotExperience(input).offers[0];const copy=spotExperienceDetailGroups(card.facts,card.kind).flatMap(group=>group.items).join(' ');
- assert.match(copy,/Ramen/);assert.match(copy,/Sonntag/);assert.match(copy,/Eine Bestellung ist erforderlich/);
+ assert.match(copy,/Ramen/);assert.match(copy,/Sonntag/);assert.match(copy,/musst du etwas bestellen/);
  assert.equal((copy.match(/essen gehen/g)??[]).length,1);assert.doesNotMatch(copy,/vegane Gerichte|Speisen: Essen/);
  assert.match(spotExperienceDetailGroups(card.facts,'OTHER').flatMap(g=>g.items).join(' '),/Speisen: Essen/);
 });

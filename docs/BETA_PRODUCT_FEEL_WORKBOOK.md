@@ -32,6 +32,26 @@ im Branch `codex/beta-product-feel-v1`.
 
 ### Prüfung und Abnahme
 
+Founder-Rückmeldung nach dem ersten OTA: visuell nicht abgenommen. Die Satzlisten
+wirken weiterhin technisch; der bildlose Hero lässt zu viel leeren Raum.
+Folgekorrektur im Code (noch nicht im ersten OTA):
+
+- Bildloser Hero kompakter; keine pinke Dekoration unter der Statusleiste.
+- Ortsart und Preisniveau als ruhige Zusammenfassung statt technischer Dreispaltentabelle.
+- Angebote als Karten mit Preisvorschau und eigenem Tarifbereich. Besuchshinweise
+  werden in kurze, zusammenhängende Absätze in Besuchersprache übersetzt.
+  Die zwischenzeitliche Key-Value-Darstellung wurde verworfen. Altersregeln, Pflichtkosten und
+  zeitliche Bedingungen bleiben explizit sichtbar.
+- Wiederholung des Angebotsnamens als Aktivität wird nur ohne Bedingung entfernt.
+- 18 gemeinsame Inhalts-/Web-Render-Tests, Mobile-Vertragsprüfung, Typecheck und
+  gezieltes Lint bestanden. Visuelle Prüfung der Folgekorrektur noch offen.
+
+Die gemeinsame Präsentation übersetzt bestätigte, bekannte Angaben beispielsweise
+in „Reserviere am besten im Voraus“, „Hier bedienst du dich selbst“ und
+„Du erreichst den Ort mit dem ÖV, zu Fuss und mit dem Velo“. Auch Public Web nutzt
+diese Texte. Freie Hinweise werden nicht umgeschrieben; Bedingungen bleiben an
+der jeweiligen Aussage. Es werden keine unbestätigten Eigenschaften ergänzt.
+
 Automatisiert am 19. November 2026:
 
 - Gemeinsame Inhalts- und Web-Render-Tests bestanden.

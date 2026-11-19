@@ -17,7 +17,7 @@ const {createElement}=require('react');
 test('actual Web cards render scoped facts, prices and schedules as escaped public content',()=>{
  const profile={contractVersion:'backyrd.world-knowledge.experience-profile@1.0',reviewed:true,offers:[{id:'dinner',name:'Abendessen <script>',areaIds:['terrace'],prices:[],schedule:[{weekday:6,start:'18:00',end:'23:00'}],properties:[{key:'food.dish',state:'KNOWN',value:'Pasta',conditions:{}}]}],areas:[{id:'terrace',name:'Terrasse',properties:[]}],properties:[]};
  const html=renderToStaticMarkup(createElement(SpotExperience,{profile}));
- assert.match(html,/Das kannst du hier erleben/);assert.match(html,/Abendessen &lt;script&gt;/);assert.match(html,/Samstag 18:00–23:00/);assert.match(html,/Pasta/);assert.match(html,/>Wo\?<\/h4><p>Terrasse/);assert.match(html,/Räume &amp; Bereiche/);assert.doesNotMatch(html,/<script>|food\.dish|contractVersion/);
+ assert.match(html,/Das kannst du hier erleben/);assert.match(html,/Abendessen &lt;script&gt;/);assert.match(html,/Samstag 18:00–23:00/);assert.match(html,/Pasta/);assert.match(html,/>Hier findet es statt<\/h4><p>Terrasse/);assert.match(html,/Dein Platz vor Ort/);assert.doesNotMatch(html,/<script>|food\.dish|contractVersion/);
 });
 test('unreviewed or missing profiles produce no public cards',()=>{
  assert.equal(renderToStaticMarkup(createElement(SpotExperience,{profile:null})), '');

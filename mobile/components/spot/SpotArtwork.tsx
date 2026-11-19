@@ -107,7 +107,6 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
           <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>
             <View style={styles.fallbackRing} />
             <View style={styles.fallbackRingInner} />
-            <View style={styles.fallbackAccent} />
           </View>
           {showFallbackName ? <Text numberOfLines={2} style={styles.fallbackName}>{spotName}</Text> : null}
         </LinearGradient>
@@ -138,6 +137,5 @@ const styles = StyleSheet.create({
   googleAttributionText: { color: "rgba(255,255,255,0.9)", ...theme.typeScale.caption },
   fallbackRing: { position: "absolute", width: 260, height: 260, right: -65, top: -95, borderRadius: 130, borderWidth: 1, borderColor: "rgba(255,186,210,0.20)" },
   fallbackRingInner: { position: "absolute", width: 190, height: 190, right: -30, top: -60, borderRadius: 95, borderWidth: 1, borderColor: "rgba(255,186,210,0.12)" },
-  fallbackAccent: { position: "absolute", left: 22, top: 26, width: 32, height: 4, borderRadius: 2, backgroundColor: "#FF4F91" },
   fallbackName: { position: "absolute", left: 18, right: 18, bottom: 18, color: "#FFFFFF", fontFamily: theme.type.display, fontSize: 34, lineHeight: 38, letterSpacing: -0.6 },
 });
