@@ -19,7 +19,6 @@ import { AppText, HomeTypographyProvider, ProductTextInput as TextInput } from "
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { HomeEventsSection } from "../../components/events/HomeEventsSection";
-import { HomeMomentsSection } from "../../components/HomeMomentsSection";
 import { HomeDisplayHeading } from "../../components/HomeDisplayHeading";
 import { IconButton } from "../../components/foundation/Button";
 import { NuknukAvatar } from "../../components/NuknukAvatar";
@@ -58,7 +57,6 @@ function HomeContent() {
   const { width, fontScale } = useWindowDimensions();
   const [query, setQuery] = useState("");
   const [searchHint, setSearchHint] = useState<string | null>(null);
-  const [momentRevision, setMomentRevision] = useState(0);
   const [city, setCity] = useState("Basel");
   const [locationLabel, setLocationLabel] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
@@ -92,7 +90,6 @@ function HomeContent() {
   const [currentLocation, setCurrentLocation] = useState<LocationCoordinates | null>(null);
   const [detailsReady, setDetailsReady] = useState(false);
   const [eventsReady, setEventsReady] = useState(false);
-  const [momentsReadyCity, setMomentsReadyCity] = useState<string>();
   const [readyArtworkIds, setReadyArtworkIds] = useState<ReadonlySet<string>>(() => new Set());
   const onEventsReady = useCallback(() => setEventsReady(true), []);
   const onVisibleArtworkReady = useCallback((id: string) => {
@@ -212,7 +209,7 @@ function HomeContent() {
   const topSpots = spots.slice(0, 6);
   const initialArtworkReady = topSpots.slice(0, 2).every(spot => readyArtworkIds.has(spot.id));
   const greetingReady = !useSFPro || !headlineName || measuredGreeting?.name === headlineName;
-  const initialSectionsReady = eventsReady && (!user || (momentsReadyCity === city));
+  const initialSectionsReady = eventsReady;
   useEffect(() => {
     if (!loading && (error || (detailsReady && initialArtworkReady && greetingReady && initialSectionsReady))) reportHomeReady?.();
   }, [detailsReady, error, greetingReady, initialArtworkReady, initialSectionsReady, loading, reportHomeReady]);
@@ -239,7 +236,7 @@ function HomeContent() {
     <HomeTypographyProvider>
     <SafeAreaView style={[styles.root, { backgroundColor: color.background }]} edges={["top", "left", "right"]}>
       <KeyboardAvoidingView style={[styles.root, { backgroundColor: color.background }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} tintColor={color.pink} onRefresh={() => { void load(true); setMomentRevision(value => value + 1); }} />} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} tintColor={color.pink} onRefresh={() => { void load(true); }} />} showsVerticalScrollIndicator={false}>
           <View style={[styles.header, fontScale > 1.3 && styles.headerLargeType]}>
             <View style={[styles.greetingBlock, fontScale > 1.3 && styles.greetingBlockLargeType]}>
               <View style={styles.locationRow}>
@@ -297,8 +294,6 @@ function HomeContent() {
           ) : (
             <View style={styles.stateWrap}><StateView kind="empty" title={currentLocation ? "Noch keine Orte in deiner Nähe" : "Noch keine Orte hier"} message={currentLocation ? `Im Umkreis von ${HOME_NEARBY_RADIUS_KM} km gibt es gerade keine freigegebenen Orte auf Backyrd.` : `Sobald es in ${city} Neues zu entdecken gibt, findest du es hier.`} /></View>
           )}
-
-          <HomeMomentsSection city={city} revision={momentRevision} onInitialContentReady={reportHomeReady ? setMomentsReadyCity : undefined} />
 
           <HomeEventsSection onInitialContentReady={reportHomeReady ? onEventsReady : undefined} />
 

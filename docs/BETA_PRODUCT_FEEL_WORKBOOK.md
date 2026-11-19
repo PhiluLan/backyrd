@@ -337,3 +337,19 @@ Typecheck, gezieltes ESLint, vollständige Mobile-Vertragstests, Discovery-Tests
 und Hermes-Prüfung bestanden. Inhaltsprüfungen decken reine Moods, wiederholte
 Mood-Captions, persönliche Texte, Fotos, Videoausschluss und fehlgeschlagene
 Bilder ab. Native visuelle Founder-Abnahme steht aus.
+
+### Home-Momente vorerst ausgeblendet; Entwurf aufbewahrt
+
+Founder-Entscheidung: Die gesamte Momentsektion entfällt vorerst auf Home.
+Der Entwurf soll erhalten bleiben. Seine kanonische Implementierung liegt
+weiter in `mobile/components/HomeMomentsSection.tsx`, der vollständige
+Entwurfsstand ist zusätzlich durch Git-Commit `e6fd66c3` nachvollziehbar.
+Keine zweite Entwurfs- oder Backup-Datei angelegt.
+
+Home mountet die Komponente nicht mehr, lädt dort keinen Moments-Feed und wartet
+beim Start nicht mehr auf deren Ready-Callback. Der zugehörige Refresh-Zähler
+ist entfernt. Es bleibt auch kein leerer Abschnitt oder Abstand dafür zurück.
+Der eigene Momente-Tab, Moment-Details und die abgenommene Spot-Profilseite
+bleiben erhalten. Eine spätere Reaktivierung erfordert eine explizite
+Produktentscheidung und die erneute Einbindung in Home samt Start-/Refresh-
+Lebenszyklus; der Entwurf ist aktuell nicht zur Anzeige freigegeben.
