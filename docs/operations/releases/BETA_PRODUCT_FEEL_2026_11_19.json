@@ -11,7 +11,7 @@
   },
   "discoveryAndSpotCardsFollowUp": {
     "sourceCommit": "4b0d9630ba6f79f651adc7f00c0294b3d1e7841d",
-    "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
+    "status": "REJECTED_BY_FOUNDER_RESTORED_PREVIOUS",
     "updates": [
       { "runtimeVersion": "1.1.1", "id": "01a1f2d3-918e-71a9-8ef1-27495b8a8b0e", "group": "14b7870e-8916-4d2f-b32c-906bbe3d9f60" },
       { "runtimeVersion": "1.1.0", "id": "01a1f2d4-35de-73de-8ab9-8c6c261c4869", "group": "d3bdee3b-f95f-4720-9e94-082bd6763423" }
@@ -19,6 +19,18 @@
     "validation": "Full Mobile contracts, map/discovery, typecheck, targeted lint, Hermes, production validation and both verified iOS exports passed. Image and opening-status contracts now follow the shared card.",
     "visualAcceptance": "PENDING; Simulator UI inspection blocked by locked Mac",
     "databaseChanges": false
+  },
+  "discoveryRestoration": {
+    "restorationCommit": "f475a875",
+    "bundleSourceCommit": "b16d732a891270eab916982acfd9c008a83c6198",
+    "reason": "Founder prefers previous header and large Spot cards; discovery iteration fully reverted while retaining accepted Spot profile",
+    "status": "PREVIOUS_BUNDLES_REPUBLISHED",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f326-3c7e-7edd-b1e7-527a289f9608", "group": "3f3a83e6-2a4c-42ff-9431-843b42e4390d", "republishedFromGroup": "03f9e5ca-b99f-4b47-bf52-beb6f4f35440" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f326-990c-7a0c-b410-a91b0cf253dc", "group": "e02ab2e2-64f6-47bc-9d2d-2e6b334083f5", "republishedFromGroup": "c50eaa55-927c-4ad7-95f1-7b58f269648a" }
+    ],
+    "validation": "Mobile source exactly matches 2163789e; typecheck, full Mobile contracts and direct Hermes execution pass. Reused previously verified Production bundles; no rebuild.",
+    "physicalDeviceConfirmation": "PENDING"
   },
   "spotMomentsPresentationFollowUp": {
     "sourceCommit": "b16d732a891270eab916982acfd9c008a83c6198",
