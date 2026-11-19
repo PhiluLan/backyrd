@@ -54,8 +54,8 @@ export function SpotExperience({ profile, children }: { profile: unknown; childr
 }
 
 const styles = StyleSheet.create({
-  section: { marginBottom: theme.spacing.xxl },
-  heading: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 26, lineHeight: 34, marginBottom: 16 },
+  section: { marginBottom: 48 },
+  heading: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 26, lineHeight: 34, marginBottom: 24 },
   row: { borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.lg, paddingHorizontal: 18, backgroundColor: theme.color.surface, marginBottom: 12 },
   summary: { minHeight: 76, paddingVertical: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   summaryCopy: { flex: 1, gap: 6 },
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   toggle: { width: 28, alignItems: "center", justifyContent: "center" },
   chevron: { color: theme.color.textSecondary, fontSize: 20 },
   content: { paddingBottom: 24 },
-  group: { marginTop: 18 },
+  group: { marginTop: 28 },
   label: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 13, lineHeight: 20, marginBottom: 5 },
   body: { width: "100%", flexShrink: 1, color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 15, lineHeight: 25 },
   entries: { gap: 14, marginTop: 4 },

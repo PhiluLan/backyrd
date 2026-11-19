@@ -143,8 +143,9 @@ Die visuelle Geräteabnahme ist offen. Vor Freigabe prüfen:
 
 - Volta-Bräu-Profil am 19. November lesend mit der öffentlichen Schnittstelle
   geprüft: HTTP 200, WORLD_KNOWLEDGE, `publicDescription: null`, kein Feld
-  `description.highlight`. Es fehlt öffentlicher Inhalt, keine Darstellung eines
-  vorhandenen Beschreibungstexts. Keine ungeprüfte Legacy-Kopie einsetzen.
+  `description.highlight`. Diese Prüfung erfasste nur das kanonische Profil.
+  Der öffentliche Owner-Kontext liefert dagegen einen verifizierten Betreibertext;
+  siehe Korrektur unten. Keine ungeprüfte Legacy-Kopie einsetzen.
 - Home, Wohin, Suche/Karte, Profil-Favoriten und benachbarte Orte verwenden die
   gemeinsame Bildkomponente und erhalten dieselbe neue bildlose Gestaltung.
 - Home-/Wohin-/Karten-/Moments-/Profil-Fehlerzustände und vorhandene Recovery-Aktionen
@@ -158,3 +159,29 @@ Keine Backend-, Rollen-, Ranking- oder Datenbankänderungen in diesem Paket.
 OTA-Veröffentlichung zur Abnahme ist mit IDs und Runtime in
 `docs/operations/releases/BETA_PRODUCT_FEEL_2026_11_19.json` festgehalten.
 Eine Beta-Freigabe ist damit nicht verbunden.
+
+### Folgekorrektur: Abstände und Beschreibung
+
+Founder-Feedback vom 19. November: Kategorien wirken gedrängt; Beschreibung
+direkt unter der Adresse gewünscht.
+
+- Hauptabschnitte erhalten 48 Punkte Abstand, Adresse 40 Punkte. Öffnungszeiten
+  und Sonderöffnungszeiten bilden eine Gruppe mit grosszügigeren Zeilen und
+  eigenem Abstand zum nächsten Abschnitt. Erlebnisüberschriften erhalten 24
+  Punkte Abstand zu Karten, aufgeklappte Untergruppen 28 Punkte.
+- «Über diesen Ort» steht nach der Adresse und vor Kontakt, mit drei Zeilen
+  Vorschau und «Mehr lesen». In «Mehr Infos» wird es nicht doppelt angezeigt.
+- Ursache für Volta Bräu: Das kanonische Profil enthält keine Beschreibung,
+  der bestehende öffentliche `get_spot_owner_context_v1` liefert aber einen
+  347 Zeichen langen Betreibertext. Die Datenbankansicht wählt Betreibertexte
+  nur bei `is_verified = true`, danach redaktionelle Texte aus. Mobile nutzt
+  diese beiden Quellen als Fallback; Crawl-/AI-Texte werden bei kanonischen
+  Profilen weiterhin nicht übernommen. Kanonische Beschreibungen haben Vorrang.
+- Keine Datenänderung, Migration, zusätzliche Anfrage oder Berechtigungsänderung.
+  Web geprüft: Der dortige Beschreibungspfad bleibt unverändert; diese Iteration
+  betrifft die iPhone-Abnahme. Die Oberflächenparität bleibt Roadmap-Punkt 2.
+- Typecheck, gezieltes ESLint, volle Mobile-Vertragstests, Karten-/Discovery-Tests,
+  Hermes-Ausführung und `git diff --check` bestanden. Der vorhandene Layouttest
+  prüft zusätzlich Reihenfolge, Quellenfilter, leere Texte und Vorrang.
+
+Physische iPhone-Abnahme der Abstände und des vollständigen Texts bleibt offen.

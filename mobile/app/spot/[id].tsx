@@ -670,7 +670,10 @@ export default function SpotDetailScreen() {
   const contactKeys = ["contact.website", "contact.phone", "contact.public_email", "contact.instagram", "contact.facebook", "contact.linkedin", "contact.tiktok"];
   const contacts = canonicalWorldDetail ? contactKeys.map((key) => field(key)).filter((item): item is SpotProductField => Boolean(item)) : [];
   const descriptionField = canonicalWorldDetail ? field("description.highlight") : undefined;
-  const description = descriptionField ? presentSpotProductField(descriptionField) : canonicalWorldDetail ? (typeof productProfile?.publicDescription === "string" ? productProfile.publicDescription : null) : effectiveDesc;
+  // Only verified owner or editorial copy from the public owner-context RPC
+  // may fill a missing canonical description; scraped legacy copy may not.
+  const trustedDescription = (descSource === "owner" || descSource === "admin") && typeof effectiveDesc === "string" ? effectiveDesc.trim() || null : null;
+  const description = descriptionField ? presentSpotProductField(descriptionField) : canonicalWorldDetail ? (typeof productProfile?.publicDescription === "string" && productProfile.publicDescription.trim() ? productProfile.publicDescription : trustedDescription) : effectiveDesc;
   const specialHoursField = field("hours.special");
   const specialHoursList = specialHoursField ? specialHours(specialHoursField.value) : [];
   const additionalFields = spotProductAdditionalFields(productProfile);
@@ -868,6 +871,18 @@ export default function SpotDetailScreen() {
             ))}</View>
           </View> : null}
 
+          {description ? <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <SectionTitle>Über diesen Ort</SectionTitle>
+              {!canonicalWorldDetail && !!descriptionSourceLabel(descSource) ? <View style={styles.sourcePill}><Text style={styles.sourceText}>{descriptionSourceLabel(descSource)}</Text></View> : null}
+            </View>
+            <Text numberOfLines={descriptionExpanded ? undefined : 3} style={styles.bodyText}>{description}</Text>
+            {description.length > 65 ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: descriptionExpanded }} onPress={() => setDescriptionExpanded((value) => !value)} style={styles.textAction}>
+              <Text style={styles.textActionLabel}>{descriptionExpanded ? "Weniger anzeigen" : "Mehr lesen"}</Text>
+              <Feather name={descriptionExpanded ? "chevron-up" : "chevron-down"} size={16} color={theme.colors.pink} />
+            </Pressable> : null}
+          </View> : null}
+
           {contactActions.length > 0 ? <View style={styles.section}>
             <SectionTitle>Kontakt</SectionTitle>
             <View style={styles.contactGrid}>
@@ -875,6 +890,7 @@ export default function SpotDetailScreen() {
             </View>
           </View> : null}
 
+          {showHours || specialHoursField ? <View style={styles.hoursSection}>
           {showHours ? (
             <View style={styles.detailLineGroup}>
               <Pressable accessibilityRole="button" accessibilityLabel="Alle Öffnungszeiten" accessibilityState={{ expanded: hoursExpanded }} onPress={() => setHoursExpanded((value) => !value)} style={styles.disclosureRow}>
@@ -931,6 +947,8 @@ export default function SpotDetailScreen() {
             </View> : null}
           </View> : null}
 
+          </View> : null}
+
           <SpotExperience profile={productProfile?.experienceProfile}>
           {journey ? <View style={styles.journeyContext}>
             <AppText role="caption" tone="pink">FÜR DEINEN NÄCHSTEN MOMENT</AppText>
@@ -948,7 +966,7 @@ export default function SpotDetailScreen() {
 
           </SpotExperience>
 
-          <View style={{ marginBottom: 24 }}>
+          <View style={styles.section}>
             {moodProfileLoading ? <AppText role="caption" tone="secondary">Moods werden geladen …</AppText> : moodProfileFailed ? <Pressable accessibilityRole="button" onPress={() => void refreshVisibleReviews()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="meta" tone="pink">Moods erneut laden</AppText></Pressable> : <SpotMoodProfile moods={moodSummary} />}
           </View>
 
@@ -1163,28 +1181,6 @@ export default function SpotDetailScreen() {
             <Text style={styles.moreInfoPageSubtitle}>Alle weiteren Angaben zu {spot.name} auf einen Blick.</Text>
           </View>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.moreInfoScroll, { paddingTop: 8, paddingBottom: 40 }]}>
-          {description ? <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <SectionTitle>Über diesen Ort</SectionTitle>
-              {!canonicalWorldDetail && !!descriptionSourceLabel(descSource) ? (
-                <View style={styles.sourcePill}>
-                  <Text style={styles.sourceText}>{descriptionSourceLabel(descSource)}</Text>
-                </View>
-              ) : null}
-            </View>
-            {description ? (
-              <>
-                <Text numberOfLines={descriptionExpanded ? undefined : 3} style={styles.bodyText}>{description}</Text>
-                {description.length > 65 ? (
-                  <Pressable accessibilityRole="button" accessibilityState={{ expanded: descriptionExpanded }} onPress={() => setDescriptionExpanded((value) => !value)} style={styles.textAction}>
-                    <Text style={styles.textActionLabel}>{descriptionExpanded ? "Weniger anzeigen" : "Mehr lesen"}</Text>
-                    <Feather name={descriptionExpanded ? "chevron-up" : "chevron-down"} size={16} color={theme.colors.pink} />
-                  </Pressable>
-                ) : null}
-              </>
-            ) : null}
-          </View> : null}
-
           {galleryPhotos.length>0||galleryFailed?<View style={styles.section}>
             <SectionTitle>Fotos vom Ort</SectionTitle>
             {galleryFailed?<View><Text style={styles.mutedText}>Die Fotos konnten nicht geladen werden.</Text><Pressable accessibilityRole="button" onPress={()=>setMediaRevision(value=>value+1)} style={styles.textAction}><Text style={styles.textActionLabel}>Erneut laden</Text></Pressable></View>:<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingVertical:12}}>
@@ -1212,7 +1208,7 @@ export default function SpotDetailScreen() {
                 <SpotTaxonomyDetails items={taxonomyItems} />
                 {taxonomyItems.length ? <SpotTaxonomyChips items={taxonomyItems} /> : null}
               </> : null}
-              {!hasMoreInfo && !description && galleryPhotos.length === 0 && !galleryFailed ? <Text style={styles.mutedText}>Noch keine weiteren Angaben hinterlegt.</Text> : null}
+              {!hasMoreInfo && galleryPhotos.length === 0 && !galleryFailed ? <Text style={styles.mutedText}>Noch keine weiteren Angaben hinterlegt.</Text> : null}
             </View>
           </ScrollView>
       <Modal visible={!!galleryImage} transparent animationType="fade" onRequestClose={()=>setGalleryImage(null)}><SafeAreaView style={{flex:1,backgroundColor:"rgba(0,0,0,.96)",justifyContent:"center"}}><Pressable accessibilityRole="button" accessibilityLabel="Foto schliessen" onPress={()=>setGalleryImage(null)} style={{alignSelf:"flex-end",padding:20}}><Feather name="x" size={26} color="white"/></Pressable>{galleryImage&&<Image source={{uri:galleryImage}} resizeMode="contain" accessibilityLabel="Vergrössertes Spotfoto" style={{width:"100%",height:"80%"}}/>}</SafeAreaView></Modal>
@@ -1355,7 +1351,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: foundationTheme.layout.pageGutter,
     paddingTop: 20,
   },
-  addressBlock: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 5, marginBottom: 23 },
+  addressBlock: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 5, marginBottom: 40 },
   addressIcon: { marginTop: 2 },
   addressLines: { flex: 1, gap: 4 },
   addressStreet: { color: theme.colors.text, fontSize: 15, lineHeight: 21, fontWeight: "600" },
@@ -1412,7 +1408,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   section: {
-    marginBottom: 38,
+    marginBottom: 48,
   },
   sectionHeader: {
     minHeight: 28,
@@ -1420,7 +1416,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 20,
   },
   sectionTitle: {
     color: theme.colors.text,
@@ -1593,14 +1589,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.colors.border,
   },
+  hoursSection: { marginBottom: 48 },
   detailLineGroup: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
-  disclosureRow: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: 14 },
+  disclosureRow: { minHeight: 96, paddingVertical: 20, flexDirection: "row", alignItems: "center", gap: 14 },
   disclosureText: { flex: 1, gap: 4 },
   disclosureTitle: { color: theme.colors.text, fontSize: 22, lineHeight: 29, fontWeight: "700" },
   disclosureSub: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 18 },
   disclosureContent: { paddingLeft: 33, paddingBottom: 18 },
   hoursUncertainty: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 19, paddingLeft: 33, paddingBottom: 18 },
-  moreInfoEntry: { marginBottom: 38, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border },
+  moreInfoEntry: { marginBottom: 48, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border },
   moreInfoToggle: {
     minHeight: 53,
     flexDirection: "row",
