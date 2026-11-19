@@ -46,7 +46,7 @@ const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url
 const token = `${encode({ alg: "none", typ: "JWT" })}.${encode({ sub: subject, exp: now + 3600, role: "authenticated", aud: "authenticated" })}.synthetic-only`;
 const user = { id: subject, aud: "authenticated", role: "authenticated", is_anonymous: false, user_metadata: {}, app_metadata: {}, created_at: new Date(now * 1000).toISOString() };
 const session = { access_token: token, refresh_token: "synthetic-refresh", expires_in: 3600, expires_at: now + 3600, token_type: "bearer", user };
-const state = { locked: false, favoriteFail: false, visibilityFail: false, placeUnavailable: false, favoriteWrites: 0, consent: false, unavailable: false, allowSyntheticMoment: false, worldName: "Café Vorher", worldVersion: 1, decisions: [], interactions: [], unexpectedRemote: [] };
+const state = { legalUnavailable: false, locked: false, favoriteFail: false, visibilityFail: false, placeUnavailable: false, favoriteWrites: 0, consent: false, unavailable: false, allowSyntheticMoment: false, worldName: "Café Vorher", worldVersion: 1, decisions: [], interactions: [], unexpectedRemote: [] };
 const spots = [
   { spotId: "22222222-2222-4222-a222-000000000001", name: () => state.worldName, rank: 1 },
   { spotId: "22222222-2222-4222-a222-000000000002", name: () => "Café Alternative", rank: 2 },
@@ -201,6 +201,7 @@ try {
     }
     if (path === "/auth/v1/user") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) });
     if (path.includes("/rest/v1/rpc/safety_user_enforcement_summary_v1")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ active_points: 0, confirmed_violations: 0, active_measure_type: state.locked ? "account_restricted" : null, active_measure_ends_at: null, can_write: !state.locked, requires_account_review: false }]) });
+    if (path.includes("/rest/v1/rpc/get_my_legal_gate_status_v1") && state.legalUnavailable) return route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({message:"synthetic legal status outage"})});
     if (path.includes("/rest/v1/rpc/get_my_legal_gate_status_v1")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ gate_required: false }]) });
     if (path.includes("/rest/v1/rpc/get_my_product_entry_status_v1")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ loggedIn: true, userId: subject, profileBasicsComplete: true, tasteOnboardingComplete: true, personalizationConsentValid: true, canEnterDecision: true, needsProfileOnboarding: false, needsDecisionOnboarding: false, semanticContractVersion: "synthetic", nextRoute: "/(tabs)" }]) });
     if (path === "/rest/v1/event_discovery_v1") {
@@ -634,6 +635,75 @@ try {
   await page.reload({waitUntil:"domcontentloaded"});
   await page.getByRole("button",{name:"Ort speichern",exact:true}).waitFor();
 
+  // Utility screens share readable appearance tokens and keep long titles intact.
+  for (const [path, title] of [
+    ["/settings", "Einstellungen"],
+    ["/settings/privacy", "Sichtbarkeit"],
+    ["/profile/history", "Deine Entdeckungen"],
+    ["/safety-notifications", "Mitteilungen"],
+  ]) {
+    await page.goto(`${appUrl}${path}`, {waitUntil:"domcontentloaded"});
+    const heading = page.getByText(title, {exact:true});
+    await heading.waitFor();
+    await page.getByTestId("startup-splash").waitFor({state:"hidden"});
+    for (const width of [320, 430]) {
+      await page.setViewportSize({width,height:844});
+      for (const mode of ["light", "dark"]) {
+        await page.emulateMedia({colorScheme:mode});
+        const expected = mode === "light" ? "rgb(247, 247, 245)" : "rgb(5, 5, 5)";
+        await page.waitForFunction(background => {
+          let node = document.elementFromPoint(2,400);
+          while (node) {
+            const color = getComputedStyle(node).backgroundColor;
+            if (color !== "rgba(0, 0, 0, 0)" && color !== "transparent") return color === background;
+            node = node.parentElement;
+          }
+          return false;
+        }, expected);
+        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth),0,`${path}: no horizontal overflow`);
+        const metrics = await heading.evaluate(node => {
+          const style = getComputedStyle(node);
+          const measure = document.createElement("canvas").getContext("2d");
+          measure.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+          return {font:style.fontFamily, color:style.color, available:node.getBoundingClientRect().width,
+            longest:Math.max(...node.textContent.split(/\s+/).map(word=>measure.measureText(word).width))};
+        });
+        assert.ok(!metrics.font.includes("DMSerif"),`${path}: canonical sans-serif heading`);
+        assert.equal(metrics.color,mode === "light" ? "rgb(25, 25, 28)" : "rgb(246, 240, 232)");
+        assert.ok(metrics.longest <= metrics.available+2,`${path}: words remain whole at ${width}px`);
+      }
+    }
+  }
+  await page.setViewportSize({width:390,height:844});
+  await page.emulateMedia({colorScheme:"dark"});
+  let releaseFeed;
+  const heldFeed = new Promise(resolve=>{releaseFeed=resolve;});
+  const feedPath = `${endpoint}/rest/v1/rpc/get_social_feed_v2`;
+  await context.route(feedPath,async route=>{await heldFeed;await remoteFixture(route);});
+  await page.goto(`${appUrl}/feed`,{waitUntil:"domcontentloaded"});
+  const momentModes = page.getByRole("tablist").filter({has:page.getByRole("tab",{name:"Dein Kreis",exact:true})});
+  await momentModes.getByRole("tab",{name:"Entdecken",exact:true}).waitFor();
+  await page.getByTestId("startup-splash").waitFor({state:"hidden"});
+  const loadingHeader = await momentModes.boundingBox();
+  releaseFeed();
+  await page.getByRole("button",{name:"Momentdetails anzeigen",exact:true}).first().waitFor();
+  const readyHeader = await momentModes.boundingBox();
+  assert.ok(Math.abs(loadingHeader.y-readyHeader.y)<1,"Moments keeps one header across loading and content");
+  await context.unroute(feedPath);
+
+  state.legalUnavailable = true;
+  await page.goto(`${appUrl}/settings`,{waitUntil:"domcontentloaded"});
+  await page.getByRole("alert").getByText("Verbindung unterbrochen",{exact:true}).waitFor();
+  await page.getByTestId("startup-splash").waitFor({state:"hidden"});
+  assert.equal(await page.getByRole("button",{name:"Zurück zum Profil",exact:true}).count(),0,"failed legal checks keep protected content inaccessible");
+  const retryLegal=page.getByRole("button",{name:"Erneut versuchen",exact:true});
+  const recoveryBounds=await retryLegal.boundingBox();
+  assert.ok(recoveryBounds.y>44 && recoveryBounds.y+recoveryBounds.height<844,"legal recovery stays in the safe viewport");
+  state.legalUnavailable=false;
+  await retryLegal.click();
+  await page.getByRole("textbox",{name:"Was willst du machen?",exact:true}).waitFor();
+  assert.equal(await page.getByRole("alert").getByText("Verbindung unterbrochen",{exact:true}).count(),0,"retry restores the app after a successful legal check");
+
   const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await guestContext.route(`${endpoint}/**`, remoteFixture);
   const guestPage = await guestContext.newPage();
@@ -647,7 +717,7 @@ try {
   assert.equal(await guestPage.getByText("Wohin", { exact: true }).count(), 0, "personalized Decision tab is unavailable to guests");
   await guestContext.close();
 
-  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, protectedDraftDiscard: true, favoriteWriteRecovery: true, placeSafetyFailClosed: true, unavailablePlaceRetry: true, forwardedPlaceSearch: true, passwordVisibility: true, safetyLockPreserved: true, passwordRecoverySmallLarge: true, cancelledEventActions: true, chatLoadRecovery: true, chatDraftFailureRecovery: true, chatRetryIdempotency: true, chatPendingEditPreserved: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, verticalSpotList: true, persistentConversation: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableShowsCatalogWithoutDecisionMatch: true, productionActions: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, protectedDraftDiscard: true, favoriteWriteRecovery: true, placeSafetyFailClosed: true, unavailablePlaceRetry: true, forwardedPlaceSearch: true, passwordVisibility: true, safetyLockPreserved: true, passwordRecoverySmallLarge: true, cancelledEventActions: true, chatLoadRecovery: true, chatDraftFailureRecovery: true, chatRetryIdempotency: true, chatPendingEditPreserved: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, verticalSpotList: true, persistentConversation: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableShowsCatalogWithoutDecisionMatch: true, utilityAppearanceSmallLarge: true, wholeUtilityTitleWords: true, stableMomentHeader: true, productionActions: 0 })}\n`);
 } catch (error) {
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) {
     for (const ctx of browser.contexts()) for (const [index, tab] of ctx.pages().entries()) await tab.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/failure-${index}.png`}).catch(()=>undefined);

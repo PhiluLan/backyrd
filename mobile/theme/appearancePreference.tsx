@@ -1,6 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Appearance, Platform } from "react-native";
+import appearanceColors from "./appearance-colors.json";
+
+const appearanceVariables = (colors: typeof appearanceColors.dark) => Object.entries(colors)
+  .map(([name, value]) => `--backyrd-${name}:${value};`).join("");
+const webAppearanceCss = `:root{color-scheme:dark;${appearanceVariables(appearanceColors.dark)}}@media(prefers-color-scheme:light){:root{color-scheme:light;${appearanceVariables(appearanceColors.light)}}}`;
 
 export type AndroidAppearancePreference = "system" | "light" | "dark";
 
@@ -52,7 +57,7 @@ export function AppearancePreferenceProvider({ children }: { children: React.Rea
   }, []);
 
   const value = useMemo(() => ({ preference, setPreference }), [preference, setPreference]);
-  return <AppearancePreferenceContext.Provider value={value}>{ready ? children : null}</AppearancePreferenceContext.Provider>;
+  return <AppearancePreferenceContext.Provider value={value}>{Platform.OS === "web" ? <style dangerouslySetInnerHTML={{ __html: webAppearanceCss }} /> : null}{ready ? children : null}</AppearancePreferenceContext.Provider>;
 }
 
 export function useAndroidAppearancePreference(): AppearancePreferenceContextValue {

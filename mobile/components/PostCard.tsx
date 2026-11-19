@@ -291,7 +291,7 @@ export default function SocialPostCard({
         {experienceImages.map((url, index) => <Image key={url} source={{ uri: url }} resizeMode="cover" style={{ width: mediaWidth, height: pageHeight }}
           onError={() => setFailedImages(previous => new Set(previous).add(url))} accessibilityLabel={`Foto ${index + 1} von ${experienceImages.length}, Moment von ${displayName}`} />)}
       </ScrollView> : <LinearGradient colors={["#402336", "#1C1725", "#0B0B10"]} style={StyleSheet.absoluteFill} />}
-      <LinearGradient pointerEvents="none" colors={["rgba(0,0,0,0.6)", "transparent", "rgba(0,0,0,0.12)", "rgba(0,0,0,0.9)"]} locations={[0, 0.26, 0.48, 1]} style={StyleSheet.absoluteFill} />
+      <LinearGradient pointerEvents="none" colors={["rgba(0,0,0,0.6)", "transparent", "rgba(0,0,0,0.35)", "rgba(0,0,0,0.94)"]} locations={[0, 0.26, 0.48, 1]} style={StyleSheet.absoluteFill} />
       {!hasImage ? <View style={[styles.immersiveText, { top: top + 60, bottom: bottom + 170 }]}>
         <Text style={styles.immersiveEyebrow}>{post.spot_name ? `Ein Moment bei ${post.spot_name}` : "Ein persönlicher Moment"}</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Vollständigen Momenttext anzeigen" onPress={() => setCaptionExpanded(true)}>

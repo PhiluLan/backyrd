@@ -151,7 +151,7 @@ export default function UserSearchScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator color="#FF4F91" style={{ marginTop: 28 }} />
+        <ActivityIndicator color={backyrdTheme.color.pink} style={{ marginTop: 28 }} />
       ) : (
         <FlatList
           data={results}
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   },
   headerCopy: { flex: 1 },
   kicker: {
-    color: "#FF4F91",
+    color: backyrdTheme.color.pink,
     fontSize: 10,
     fontWeight: "900",
     letterSpacing: 2.2,
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FF4F91",
+    backgroundColor: backyrdTheme.color.pink,
   },
   followButtonActive: {
     backgroundColor: backyrdTheme.color.surfaceElevated,

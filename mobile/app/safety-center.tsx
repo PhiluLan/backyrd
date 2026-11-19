@@ -84,7 +84,7 @@ const reportStatusLabels: Record<string, string> = {
   submitted: "Eingereicht",
   attached_to_case: "In Prüfung",
   under_review: "In Prüfung",
-  resolved_actioned: "Maßnahme ergriffen",
+  resolved_actioned: "Massnahme ergriffen",
   resolved_no_violation: "Kein Verstoß festgestellt",
 };
 
@@ -212,7 +212,7 @@ export default function SafetyCenterScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => void load(true)}
-              tintColor="#FF4F91"
+              tintColor={backyrdTheme.color.pink}
             />
           }
         >
@@ -419,7 +419,7 @@ export default function SafetyCenterScreen() {
                       {item.appeal_outcome === "overturned"
                         ? "Der Einspruch wurde angenommen."
                         : item.appeal_outcome === "modified"
-                          ? "Die Maßnahme wurde angepasst."
+                          ? "Die Massnahme wurde angepasst."
                           : "Die ursprüngliche Entscheidung wurde bestätigt."}
                     </Text>
                   </View>
@@ -557,7 +557,7 @@ export default function SafetyCenterScreen() {
                       <Text style={styles.openReportText}>
                         Meldungsdetails öffnen
                       </Text>
-                      <Ionicons name="chevron-forward" size={18} color="#FF4F91" />
+                      <Ionicons name="chevron-forward" size={18} color={backyrdTheme.color.pink} />
                     </View>
                   </Pressable>
                 ))
@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   openReportText: {
-    color: "#FF4F91",
+    color: backyrdTheme.color.pink,
     fontSize: 13,
     fontWeight: "800",
   },
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
     borderColor: backyrdTheme.color.border,
   },
   eyebrow: {
-    color: "#FF4F91",
+    color: backyrdTheme.color.pink,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1.1,
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FF4F91",
+    backgroundColor: backyrdTheme.color.pink,
   },
   tabBadgeText: {
     color: backyrdTheme.color.onAccent,

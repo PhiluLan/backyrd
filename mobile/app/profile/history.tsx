@@ -84,7 +84,7 @@ function statusCopy(row: CandidateRow) {
       eyebrow: "Besuch erkannt",
       title: "Aus einem Vorschlag wurde ein Moment",
       body:
-        "Du hast diesen Spot nach deiner Suche bewertet. So kann Backyrd künftige Vorschläge besser auf dich abstimmen.",
+        "Du hast deinen Eindruck nach dem Besuch festgehalten. Hier findest du den Ort wieder.",
       icon: "sparkles" as const,
       tone: "success" as const,
     };
@@ -95,7 +95,7 @@ function statusCopy(row: CandidateRow) {
       eyebrow: "Von dir vorgemerkt",
       title: "Wie war es wirklich?",
       body:
-        "Du hast diesen Spot aktiv markiert. Eine kurze Review hält deinen echten Eindruck fest.",
+        "Du hast dir diesen Ort vorgemerkt. Halte fest, wie du deinen Besuch erlebt hast.",
       icon: "checkmark-circle" as const,
       tone: "warm" as const,
     };
@@ -242,13 +242,14 @@ export default function DecisionHistoryScreen() {
 
         <View style={styles.titleBlock}>
           <Text style={styles.kicker}>DEIN BACKYRD</Text>
-          <Text style={styles.title}>Decision-Verlauf</Text>
         </View>
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Decision-Verlauf aktualisieren" accessibilityState={{ busy: refreshing }} onPress={() => load("refresh")} style={styles.circleButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Deine Entdeckungen aktualisieren" accessibilityState={{ busy: refreshing }} onPress={() => load("refresh")} style={styles.circleButton}>
           <Ionicons accessibilityElementsHidden name="refresh" size={21} color={theme.color.textPrimary} />
         </Pressable>
       </View>
+
+      <Text style={styles.title}>Deine Entdeckungen</Text>
 
       <View style={styles.heroCard}>
         <View style={styles.heroIcon}>
@@ -257,7 +258,7 @@ export default function DecisionHistoryScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.heroTitle}>Von Vorschlag zu Erfahrung</Text>
           <Text style={styles.heroText}>
-            Hier findest du Spots aus früheren Decisions wieder und kannst deinen echten Eindruck festhalten.
+            Hier findest du Orte aus deinen Wohin-Suchen wieder. Halte fest, was du dort erlebt hast.
           </Text>
         </View>
       </View>
@@ -307,10 +308,10 @@ export default function DecisionHistoryScreen() {
             <View style={styles.emptyCard}>
               <Ionicons accessibilityElementsHidden name="compass-outline" size={34} color={theme.color.textMuted} />
               <Text style={styles.emptyTitle}>
-                {filter === "done" ? "Noch nichts erkannt" : "Keine offenen Treffer"}
+                {filter === "done" ? "Noch keine Erlebnisse festgehalten" : filter === "open" ? "Keine offenen Entdeckungen" : "Deine nächsten Entdeckungen warten"}
               </Text>
               <Text style={styles.emptyText}>
-                Starte eine Decision und öffne interessante Spots. Deine späteren Reviews erscheinen hier.
+                Finde mit Wohin einen Ort und schau ihn dir an. Nach deinem Besuch kannst du hier deinen Eindruck festhalten.
               </Text>
             </View>
           ) : (
@@ -418,7 +419,7 @@ function CandidateCard({
         <View style={styles.detectedBox}>
           <Ionicons name="checkmark-circle" size={17} color="#9AE6B4" />
           <Text style={styles.detectedText}>
-            Bewertet {fmtShortTime(row.reviewed_at)} nach der Decision.
+            Eindruck geteilt {fmtShortTime(row.reviewed_at)} nach deiner Suche.
           </Text>
         </View>
       )}
@@ -426,17 +427,17 @@ function CandidateCard({
       <View style={styles.actionRow}>
         {done ? (
           <Pressable accessibilityRole="button" accessibilityLabel={`${row.spot_name} ansehen`} style={styles.primaryButton} onPress={onOpenSpot}>
-            <Text style={styles.primaryButtonText}>Moment ansehen</Text>
+            <Text style={styles.primaryButtonText}>Ort ansehen</Text>
             <Ionicons name="arrow-forward" size={18} color={theme.color.onAccent} />
           </Pressable>
         ) : (
           <>
-            <Pressable accessibilityRole="button" accessibilityLabel={`${row.spot_name} kurz bewerten`} style={styles.primaryButton} onPress={onReview}>
-              <Text style={styles.primaryButtonText}>Kurz bewerten</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Eindruck zu ${row.spot_name} festhalten`} style={styles.primaryButton} onPress={onReview}>
+              <Text style={styles.primaryButtonText}>Eindruck festhalten</Text>
               <Ionicons name="arrow-forward" size={18} color={theme.color.onAccent} />
             </Pressable>
 
-            <Pressable accessibilityRole="button" accessibilityLabel={`Smart Review für ${row.spot_name} öffnen`} style={styles.secondaryButton} onPress={onSmartReview}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Moment bei ${row.spot_name} festhalten`} style={styles.secondaryButton} onPress={onSmartReview}>
               <Ionicons accessibilityElementsHidden name="camera-outline" size={18} color={theme.color.textPrimary} />
             </Pressable>
           </>
@@ -477,14 +478,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   kicker: {
-    color: theme.color.lime,
+    color: theme.color.pink,
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 1.3,
     textTransform: "uppercase",
   },
   title: {
-    marginTop: 2,
+    marginHorizontal: theme.layout.pageGutter,
+    marginBottom: theme.spacing.lg,
     color: theme.color.textPrimary,
     fontFamily: theme.type.display,
     ...theme.typeScale.displayM,

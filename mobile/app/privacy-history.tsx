@@ -50,7 +50,7 @@ export default function PrivacyHistoryScreen() {
           onPress={() => router.back()}
           style={styles.backButton}
         >
-          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={24} color={backyrdTheme.color.textPrimary} />
         </Pressable>
 
         <Text style={styles.headerTitle}>Einwilligungsverlauf</Text>
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   dotOff: { backgroundColor: "#FF7D87" },
   rowCopy: { flex: 1 },
   rowTitle: { color: backyrdTheme.color.textPrimary, fontSize: 16, fontWeight: "900" },
-  eventLabel: { color: "#FF4F91", fontWeight: "800", marginTop: 5 },
+  eventLabel: { color: backyrdTheme.color.pink, fontWeight: "800", marginTop: 5 },
   meta: { color: "#797984", fontSize: 12, lineHeight: 17, marginTop: 7 },
   empty: {
     alignItems: "center",

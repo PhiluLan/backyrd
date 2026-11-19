@@ -96,7 +96,8 @@ assert.equal(formatMomentTime(new Date(now - 6 * 86_400_000).toISOString(), now)
 // enough scroll clearance for the floating tab bar.
 assert.doesNotMatch(feedSource, /LOCAL \/ JETZT|localPrompt/);
 assert.match(feedSource, /accessibilityLabel="Moment erstellen"/);
-assert.match(feedSource, /modeShell:[\s\S]*?height: 46,/, "feed tabs keep an accessible touch height");
+const feedTabHeight = Number(feedSource.match(/immersiveMode:\s*\{[^}]*minHeight:\s*(\d+)/)?.[1]);
+assert.ok(feedTabHeight >= 44, "feed tabs keep an accessible touch height");
 assert.match(
   feedSource,
   /paddingBottom: theme\.control\.tabBar \+ theme\.spacing\.display/,

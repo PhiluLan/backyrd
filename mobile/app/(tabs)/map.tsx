@@ -25,7 +25,7 @@ import { getPrivacySafeLocation } from "../../lib/locationPrivacy";
 import { hasActiveConsent } from "../../lib/consent";
 import { useSpotMoodCounts, loadSpotBrowseMoods, useMoodCatalog } from "../../lib/mood-catalog";
 import { trackAnalyticsEvent } from "../../lib/analytics";
-import { moodCountCopy } from "../../../packages/shared/src/presentation/mood";
+import { MoodSignature } from "../../components/spot/MoodSignature";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { Button, IconButton } from "../../components/foundation/Button";
 import { Chip } from "../../components/foundation/Chip";
@@ -650,7 +650,7 @@ export default function MapScreen() {
             </View>
           </View>
         </View>
-        {viewMode === "list" ? <View style={styles.placesTitle}><HomeTypographyProvider><HomeDisplayHeading title="Orte entdecken" accent="," /></HomeTypographyProvider></View> : null}
+        {viewMode === "list" ? <View style={styles.placesTitle}><HomeTypographyProvider><HomeDisplayHeading title="Orte entdecken" accent="" /></HomeTypographyProvider></View> : null}
 
         <View style={[styles.headerTopRow, viewMode === "map" && styles.mapSearchRow]}>
           <View style={styles.searchBox}>
@@ -697,7 +697,7 @@ export default function MapScreen() {
             </View>
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterSheetContent}>
               <AppText role="cardTitle">Welche Atmosphäre suchst du?</AppText>
-              <AppText role="meta" tone="secondary">Die Moods stammen von Gästen. Ein Filter zeigt Orte mit diesem Eindruck; Orte ohne Mood-Angaben erscheinen dann nicht.</AppText>
+              <AppText role="meta" tone="secondary">Wähle eine Stimmung, die Gäste hier erlebt haben. Mit aktivem Mood-Filter siehst du nur Orte mit diesem Eindruck.</AppText>
               {moodCatalogState === "error" ? <Button label="Moods erneut laden" variant="tertiary" onPress={retryMoodCatalog} /> : null}
               <View style={styles.filterChipGrid}>
                 {moodOptions.map(({ label: m }) => {
@@ -825,27 +825,24 @@ export default function MapScreen() {
                 router.push(`/spot/${item.id}`);
               }}
             >
-              <View style={styles.listCardMedia}>
+              <View style={StyleSheet.absoluteFill}>
                 <SpotArtwork
                   imageUrl={item.header_photo_url}
                   spotId={item.id}
                   spotName={item.name}
-                  style={styles.listCardImage}
+                  style={StyleSheet.absoluteFill}
                   showFallbackName={false}
                   attributionPosition="top"
                 />
-                <LinearGradient pointerEvents="none" colors={["transparent", "rgba(5,5,5,0.78)"]} style={styles.listCardImageShade} />
+                <LinearGradient pointerEvents="none" colors={["rgba(5,5,5,0.02)", "rgba(5,5,5,0.18)", "rgba(5,5,5,0.92)"]} locations={[0.2, 0.54, 1]} style={StyleSheet.absoluteFill} />
               </View>
               <View style={styles.listCardBody}>
-                <HomeTypographyProvider><AppText role="displayXL" style={styles.listCardTitle}>{item.name}</AppText></HomeTypographyProvider>
-                <Text style={styles.listCardAddress}>{item.address || "Adresse noch nicht hinterlegt"}</Text>
-                {moodCountCopy(moodCounts[item.id]) ? <AppText role="meta" tone="secondary" style={styles.listCardMoodCount}>{moodCountCopy(moodCounts[item.id])}</AppText> : null}
-                {(spotMoods[item.id] ?? []).length > 0 ? <HomeTypographyProvider><View style={styles.listCardMoods}>
-                  {[...new Set(spotMoods[item.id])].slice(0, 3).map(label => <AppText key={label} role="displayXL" tone="pink" style={styles.listCardMood}>{label}</AppText>)}
-                </View></HomeTypographyProvider> : null}
+                <HomeTypographyProvider><AppText role="screenTitle" numberOfLines={2} style={styles.listCardTitle}>{item.name}</AppText></HomeTypographyProvider>
+                <MoodSignature labels={(spotMoods[item.id] ?? []).map(displayMoodLabel)} moodCount={moodCounts[item.id]} compact onImage singleLine />
                 <Text style={styles.listCardContext}>{item.categories?.name || item.city || "Ort"}</Text>
-                <OpeningStatusBadge status={openingStatus(item.id)} style={{ marginTop: theme.spacing.sm }} />
+                {item.address ? <Text style={styles.listCardAddress}>{item.address}</Text> : null}
               </View>
+              <OpeningStatusBadge status={openingStatus(item.id)} style={styles.listStatus} />
             </Pressable>
           )}
         />
@@ -917,17 +914,12 @@ const styles = StyleSheet.create({
   markerCountText: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 11, lineHeight: 14 },
   list: { backgroundColor: theme.color.background },
   listContent: { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl + theme.control.tabBar },
-  listCard: { backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, marginBottom: theme.spacing.md, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border },
-  listCardMedia: { position: "relative" },
-  listCardImage: { width: "100%", height: 164 },
-  listCardImageShade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 100 },
-  listCardBody: { paddingHorizontal: theme.spacing.md, paddingBottom: theme.spacing.md },
-  listCardTitle: { color: theme.color.textPrimary, fontSize: 42, lineHeight: 45, letterSpacing: -3.15, marginTop: -13 },
-  listCardAddress: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19, marginTop: 4 },
-  listCardMoodCount: { marginTop: theme.spacing.md },
-  listCardMoods: { flexDirection: "row", flexWrap: "wrap", columnGap: theme.spacing.sm, rowGap: 1, marginTop: theme.spacing.xxs },
-  listCardMood: { fontSize: 18, lineHeight: 23, letterSpacing: -0.65 },
-  listCardContext: { color: theme.color.pink, fontFamily: theme.type.bodyBold, fontSize: 12, lineHeight: 16, textTransform: "uppercase", letterSpacing: 0.4, marginTop: theme.spacing.sm },
+  listCard: { minHeight: 340, paddingTop: 140, justifyContent: "flex-end", backgroundColor: theme.color.surface, borderRadius: theme.radius.xl, marginBottom: theme.spacing.xl, overflow: "hidden" },
+  listStatus: { position: "absolute", top: theme.spacing.md, left: theme.spacing.md, maxWidth: "88%" },
+  listCardBody: { padding: theme.spacing.lg, gap: 8 },
+  listCardTitle: { color: "#FFFFFF", fontSize: 32, lineHeight: 36, letterSpacing: -1.4 },
+  listCardAddress: { color: "rgba(246,240,232,0.8)", fontFamily: theme.type.body, fontSize: 14, lineHeight: 20 },
+  listCardContext: { color: "#FFFFFF", fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 20 },
   recenterBtn: { position: "absolute", bottom: theme.control.tabBar + theme.spacing.md, right: theme.spacing.xl, width: theme.control.standard, height: theme.control.standard, alignItems: "center", justifyContent: "center", backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.borderStrong, borderRadius: theme.radius.pill },
   recenterAboveRail: { bottom: theme.control.tabBar + 310 },
   recenterAboveGroup: { bottom: theme.control.tabBar + 250 },

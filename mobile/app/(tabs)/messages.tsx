@@ -207,7 +207,7 @@ export default function MessagesScreen() {
               onRefresh={() =>
                 void loadChats({ refresh: true })
               }
-              tintColor="#FF4F91"
+              tintColor={backyrdTheme.color.pink}
             />
           }
           ListEmptyComponent={
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   kicker: {
-    color: "#FF4F91",
+    color: backyrdTheme.color.pink,
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 2,
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
     height: 22,
     paddingHorizontal: 6,
     borderRadius: 11,
-    backgroundColor: "#FF4F91",
+    backgroundColor: backyrdTheme.color.pink,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 11,
     borderRadius: 999,
-    backgroundColor: "#FF4F91",
+    backgroundColor: backyrdTheme.color.pink,
   },
   retryText: {
     color: backyrdTheme.color.onAccent,

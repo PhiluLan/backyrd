@@ -544,5 +544,67 @@ und Erstellen, Profil und Gespeichertes, Suche, Nachrichten, Account-Einstieg,
 Einstellungen, Privatsphäre und Sicherheit sowie Lade-/Leer-/Fehlerzustände.
 Native Funktionen werden am Gerät geprüft; isolierte Fixtures ergänzen seltene
 Zustände. Keine echten Momente, Meldungen, Nachrichten oder Kontoveränderungen
-als Testdaten veröffentlichen. Derzeit ist die iPhone-Synchronisierung bis zum
-Sperren des verbundenen iPhones blockiert.
+als Testdaten veröffentlichen. Die iPhone-Synchronisierung wurde nach dem Sperren verbunden.
+
+
+### Umsetzung der gemeinsamen Gestaltung
+
+Task-Klasse: `PRODUCT_RELEASE`. Betroffen sind Mobile-Präsentation,
+Mobile-Theme, Produkt-Browsertest und dieses Arbeitsbuch. Keine Änderung an
+Datenmodell, RPCs, Ranking, Interpretation, Empfehlungstext-Adapter,
+Transport, Berechtigungsprüfung oder Einwilligungsregeln.
+
+Beobachtet am verbundenen iPhone: Startseite, Profil, Einstellungen,
+Sichtbarkeit, Ortsliste, Filter, native Karte und Ortsvorschau,
+Moment-Aufnahme/Abbruch/Entwurf, Feed, Kreis, Personensuche, Kommentare,
+Mitteilungen sowie ein temporärer Legal-Verbindungsfehler mit erfolgreichem
+Retry. Keine Testbeiträge, Nachrichten oder Meldungen veröffentlicht.
+Ergänzend wurden 22 App-Routen in Hell/Dunkel mit synthetischen Daten als
+Screenshot geprüft. Leere Zustände sind ausdrücklich Testfixtures und keine
+Aussage über den Produktionsbestand.
+
+- Gemeinsame Display-Schrift nun Libre Franklin Bold. Bereits abgenommene
+  iOS-Startseiten-Typografie und Spot-Seite bleiben die Referenz. Die nicht mehr
+  verwendete Serifenschrift wird beim Start nicht zusätzlich geladen.
+- Einstellungen mit sichtbarer Rücknavigation, klareren Beschreibungen und
+  serifenlosem Titel. Sichtbarkeit ohne Versalien und fremden grünen Akzent.
+- Ortsliste mit bildfüllenden, ruhigeren Karten, kleinerem Namen, bestehender
+  MoodSignature statt „0 Moods“, lesbarer Adresse und vorhandenem Öffnungsstatus.
+  Filter-, Such-, Reihenfolge- und Kartenlogik unverändert.
+- Momente verwenden denselben Kopfbereich beim Laden, ohne Inhalte und mit
+  Beiträgen. Die bisherige zweite Header-Variante und ihre Styles entfallen.
+  Fototext erhält einen stärkeren unteren Verlauf. Paging und Aktionen bleiben.
+- Ladehinweise als ruhige, rahmenlose Hinweise. Fehler-, Leer-, Offline- und
+  Zugriffs-Zustände behalten ihre eigenen Aussagen und Wiederherstellungsaktionen.
+- „Deine Entdeckungen“, „Eindruck festhalten“, „Datenschutz“ und „Ort
+  vorschlagen“ ersetzen technische bzw. uneinheitliche Oberflächenbegriffe.
+  Lange Überschriften erhalten Platz statt mitten im Wort umzubrechen.
+- Fotoangaben in Besuchersprache, Event-Leerzustand ohne internen
+  Bestätigungsbegriff. Kein Fotoersatz durch erfundene Ortsaufnahmen.
+- Statische native Styles und Web-Styles nutzen dieselben semantischen
+  Farbtokens. Web-CSS-Variablen folgen der Systemdarstellung; native dynamische
+  Farben und die bewusst dunkle iOS-Runtime 1.1.0 bleiben erhalten.
+- Kontraste von Datenschutz-/Sicherheitsseiten, Eingaben, Zurück-Pfeilen und
+  Aktionen verbessert. Rohinhalte von Sicherheitsmitteilungen bleiben erhalten;
+  bekannte CTA-Beschriftung und Datum werden für die Oberfläche formatiert.
+- Wohin-Datenschutzlink führt zum Datenschutzbereich. Die Fehleransicht des
+  Legal-Gates erhält Safe Area und den gemeinsamen Bildschirmrahmen; dieselbe
+  fehlgeschlagene Prüfung blockiert den geschützten Inhalt weiterhin.
+
+Prüfung: Mobile-Typecheck, Mobile-Verträge, Map/Discovery und Lint bestanden;
+Lint meldet zwei bestehende Hook-Warnungen in WeatherContext/SpotEventsSection.
+Die bisherige vollständige Produkt-Browserprüfung bestand. Neue Regressionen
+prüfen zusätzlich Farbdarstellung bei 320/430 Punkten, ganze Titelwörter,
+einen stabilen Momente-Kopf und Legal-Fehler mit gesperrtem Inhalt/Retry.
+Der neue Datumstext wurde im tatsächlichen Hermes-Runner ausgeführt.
+
+Gerätegrenzen: Die iPhone-Synchronisierung unterstützt die Kamera nicht und
+verwendet die Mac-Tastatur. Aufnahme und Software-Tastatur sind damit nicht
+vollständig prüfbar. Der isolierte native Simulator startet am Login; die
+native Tastaturprüfung des ausgelieferten Stands bleibt Teil des Nachtests.
+Eine Prüfung aller seltenen Moderations-/Accountzustände erfolgt mit Fixtures,
+nicht durch echte Kontoeingriffe.
+
+Status: lokaler, noch unveröffentlichter Release-Kandidat. Kein allgemeines
+Beta-Sicherheitsurteil und keine Behauptung, jede denkbare Gerätekonfiguration
+bereits geprüft zu haben.

@@ -625,7 +625,7 @@ function WohinExperience() {
             <ScrollView contentContainerStyle={styles.sheetContent}>
               <AppText role="label" tone="pink">Datenschutz zur KI-Suche</AppText>
               {searchPrivacy.map(paragraph => <AppText key={paragraph} role="body" tone="secondary">{paragraph}</AppText>)}
-              <Pressable accessibilityRole="button" onPress={() => { setPrivacyOpen(false); router.push("/settings/privacy"); }} style={styles.followUpButton}><AppText role="label" tone="pink">Zum Privacy Center</AppText></Pressable>
+              <Pressable accessibilityRole="button" onPress={() => { setPrivacyOpen(false); router.push("/privacy-consent"); }} style={styles.followUpButton}><AppText role="label" tone="pink">Zum Datenschutz</AppText></Pressable>
             </ScrollView>
           </SafeAreaView>
         </View>
