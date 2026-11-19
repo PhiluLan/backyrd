@@ -4,6 +4,19 @@
   "pullRequest": "https://github.com/PhiluLan/backyrd/pull/761",
   "channel": "production",
   "platform": "ios",
+  "momentsFullscreenTrial": {
+    "sourceCommit": "689afe62124630e84cc222459698653dd1031c32",
+    "status": "PUBLISHED_FULLSCREEN_TRIAL_FOR_FOUNDER",
+    "direction": "Founder requested full-screen image/story feed; vertical post paging and horizontal photos within a post",
+    "updates": [
+      { "runtimeVersion": "1.1.1", "id": "01a1f40b-0209-7cd7-be2b-5d1e6d6163ea", "group": "709b9db5-6829-4b12-9710-b5a4ad288604", "previousGroup": "2200ee04-28db-4cd4-8502-be673b2ab509" },
+      { "runtimeVersion": "1.1.0", "id": "01a1f40b-52ff-7c17-91be-7401df1732b9", "group": "61e0cf2d-e681-47dd-a95c-7781f8c7d02b", "previousGroup": "4d2de6b8-caa7-4db1-a274-c7dde3cf1157" }
+    ],
+    "validation": "Typecheck, targeted lint, full Mobile contracts, map/discovery, Hermes, Production validation and both verified iOS exports passed. Render/geometry tests cover full viewport, horizontal paging/counters, vertical offsets without header displacement, text details and image failure/retry.",
+    "nativeGestureVisualAndLargeTextAcceptance": "PENDING",
+    "scope": "Moments tab trial only; finite existing feed, safety and actions retained; accepted Home and Spot profile unchanged",
+    "databaseChanges": false
+  },
   "momentsTabExperienceFirstDraft": {
     "sourceCommit": "4f75a4de360cdd2b42903b3c3e964c9ab4aeefc8",
     "status": "PUBLISHED_FOR_FOUNDER_ACCEPTANCE",
