@@ -947,3 +947,39 @@ angewiesen, direkt per OTA zu veröffentlichen und die native Sichtprüfung selb
 zu übernehmen. Deshalb keine behauptete native Sicht-, Frame-Pacing-, Batterie-
 oder Android-Abnahme; diese bleibt offen für die Geräteprüfung. Dies ersetzt die
 frühere Forderung, diese Sichtprüfung vor der Integration abzuschliessen.
+
+### Veröffentlichungsbeleg: native NukNuk-Layeranimation
+
+Am 20. November 2026 auf Production für beide iOS-Runtimes veröffentlicht.
+Quelle Main `fdba822a1e01f866a8279d79fb9e9075766439af`,
+[PR #775](https://github.com/PhiluLan/backyrd/pull/775),
+[alle erforderlichen PR-Gates erfolgreich](https://github.com/PhiluLan/backyrd/actions/runs/44701825881).
+Exakte Main-/IOS_OTA-Zertifizierungen erfolgreich:
+[1.1.1](https://github.com/PhiluLan/backyrd/actions/runs/44702803117),
+[1.1.0](https://github.com/PhiluLan/backyrd/actions/runs/44702807372).
+ZIP-Prüfsummen gegen GitHub abgeglichen; öffentliche EAS-/CI-Konfiguration
+identisch; Upload ausschliesslich aus den versiegelten Artefakten mit
+`--skip-bundler`, ohne lokalen Neubuild.
+
+Runtime **1.1.1**:
+
+- Update: `01a1f819-e842-7f54-baaf-5fab8df52590`
+- Gruppe: `6d6816c6-e329-4645-903c-b20958bec0f5`
+- Manifest SHA-256: `79a7d19823f8761d716bceeb783a8e7a36c3c4721a9a98a948c638f036fc3a8a`
+- Ausgeliefertes Bundle SHA-256: `bbff9cce832103f7b5db182fbb3e6d592d601c33b24f04eecec115449e09aa6b`
+- Vorherige Gruppe als Rückfallpunkt: `a5fe774b-4c5c-4496-91a4-ba0426be183b`
+
+Runtime **1.1.0**:
+
+- Update: `01a1f818-a332-794b-9327-f6920a632c66`
+- Gruppe: `dbc3b030-d33a-4b77-b83a-d3431e82bc80`
+- Manifest SHA-256: `f90c16a22e33d254869ccac26febfd3769b8953367d0e0706eb61938d06ba207`
+- Ausgeliefertes Bundle SHA-256: `2f848730afa4b6d3f71e46fe524257b3c24b65aa2d37bd6a0adbb417e93b82a8`
+- Vorherige Gruppe als Rückfallpunkt: `34eef31e-eab3-459c-a5be-905692a627fc`
+
+Nach beiden Uploads beide Production-Manifeste und die tatsächlichen
+CDN-Bundle-Bytes erneut geprüft: erfolgreich, beide Runtimes parallel verfügbar.
+Keine Backend-, Datenbank- oder Decision-Aktivierung. Native Sicht-/Bewegungs-
+und Performance-Abnahme auf dem physischen iPhone übernimmt wie ausdrücklich
+gewünscht der Founder; eine bereits beobachtete OTA-Aktivierung auf seinem
+Gerät wird nicht behauptet.
