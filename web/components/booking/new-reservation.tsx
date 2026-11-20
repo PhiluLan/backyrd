@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { bookingError, bookingWriteUncertain, createBooking, readBookingSlots, restaurantDate, restaurantTime, type BookingSlot, type BookingSnapshot, type BookingSource } from "@/lib/booking-api";
+import { bookingError, bookingWriteUncertain, createBooking, readBookingSlots, restaurantDate, restaurantTime, restaurantSlotTime, type BookingSlot, type BookingSnapshot, type BookingSource } from "@/lib/booking-api";
 import { ConsolePanel } from "./console-panel";
 import styles from "./console.module.css";
 
@@ -60,7 +60,7 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
       const rows = await readBookingSlots(spotId, bookingDate, partySize);
       if (current !== generation.current) return;
       setSlots(rows); setChecked(true);
-      setTime(rows.find((slot) => restaurantTime(slot.starts_at) === time)?.starts_at ?? "");
+      setTime(rows.find((slot) => restaurantTime(slot.starts_at, slot.ends_at) === time)?.starts_at ?? "");
     } catch (error) { if (current === generation.current) setSlotError(bookingError(error)); }
     finally { if (current === generation.current) setChecking(false); }
   }, [spotId, bookingDate, partySize, validParty, validDate, time, uncertain]);
@@ -123,10 +123,10 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
           {!validParty && <p className={styles.help}>Wähle zwischen 1 und {maxPartySize} Personen.</p>}
           {checked && !available.length && <div className={styles.emptyCompact}><h3>Keine passende Zeit frei.</h3><p>Prüfe Personenzahl, Datum oder Service. Es wurde nichts reserviert.</p></div>}
           {available.length > 0 && <div className={styles.fields}>
-            <label>Uhrzeit<select required value={selectedTime} onChange={(e) => { setTime(e.target.value); setSelected(""); }}><option value="">Zeit auswählen</option>{times.map((start) => <option key={start} value={start}>{restaurantTime(start)}</option>)}</select></label>
-            <label>Tisch<select required disabled={!selectedTime} value={selected} onChange={(e) => setSelected(e.target.value)}><option value="">Tisch auswählen</option>{tableSlots.map((slot) => <option key={slot.service_id + slot.table_id + slot.starts_at} value={slots.indexOf(slot)}>{snapshot.tables.find((t) => t.id === slot.table_id)?.label} · {restaurantTime(slot.starts_at)}–{restaurantTime(slot.ends_at)}{!service ? " · " + snapshot.services.find((s) => s.id === slot.service_id)?.name : ""}</option>)}</select></label>
+            <label>Uhrzeit<select required value={selectedTime} onChange={(e) => { setTime(e.target.value); setSelected(""); }}><option value="">Zeit auswählen</option>{times.map((start) => <option key={start} value={start}>{restaurantSlotTime(start, times)}</option>)}</select></label>
+            <label>Tisch<select required disabled={!selectedTime} value={selected} onChange={(e) => setSelected(e.target.value)}><option value="">Tisch auswählen</option>{tableSlots.map((slot) => <option key={slot.service_id + slot.table_id + slot.starts_at} value={slots.indexOf(slot)}>{snapshot.tables.find((t) => t.id === slot.table_id)?.label} · {restaurantTime(slot.starts_at, slot.ends_at)}–{restaurantTime(slot.ends_at, slot.starts_at)}{!service ? " · " + snapshot.services.find((s) => s.id === slot.service_id)?.name : ""}</option>)}</select></label>
           </div>}
-          {slot && <p className={styles.slotSummary}>{partySize} Personen · {restaurantTime(slot.starts_at)}–{restaurantTime(slot.ends_at)} · {snapshot.tables.find((table) => table.id === slot.table_id)?.label}</p>}
+          {slot && <p className={styles.slotSummary}>{partySize} Personen · {restaurantTime(slot.starts_at, slot.ends_at)}–{restaurantTime(slot.ends_at, slot.starts_at)} · {snapshot.tables.find((table) => table.id === slot.table_id)?.label}</p>}
           <details className={styles.editorDetails}><summary>Weitere Angaben</summary>
             {!tableId && <label>Bereich<select value={area} onChange={(e) => { setArea(e.target.value); setTime(""); setSelected(""); }}><option value="">Alle Bereiche</option>{snapshot.areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>}
             <div className={styles.fields}><label>Quelle<select value={source} onChange={(e) => setSource(e.target.value as BookingSource)}><option value="phone">Telefon</option><option value="email">E-Mail</option><option value="walk_in">Vor Ort</option><option value="operator">Betreiber</option></select></label><label>Status<select value={status} onChange={(e) => setStatus(e.target.value as "pending" | "confirmed")}><option value="confirmed">Bestätigt</option><option value="pending">Anfrage offen</option></select></label></div>
