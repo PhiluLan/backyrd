@@ -910,3 +910,40 @@ Der Animations-Dev hat inzwischen eine isolierte erste Layer-Rig-Vorschau mit
 22-Sekunden-Ablauf, Light/Dark, Zeitlupe und statischem Fallback geliefert.
 Die Vorschau ist noch keine native Integration oder visuelle Founder-Abnahme;
 native Performance-/Batterieprüfung bleibt vor einer Integration erforderlich.
+
+### NukNuk: freigegebenes Originalgesicht nativ integriert
+
+Taskklasse `PRODUCT_RELEASE`; Scope: `NuknukAvatar`, reine Motion-Steuerung,
+Wohin-Präsentation, freigegebene Raster-Layer und zugehörige Lifecycle-Tests.
+Keine Änderungen an Decision-Anfragen, Interpretation, Eignung, Ranking,
+Einwilligungen oder Backend. Keine neuen Abhängigkeiten.
+
+Die am 20. November isoliert abgenommene v3-Vorschau ersetzt den bisherigen
+Ganzkörper-Bildstreifen. Zehn bereinigte Original-Layer werden auf einer
+520×800-Bühne zusammengesetzt. Gesicht, Nase, ursprüngliches Lächeln, Haare,
+Kleidung und Proportionen bleiben erhalten; keine künstlichen Mund-/Iris-Patches.
+Füsse und Becken bleiben fest. Kopf, Schultern und Ellbogen reagieren sparsam;
+Atmung läuft über 5,8 Sekunden, Blinzeln mit 55/65/95 ms und zufälligen Pausen.
+Interpolation erfolgt nativ durch das bereits vorhandene Reanimated.
+
+Wohin hält eine einzelne illustrierte Präsenz über Einstieg, echte laufende
+Anfrage, Rückfrage und sichtbare Vorschläge. Die Hero-Gesamtkörperhöhe bleibt
+156 dp. Für die neu ergänzte Gesprächspräsenz sind bewusst die isoliert geprüften
+66 dp gewählt; die vorhandenen Outline-Marken in Header/Startseite bleiben.
+Containerposition und Grösse gehen über 420 ms ineinander über. Begrüssung ist
+pro angemeldetem App-Prozess gated, Nicken folgt dem lokalen Request-Start,
+Orientierung dem echten Pending-Zustand und die Ergebnisgeste echten Vorschlägen.
+Keine erfundenen Fortschrittsstufen oder Aussagen über verstandene Präferenzen.
+
+App-Hintergrund, Tab-Fokusverlust, Scrollen aus dem sichtbaren Bereich und offene
+Sheets stoppen die Figur unabhängig. Reduced Motion setzt die exakte Ruhepose
+mit offenen Augen. Pausen invalidieren Timer; bei Rückkehr werden alte Begrüssungs-
+oder Ergebnisgesten nicht nachgespielt. Entsorgung stoppt Timer und UI-Animationen.
+
+Validierung: gezielte TypeScript-/Lint-Prüfung und Mobile-Contracts erfolgreich.
+Fünf Motion-Tests prüfen echte Scheduler-Ausführung, unterbrochene Gesten,
+18-Sekunden-Pausen, Reduced Motion und Entsorgung. Der Founder hat ausdrücklich
+angewiesen, direkt per OTA zu veröffentlichen und die native Sichtprüfung selbst
+zu übernehmen. Deshalb keine behauptete native Sicht-, Frame-Pacing-, Batterie-
+oder Android-Abnahme; diese bleibt offen für die Geräteprüfung. Dies ersetzt die
+frühere Forderung, diese Sichtprüfung vor der Integration abzuschliessen.
