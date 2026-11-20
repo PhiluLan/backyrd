@@ -52,7 +52,7 @@ function IllustratedAvatar({ height, animate = false, state = "listening", motio
   const makeSession = useMemo(() => () => {
     const values = { headRot, headY, torso, leftShoulder, leftElbow, rightShoulder, rightElbow };
     return createNuknukMotionSession({
-      stop: () => { Object.values(values).forEach(cancelAnimation); cancelAnimation(blink); },
+      stop: () => { Object.values(values).forEach(cancelAnimation); cancelAnimation(blink); blink.value = 0; },
       reset: () => { for (const key of Object.keys(values) as (keyof NuknukPose)[]) values[key].value = NUKNUK_REST[key]; blink.value = 0; },
       pose: target => {
         const motion = NUKNUK_MOTIONS[target];
