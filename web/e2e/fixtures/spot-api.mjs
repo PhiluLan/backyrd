@@ -80,7 +80,19 @@ const world = {
       { date: "2026-12-24", status: "CLOSED", intervals: [] },
     ]),
     field("context.atmosphere", [
-      { atmosphere: "COZY", conditions: { dayparts: ["EVENING"] } },
+      {
+        atmosphere: "COZY",
+        conditions: {
+          days: [],
+          dayparts: ["EVENING"],
+          area: null,
+          occasion: null,
+          groupSize: null,
+          ageContext: null,
+          accompaniment: null,
+          eventMode: null,
+        },
+      },
     ]),
     field("internal.private", { raw: "Secret" }),
     field("accessibility.elevator", false, "KNOWN_FALSE"),

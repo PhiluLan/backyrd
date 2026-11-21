@@ -176,3 +176,46 @@ test("contact actions reject executable URLs, credentials and email header injec
     "https://example.test/",
   );
 });
+
+test("canonical nullable context defaults do not hide confirmed visitor facts", () => {
+  const defaults = {
+    days: [],
+    dayparts: [],
+    area: null,
+    occasion: null,
+    groupSize: null,
+    ageContext: null,
+    accompaniment: null,
+    eventMode: null,
+  };
+  const rows = moreInfo([
+    field("context.atmosphere", [
+      { atmosphere: "COZY", conditions: defaults },
+      {
+        atmosphere: "QUIET",
+        conditions: {
+          ...defaults,
+          groupSize: { min: 2, max: 6 },
+          ageContext: "ADULTS",
+          accompaniment: "GROUP",
+          eventMode: "NORMAL_OPERATION",
+        },
+      },
+    ]),
+  ]);
+  assert.equal(
+    rows[0].lines.join(" / "),
+    "Gemütlich / Ruhig · 2–6 Personen · Erwachsene · In der Gruppe · Im regulären Betrieb",
+  );
+  assert.equal(
+    moreInfo([
+      field("context.atmosphere", [
+        {
+          atmosphere: "QUIET",
+          conditions: { ...defaults, days: ["FUTURE_DAY"] },
+        },
+      ]),
+    ]).length,
+    0,
+  );
+});

@@ -1346,3 +1346,12 @@ benötigt `PLAYWRIGHT_SPOT_FIXTURE=1` und einen ausdrücklich darauf konfigurier
 lokalen Next-Server. Eine physische iPhone-/VoiceOver-Abnahme wird nicht behauptet.
 Light-/Dark-Systemparität und die verbleibenden Home-, Karten- und Nebenseiten
 sind damit noch nicht insgesamt abgeschlossen.
+
+Die öffentliche Nachprüfung hat zusätzlich einen kanonischen Kontextfall
+aufgedeckt: Leere optionale Bedingungen (`groupSize`, Begleitung, Alters- und
+Event-Kontext) dürfen bestätigte Atmosphären-/Tageszeitangaben nicht ausblenden.
+Der begrenzte Folgefix stellt diese Angaben dar und bewahrt auch tatsächlich
+belegte Gruppen-, Alters-, Begleitungs- und Event-Bedingungen in Besuchersprache.
+Unbekannte aktive Bedingungen werden weiterhin nicht als unbedingte Aussage
+vereinfacht. Der konkrete Reproducer und ein Browser-Fixture mit vollständigen
+nullable Bedingungen decken dies ab; die Web-Vertragssuite umfasst nun 82 Tests.
