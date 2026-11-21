@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, AppState, Image, StyleSheet, View } from "react-native";
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
+import { backyrdTheme } from "@/theme/backyrd";
 import { createNuknukMotionSession, NUKNUK_BLINK, NUKNUK_MOTIONS, NUKNUK_REST, type NuknukMotionState, type NuknukPose } from "@/lib/nuknuk-motion";
 
 const art = {
@@ -29,6 +30,7 @@ type Props = {
 };
 
 export function NuknukAvatar({ appearance = "illustrated", ...props }: Props) {
+  if (!backyrdTheme.nuknuk.showCharacter) return null;
   return appearance === "outline" ? <OutlineAvatar height={props.height} /> : <IllustratedAvatar {...props} />;
 }
 

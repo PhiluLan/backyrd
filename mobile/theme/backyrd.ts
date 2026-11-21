@@ -23,6 +23,8 @@ function appearanceColor(name: AppearanceColorName): string {
 export const useSFPro = Platform.OS === "ios";
 
 export const backyrdTheme = {
+  // Beta presentation: retain the rig/assets for later refinement, without mounting them.
+  nuknuk: { showCharacter: false },
   color: {
     background: appearanceColor("background"),
     backgroundLight: "#ECECEA",

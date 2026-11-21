@@ -983,3 +983,26 @@ Keine Backend-, Datenbank- oder Decision-Aktivierung. Native Sicht-/Bewegungs-
 und Performance-Abnahme auf dem physischen iPhone übernimmt wie ausdrücklich
 gewünscht der Founder; eine bereits beobachtete OTA-Aktivierung auf seinem
 Gerät wird nicht behauptet.
+
+### Beta: NukNuk-Grafik vorerst ausgeblendet
+
+Founder-Entscheidung vom 21. November: Darstellung und Bewegung der Figur sind
+für die Beta noch nicht überzeugend. Die illustrierte Figur und die kleinen
+Gesichtssymbole werden deshalb über den zentralen Präsentationsschalter
+`backyrdTheme.nuknuk.showCharacter = false` ausgeblendet. Komponente, Original-
+Layer, Motion-Steuerung und Lifecycle-Tests bleiben unverändert erhalten und
+können nach einer späteren gestalterischen Abnahme wieder aktiviert werden.
+Die Figur wird nicht gemountet; es laufen keine Charakteranimationen im Hintergrund.
+
+Wohin nutzt die volle Textbreite für die persönliche Begrüssung. Figurenspalte,
+Glow, feste Hero-Mindesthöhe und die reservierten Einzüge/Mindesthöhen neben
+Gespräch, Ladezustand, Rückfragen, Fehlern und Ergebnissen entfallen. Die
+Einstiegssektionen erhalten 32 dp Abstand. Der Header beginnt direkt mit Wohin;
+der Startseiten-Profilbutton bleibt mit einem schlichten Profilsymbol bedienbar.
+NukNuk als Name und Gesprächspartner, Anfrageverlauf, Wartehinweise, Composer und
+sämtliche Decision-/Sicherheits-/Einwilligungslogik bleiben unverändert.
+
+Taskklasse `PRODUCT_RELEASE`; ausschliesslich Mobile-Präsentation, bestehende
+Browser-Regression und dieser Arbeitsbucheintrag. Keine neuen Abhängigkeiten,
+API-, Schema-, Backend- oder Rankingänderungen. Native visuelle Founder-Abnahme
+folgt über OTA; keine behauptete native Bewegungs- oder Performance-Abnahme.

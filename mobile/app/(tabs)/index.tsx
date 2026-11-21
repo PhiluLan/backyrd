@@ -250,7 +250,7 @@ function HomeContent() {
                   <Ionicons color={color.textPrimary} name="notifications-outline" size={30} />
                 </IconButton>
                 <IconButton accessibilityLabel="Mein Backyrd – Profil öffnen" style={styles.profileButton} onPress={() => router.push("/(tabs)/profile" as never)}>
-                  <NuknukAvatar height={29} appearance="outline" />
+                  {theme.nuknuk.showCharacter ? <NuknukAvatar height={29} appearance="outline" /> : <Ionicons name="person-outline" size={27} color={color.pink} />}
                 </IconButton>
               </> : <Pressable accessibilityRole="button" accessibilityLabel="Anmelden" onPress={() => router.push("/auth/login" as never)} style={[styles.guestLogin, { borderColor: color.border }]}>
                 <AppText role="label" tone="pink">Anmelden</AppText>
