@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { SettingsShell } from "@/components/consumer/settings-shell";
 import { StateView } from "@/components/consumer/ui";
 import { supabase } from "@/lib/supabase/client";
@@ -17,7 +17,27 @@ type Row = {
   why_this: string | null;
   status: string;
 };
-export default function DecisionHistory() {
+export default function DecisionHistoryPage() {
+  return (
+    <Suspense fallback={<p>Deine Anfragen werden geladen …</p>}>
+      <HistoryChoice />
+    </Suspense>
+  );
+}
+function HistoryChoice() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const legacy = params.get("legacy") === "1";
+  useEffect(() => {
+    if (!legacy) router.replace("/decision?history=1");
+  }, [legacy, router]);
+  return legacy ? (
+    <LegacyDecisionHistory />
+  ) : (
+    <p>Deine Anfragen werden geöffnet …</p>
+  );
+}
+function LegacyDecisionHistory() {
   const router = useRouter();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +60,8 @@ export default function DecisionHistory() {
       <div className="b-surface" style={{ padding: 20, marginBottom: 14 }}>
         <p className="b-kicker">Historische Ansicht</p>
         <p className="b-muted" style={{ marginTop: 8 }}>
-          Diese Ansicht enthält ausschließlich frühere Legacy-Decision-Einträge. Neue Decision-vNext-Ergebnisse werden hier nicht beigemischt.
+          Diese Ansicht enthält ausschließlich frühere Legacy-Decision-Einträge.
+          Neue Decision-vNext-Ergebnisse werden hier nicht beigemischt.
         </p>
       </div>
       {loading ? (

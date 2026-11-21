@@ -8,7 +8,7 @@ const links = [
   ["/settings/data", "Meine Daten"],
   ["/settings/history", "Verlauf & Dokumente"],
   ["/settings/notifications", "Benachrichtigungen"],
-  ["/settings/decision-history", "Für-jetzt-Verlauf"],
+  ["/settings/decision-history", "Deine Anfragen"],
   ["/settings/safety", "Sicherheit"],
   ["/settings/support", "Support"],
 ] as const;

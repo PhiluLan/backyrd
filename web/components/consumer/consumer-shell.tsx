@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { clearOtherWohinHistories } from "@/lib/wohin-history";
 import { Avatar, ButtonLink } from "./ui";
 import {
   CompassIcon,
@@ -16,7 +17,7 @@ import {
 
 const items = [
   { href: "/", label: "Entdecken", Icon: CompassIcon },
-  { href: "/decision", label: "Für jetzt", Icon: SparkIcon },
+  { href: "/decision", label: "Wohin", Icon: SparkIcon },
   { href: "/places", label: "Orte", Icon: PlacesIcon },
   { href: "/moments", label: "Momente", Icon: MomentsIcon },
 ];
@@ -62,11 +63,13 @@ export function ConsumerShell({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       if (!session) {
+        try { clearOtherWohinHistories(); } catch { /* The Wohin screen reports unavailable browser storage. */ }
         userRequest.current += 1;
         setUser(null);
         router.refresh();
         return;
       }
+      try { clearOtherWohinHistories(session.user.id); } catch { /* Browser storage can be disabled. */ }
       if (
         event === "SIGNED_IN" ||
         event === "INITIAL_SESSION" ||

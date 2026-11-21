@@ -45,13 +45,16 @@ export async function POST(request: Request) {
     // Keep the database-heavy Decision beside the production database in Zürich.
     const { data, error } = await client.functions.invoke<unknown>("decision-v13", {
       body,
-      headers: { Authorization: `Bearer ${sessionData.session.access_token}`, "x-region": "eu-central-2" },
+      headers: { Authorization: `Bearer ${sessionData.session.access_token}`, "x-region": "eu-central-2", ...(request.headers.get("x-backyrd-dialogue-choice") === "1" ? { "x-backyrd-dialogue-choice": "1" } : {}) },
     });
     if (error && "context" in error && error.context instanceof Response && error.context.status === 422) {
       const failure = await error.context.json();
       if (failure?.contractVersion === "backyrd.decision-vnext.product-error@1.0"
         && failure.status === "UNAVAILABLE" && failure.legacyFallbackUsed === false
-        && ["DECISION_NEEDS_CLARIFICATION", "DECISION_NUKNUK_UNRESOLVED"].includes(failure.error?.code)) {
+        && ["DECISION_NEEDS_CLARIFICATION", "DECISION_NUKNUK_UNRESOLVED", "DECISION_NUKNUK_NEW_PLAN", "DECISION_NUKNUK_OFF_TOPIC"].includes(failure.error?.code)) {
+        if (failure.error.code === "DECISION_NUKNUK_NEW_PLAN" || failure.error.code === "DECISION_NUKNUK_OFF_TOPIC") {
+          return Response.json({ route: failure.error.code === "DECISION_NUKNUK_NEW_PLAN" ? "NEW_PLAN" : "OFF_TOPIC" }, { status: 422, headers: noStore });
+        }
         const question = failure.error.message;
         if (failure.error.code === "DECISION_NUKNUK_UNRESOLVED") {
           return Response.json({ error: "decision_nuknuk_unresolved" }, { status: 422, headers: noStore });

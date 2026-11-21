@@ -1,4 +1,4 @@
-import type { DecisionProductCandidate, DecisionProductRequest, DecisionProductResponse } from "@backyrd/product-decision-contract";
+import type { DecisionProductCandidate, DecisionProductRequest, DecisionProductResponse } from "../../packages/product-decision-contract/src/index.mjs";
 
 const MAX_VISIBLE_CANDIDATES = 5;
 
@@ -27,7 +27,7 @@ const discoveryDirections = [
 
 export function wohinDiscoveryDirections(query: string) {
   const userText = query.normalize("NFKC")
-    .replace(/\s+Rückfrage:\s*.*?\s+Antwort:\s*/gsu, " ")
+    .replace(/\s+Rückfrage:\s*[\s\S]*?\s+Antwort:\s*/gu, " ")
     .replace(/\s+Ergänzung:\s*/gu, " ");
   const matches = discoveryDirections.filter(direction => direction.request.test(userText)
     && (direction.label !== "Clubs" || !/\b(?:kein(?:e[nmrs]?)?|ohne)\s+(?:einen?\s+)?(?:club|clubs|nachtclub|disco|diskothek)\b/iu.test(userText)));
@@ -69,7 +69,7 @@ const provisionalVisitReasons = new Set([
   "librarian-confirmed-weather-branch", "librarian-departure-time-unconfirmed", "librarian-pizza-budget-unconfirmed",
 ]);
 
-export function visibleWohinCandidates(response: DecisionProductResponse): DecisionProductCandidate[] {
+export function visibleWohinCandidates(response: Pick<DecisionProductResponse, "candidates" | "primaryCandidateId" | "clarification">): DecisionProductCandidate[] {
   const ranked = response.candidates.filter((candidate) => candidate.rank !== null && !candidate.contextualReject);
   if (ranked.some((candidate, index) => index > 0 && candidate.rank! <= ranked[index - 1].rank!)) {
     throw new Error("wohin_server_ranking_invalid");

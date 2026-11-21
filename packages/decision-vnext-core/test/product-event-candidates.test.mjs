@@ -88,11 +88,15 @@ test('matching event replaces its venue in the same ranked window',async()=>{
 test('the real Web transport validates an Event and preserves its occurrence link',async()=>{
  const ts=(await import('typescript')).default;const {readFileSync}=await import('node:fs');
  const code=ts.transpileModule(readFileSync(new URL('../../../web/lib/decision-web-api.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
- const exports={};new Function('exports','fetch','crypto',code)(exports,async(_url,options)=>{
+ const presentationSource=readFileSync(new URL('../../../mobile/lib/decision/wohinModel.ts',import.meta.url),'utf8');
+ const presentationCode=ts.transpileModule(presentationSource,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+ const presentation={};new Function('exports',presentationCode)(presentation);
+ const requirePresentation=specifier=>{assert.equal(specifier,'../../mobile/lib/decision/wohinModel');return presentation;};
+ const exports={};new Function('exports','require','fetch','crypto',code)(exports,requirePresentation,async(_url,options)=>{
   const req=JSON.parse(options.body);const r=await exercise({text:req.naturalLanguage,meaning:request([music()]),catalog:[],eventOccurrences:[occurrence],requestOverride:req});
   assert.equal(r.status,200,JSON.stringify(r.diagnostics));return new Response(JSON.stringify(r.body));
  },globalThis.crypto);
- const result=await exports.runWebDecision({inputMode:'free',rawFreeText:'Musik in Basel',city:'Basel',directions:[],audiences:[],moods:[]});
+ const result=await exports.runWebDecision({rawFreeText:'Musik in Basel',city:'Basel'});
  assert.equal(result.results[0].presentation.event.occurrenceId,occurrence.occurrenceId);
 });
 test('family suitability helps ranking but cannot override an age restriction',()=>{
