@@ -617,7 +617,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   const nuknukActivityScope = authority?.nuknukActivityDeliveryScope ?? null;
   const analyticsPageviewsScope = authority?.analyticsPageviewsDeliveryScope ?? null;
   const boundedFunctionScope = analyticsPageviewsScope ?? nuknukActivityScope ?? codeOnlyScope;
-  const functionReceipts = [boundedFunctionScope?.existingFunctionReceipt, analyticsPageviewsScope?.researchWorkerReceipt];
+  const functionReceipts = [boundedFunctionScope?.existingFunctionReceipt, boundedFunctionScope?.researchWorkerReceipt];
   if (boundedFunctionScope?.decisionFunctionReceipt) functionReceipts.push(boundedFunctionScope.decisionFunctionReceipt);
   const codeOnlyDeferredFunctions = [];
   for (const receipt of functionReceipts.filter(Boolean)) {
