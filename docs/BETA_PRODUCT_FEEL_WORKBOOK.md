@@ -1355,3 +1355,54 @@ belegte Gruppen-, Alters-, Begleitungs- und Event-Bedingungen in Besuchersprache
 Unbekannte aktive Bedingungen werden weiterhin nicht als unbedingte Aussage
 vereinfacht. Der konkrete Reproducer und ein Browser-Fixture mit vollständigen
 nullable Bedingungen decken dies ab; die Web-Vertragssuite umfasst nun 82 Tests.
+
+### Veröffentlichungsbeleg: Web-Spotprofil und Typografie
+
+Am 21. November 2026 auf der tatsächlichen öffentlichen Domain geprüft:
+[Volta Bräu](https://www.backyrd.ch/spots/1101ee26-5046-4cdc-921a-5a3bd4cb5306).
+Die Umsetzung liegt in [PR #785](https://github.com/PhiluLan/backyrd/pull/785),
+Main `15c26252e56354a4abce4e9716a16189b66659a5`;
+[erforderliche PR-Gates](https://github.com/PhiluLan/backyrd/actions/runs/44892685499)
+und [Main-Prüflauf](https://github.com/PhiluLan/backyrd/actions/runs/44892882924)
+erfolgreich. Der geprüfte Head `b8ede950e2b1875bf09e914f91722893bed2819f`
+und Main haben denselben Web-Quellbaum
+`fb519f8ba305f7e42e4857e58b9e5744dfd57dd8`.
+
+Die anschliessende öffentliche Sichtprüfung fand den oben beschriebenen Fall
+mit leeren optionalen Kontextbedingungen. Er ist separat in
+[PR #786](https://github.com/PhiluLan/backyrd/pull/786) korrigiert,
+[erforderliche PR-Gates erfolgreich](https://github.com/PhiluLan/backyrd/actions/runs/44893241466).
+Finale Quelle ist Main `6978df966a0d6eff9f5cb29dc5993325a1c8ee74`;
+der geprüfte Head `fb2a634f802e563c6387959623412d4518deca43` und Main
+besitzen denselben Web-Quellbaum `81ee14a6842016c5bbebfaf62d407023bd3f81b8`.
+[Nachgelagerter Main-Prüflauf](https://github.com/PhiluLan/backyrd/actions/runs/44893422919).
+
+Vercel/GitHub bestätigt Production-Web-Deployment `7961944550` für genau
+diese finale Main-Quelle, erfolgreich um `2026-11-21T10:15:27Z`:
+[zugeordnete Deployment-Adresse](https://backyrd-dn5kke6pu-backyrd.vercel.app).
+Der vorherige erfolgreiche Stand ist Deployment `7961881223`, Quelle
+`15c26252e56354a4abce4e9716a16189b66659a5`; er enthält die neue Gestaltung,
+aber noch nicht die Korrektur leerer Kontextbedingungen. Der erfolgreiche
+Rückfallpunkt vor diesem gesamten Arbeitspaket ist Deployment `7961558124`,
+Quelle `1097f63ad1b13957e07f64a733d6c5681e95967e`.
+
+Öffentliche Browserprüfung: Titelbild und Sans-Schrift, Art/Preisniveau,
+Adresse einschliesslich Postleitzahl, Beschreibung, Kontakt, lesbare
+Sonderöffnungszeiten, aufgeklappte Angebote, Moods und Mehr Infos sowie
+wieder sichtbare Atmosphären-/Besuchskontexte. Mobile Besuchsaktionen bleiben
+oberhalb der Navigation, Desktop-Aktionen seitlich. Die gemeinsame Typografie
+wurde zusätzlich auf Entdecken und Wohin betrachtet; deren Inhalte wurden
+in diesem Paket nicht umgebaut. Die temporäre Viewport-Einstellung wurde
+zurückgesetzt. Eine reine Deployment-Statusmeldung wird nicht als diese
+Sichtprüfung gewertet.
+
+Validierungsgrenze: 82 Web-Vertrags-/Präsentationstests und Web-TypeScript
+für den finalen Presenter erfolgreich; finaler CI-Web-Build erfolgreich.
+Drei synthetische Profilabläufe, Responsive-/Axe- und Production-Build-
+Prüfung gehören zum geprüften Profilstand aus #785. Nach der begrenzten
+Kontextkorrektur wurde der betroffene vollständige Profilablauf mit dem
+kanonischen nullable Fixture gezielt wiederholt und bestanden. Keine
+unveränderten Decision-/Backend-Suiten wurden dafür erneut zertifiziert.
+Keine Production-Testmutation, kein natives OTA und keine Schema-/RLS-/
+Edge-/Ranking-/Promptänderung. Physische iPhone-/VoiceOver- und visuelle
+Founder-Abnahme bleiben offen.
