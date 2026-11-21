@@ -75,8 +75,8 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261119113523_decision_context_timeout_budget_v1.sql",
-        "sha256": "393e0d7bf6035eea0697b5b708705be6ba8fb47dfa28d17785c7d24da64bd958"
+        "path": "supabase/migrations/20261121121136_decision_product_feedback_v1.sql",
+        "sha256": "858ce7b8dd82e1e52ed15798cbc19adb32702fec13a7865f1d61bca9f189e329"
       }
     ],
     "executionAuthorized": false,
@@ -645,16 +645,16 @@
       "artifactId": 14231428566,
       "artifactDigest": "sha256:05df22f9723963b1cf7d0861bfed98154da461ab90405ed79a9ec1ce145323af"
     },
-    "contractVersion": "backyrd.decision-context-timeout-delivery-scope@1.0",
+    "contractVersion": "backyrd.decision-product-feedback-delivery-scope@1.0",
     "executionAuthorized": false,
     "migrations": [
       {
-        "path": "supabase/migrations/20261119113523_decision_context_timeout_budget_v1.sql",
-        "sha256": "393e0d7bf6035eea0697b5b708705be6ba8fb47dfa28d17785c7d24da64bd958"
+        "path": "supabase/migrations/20261121121136_decision_product_feedback_v1.sql",
+        "sha256": "858ce7b8dd82e1e52ed15798cbc19adb32702fec13a7865f1d61bca9f189e329"
       }
     ],
     "functions": [],
-    "backupRunId": 44504190699,
+    "backupRunId": 44891094128,
     "existingFunctionReceipt": {
       "sourceSha": "422803e03b910db1770b7a44be1ea78f09a3e0bd",
       "deploymentRunId": 42385325625,
@@ -715,6 +715,6 @@
         }
       ]
     },
-    "source": "Founder requested repair of failed Bier search on 2026-11-19. Exact service-only regional-context RPC timeout only; no body, ACL, Auth, model or function bundle changes."
+    "source": "Founder requested production publication of the cleaner profile and optional Decision feedback on 2026-11-21. Exact additive feedback table and authenticated RPCs only; no Auth configuration, Edge Function, Decision ranking, Owner ranking, or unrelated schema changes."
   }
 }
