@@ -4,7 +4,6 @@ import { SavedMoments } from "../../components/SavedMoments";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  Animated,
   Dimensions,
   Image,
   KeyboardAvoidingView,
@@ -15,7 +14,6 @@ import {
   StyleSheet,
   type StyleProp,
   type ViewStyle,
-  useColorScheme,
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -36,11 +34,10 @@ import { selectSpotImageUrl } from "@/lib/spot-images";
 import Avatar from "@/components/Avatar";
 import { StateView } from "@/components/foundation/StateView";
 import { ProductText as Text, ProductTextInput as TextInput } from "@/components/foundation/AppText";
-import { backyrdTheme as theme, useBackyrdTheme, usesFixedDarkAppearance } from "@/theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme } from "@/theme/backyrd";
 import type { User } from "@supabase/supabase-js";
 import { isMissingAuthSession } from "../../../packages/shared/src/auth-errors";
 import { isAccountUsername, profilePhotoObjectKey } from "../../../packages/shared/src/account-entry";
-import { signOutWithPushCleanup } from "@/lib/signOut";
 
 const { width } = Dimensions.get("window");
 
@@ -230,12 +227,8 @@ function getSpotPhoto(item: FavoriteRow) {
 
 export default function ProfileScreen() {
   const { color } = useBackyrdTheme();
-  const scheme = useColorScheme();
-  const isLight = !usesFixedDarkAppearance && scheme === "light";
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
-  const scrollY = useRef(new Animated.Value(0)).current;
 
   const [checkedAuth, setCheckedAuth] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -270,18 +263,8 @@ export default function ProfileScreen() {
 
   const [selectedCommentsPost, setSelectedCommentsPost] = useState<SocialFeedPost | null>(null);
 
-  const HEADER_MAX = 310;
-  const HEADER_MIN = 128;
-
-  const headerHeight = scrollY.interpolate({
-    inputRange: [0, 220],
-    outputRange: [HEADER_MAX, HEADER_MIN],
-    extrapolate: "clamp",
-  });
-
   const displayName = useMemo(() => profileName(profile), [profile]);
   const sinceLabel = useMemo(() => formatSince(profile?.since_date), [profile?.since_date]);
-  const headerImage = profile?.header_photo_url || profile?.avatar_url || null;
   const avatarImage = profile?.avatar_url || null;
 
   const interestChips = useMemo(() => splitChips(profile?.interests).slice(0, 5), [profile?.interests]);
@@ -614,26 +597,15 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.screen}>
-      <Animated.View style={[styles.headerBackdrop, { height: headerHeight }]} pointerEvents="none">
-        {headerImage ? <Image source={{ uri: headerImage }} style={styles.headerImage} blurRadius={12} /> : null}
-        <LinearGradient
-          colors={isLight ? ["rgba(247,247,245,0.74)", "rgba(247,247,245,0.95)", color.background] : headerImage ? ["rgba(5,5,5,0.22)", "rgba(5,5,5,0.72)", color.background] : ["#18131A", "#0D0B0E", color.background]}
-          style={StyleSheet.absoluteFill}
-        />
-      </Animated.View>
-
-      <Animated.ScrollView
+      <ScrollView
         showsVerticalScrollIndicator={false}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-          useNativeDriver: false,
-        })}
-        scrollEventThrottle={16}
         contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
       >
         <View style={styles.topActions}>
-          <View style={styles.profileNavigation}><Pressable accessibilityRole="button" accessibilityLabel="Zurück zu Entdecken" onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)")} style={styles.circleButton}><Ionicons accessibilityElementsHidden name="chevron-back" size={22} color={color.textPrimary} /></Pressable><Text style={styles.topActionsTitle}>Mein Backyrd</Text></View>
+          <Text accessibilityRole="header" style={styles.topActionsTitle}>Profil</Text>
 
           <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Einstellungen öffnen"
             style={styles.circleButton}
             onPress={() => router.push("/settings")}
@@ -650,7 +622,8 @@ export default function ProfileScreen() {
               accessibilityRole="button"
               accessibilityLabel="Profilbild bearbeiten"
             >
-                <Avatar uri={avatarImage} name={displayName} size={90} />
+                <Avatar uri={avatarImage} name={displayName} size={86} />
+                <View style={styles.avatarEdit}><Ionicons name="camera" size={13} color="#FFFFFF" /></View>
             </Pressable>
 
             <View style={styles.identityBlock}>
@@ -665,9 +638,9 @@ export default function ProfileScreen() {
 
           {!!profile?.bio && <Text style={styles.bioText}>{profile.bio}</Text>}
 
-          <Text style={styles.statsLine}>
-            {postsFailed ? "–" : posts.length} Momente · {followersCount ?? "–"} Follower · {followingCount ?? "–"} folgt
-          </Text>
+          <View style={styles.statsRow}>
+            {[{ value: postsFailed ? "–" : posts.length, label: "Momente" }, { value: followersCount ?? "–", label: "Follower" }, { value: followingCount ?? "–", label: "Folgt" }].map(item => <View key={item.label} style={styles.stat}><Text style={styles.statValue}>{item.value}</Text><Text style={styles.statLabel}>{item.label}</Text></View>)}
+          </View>
 
           <View style={styles.profileChips}>
             {sinceLabel && (
@@ -694,7 +667,7 @@ export default function ProfileScreen() {
 
           {(interestChips.length > 0 || personalityChips.length > 0) && (
             <View style={styles.tasteChips}>
-              {[...interestChips, ...personalityChips].slice(0, 6).map((chip) => (
+              {[...interestChips, ...personalityChips].slice(0, 4).map((chip) => (
                 <View key={chip} style={styles.tasteChip}>
                   <Text style={styles.tasteChipText}>{chip}</Text>
                 </View>
@@ -707,24 +680,28 @@ export default function ProfileScreen() {
             setDraft(profile ? { ...profile, display_name: profileName(profile) } : null);
             setShowEdit(true);
           }}>
-            <Ionicons accessibilityElementsHidden name="pencil" size={17} color={theme.color.textPrimary} />
+            <Ionicons accessibilityElementsHidden name="pencil-outline" size={17} color={theme.color.textPrimary} />
             <Text style={styles.editProfileText}>Profil bearbeiten</Text>
           </Pressable>
         </View>
 
         <View style={styles.tabShell}>
-          {[
-            ["posts", "Momente"],
-            ["favorites", "Gespeichert"],
-            ["badges", "Erfolge"],
-          ].map(([key, label]) => {
+          {([
+            ["posts", "Momente", "grid-outline"],
+            ["favorites", "Gespeichert", "bookmark-outline"],
+            ["badges", "Erfolge", "trophy-outline"],
+          ] as const).map(([key, label, icon]) => {
             const active = tab === key;
             return (
               <Pressable
                 key={key}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={label}
                 style={[styles.tabButton, active && styles.tabButtonActive]}
                 onPress={() => setTab(key as ProfileTab)}
               >
+                <Ionicons name={icon} size={18} color={active ? color.pink : color.textSecondary} />
                 <Text style={[styles.tabText, active && styles.tabTextActive]}>{label}</Text>
               </Pressable>
             );
@@ -822,39 +799,9 @@ export default function ProfileScreen() {
                 )}
               </>
             )}
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Aus Backyrd ausloggen"
-              onPress={() => {
-                Alert.alert(
-                  "Ausloggen?",
-                  "Du kannst dich jederzeit wieder mit deinem Account anmelden.",
-                  [
-                    { text: "Abbrechen", style: "cancel" },
-                    {
-                      text: "Ausloggen",
-                      style: "destructive",
-                      onPress: async () => {
-                        try {
-                          await signOutWithPushCleanup();
-                          router.replace("/gate" as any);
-                        } catch {
-                          Alert.alert("Ausloggen noch nicht möglich", "Dein Gerät konnte nicht sicher vom Push-Empfang getrennt werden. Prüfe deine Verbindung und versuche es nochmals.");
-                        }
-                      },
-                    },
-                  ],
-                );
-              }}
-              style={styles.logoutButton}
-            >
-              <Ionicons accessibilityElementsHidden name="log-out-outline" size={19} color="#FFFFFF" />
-              <Text style={styles.logoutText}>Ausloggen</Text>
-            </Pressable>
           </View>
         )}
-      </Animated.ScrollView>
+      </ScrollView>
 
       <Modal animationType="slide" presentationStyle="fullScreen" visible={showEdit} onRequestClose={closeProfileEditor}>
         <SafeAreaProvider>
@@ -1010,29 +957,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 24,
   },
-  headerBackdrop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width,
-    overflow: "hidden",
-    opacity: 0.82,
-  },
-  headerImage: {
-    width,
-    height: "100%",
-  },
   scrollContent: {
     paddingTop: 72,
     paddingHorizontal: theme.spacing.xl,
     paddingBottom: 148,
   },
-  profileNavigation: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
   field: { marginBottom: 16, gap: 7 },
   inputLabel: { color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 20 },
   fieldHint: { color: theme.color.textSecondary, fontSize: 13, lineHeight: 20, marginBottom: 8 },
   topActions: {
-    marginBottom: theme.spacing.xxl,
+    marginBottom: 24,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -1040,7 +974,7 @@ const styles = StyleSheet.create({
   topActionsTitle: {
     color: theme.color.textPrimary,
     fontFamily: theme.type.bodyBold,
-    fontSize: 24,
+    fontSize: 30,
     letterSpacing: -0.5,
   },
   circleButton: {
@@ -1066,14 +1000,16 @@ const styles = StyleSheet.create({
     gap: 17,
   },
   avatarRing: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 92,
+    height: 92,
+    borderRadius: 46,
     borderWidth: 1,
     borderColor: "rgba(255,79,145,0.55)",
     padding: 3,
     backgroundColor: theme.color.surface,
+    position: "relative",
   },
+  avatarEdit: { position: "absolute", right: -2, bottom: -2, width: 28, height: 28, borderRadius: 14, backgroundColor: theme.color.pink, borderWidth: 3, borderColor: theme.color.background, alignItems: "center", justifyContent: "center" },
   identityBlock: {
     flex: 1,
     minWidth: 0,
@@ -1098,14 +1034,10 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: "600",
   },
-  statsLine: {
-    marginTop: 18,
-    color: theme.color.textSecondary,
-    fontFamily: theme.type.bodyMedium,
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: "700",
-  },
+  statsRow: { marginTop: 22, flexDirection: "row", borderTopWidth: 1, borderBottomWidth: 1, borderColor: theme.color.border, paddingVertical: 15 },
+  stat: { flex: 1, alignItems: "center", gap: 3 },
+  statValue: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 18 },
+  statLabel: { color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 13 },
   profileChips: {
     marginTop: 16,
     flexDirection: "row",
@@ -1152,9 +1084,9 @@ const styles = StyleSheet.create({
   },
   editProfileButton: {
     marginTop: 20,
-    alignSelf: "flex-start",
+    alignSelf: "stretch",
     minHeight: 46,
-    borderRadius: 999,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "rgba(255,79,145,0.48)",
     backgroundColor: theme.color.surface,
@@ -1184,6 +1116,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: "row",
+    gap: 7,
   },
   tabButtonActive: {
     borderBottomColor: theme.color.pink,
@@ -1299,25 +1233,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
     textAlign: "center",
-  },
-  logoutButton: {
-    marginTop: 28,
-    alignSelf: "center",
-    minHeight: 46,
-    borderRadius: 999,
-    paddingHorizontal: 18,
-    backgroundColor: theme.color.surface,
-    borderWidth: 1,
-    borderColor: theme.color.border,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  logoutText: {
-    color: theme.color.textPrimary,
-    fontFamily: theme.type.bodyBold,
-    fontSize: 15,
-    fontWeight: "800",
   },
   editOverlay: {
     flex: 1,
