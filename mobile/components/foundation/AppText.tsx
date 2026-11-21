@@ -1,5 +1,5 @@
 import { createContext, forwardRef, type ReactNode, useContext } from "react";
-import { type StyleProp, type TextInputProps, type TextProps, type TextStyle, StyleSheet, Text, TextInput, useWindowDimensions } from "react-native";
+import { type StyleProp, type TextInputProps, type TextProps, type TextStyle, StyleSheet, Alert, Linking, Text, TextInput, View, useWindowDimensions } from "react-native";
 
 import { backyrdTheme as theme, useBackyrdTheme, useSFPro } from "../../theme/backyrd";
 
@@ -66,3 +66,24 @@ export const ProductTextInput = forwardRef<TextInput, TextInputProps>(function P
   const { color } = useBackyrdTheme();
   return <TextInput ref={ref} {...props} placeholderTextColor={placeholderTextColor ?? color.textMuted} maxFontSizeMultiplier={maxFontSizeMultiplier ?? 2} style={[{ color: color.textPrimary }, style, { fontFamily: homeSFPro ? "System" : theme.type.body }]} />;
 });
+
+/** Typography only. Legal text is neither summarised nor sent back as modified content. */
+export function DocumentBody({ text }: { text: string }) {
+  let inCode = false;
+  return <View style={documentStyles.body}>{text.replace(/\r\n/g, "\n").split("\n").map((line, index) => {
+    const code = inCode || /^\s*(```|~~~)/.test(line);
+    if (/^\s*(```|~~~)/.test(line)) inCode = !inCode;
+    const heading = !code && /^(#{1,6})\s+(.+)$/.exec(line);
+    const bullet = !code && /^(\s*)([-*+]\s+)(.+)$/.exec(line);
+    const value = heading ? heading[2] : bullet ? `• ${bullet[3]}` : line;
+    if (!value.trim()) return <View key={index} style={documentStyles.space} />;
+    return <AppText key={index} selectable accessibilityRole={heading ? "header" : undefined} role={heading ? "cardTitle" : "body"} style={[documentStyles.line, heading && documentStyles.heading, bullet && { paddingLeft: 12 + bullet[1].length * 4 }]}>
+      {(code ? [value] : value.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g)).map((part, span) => {
+        if (!code && part.startsWith("**") && part.endsWith("**")) return <AppText key={span} role="bodyStrong" style={documentStyles.strong}>{part.slice(2, -2)}</AppText>;
+        const link = !code && /^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/.exec(part);
+        return link ? <AppText key={span} role="body" tone="pink" style={documentStyles.link} accessibilityRole="link" accessibilityLabel={`${link[1]}: ${link[2]}`} onPress={() => { void Linking.openURL(link[2]).catch(() => Alert.alert("Link nicht geöffnet", "Bitte versuche es erneut oder kopiere die Adresse aus dem Dokument.")); }}>{link[1]} ({link[2]})</AppText> : part;
+      })}
+    </AppText>;
+  })}</View>;
+}
+const documentStyles = StyleSheet.create({ body: { gap: 4 }, space: { height: 8 }, line: { color: theme.color.textPrimary, lineHeight: 25 }, strong: { color: theme.color.textPrimary }, link: { color: theme.color.pink }, heading: { marginTop: 16, marginBottom: 8, lineHeight: 28 } });

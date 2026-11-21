@@ -1,3 +1,4 @@
+import { ScreenHeader } from "@/components/foundation/Screen";
 import { backyrdTheme } from "../theme/backyrd";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack,useRouter } from "expo-router";
@@ -44,10 +45,7 @@ export default function SafetyNotifications(){
  }
 
  return <View style={st.root}><Stack.Screen options={{headerShown:false}}/>
-  <View style={[st.header,{paddingTop:insets.top+10}]}>
-   <Pressable accessibilityRole="button" accessibilityLabel="Zurück zu Sicherheit und Support" onPress={()=>router.back()} style={st.back}><Ionicons accessibilityElementsHidden name="chevron-back" size={22} color={backyrdTheme.color.textPrimary}/></Pressable>
-   <View><Text style={st.eyebrow}>SICHERHEIT & SUPPORT</Text><Text style={st.title}>Mitteilungen</Text></View>
-  </View>
+  <View style={{paddingTop:insets.top}}><ScreenHeader title="Mitteilungen" eyebrow="Sicherheit & Support" subtitle="Wichtige Informationen zu deinem Konto und deinen Inhalten." backLabel="Zurück zu Sicherheit und Support" onBack={() => router.canGoBack() ? router.back() : router.replace("/settings")}/></View>
   {loading?<StateView kind="loading" title="Mitteilungen werden geladen"/>:
   <ScrollView contentContainerStyle={[st.content,{paddingBottom:insets.bottom+40}]}
    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={()=>void load(true)} tintColor={backyrdTheme.color.pink}/>}>
@@ -69,10 +67,7 @@ export default function SafetyNotifications(){
  </View>;
 }
 const st=StyleSheet.create({
- root:{flex:1,backgroundColor:backyrdTheme.color.background},header:{paddingHorizontal:18,paddingBottom:16,flexDirection:"row",gap:12,alignItems:"center"},
- back:{width:44,height:44,borderRadius:22,alignItems:"center",justifyContent:"center",backgroundColor:backyrdTheme.color.surfaceElevated},
- eyebrow:{color:backyrdTheme.color.pink,fontSize:11,fontWeight:"900",letterSpacing:1.2},title:{color:backyrdTheme.color.textPrimary,fontSize:28,fontWeight:"900"},
- center:{flex:1,alignItems:"center",justifyContent:"center"},content:{padding:18,gap:12},
+ root:{flex:1,backgroundColor:backyrdTheme.color.background},content:{padding:18,gap:12},
  status:{padding:17,borderRadius:18,flexDirection:"row",gap:12,backgroundColor:"rgba(255,186,98,.08)"},
  muted:{color:backyrdTheme.color.textSecondary,lineHeight:21},
  card:{padding:17,borderRadius:18,flexDirection:"row",gap:13,backgroundColor:backyrdTheme.color.surface,borderWidth:1,borderColor:backyrdTheme.color.border},

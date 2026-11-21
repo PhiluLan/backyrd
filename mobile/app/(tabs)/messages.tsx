@@ -1,9 +1,11 @@
+import { SafeAreaView } from "react-native-safe-area-context";
+import { ScreenHeader } from "@/components/foundation/Screen";
 // mobile/app/(tabs)/messages.tsx
 import React, {
   useCallback,
   useState,
 } from "react";
-import { FlatList, Pressable, RefreshControl, SafeAreaView, StyleSheet, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 import { ProductText as Text } from "../../components/foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -172,21 +174,7 @@ export default function MessagesScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.kicker}>BACKYRD</Text>
-          <Text style={styles.title}>Nachrichten</Text>
-        </View>
-
-        <Pressable
-          accessibilityRole="button"
-          style={styles.headerIcon}
-          onPress={() => router.push("/users/search?mode=message" as any)}
-          accessibilityLabel="Neuen Chat starten"
-        >
-          <Ionicons accessibilityElementsHidden name="person-add-outline" size={22} color={backyrdTheme.color.textPrimary} />
-        </Pressable>
-      </View>
+      <ScreenHeader title="Nachrichten" eyebrow="Dein Backyrd" subtitle="Hier findest du deine Gespräche." onBack={() => router.canGoBack() ? router.back() : router.replace("/profile")} action={<Pressable accessibilityRole="button" accessibilityLabel="Neuen Chat starten" onPress={() => router.push("/users/search?mode=message")} style={styles.headerIcon}><Ionicons accessibilityElementsHidden name="person-add-outline" size={22} color={backyrdTheme.color.textPrimary} /></Pressable>} />
 
       {errorText ? (
         <View style={styles.center}>
@@ -307,26 +295,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: backyrdTheme.color.background,
   },
-  header: {
-    paddingHorizontal: backyrdTheme.layout.pageGutter,
-    paddingTop: 18,
-    paddingBottom: 18,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  kicker: {
-    color: backyrdTheme.color.pink,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 2,
-    marginBottom: 4,
-  },
-  title: {
-    color: backyrdTheme.color.textPrimary,
-    ...backyrdTheme.typeScale.screenTitle,
-    fontWeight: "800",
-  },
   headerIcon: {
     width: 44,
     height: 44,
@@ -403,40 +371,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     alignItems: "center",
     justifyContent: "center",
-  },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "rgba(255,107,158,0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 18,
-  },
-  stateTitle: {
-    color: backyrdTheme.color.textPrimary,
-    fontSize: 20,
-    fontWeight: "800",
-    textAlign: "center",
-    marginTop: 14,
-  },
-  stateText: {
-    color: backyrdTheme.color.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: "center",
-    marginTop: 8,
-  },
-  retryButton: {
-    marginTop: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderRadius: 999,
-    backgroundColor: backyrdTheme.color.pink,
-  },
-  retryText: {
-    color: backyrdTheme.color.onAccent,
-    fontSize: 14,
-    fontWeight: "900",
   },
 });

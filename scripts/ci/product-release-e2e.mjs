@@ -209,7 +209,10 @@ try {
       const event = {event_id:"33333333-3333-4333-a333-333333333333",occurrence_id:"44444444-4444-4444-a444-444444444444",source:"MANUAL",source_event_id:"fixture",title:"Open Court Testevent",short_description:"Ein synthetischer abgesagter Termin.",category:"COMMUNITY",categories:["COMMUNITY"],event_status:"CANCELLED",occurrence_status:"CANCELLED",start_at:"2026-10-24T16:00:00Z",end_at:"2026-10-24T18:00:00Z",venue_name:"Testhalle",address_line:"Testgasse 2",city:"Basel",country_code:"CH",latitude:47.56,longitude:7.59,matched_spot_id:null,is_free:true,source_url:"https://example.org/event",ticket_url:"https://example.org/ticket",updated_at:"2026-10-20T10:00:00Z"};
       return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(detail ? event : [])});
     }
-    if (path === "/rest/v1/profiles") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ city: "Bern", first_name: "Lea", display_name: "Lea" }]) });
+    if (path === "/rest/v1/profiles") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ id:subject, city: "Bern", first_name: "Lea", last_name:"Test", username:"lea.test", display_name: "Lea", is_private:false }]) });
+    if (state.accountUtilityUnavailable && ["/rest/v1/rpc/get_my_consent_state_v1","/rest/v1/rpc/get_my_consent_history_v1","/rest/v1/rpc/get_my_legal_documents_overview_v1","/rest/v1/rpc/get_my_data_rights_requests_v1","/rest/v1/safety_account_measures"].includes(path)) return route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({message:"synthetic account read outage"})});
+    if (path === "/rest/v1/rpc/get_my_consent_state_v1") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(["personalized_recommendations","optional_product_analytics","precise_location","push_notifications","marketing_messages","photo_ai_processing","model_improvement"].map(purpose_key=>({purpose_key,title_de:"fixture optional purpose",description_de:"fixture description",category:"optional",legal_basis:"consent",requires_consent:true,is_required:false,current_status:"not_set",granted_at:null,withdrawn_at:null,document_id:null,document_version:null,document_title:null})))});
+    if (path === "/rest/v1/rpc/get_my_legal_documents_overview_v1") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify([{document_id:"77777777-7777-4777-a777-777777777777",document_type:"privacy",version:"fixture-1",locale:"de-CH",title:"Test-Datenschutzhinweis",summary:"Synthetischer Hinweis für den Darstellungstest.",content_markdown:"# Deine Daten\n\nDieser **Testtext** bleibt vollständig erhalten.\n- Deine erste Information\n- Deine zweite Information",content_hash:"synthetic-only",requires_acceptance:true,accepted:true,accepted_at:new Date().toISOString(),effective_at:new Date().toISOString()}])});
     if (path === "/functions/v1/decision-v13") {
       assert.match(request.headers().authorization ?? "", /^Bearer\s+\S+$/);
       if (state.unavailable) return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "DECISION_UNAVAILABLE" } }) });
@@ -684,9 +687,19 @@ try {
     ["/settings/privacy", "Sichtbarkeit"],
     ["/profile/history", "Deine Entdeckungen"],
     ["/safety-notifications", "Mitteilungen"],
+    ["/privacy-consent", "Datenschutz"],
+    ["/privacy-consents", "Deine Freigaben"],
+    ["/privacy-history", "Deine Entscheidungen"],
+    ["/privacy-legal-documents", "Dokumente"],
+    ["/privacy-data-rights", "Meine Daten"],
+    ["/safety-center", "Sicherheit & Support"],
+    ["/safety/account-status", "Dein Konto-Status"],
+    ["/users/search", "Leute entdecken"],
+    ["/messages", "Nachrichten"],
+    ["/achievements", "Deine Erfolge"],
   ]) {
     await page.goto(`${appUrl}${path}`, {waitUntil:"domcontentloaded"});
-    const heading = page.getByText(title, {exact:true});
+    const heading = page.getByRole("heading", {name:title,exact:true});
     await heading.waitFor();
     await page.getByTestId("startup-splash").waitFor({state:"hidden"});
     for (const width of [320, 430]) {
@@ -703,6 +716,8 @@ try {
           }
           return false;
         }, expected);
+        const headingColor = mode === "light" ? "rgb(25, 25, 28)" : "rgb(246, 240, 232)";
+        await page.waitForFunction(({title,color}) => [...document.querySelectorAll('[role="heading"]')].some(node => node.textContent === title && getComputedStyle(node).color === color), {title,color:headingColor});
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth),0,`${path}: no horizontal overflow`);
         const metrics = await heading.evaluate(node => {
           const style = getComputedStyle(node);
@@ -719,6 +734,44 @@ try {
   }
   await page.setViewportSize({width:390,height:844});
   await page.emulateMedia({colorScheme:"dark"});
+  await page.goto(`${appUrl}/profile`,{waitUntil:"domcontentloaded"});
+  await page.getByRole("button",{name:"Profil bearbeiten",exact:true}).click();
+  const publicName = page.getByRole("textbox",{name:"Öffentlicher Name",exact:true});
+  await publicName.waitFor();
+  assert.equal(await publicName.inputValue(),"Lea");
+  for(const field of ["Vorname","Nachname","Benutzername","Deine Stadt","Local seit","Über dich","Deine Interessen","Deine Moods","Instagram","Website"]){
+    assert.equal(await page.getByRole("textbox",{name:field,exact:true}).count(),1,`persistent labelled profile field: ${field}`);
+  }
+  await publicName.fill("Lea mit neuem Namen");
+  page.once("dialog",dialog=>dialog.dismiss());
+  await page.getByRole("button",{name:"Profilbearbeitung schliessen",exact:true}).click();
+  assert.equal(await publicName.inputValue(),"Lea mit neuem Namen","cancelled discard preserves edits");
+  page.once("dialog",dialog=>dialog.accept());
+  await page.getByRole("button",{name:"Profilbearbeitung schliessen",exact:true}).click();
+  await publicName.waitFor({state:"hidden"});
+  await page.goto(`${appUrl}/privacy-legal-documents`,{waitUntil:"domcontentloaded"});
+  await page.getByRole("button",{name:"Test-Datenschutzhinweis, Version fixture-1",exact:true}).click();
+  await page.getByRole("heading",{name:"Deine Daten",exact:true}).waitFor();
+  assert.equal(await page.getByText("Testtext",{exact:true}).count(),1,"document emphasis keeps its exact words");
+  assert.equal(await page.getByText("• Deine erste Information",{exact:true}).count(),1,"document list keeps its exact text");
+  assert.equal(await page.getByText("# Deine Daten",{exact:true}).count(),0,"document headings render without raw Markdown syntax");
+  state.accountUtilityUnavailable = true;
+  for(const [path,errorTitle,retryLabel,loadingTitle] of [
+    ["/privacy-consents","Einwilligungen nicht verfügbar","Noch einmal","Einwilligungen werden geladen"],
+    ["/privacy-history","Verlauf nicht verfügbar","Noch einmal","Verlauf wird geladen"],
+    ["/privacy-legal-documents","Dokumente nicht verfügbar","Noch einmal","Dokumente werden geladen"],
+    ["/privacy-data-rights","Meine Daten nicht geladen","Noch einmal versuchen","Deine Daten werden geladen"],
+    ["/safety/account-status","Konto-Status nicht verfügbar","Erneut versuchen","Account-Status wird geladen"],
+  ]) {
+    state.accountUtilityUnavailable = true;
+    await page.goto(`${appUrl}${path}`,{waitUntil:"domcontentloaded"});
+    await page.getByText(errorTitle,{exact:true}).waitFor();
+    if(path==="/safety/account-status")assert.equal(await page.getByText("Keine Einträge im Verlauf",{exact:true}).count(),0,"a failed status read never claims an empty enforcement history");
+    state.accountUtilityUnavailable = false;
+    await page.getByRole("button",{name:retryLabel,exact:true}).click();
+    await page.getByText(errorTitle,{exact:true}).waitFor({state:"hidden"});
+    await page.getByText(loadingTitle,{exact:true}).waitFor({state:"hidden"});
+  }
   let releaseFeed;
   const heldFeed = new Promise(resolve=>{releaseFeed=resolve;});
   const feedPath = `${endpoint}/rest/v1/rpc/get_social_feed_v2`;

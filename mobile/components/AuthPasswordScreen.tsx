@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../theme/backyrd";
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet } from "react-native";
 import { ProductText as Text } from "./foundation/AppText";
@@ -73,6 +74,6 @@ export function AuthPasswordScreen({ mode }: { mode: "forgot" | "reset" }) {
   );
 }
 const styles = StyleSheet.create({
-  error: { color: "#FFD1DF", marginVertical: 8 }, success: { color: "#8FE3B2", marginVertical: 8 },
-  back: { color: "#A6A8AD", textAlign: "center", fontWeight: "800", marginTop: 22 },
+  error: { color: backyrdTheme.color.danger, marginVertical: 8 }, success: { color: backyrdTheme.color.success, marginVertical: 8 },
+  back: { color: backyrdTheme.color.textSecondary, textAlign: "center", fontWeight: "800", marginTop: 22 },
 });

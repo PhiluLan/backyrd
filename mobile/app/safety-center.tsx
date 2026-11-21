@@ -1,3 +1,5 @@
+import { safetyContentLabel } from "@/lib/safety-presentation";
+import { ScreenHeader } from "@/components/foundation/Screen";
 import { backyrdTheme } from "../theme/backyrd";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
@@ -158,47 +160,7 @@ export default function SafetyCenterScreen() {
     <View style={styles.root}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View
-        style={[
-          styles.header,
-          { paddingTop: insets.top + 10 },
-        ]}
-      >
-        <Pressable
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons
-            name="chevron-back"
-            size={22}
-            color={backyrdTheme.color.textPrimary}
-          />
-        </Pressable>
-
-        <View style={{ flex: 1 }}>
-          <Text style={styles.eyebrow}>
-            SICHERHEIT & VERTRAUEN
-          </Text>
-          <Text style={styles.title}>
-            Sicherheit & Support
-          </Text>
-        </View>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Safety-Mitteilungen öffnen"
-          onPress={() =>
-            router.push("/safety-notifications" as any)
-          }
-          style={styles.notificationButton}
-        >
-          <Ionicons
-            name="notifications-outline"
-            size={22}
-            color={backyrdTheme.color.textPrimary}
-          />
-        </Pressable>
-      </View>
+      <View style={{ paddingTop: insets.top }}><ScreenHeader title="Sicherheit & Support" eyebrow="Dein Backyrd" subtitle="Deine Meldungen, Entscheidungen und Möglichkeiten zum Einspruch." onBack={() => router.canGoBack() ? router.back() : router.replace("/settings")} action={<Pressable accessibilityRole="button" accessibilityLabel="Mitteilungen öffnen" onPress={() => router.push("/safety-notifications")} style={styles.notificationButton}><Ionicons accessibilityElementsHidden name="notifications-outline" size={22} color={backyrdTheme.color.textPrimary} /></Pressable>} /></View>
 
       {loading ? (
         <StateView kind="loading" title="Sicherheit wird geladen" />
@@ -317,7 +279,7 @@ export default function SafetyCenterScreen() {
 
                     <Text style={styles.actionTitle}>
                       {actionLabels[item.final_action] ??
-                        item.final_action}
+                        "Weitere Entscheidung"}
                     </Text>
 
                     <Text style={styles.date}>
@@ -357,7 +319,6 @@ export default function SafetyCenterScreen() {
                       {categoryLabels[
                         item.final_category ?? ""
                       ] ??
-                        item.final_category ??
                         "Nicht angegeben"}
                     </Text>
                   </View>
@@ -394,7 +355,7 @@ export default function SafetyCenterScreen() {
                     <Ionicons
                       name="time-outline"
                       size={19}
-                      color="#FFBA62"
+                      color={backyrdTheme.color.warning}
                     />
                     <Text style={styles.appealNoticeText}>
                       Dein Einspruch wird geprüft.
@@ -472,7 +433,7 @@ export default function SafetyCenterScreen() {
                         <Text style={styles.actionTitle}>
                           {reportReasonLabels[
                             report.report_reason
-                          ] ?? report.report_reason}
+                          ] ?? "Weiterer Meldegrund"}
                         </Text>
                         <Text style={styles.date}>
                           {formatDate(report.created_at)}
@@ -483,7 +444,7 @@ export default function SafetyCenterScreen() {
                         <Text style={styles.statusText}>
                           {reportStatusLabels[
                             report.report_status
-                          ] ?? report.report_status}
+                          ] ?? "Status nicht verfügbar"}
                         </Text>
                       </View>
                     </View>
@@ -504,9 +465,7 @@ export default function SafetyCenterScreen() {
                           Inhalt
                         </Text>
                         <Text style={styles.metaValue}>
-                          {report.content_type === "review"
-                            ? "Moment"
-                            : report.content_type}
+                          {safetyContentLabel(report.content_type)}
                         </Text>
                       </View>
 
@@ -573,15 +532,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: backyrdTheme.color.background,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    paddingHorizontal: 20,
-    paddingBottom: 18,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: backyrdTheme.color.border,
-  },
   notificationButton: {
     width: 44,
     height: 44,
@@ -609,29 +559,6 @@ const styles = StyleSheet.create({
     color: backyrdTheme.color.pink,
     fontSize: 13,
     fontWeight: "800",
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: backyrdTheme.color.surfaceElevated,
-    borderWidth: 1,
-    borderColor: backyrdTheme.color.border,
-  },
-  eyebrow: {
-    color: backyrdTheme.color.pink,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1.1,
-    marginBottom: 4,
-  },
-  title: {
-    color: backyrdTheme.color.textPrimary,
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: "700",
   },
   content: {
     padding: 20,
@@ -686,11 +613,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginBottom: 20,
   },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   card: {
     padding: 17,
     borderRadius: 23,
@@ -705,7 +627,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   cardEyebrow: {
-    color: "#85858E",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
@@ -718,7 +640,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   date: {
-    color: "#85858E",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 12,
     marginTop: 4,
   },
@@ -771,7 +693,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   reasonText: {
-    color: "#B9B9C0",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 13,
     lineHeight: 19,
     marginTop: 5,

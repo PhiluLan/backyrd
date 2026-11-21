@@ -1,8 +1,10 @@
+import { safetyContentLabel, safetyCaseLabel } from "@/lib/safety-presentation";
+import { ScreenHeader } from "@/components/foundation/Screen";
 import { backyrdTheme } from "../../../theme/backyrd";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { ProductText as Text } from "../../../components/foundation/AppText";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -48,8 +50,8 @@ const statusLabels: Record<string, string> = {
   submitted: "Eingereicht",
   attached_to_case: "In Prüfung",
   under_review: "In Prüfung",
-  resolved_actioned: "Maßnahme erfolgt",
-  resolved_no_violation: "Kein Verstoß festgestellt",
+  resolved_actioned: "Massnahme erfolgt",
+  resolved_no_violation: "Kein Verstoss festgestellt",
 };
 
 function formatDate(value: string | null) {
@@ -97,15 +99,7 @@ export default function SafetyReportDetailScreen() {
   return (
     <View style={styles.root}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={22} color={backyrdTheme.color.textPrimary} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.eyebrow}>DEINE MELDUNG</Text>
-          <Text style={styles.title}>Meldungsdetails</Text>
-        </View>
-      </View>
+      <View style={{ paddingTop: insets.top }}><ScreenHeader title="Meldungsdetails" eyebrow="Deine Meldung" subtitle="Was du gemeldet hast und wie es weitergeht." onBack={() => router.canGoBack() ? router.back() : router.replace("/safety-center")} /></View>
 
       {loading ? (
         <StateView kind="loading" title="Meldung wird geladen" />
@@ -120,11 +114,11 @@ export default function SafetyReportDetailScreen() {
               <View style={styles.heroCard}>
                 <Text style={styles.heroEyebrow}>MELDEGRUND</Text>
                 <Text style={styles.heroTitle}>
-                  {reasonLabels[report.report_reason] ?? report.report_reason.replaceAll("_", " ")}
+                  {reasonLabels[report.report_reason] ?? "Weiterer Meldegrund"}
                 </Text>
                 <View style={styles.statusPill}>
                   <Text style={styles.statusText}>
-                    {statusLabels[report.report_status] ?? report.report_status}
+                    {statusLabels[report.report_status] ?? "Status nicht verfügbar"}
                   </Text>
                 </View>
                 <Text style={styles.date}>Eingereicht am {formatDate(report.created_at)}</Text>
@@ -139,13 +133,13 @@ export default function SafetyReportDetailScreen() {
               </Section>
 
               <Section title="Bearbeitungsstand">
-                <Row label="Inhaltstyp" value={report.content_type === "review" ? "Moment / Review" : report.content_type} />
-                <Row label="Fallstatus" value={report.case_status ?? "Noch keinem Fall zugeordnet"} />
+                <Row label="Inhaltstyp" value={safetyContentLabel(report.content_type)} />
+                <Row label="Fallstatus" value={safetyCaseLabel(report.case_status)} />
                 <Row label="Ergebnis" value={
                   report.final_action === "remove" ? "Inhalt entfernt" :
                   report.final_action === "temporary_hide" ? "Inhalt ausgeblendet" :
                   report.final_action === "limit" ? "Inhalt begrenzt" :
-                  report.final_action === "allow" ? "Kein Verstoß" : "Wird geprüft"
+                  report.final_action === "allow" ? "Kein Verstoss" : "Wird geprüft"
                 } />
                 <Row label="Geprüft am" value={formatDate(report.reviewed_at)} />
               </Section>
@@ -159,7 +153,7 @@ export default function SafetyReportDetailScreen() {
               <View style={styles.infoCard}>
                 <Ionicons name="information-circle-outline" size={22} color="#FF4F91" />
                 <Text style={styles.infoText}>
-                  Aus Datenschutzgründen zeigen wir keine Kontomaßnahmen oder persönlichen Details der gemeldeten Person.
+                  Aus Datenschutzgründen zeigen wir keine Kontomassnahmen oder persönlichen Details der gemeldeten Person.
                 </Text>
               </View>
             </>
@@ -180,11 +174,6 @@ function Row({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: backyrdTheme.color.background },
-  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingBottom: 18, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: backyrdTheme.color.border },
-  backButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: backyrdTheme.color.surfaceElevated, borderWidth: 1, borderColor: backyrdTheme.color.border },
-  eyebrow: { color: "#FF4F91", fontSize: 10, fontWeight: "800", letterSpacing: 1.1 },
-  title: { color: backyrdTheme.color.textPrimary, fontSize: 25, fontWeight: "800", marginTop: 4 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { padding: 20, gap: 14 },
   errorCard: { padding: 16, borderRadius: 16, backgroundColor: "rgba(255,82,82,0.10)" },
   errorText: { color: "#FF9C9C" },

@@ -1,6 +1,8 @@
+import { SafeAreaView } from "react-native-safe-area-context";
+import { ScreenHeader } from "@/components/foundation/Screen";
 import { backyrdTheme } from "../../theme/backyrd";
 import React, { useCallback, useEffect, useState, useRef } from "react";
-import { ActivityIndicator, Alert, FlatList, Pressable, SafeAreaView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from "react-native";
 import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -121,31 +123,23 @@ export default function UserSearchScreen() {
   }
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Zurück" style={styles.iconButton} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
-        </Pressable>
-        <View style={styles.headerCopy}>
-          <Text style={styles.kicker}>BACKYRD MENSCHEN</Text>
-          <Text style={styles.title}>{forMessage ? "Neue Nachricht" : "Leute entdecken"}</Text>
-        </View>
-      </View>
+      <ScreenHeader title={forMessage ? "Neue Nachricht" : "Leute entdecken"} eyebrow="Dein Backyrd" subtitle="Finde Menschen über ihren Namen oder Benutzernamen." onBack={() => router.canGoBack() ? router.back() : router.replace("/profile")} />
 
       <View style={styles.searchBox}>
-        <Ionicons name="search" size={21} color="#8E8E96" />
+        <Ionicons name="search" size={21} color={backyrdTheme.color.textSecondary} />
         <TextInput
           accessibilityLabel="Menschen suchen"
           autoFocus
           value={query}
           onChangeText={setQuery}
-          placeholder="Name oder @username"
-          placeholderTextColor="#777780"
+          placeholder="Name oder @benutzername"
+          placeholderTextColor={backyrdTheme.color.textSecondary}
           style={styles.input}
           autoCapitalize="none"
         />
         {query.length > 0 ? (
           <Pressable accessibilityRole="button" accessibilityLabel="Suche löschen" onPress={() => setQuery("")}>
-            <Ionicons name="close-circle" size={20} color="#777780" />
+            <Ionicons name="close-circle" size={20} color={backyrdTheme.color.textSecondary} />
           </Pressable>
         ) : null}
       </View>
@@ -159,7 +153,7 @@ export default function UserSearchScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="people-outline" size={42} color="#4D4D55" />
+              <Ionicons name="people-outline" size={42} color={backyrdTheme.color.textSecondary} />
               <Text style={styles.emptyTitle}>
                 {query.trim().length < 2
                   ? "Finde Menschen auf Backyrd"
@@ -227,37 +221,6 @@ export default function UserSearchScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: backyrdTheme.color.background },
-  header: {
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: backyrdTheme.color.surface,
-    borderWidth: 1,
-    borderColor: backyrdTheme.color.border,
-  },
-  headerCopy: { flex: 1 },
-  kicker: {
-    color: backyrdTheme.color.pink,
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 2.2,
-  },
-  title: {
-    marginTop: 2,
-    color: backyrdTheme.color.textPrimary,
-    fontSize: 28,
-    fontWeight: "900",
-    letterSpacing: -0.5,
-  },
   searchBox: {
     margin: 18,
     height: 56,

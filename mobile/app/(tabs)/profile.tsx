@@ -13,10 +13,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  type StyleProp,
+  type ViewStyle,
   useColorScheme,
   View,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -34,7 +36,7 @@ import { selectSpotImageUrl } from "@/lib/spot-images";
 import Avatar from "@/components/Avatar";
 import { StateView } from "@/components/foundation/StateView";
 import { ProductText as Text, ProductTextInput as TextInput } from "@/components/foundation/AppText";
-import { backyrdTheme as theme, useBackyrdTheme } from "@/theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme, usesFixedDarkAppearance } from "@/theme/backyrd";
 import type { User } from "@supabase/supabase-js";
 import { isMissingAuthSession } from "../../../packages/shared/src/auth-errors";
 import { isAccountUsername, profilePhotoObjectKey } from "../../../packages/shared/src/account-entry";
@@ -228,8 +230,10 @@ function getSpotPhoto(item: FavoriteRow) {
 
 export default function ProfileScreen() {
   const { color } = useBackyrdTheme();
-  const isLight = useColorScheme() === "light";
+  const scheme = useColorScheme();
+  const isLight = !usesFixedDarkAppearance && scheme === "light";
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -246,13 +250,15 @@ export default function ProfileScreen() {
   const [profileLoadFailed, setProfileLoadFailed] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
 
+  const [postsFailed, setPostsFailed] = useState(false);
+  const [badgesFailed, setBadgesFailed] = useState(false);
   const [posts, setPosts] = useState<SocialFeedPost[]>([]);
   const [favoritesFailed, setFavoritesFailed] = useState(false);
   const [favorites, setFavorites] = useState<FavoriteRow[]>([]);
   const [badges, setBadges] = useState<BadgeRow[]>([]);
 
-  const [followersCount, setFollowersCount] = useState(0);
-  const [followingCount, setFollowingCount] = useState(0);
+  const [followersCount, setFollowersCount] = useState<number | null>(null);
+  const [followingCount, setFollowingCount] = useState<number | null>(null);
 
   const [tab, setTab] = useState<ProfileTab>("posts");
   const profileSavePending = useRef(false);
@@ -284,11 +290,11 @@ export default function ProfileScreen() {
   const loadForUser = useCallback(
     async (currentUser: User | null) => {
       const request = ++profileRequest.current;
-      setProfileLoadFailed(false); setFavoritesFailed(false);
+      setProfileLoadFailed(false); setFavoritesFailed(false); setPostsFailed(false); setBadgesFailed(false);
       if (profileOwner.current !== (currentUser?.id ?? null)) {
         profileOwner.current = currentUser?.id ?? null;
         setDraft(null); setShowEdit(false); setProfile(null);
-        setPosts([]); setFavorites([]); setBadges([]); setFollowersCount(0); setFollowingCount(0);
+        setPosts([]); setFavorites([]); setBadges([]); setFollowersCount(null); setFollowingCount(null);
       }
       setUser(currentUser);
 
@@ -297,8 +303,8 @@ export default function ProfileScreen() {
         setPosts([]);
         setFavorites([]);
         setBadges([]);
-        setFollowersCount(0);
-        setFollowingCount(0);
+        setFollowersCount(null);
+        setFollowingCount(null);
         router.replace("/gate" as any);
         return;
       }
@@ -347,7 +353,8 @@ export default function ProfileScreen() {
 
         if (request !== profileRequest.current) return;
         if (profileRes.error || !profileRes.data) throw profileRes.error ?? new Error("profile_missing");
-        if (feedRes.error) console.log("profile posts load failed", feedRes.error);
+        if (feedRes.error) setPostsFailed(true);
+        if (badgesRes.error) setBadgesFailed(true);
         if (favoritesRes.error) setFavoritesFailed(true);
         if (badgesRes.error) console.log("badges load failed", badgesRes.error);
         if (followerRes.error) console.log("followers count failed", followerRes.error);
@@ -368,8 +375,8 @@ export default function ProfileScreen() {
 
         if (!favoritesRes.error) setFavorites((favoritesRes.data ?? []) as FavoriteRow[]);
         setBadges((badgesRes.data ?? []) as BadgeRow[]);
-        setFollowersCount(followerRes.count ?? 0);
-        setFollowingCount(followingRes.count ?? 0);
+        setFollowersCount(followerRes.error ? null : followerRes.count);
+        setFollowingCount(followingRes.error ? null : followingRes.count);
       } catch {
         if (request === profileRequest.current) setProfileLoadFailed(true);
       } finally {
@@ -460,6 +467,10 @@ export default function ProfileScreen() {
     if (profileSavePending.current || avatarPending.current) return;
     const discard = () => { setDraft(null); setShowEdit(false); };
     if (draft && profile && Object.keys(draft).some((key) => draft[key as keyof ProfileRow] !== { ...profile, display_name: profileName(profile) }[key as keyof ProfileRow])) {
+      if (Platform.OS === "web") {
+        if (window.confirm("Änderungen verwerfen? Deine Änderungen sind noch nicht gespeichert.")) discard();
+        return;
+      }
       Alert.alert("Änderungen verwerfen?", "Deine Änderungen sind noch nicht gespeichert.", [
         { text: "Weiter bearbeiten", style: "cancel" }, { text: "Verwerfen", style: "destructive", onPress: discard },
       ]);
@@ -617,10 +628,10 @@ export default function ProfileScreen() {
           useNativeDriver: false,
         })}
         scrollEventThrottle={16}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
       >
         <View style={styles.topActions}>
-          <Text style={styles.topActionsTitle}>Mein backyrd</Text>
+          <View style={styles.profileNavigation}><Pressable accessibilityRole="button" accessibilityLabel="Zurück zu Entdecken" onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)")} style={styles.circleButton}><Ionicons accessibilityElementsHidden name="chevron-back" size={22} color={color.textPrimary} /></Pressable><Text style={styles.topActionsTitle}>Mein Backyrd</Text></View>
 
           <Pressable
             accessibilityLabel="Einstellungen öffnen"
@@ -643,11 +654,11 @@ export default function ProfileScreen() {
             </Pressable>
 
             <View style={styles.identityBlock}>
-              <Text style={styles.displayName} numberOfLines={1}>
+              <Text style={styles.displayName}>
                 {displayName}
               </Text>
-              <Text style={styles.handleText} numberOfLines={1}>
-                {profile?.username ? `@${profile.username} · ` : ""}{profile?.city || "Basel"}
+              <Text style={styles.handleText}>
+                {[profile?.username ? `@${profile.username}` : null, profile?.city].filter(Boolean).join(" · ")}
               </Text>
             </View>
           </View>
@@ -655,7 +666,7 @@ export default function ProfileScreen() {
           {!!profile?.bio && <Text style={styles.bioText}>{profile.bio}</Text>}
 
           <Text style={styles.statsLine}>
-            {posts.length} Momente · {followersCount} Follower · {followingCount} folgt
+            {postsFailed ? "–" : posts.length} Momente · {followersCount ?? "–"} Follower · {followingCount ?? "–"} folgt
           </Text>
 
           <View style={styles.profileChips}>
@@ -728,9 +739,9 @@ export default function ProfileScreen() {
           <View style={styles.contentArea}>
             {tab === "posts" && (
               <>
-                {posts.length === 0 ? (
+                {postsFailed ? <StateView kind="error" title="Momente nicht geladen" message="Deine Momente konnten gerade nicht geladen werden." actionLabel="Erneut versuchen" onAction={() => void loadForUser(user)} /> : posts.length === 0 ? (
                   <View style={styles.emptyState}>
-                    <Ionicons name="albums-outline" size={34} color="rgba(255,255,255,0.42)" />
+                    <Ionicons name="albums-outline" size={34} color={color.textSecondary} />
                     <Text style={styles.emptyTitle}>Noch keine Momente</Text>
                     <Text style={styles.emptyText}>Deine Momente erscheinen hier.</Text>
                   </View>
@@ -756,7 +767,7 @@ export default function ProfileScreen() {
                 <Text style={styles.emptyTitle}>Gespeicherte Orte</Text>
                 {favoritesFailed ? <StateView kind="error" title="Gespeicherte Orte nicht geladen" actionLabel="Erneut versuchen" onAction={() => void loadForUser(user)} /> : favorites.length === 0 ? (
                   <View style={styles.emptyState}>
-                    <Ionicons name="bookmark-outline" size={34} color="rgba(255,255,255,0.42)" />
+                    <Ionicons name="bookmark-outline" size={34} color={color.textSecondary} />
                     <Text style={styles.emptyTitle}>Noch keine Orte gespeichert</Text>
                     <Text style={styles.emptyText}>Hier findest du deine gespeicherten Orte.</Text>
                   </View>
@@ -787,11 +798,11 @@ export default function ProfileScreen() {
 
             {tab === "badges" && (
               <>
-                {badges.length === 0 ? (
+                {badgesFailed ? <StateView kind="error" title="Erfolge nicht geladen" actionLabel="Erneut versuchen" onAction={() => void loadForUser(user)} /> : badges.length === 0 ? (
                   <View style={styles.emptyState}>
-                    <Ionicons name="trophy-outline" size={34} color="rgba(255,255,255,0.42)" />
-                    <Text style={styles.emptyTitle}>Noch keine Badges</Text>
-                    <Text style={styles.emptyText}>Deine Erfolge erscheinen hier, wenn du backyrd nutzt.</Text>
+                    <Ionicons name="trophy-outline" size={34} color={color.textSecondary} />
+                    <Text style={styles.emptyTitle}>Noch keine Erfolge</Text>
+                    <Text style={styles.emptyText}>Hier erscheinen die Erfolge, die du auf Backyrd freigeschaltet hast.</Text>
                   </View>
                 ) : (
                   <View style={styles.badgeGrid}>
@@ -804,7 +815,7 @@ export default function ProfileScreen() {
                             <Ionicons name="trophy-outline" size={24} color="#FFFFFF" />
                           </View>
                         )}
-                        <Text style={styles.badgeName}>{badge.achievements?.name ?? "Badge"}</Text>
+                        <Text style={styles.badgeName}>{badge.achievements?.name ?? "Erfolg"}</Text>
                       </View>
                     ))}
                   </View>
@@ -862,35 +873,35 @@ export default function ProfileScreen() {
 
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.editContent}>
 
-                <Pressable onPress={pickImageAndUploadAvatar} disabled={saving || avatarSaving} style={styles.editAvatarWrap}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Profilfoto ändern" onPress={pickImageAndUploadAvatar} disabled={saving || avatarSaving} style={styles.editAvatarWrap}>
                   <Avatar uri={avatarImage} name={displayName} size={110} />
                   <View style={styles.editAvatarIcon}>
-                    <Ionicons name="camera-outline" size={18} color="#FFFFFF" />
+                    <Ionicons name="camera-outline" size={18} color={theme.color.textPrimary} />
                   </View>
                 </Pressable>
 
-                <Text accessibilityLiveRegion="polite" style={styles.fieldLabel}>{avatarSaving ? "Profilfoto wird gespeichert …" : "Ein neues Profilfoto wird sofort gespeichert."}</Text>
-                <FieldLabel label="Öffentlicher Name" />
-                <ProfileInput editable={!saving} accessibilityLabel="Öffentlicher Name" value={draft?.display_name ?? ""} maxLength={60} onChangeText={(text) => setDraft((current) => current ? { ...current, display_name: text } : current)} placeholder="Dein Name auf Backyrd" autoComplete="nickname" />
+                <Text accessibilityLiveRegion="polite" style={styles.fieldHint}>{avatarSaving ? "Profilfoto wird gespeichert …" : "Ein neues Profilfoto wird sofort gespeichert."}</Text>
+                <FieldLabel label="So zeigst du dich" />
+                <ProfileInput label="Öffentlicher Name" editable={!saving} accessibilityLabel="Öffentlicher Name" value={draft?.display_name ?? ""} maxLength={60} onChangeText={(text) => setDraft((current) => current ? { ...current, display_name: text } : current)} placeholder="Dein Name auf Backyrd" autoComplete="nickname" />
                 <FieldLabel label="Kontodaten" />
                 <View style={styles.inputRow}>
-                  <ProfileInput
+                  <ProfileInput label="Vorname"
                     editable={!saving}
                     value={draft?.first_name ?? ""}
                     onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), first_name: text }))}
                     placeholder="Vorname"
-                    style={{ flex: 1 }}
+                    containerStyle={{ flex: 1 }}
                   />
-                  <ProfileInput
+                  <ProfileInput label="Nachname"
                     editable={!saving}
                     value={draft?.last_name ?? ""}
                     onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), last_name: text }))}
                     placeholder="Nachname"
-                    style={{ flex: 1 }}
+                    containerStyle={{ flex: 1 }}
                   />
                 </View>
 
-                <ProfileInput
+                <ProfileInput label="Benutzername"
                   editable={!saving}
                   value={draft?.username ?? ""}
                   onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), username: text }))}
@@ -898,20 +909,20 @@ export default function ProfileScreen() {
                   autoCapitalize="none"
                 />
 
-                <FieldLabel label="Ort & Bio" />
-                <ProfileInput
+                <FieldLabel label="Dein Zuhause & du" />
+                <ProfileInput label="Deine Stadt"
                   editable={!saving}
                   value={draft?.city ?? ""}
                   onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), city: text }))}
                   placeholder="Stadt"
                 />
-                <ProfileInput
+                <ProfileInput label="Local seit"
                   editable={!saving}
                   value={draft?.since_date ?? ""}
                   onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), since_date: text }))}
-                  placeholder="Seit wann kennst du deine Stadt? (JJJJ-MM-TT)"
+                  placeholder="2020-01-01" hint="Seit wann bist du hier zu Hause? Datum als Jahr-Monat-Tag, zum Beispiel 2020-01-01."
                 />
-                <ProfileInput
+                <ProfileInput label="Über dich"
                   editable={!saving}
                   value={draft?.bio ?? ""}
                   onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), bio: text }))}
@@ -921,28 +932,28 @@ export default function ProfileScreen() {
                 />
 
                 <FieldLabel label="Vorlieben" />
-                <ProfileInput
+                <ProfileInput label="Deine Interessen"
                   editable={!saving}
                   value={draft?.interests ?? ""}
                   onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), interests: text }))}
-                  placeholder="Interessen, kommagetrennt"
+                  placeholder="Zum Beispiel Kaffee, Kultur, Wandern" hint="Trenne mehrere Interessen mit einem Komma."
                 />
-                <ProfileInput
+                <ProfileInput label="Deine Moods"
                   editable={!saving}
                   value={draft?.personality ?? ""}
                   onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), personality: text }))}
-                  placeholder="Stimmungen, kommagetrennt"
+                  placeholder="Zum Beispiel gemütlich, lebendig" hint="Welche Atmosphäre magst du? Trenne mehrere Moods mit einem Komma."
                 />
 
-                <FieldLabel label="Social" />
-                <ProfileInput
+                <FieldLabel label="Deine Links" />
+                <ProfileInput label="Instagram"
                   editable={!saving}
                   value={draft?.instagram ?? ""}
                   onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), instagram: text }))}
                   placeholder="Instagram ohne @"
                   autoCapitalize="none"
                 />
-                <ProfileInput
+                <ProfileInput label="Website"
                   editable={!saving}
                   value={draft?.website ?? ""}
                   onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), website: text }))}
@@ -950,11 +961,11 @@ export default function ProfileScreen() {
                   autoCapitalize="none"
                 />
 
-                <Pressable style={styles.saveButton} onPress={saveProfile} disabled={saving || avatarSaving}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Profil speichern" accessibilityState={{ busy: saving, disabled: saving || avatarSaving }} style={styles.saveButton} onPress={saveProfile} disabled={saving || avatarSaving}>
                   <Text style={styles.saveButtonText}>{saving ? "Speichern..." : "Speichern"}</Text>
                 </Pressable>
 
-                <Pressable style={styles.cancelButton} disabled={saving || avatarSaving} onPress={closeProfileEditor}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Profilbearbeitung abbrechen" style={styles.cancelButton} disabled={saving || avatarSaving} onPress={closeProfileEditor}>
                   <Text style={styles.cancelText}>Abbrechen</Text>
                 </Pressable>
               </ScrollView>
@@ -979,17 +990,12 @@ function FieldLabel({ label }: { label: string }) {
   return <Text style={styles.fieldLabel}>{label}</Text>;
 }
 
-function ProfileInput({
-  style,
-  ...props
-}: React.ComponentProps<typeof TextInput>) {
-  return (
-    <TextInput
-      {...props}
-      placeholderTextColor={theme.color.textSecondary}
-      style={[styles.input, style]}
-    />
-  );
+function ProfileInput({ label, hint, containerStyle, style, ...props }: React.ComponentProps<typeof TextInput> & { label: string; hint?: string; containerStyle?: StyleProp<ViewStyle> }) {
+  return <View style={[styles.field, containerStyle]}>
+    <Text style={styles.inputLabel}>{label}</Text>
+    <TextInput {...props} accessibilityLabel={props.accessibilityLabel ?? label} accessibilityHint={hint} placeholderTextColor={theme.color.textSecondary} style={[styles.input, style]} />
+    {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
+  </View>;
 }
 
 const styles = StyleSheet.create({
@@ -1003,11 +1009,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
-  },
-  mutedText: {
-    color: theme.color.textSecondary,
-    fontSize: 15,
-    fontWeight: "600",
   },
   headerBackdrop: {
     position: "absolute",
@@ -1026,6 +1027,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.xl,
     paddingBottom: 148,
   },
+  profileNavigation: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  field: { marginBottom: 16, gap: 7 },
+  inputLabel: { color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 20 },
+  fieldHint: { color: theme.color.textSecondary, fontSize: 13, lineHeight: 20, marginBottom: 8 },
   topActions: {
     marginBottom: theme.spacing.xxl,
     flexDirection: "row",
@@ -1068,12 +1073,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,79,145,0.55)",
     padding: 3,
     backgroundColor: theme.color.surface,
-  },
-  avatar: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 45,
-    backgroundColor: theme.color.surfaceElevated,
   },
   identityBlock: {
     flex: 1,
@@ -1170,83 +1169,6 @@ const styles = StyleSheet.create({
     fontFamily: theme.type.bodyBold,
     fontSize: 15,
     fontWeight: "800",
-  },
-  historyButton: {
-    marginTop: 16,
-    minHeight: 64,
-    borderRadius: 26,
-    backgroundColor: theme.color.surface,
-    borderWidth: 1,
-    borderColor: theme.color.border,
-    paddingHorizontal: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  historyLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 13,
-  },
-  historyText: {
-    color: theme.color.textPrimary,
-    fontSize: 19,
-    fontWeight: "800",
-  },
-  safetySection: {
-    marginTop: 22,
-  },
-  safetySectionEyebrow: {
-    marginLeft: 4,
-    marginBottom: 10,
-    color: "#777780",
-    fontSize: theme.typeScale.label.fontSize,
-    lineHeight: theme.typeScale.label.lineHeight,
-    fontWeight: "900",
-    letterSpacing: 1.15,
-  },
-  safetyCenterButton: {
-    minHeight: 82,
-    borderRadius: 26,
-    backgroundColor: theme.color.surface,
-    borderWidth: 1,
-    borderColor: theme.color.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-  safetyCenterButtonPressed: {
-    opacity: 0.76,
-    transform: [{ scale: 0.992 }],
-  },
-  safetyCenterIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,125,167,0.10)",
-    borderWidth: 1,
-    borderColor: "rgba(255,125,167,0.20)",
-  },
-  safetyCenterCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  safetyCenterTitle: {
-    color: theme.color.textPrimary,
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: "800",
-  },
-  safetyCenterSubtitle: {
-    marginTop: 4,
-    color: theme.color.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "600",
   },
   tabShell: {
     marginTop: theme.spacing.xxl,
@@ -1428,14 +1350,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 20,
   },
-  editAvatar: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: theme.color.surfaceElevated,
-    borderWidth: 1,
-    borderColor: theme.color.borderStrong,
-  },
   editAvatarIcon: {
     position: "absolute",
     right: 0,
@@ -1452,12 +1366,11 @@ const styles = StyleSheet.create({
   fieldLabel: {
     color: theme.color.textSecondary,
     fontFamily: theme.type.bodyBold,
-    fontSize: 13,
-    fontWeight: "900",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    marginTop: 12,
-    marginBottom: 8,
+    fontSize: 21, lineHeight: 27,
+    fontWeight: "700",
+    letterSpacing: -0.4,
+    marginTop: 24,
+    marginBottom: 16,
   },
   inputRow: {
     flexDirection: "row",
@@ -1475,7 +1388,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 10,
+    marginBottom: 0,
   },
   bioInput: {
     minHeight: 96,

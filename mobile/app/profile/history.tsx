@@ -1,3 +1,4 @@
+import { ScreenHeader } from "@/components/foundation/Screen";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { ProductText as Text } from "../../components/foundation/AppText";
@@ -235,33 +236,10 @@ export default function DecisionHistoryScreen() {
     <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Zurück zu Einstellungen" onPress={() => router.back()} style={styles.circleButton}>
-          <Ionicons accessibilityElementsHidden name="chevron-back" size={25} color={theme.color.textPrimary} />
-        </Pressable>
+      <ScreenHeader title="Deine Entdeckungen" eyebrow="Dein Backyrd" subtitle="Orte aus deinen Wohin-Suchen. Halte fest, was du dort erlebt hast." backLabel="Zurück zu Einstellungen" onBack={() => router.canGoBack() ? router.back() : router.replace("/settings")} action={<Pressable accessibilityRole="button" accessibilityLabel="Deine Entdeckungen aktualisieren" accessibilityState={{ busy: refreshing }} onPress={() => load("refresh")} style={styles.circleButton}><Ionicons accessibilityElementsHidden name="refresh" size={21} color={theme.color.textPrimary} /></Pressable>} />
 
-        <View style={styles.titleBlock}>
-          <Text style={styles.kicker}>DEIN BACKYRD</Text>
-        </View>
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Deine Entdeckungen aktualisieren" accessibilityState={{ busy: refreshing }} onPress={() => load("refresh")} style={styles.circleButton}>
-          <Ionicons accessibilityElementsHidden name="refresh" size={21} color={theme.color.textPrimary} />
-        </Pressable>
-      </View>
 
-      <Text style={styles.title}>Deine Entdeckungen</Text>
-
-      <View style={styles.heroCard}>
-        <View style={styles.heroIcon}>
-          <Ionicons accessibilityElementsHidden name="sparkles" size={24} color={theme.color.background} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.heroTitle}>Von Vorschlag zu Erfahrung</Text>
-          <Text style={styles.heroText}>
-            Hier findest du Orte aus deinen Wohin-Suchen wieder. Halte fest, was du dort erlebt hast.
-          </Text>
-        </View>
-      </View>
 
       <View style={styles.segment}>
         <SegmentButton
@@ -456,14 +434,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.color.background,
   },
-  header: {
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    paddingBottom: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
   circleButton: {
     width: 48,
     height: 48,
@@ -473,54 +443,6 @@ const styles = StyleSheet.create({
     borderColor: theme.color.border,
     alignItems: "center",
     justifyContent: "center",
-  },
-  titleBlock: {
-    flex: 1,
-  },
-  kicker: {
-    color: theme.color.pink,
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 1.3,
-    textTransform: "uppercase",
-  },
-  title: {
-    marginHorizontal: theme.layout.pageGutter,
-    marginBottom: theme.spacing.lg,
-    color: theme.color.textPrimary,
-    fontFamily: theme.type.display,
-    ...theme.typeScale.displayM,
-  },
-  heroCard: {
-    marginHorizontal: 18,
-    marginBottom: 14,
-    borderRadius: 28,
-    backgroundColor: theme.color.surface,
-    borderWidth: 1,
-    borderColor: theme.color.border,
-    padding: 16,
-    flexDirection: "row",
-    gap: 14,
-  },
-  heroIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: theme.color.pink,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroTitle: {
-    color: theme.color.textPrimary,
-    fontSize: 19,
-    fontWeight: "900",
-  },
-  heroText: {
-    marginTop: 5,
-    color: theme.color.textSecondary,
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 20,
   },
   segment: {
     marginHorizontal: 18,
@@ -555,11 +477,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-  },
-  loadingText: {
-    color: "#8F8F98",
-    fontSize: 15,
-    fontWeight: "800",
   },
   scrollContent: {
     paddingHorizontal: 18,

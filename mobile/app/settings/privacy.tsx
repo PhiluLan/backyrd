@@ -1,9 +1,8 @@
+import { ScreenHeader } from "@/components/foundation/Screen";
 import { BlockedPeople } from "../../components/BlockedPeople";
 import React, { useCallback, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { ProductText as Text } from "../../components/foundation/AppText";
+import { ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 
 import ProfilePrivacyCard from "@/components/ProfilePrivacyCard";
@@ -48,21 +47,7 @@ export default function ProfilePrivacySettingsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={{paddingBottom:32}} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Zurück zu Einstellungen"
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons accessibilityElementsHidden name="chevron-back" size={22} color={backyrdTheme.color.textPrimary} />
-        </Pressable>
-        <Text style={styles.kicker}>DEIN PROFIL</Text>
-      </View>
-      <Text style={styles.title}>Sichtbarkeit</Text>
-      <Text style={styles.subtitle}>
-        Entscheide, ob andere dein Profil und deine Momente finden können.
-      </Text>
+      <ScreenHeader inset={false} title="Sichtbarkeit" eyebrow="Dein Profil" subtitle="Wer dich findet und wie andere dich erreichen können." backLabel="Zurück zu Einstellungen" onBack={() => router.canGoBack() ? router.back() : router.replace("/settings")} />
       {loading ? (
         <StateView kind="loading" title="Sichtbarkeit wird geladen" />
       ) : error ? (
@@ -88,9 +73,4 @@ export default function ProfilePrivacySettingsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: backyrdTheme.color.background, paddingHorizontal: backyrdTheme.layout.pageGutter },
-  header: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 12 },
-  backButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: backyrdTheme.color.surface },
-  kicker: { color: backyrdTheme.color.pink, fontFamily: backyrdTheme.type.bodyBold, fontSize: 11, letterSpacing: 2 },
-  title: { marginTop: 20, color: backyrdTheme.color.textPrimary, fontFamily: backyrdTheme.type.display, fontSize: 36, lineHeight: 42 },
-  subtitle: { marginTop: 8, color: backyrdTheme.color.textSecondary, fontSize: 16, lineHeight: 23 },
 });

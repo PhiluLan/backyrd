@@ -33,7 +33,7 @@ const reasons: {
   },
   {
     value: "account_compromised",
-    label: "Mein Account war kompromittiert",
+    label: "Jemand anderes hat mein Konto benutzt",
   },
   {
     value: "policy_exception",
@@ -109,6 +109,7 @@ export default function AppealDecisionButton({
   return (
     <>
       <Pressable
+        accessibilityRole="button" accessibilityLabel="Entscheidung anfechten"
         disabled={disabled}
         onPress={() => setVisible(true)}
         style={({ pressed }) => [
@@ -156,7 +157,7 @@ export default function AppealDecisionButton({
             <View style={styles.header}>
               <View style={styles.headerCopy}>
                 <Text style={styles.eyebrow}>
-                  SAFETY & INTEGRITY
+                  SICHERHEIT & SUPPORT
                 </Text>
                 <Text style={styles.title}>
                   Entscheidung anfechten
@@ -168,6 +169,7 @@ export default function AppealDecisionButton({
               </View>
 
               <Pressable
+                accessibilityRole="button" accessibilityLabel="Einspruch schliessen"
                 onPress={() => setVisible(false)}
                 disabled={submitting}
                 style={styles.close}
@@ -175,7 +177,7 @@ export default function AppealDecisionButton({
                 <Ionicons
                   name="close"
                   size={22}
-                  color="#fff"
+                  color={backyrdTheme.color.textPrimary}
                 />
               </Pressable>
             </View>
@@ -249,7 +251,7 @@ export default function AppealDecisionButton({
                 multiline
                 textAlignVertical="top"
                 placeholder="Beschreibe den Kontext und warum die Entscheidung geändert werden sollte."
-                placeholderTextColor="#686871"
+                placeholderTextColor={backyrdTheme.color.textSecondary}
                 editable={!submitting}
                 style={styles.input}
               />
@@ -268,7 +270,7 @@ export default function AppealDecisionButton({
                 ]}
               >
                 {submitting ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={backyrdTheme.color.textPrimary} />
                 ) : (
                   <Text style={styles.submitText}>
                     Einspruch einreichen
@@ -359,7 +361,7 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
   },
   label: {
-    color: "#F5F5F7",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 14,
     fontWeight: "800",
     marginBottom: 9,
@@ -373,7 +375,7 @@ const styles = StyleSheet.create({
     marginBottom: 21,
   },
   previewText: {
-    color: "#D9D9DE",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },
