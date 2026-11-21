@@ -220,9 +220,11 @@ function HomeContent() {
     }
     setSearchHint(null);
     if (!user) {
+      setQuery("");
       router.push({ pathname: "/(tabs)/map", params: { view: "list", search: normalized } } as never);
       return;
     }
+    setQuery("");
     router.push({ pathname: "/(tabs)/wohin", params: { query: normalized, auto: "1" } });
   }
 

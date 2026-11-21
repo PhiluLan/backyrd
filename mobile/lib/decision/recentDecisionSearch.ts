@@ -168,6 +168,9 @@ async function saveSearch(actorId: string, query: string, candidates: readonly D
   const rows = prune(current ?? loaded);
   const normalized = query.trim().replace(/\s+/g, " ").toLowerCase();
   const duplicate = rows.find(row => row.query.replace(/\s+/g, " ").toLowerCase() === normalized);
+  // A retry that fails must not make an older successful search look new or
+  // replace its completed candidates with an incomplete attempt.
+  if (!completed && duplicate?.completed) return true;
   let id: string;
   try { id = duplicate?.id ?? Crypto.randomUUID(); } catch { return false; }
   const entry: RecentDecisionHistoryEntry = {
