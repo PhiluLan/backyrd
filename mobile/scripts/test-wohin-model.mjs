@@ -84,14 +84,21 @@ test("response limitations remain visible in plain language", () => {
 });
 
 test("Wohin offers a follow-up without turning unverified places into recommendations", () => {
-  const candidate = { rank: null, contextualReject: false, failedHardConstraints: [], unknownHardConstraints: ["OPEN_ON_REQUESTED_DAY"] };
-  const response = { primaryCandidateId: null, limitations: [], candidates: [candidate] };
+  const candidate = { rank: null, contextualReject: false, failedHardConstraints: [], unknownHardConstraints: ["OPEN_ON_REQUESTED_DAY"], reasons: [] };
+  const response = { primaryCandidateId: null, limitations: [], candidates: Array.from({ length: 8 }, () => ({ ...candidate })) };
   assert.deepEqual(visibleWohinCandidates(response), []);
-  assert.match(wohinFollowUp(response).message, /noch unsicher/);
+  assert.match(wohinFollowUp(response).message, /8 mögliche Orte geprüft/);
+  assert.match(wohinFollowUp(response).message, /nicht als verlässliche Empfehlung/);
+  assert.doesNotMatch(wohinFollowUp(response).message, /noch unsicher/);
+  assert.equal(wohinFollowUp(response).isAlert, true);
   assert.match(wohinFollowUp({ ...response, candidates: [{ ...candidate, failedHardConstraints: ["CLOSED"] }] }).message, /keinen passenden Ort/);
+  assert.equal(wohinFollowUp({ ...response, candidates: [{ ...candidate, failedHardConstraints: ["CLOSED"] }] }).isAlert, false);
   assert.match(wohinFollowUp({ ...response, limitations: ["CORE_INTENT_REQUIRES_CLARIFICATION"] }).message, /Was möchtest du/);
   assert.match(wohinFollowUp({ ...response, limitations: ["REQUEST_NEEDS_CLARIFICATION"] }).message, /Budget pro Person/);
   assert.match(wohinFollowUp({ ...response, limitations: ["MULTI_PLACE_SEARCH_UNSUPPORTED"] }).message, /Mit welchem/);
+  const unsupported = wohinFollowUp({ limitations: ["REQUEST_REQUIREMENT_UNSUPPORTED"], candidates: [] });
+  assert.match(unsupported.message, /fehlenden Nachweisen, nicht an deiner Formulierung/);
+  assert.equal(unsupported.isAlert, true);
   const revised = createWohinRequest({ query: "Stufenloses Café, auch morgen möglich", city: "Basel", requestId: "follow-up-1" });
   validateDecisionProductRequest(revised);
   assert.equal(revised.naturalLanguage, "Stufenloses Café, auch morgen möglich");

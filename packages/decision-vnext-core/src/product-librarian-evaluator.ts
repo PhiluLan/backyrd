@@ -49,6 +49,12 @@ function contextFor(request: DecisionProductRequest, meaning: LibrarianRequest, 
   const phases = [...new Set(active.flatMap(f => f.value.kind === "DAY_PHASE" ? [f.value.phase] : []))];
   const counts = active.flatMap(f => f.key === "people.count" && f.value.kind === "COUNT" && f.value.operator === "EQ" ? [f.value.amount] : []);
   const ages = active.flatMap(f => f.key === "people.age" && f.value.kind === "AGE" && f.value.operator === "EQ" ? [f.value.amount] : []);
+  const relationships = active.flatMap(f => f.key === "people.relationship" && f.value.kind === "TEXT"
+    ? [librarianConcept(f.value.text) ?? f.value.text.trim().toLowerCase()] : []);
+  const adultAccompanied = relationships.includes("adult_accompanied");
+  const childActivity = active.some(f => f.key === "condition.children" && f.value.kind === "TEXT"
+    && librarianConcept(f.value.text) === "children_activity");
+  const familyContext = adultAccompanied && (ages.some(age => age < 18) || childActivity);
   const amounts = active.flatMap(f => ["budget.maximum", "budget.amount", "budget.target"].includes(f.key) && f.value.kind === "MONEY" && f.value.currency === "CHF" && Number.isInteger(f.value.amount) ? [f.value.amount] : []);
   const moods = meaning.facts.flatMap(f => f.key === "atmosphere.character" && f.value.kind === "TEXT" && f.modality !== "EXCLUDED" ? [librarianConcept(f.value.text)].filter((v): v is string => v !== null) : []);
   return deepFreeze(DecisionProductContextSchema.parse(withContentHash({
@@ -57,7 +63,12 @@ function contextFor(request: DecisionProductRequest, meaning: LibrarianRequest, 
     primaryIntent: null, secondaryIntent: null, intentCompatibility: "NOT_APPLICABLE", occasion: request.explicit.occasion ?? null,
     moods: [...new Set(moods)].slice(0, 12), targetCity: city,
     dateTime: { state: dates.length === 1 ? "KNOWN" : "UNKNOWN", localDate: dates.length === 1 ? dates[0]! : null, dayPhase: phases.length === 1 ? phases[0]! : null, timeZone: meaning.source.reference.timezone },
-    group: { size: counts.length === 1 ? counts[0]! : null, minimumAge: ages.length ? Math.min(...ages) : null, adultPresent: ages.some(age => age >= 18), companionType: request.explicit.group?.companionType ?? null },
+    group: {
+      size: counts.length === 1 ? counts[0]! : null,
+      minimumAge: ages.length ? Math.min(...ages) : null,
+      adultPresent: ages.some(age => age >= 18) || adultAccompanied,
+      companionType: request.explicit.group?.companionType ?? (familyContext ? "FAMILY" : null),
+    },
     budget: { state: amounts.length === 1 ? "KNOWN" : "UNKNOWN", amount: amounts.length === 1 ? amounts[0]! : null, currency: amounts.length === 1 ? "CHF" : null, perPerson: active.some(f => f.value.kind === "BUDGET_SCOPE" && f.value.scope === "PER_PERSON"), calibrationLabel: null },
     stayDuration: request.explicit.stayDuration ?? null, hardConstraints: [], softPreferences: [], unresolvedTerms: [],
     locationAuthority: { explicitTargetWins: true, authorizedCity: city, deviceCityUsed: false, state: "KNOWN" },

@@ -1,4 +1,5 @@
 import { useMinuteClock } from "../../hooks/useMinuteClock";
+import * as Crypto from "expo-crypto";
 import type { OpeningSchedule } from "../../lib/discovery-opening-hours";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -225,7 +226,7 @@ function HomeContent() {
       return;
     }
     setQuery("");
-    router.push({ pathname: "/(tabs)/wohin", params: { query: normalized, auto: "1" } });
+    router.push({ pathname: "/(tabs)/wohin", params: { query: normalized, auto: "1", launch: Crypto.randomUUID() } });
   }
 
   return (

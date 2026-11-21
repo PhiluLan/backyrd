@@ -125,7 +125,7 @@ function WohinExperience() {
   const cardWidth = Math.max(240, Math.min(420, viewportWidth - 48));
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [inputHeight, setInputHeight] = useState(44);
-  const params = useLocalSearchParams<{ query?: string; auto?: string }>();
+  const params = useLocalSearchParams<{ query?: string; auto?: string; launch?: string }>();
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [clarificationAnswer, setClarificationAnswer] = useState("");
@@ -382,11 +382,12 @@ function WohinExperience() {
   useEffect(() => {
     const incoming = typeof params.query === "string" ? params.query.trim() : "";
     if (!identityReady || identityError || !authenticated || !city || params.auto !== "1" || incoming.length < 3) return;
-    const key = `${city}:${incoming}`;
+    const launch = typeof params.launch === "string" ? params.launch : "";
+    const key = launch ? `${city}:${launch}` : `${city}:${incoming}`;
     if (autoRunKey.current === key) return;
     autoRunKey.current = key;
     void run(incoming);
-  }, [authenticated, city, identityError, identityReady, params.auto, params.query, run]);
+  }, [authenticated, city, identityError, identityReady, params.auto, params.launch, params.query, run]);
 
   const openSpot = (candidate: DecisionProductCandidate) => {
     if (response && !candidate.presentation.event) {
@@ -698,7 +699,9 @@ function WohinExperience() {
           <AppText role="meta" tone="secondary">{candidates.length === 1 ? "Eine Idee für dich." : `${candidates.length} Ideen für dich. Welche spricht dich an?`}</AppText>
           {candidates.some(candidate => candidate.tier === "UNCONFIRMED_FALLBACK") ? <AppText role="meta" tone="secondary">Bei den markierten Orten sind noch Angaben offen. Die Hinweise stehen direkt am Vorschlag.</AppText> : null}
         </View> : null}
-        {followUp ? <View style={[styles.emptyState, !error && styles.assistantPresence]} onLayout={showNuknukCharacter && !error ? assistantLayout : undefined} accessibilityLiveRegion="polite"><AppText role="body">{followUp.message}</AppText>{followUpNotes.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}</View> : null}
+        {followUp ? <View style={[styles.emptyState, !error && styles.assistantPresence]} onLayout={showNuknukCharacter && !error ? assistantLayout : undefined} accessibilityLiveRegion={followUp.isAlert ? "assertive" : "polite"} accessibilityRole={followUp.isAlert ? "alert" : undefined}>
+          {followUp.isAlert ? <View style={styles.alertHeading}><Ionicons name="alert-circle-outline" size={20} color={color.warning} /><AppText role="bodyStrong">Noch nicht sicher bestätigt</AppText></View> : null}
+          <AppText role="body">{followUp.message}</AppText>{followUpNotes.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}</View> : null}
         {needsDiscovery ? <View style={[styles.emptyState, !error && !followUp && styles.assistantPresence]} onLayout={showNuknukCharacter && !error && !followUp ? assistantLayout : undefined}>
           {discoveryPlaceholder ? <AppText role="body">Da brauche ich noch eine kleine Idee von dir. Worauf hast du Lust?</AppText> : null}
           {discovery.length ? <AppText role="bodyStrong">Orte zum Entdecken</AppText> : null}
@@ -818,6 +821,7 @@ const createStyles = (color: typeof darkColors) => StyleSheet.create({
   cardNote: { alignSelf: "flex-start", minHeight: 44, flexDirection: "row", alignItems: "center", gap: 7 },
   emptyState: { gap: 14 },
   followUpButton: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center" },
+  alertHeading: { flexDirection: "row", alignItems: "center", gap: 8 },
   discoverySpot: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 60, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: color.border },
   primaryButton: { minHeight: 52, paddingVertical: 12, paddingHorizontal: 18, borderRadius: 999, backgroundColor: color.pink, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center" },
   primaryLabel: { color: color.onAccent, flexShrink: 1 },
