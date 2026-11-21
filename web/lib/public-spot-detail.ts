@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase/client";
 import { applyCanonicalWorldSpot, type PublicWorldSpotProfile } from "@/lib/spot-world-profile";
 
 export type PublicSpotDetailDTO = {
+  world_profile_unavailable?: boolean;
   source_credit?: { credit: string; source_url: string; license_url: string | null } | null;
   mood_count?: number | null;
   world_profile?: PublicWorldSpotProfile | null;
@@ -10,6 +11,7 @@ export type PublicSpotDetailDTO = {
     id: string;
     name: string;
     address: string | null;
+    legacy_address?: string | null;
     city: string | null;
     country: string | null;
     header_photo_path: string | null;

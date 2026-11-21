@@ -1,38 +1,58 @@
 import { loadSpotMoodCounts } from "./mood-catalog";
 import "server-only";
+import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { PublicSpotDetailDTO } from "@/lib/public-spot-detail";
 import { applyCanonicalWorldSpot } from "@/lib/spot-world-profile";
-export async function getPublicSpotDetailServer(spotId: string) {
+export const getPublicSpotDetailServer = cache(async (spotId: string) => {
   const client = await createSupabaseServerClient();
   const { data, error } = await client.rpc("backyrd_web_spot_detail_v1", {
     p_spot_id: spotId,
   });
-  if (error) return null;
+  if (error) throw new Error("Der Ort konnte gerade nicht geladen werden.");
   if (!data) return null;
 
-  const [{ data: moodProfile, error: moodError }, { data: worldProfile, error: worldError }, { data: sourceCredit }] = await Promise.all([
-    client.from("backyrd_spot_mood_profile_public_v1")
-      .select("concept_key,label,canonical_label,concept_contributors,eligible_contributors,percentage,evidence_state,rank")
+  const [
+    { data: moodProfile, error: moodError },
+    { data: worldProfile, error: worldError },
+    { data: sourceCredit },
+  ] = await Promise.all([
+    client
+      .from("backyrd_spot_mood_profile_public_v1")
+      .select(
+        "concept_key,label,canonical_label,concept_contributors,eligible_contributors,percentage,evidence_state,rank",
+      )
       .eq("spot_id", spotId)
       .order("rank", { ascending: true }),
-    client.rpc("spot_detail_product_profile_v1", { p_spot_id: spotId, p_surface: "WEB" }),
-    client.rpc("spot_place_source_credit_v1", { p_spot_id: spotId }).maybeSingle<NonNullable<PublicSpotDetailDTO["source_credit"]>>(),
+    client.rpc("spot_detail_product_profile_v1", {
+      p_spot_id: spotId,
+      p_surface: "WEB",
+    }),
+    client
+      .rpc("spot_place_source_credit_v1", { p_spot_id: spotId })
+      .maybeSingle<NonNullable<PublicSpotDetailDTO["source_credit"]>>(),
   ]);
 
-  // The public detail page remains available while the forward migration is
-  // being applied. Once the governed projection exists it becomes the sole
-  // source for manifested World Knowledge fields; before that, we expose no
-  // World facts rather than turning a valid spot into a 404.
-  if (moodError) return null;
+  // Projection failures are disclosed; they never turn into a missing-place claim.
+  if (moodError)
+    throw new Error("Die Eindrücke konnten gerade nicht geladen werden.");
   const result = {
     ...(data as PublicSpotDetailDTO),
-    mood_count: (await loadSpotMoodCounts([spotId], client).catch(() => ({} as Record<string, number>)))[spotId] ?? null,
+    mood_count:
+      (
+        await loadSpotMoodCounts([spotId], client).catch(
+          () => ({}) as Record<string, number>,
+        )
+      )[spotId] ?? null,
     top_moods: moodProfile ?? [],
     source_credit: sourceCredit,
+    world_profile_unavailable: Boolean(worldError),
     world_profile: worldError
       ? null
       : (worldProfile as PublicSpotDetailDTO["world_profile"]),
   } as PublicSpotDetailDTO;
-  return applyCanonicalWorldSpot(result, result.world_profile ?? null) as PublicSpotDetailDTO;
-}
+  return applyCanonicalWorldSpot(
+    result,
+    result.world_profile ?? null,
+  ) as PublicSpotDetailDTO;
+});

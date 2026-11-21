@@ -11,7 +11,7 @@ export function SpotMoodProfile({ moods }: { moods: PublicSpotDetailDTO["top_moo
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
   const ranked = rankMoodSupport(moods);
-  if (!ranked.length) return <p className={styles.hint}>Noch keine Moods geteilt</p>;
+  if (!ranked.length) return <div className={styles.summary}><h2 className={styles.summaryTitle}>Moods</h2><p className={styles.summarySubtitle}>Noch keine Moods geteilt</p></div>;
   const strongestCount = publicMoodCount(ranked[0]);
   return <div className={styles.summary}>
     <h2 className={styles.summaryTitle}>Moods</h2>

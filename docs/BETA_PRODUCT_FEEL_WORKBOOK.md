@@ -1285,3 +1285,64 @@ Moderationsaktionen wurden für diese Prüfung erzeugt. Kein Supabase-Edge-/
 Schema-/Ranking-/Prompt-Release und kein natives OTA. Der Verlauf bleibt lokal
 im jeweiligen Browser; die iOS-Gerätehistorie wird nicht synchronisiert.
 Physische Tastatur-, VoiceOver- und Founder-Abnahme bleiben offen.
+
+## Punkt 2 – App/Web-Parität: Spotprofil und gemeinsame Typografie
+
+Taskklasse `FAST_PR`: Consumer-Web-Präsentation und ihre öffentlichen Lesewege;
+keine Änderung am Decision-Produkt, an Mobile, Owner-Rechten oder am Backend.
+Die abgenommene App-Seite ist die Referenz für Informationsfolge, Abstände und
+Besuchersprache. Die Consumer-Überschriften, Bildplatzhalter und Betreiber-
+Einladung verwenden nun ebenfalls Libre Franklin; das eigenständige Owner-
+Dashboard behält seine vorhandene Gestaltung.
+
+Unter dem kuratierten Titelbild folgen Art und Preisniveau, Adresse und
+Beschreibung, Kontakt, reguläre und besondere Öffnungszeiten, Angebote,
+Bereiche, Besuchshinweise, Moods, Mehr Infos, Hier erlebt, Umgebung,
+Betreiberbereich und Korrekturkontakt. Veranstaltungsangebote bleiben beim
+Erlebnisbereich. Kontaktaktionen zeigen verständliche Beschriftungen;
+freigegebene Zusatzfotos und Quellen bleiben unter Mehr Infos erreichbar.
+Die bereits zwischen App und Web geteilte Angebotspräsentation bleibt
+massgeblich. Der reine Adress-Presenter der App wird wiederverwendet; eine
+Postleitzahl aus der bestehenden Adresse wird nur bei passender Ortschaft
+angezeigt, nicht geraten.
+
+Die Web-Präsentation nutzt die bestehenden kanonischen Katalogbeschriftungen
+für Ortsarten, Ausstattung, Küchen und Spezialitäten. Unbekannte Enums und
+beliebige Objekt-/Attributschlüssel werden nicht als Besuchsangaben ausgegeben.
+Kontextbedingungen bleiben erhalten; nicht darstellbare Bedingungen werden
+nicht zu unbedingten Aussagen vereinfacht. Explizit geschlossene Tage bleiben
+von unbekannten Tagen unterscheidbar. Sonderzeiten werden als Datum und Zeiten
+statt als internes Objekt dargestellt. Ungültige Kontaktprotokolle, eingebettete
+URL-Zugangsdaten und E-Mail-Headerzusätze erzeugen keine Kontaktaktion.
+
+Mobile Besuchsaktionen stehen oberhalb der Navigation, auf Desktop seitlich.
+«Hier erlebt» beschreibt persönliche Eindrücke, ohne Sterne oder Review-Wertung.
+Umgebungsorte werden erst beim Annähern an den Abschnitt geladen: bestehender
+autorisierter öffentlicher Katalog, maximal 200 Orte derselben Stadt, daraus
+höchstens sechs Orte innerhalb von 5 km nach berechneter Entfernung. Das ist
+eine begrenzte Browse-Auswahl, kein vollständiger Geoindex und keine Änderung
+der Decision-Rangfolge. Fotos stammen weiter ausschliesslich aus der vorhandenen
+öffentlichen Projektion beziehungsweise kuratierten Header-Auswahl; kein neuer
+Google-Fotoabruf. Der Betreiberlink öffnet den bestehenden geschützten Editor
+und erteilt keine Berechtigung. Der E-Mail-Link erstellt nur einen Entwurf.
+
+Datenfehler erhalten eine erneut ladbare Fehleransicht statt eines falschen
+404. Ein fehlender Ort bleibt 404. Ein Ausfall der World-Projektion wird offen
+angezeigt; Beschreibung, Kontakt und Öffnungszeiten werden dann nicht aus
+möglicherweise veralteten Legacy-Fakten ergänzt. Metadata und Seite teilen
+innerhalb eines Requests denselben Lesevorgang.
+
+Validierung: Web-TypeScript, Lint, Production-Build, 81 Web-Vertragstests und
+3 Tests des World-Adapters. Drei isolierte Browserabläufe prüfen die vollständige
+SSR-Seite, Kontakt-/Navigationsziele, Öffnungszeiten, aufgeklappte Angebote,
+Quellen, Umgebungsorte und Gast-Anmeldung sowie fehlende Fotos, unbekannte
+Zeiten, Projektionsausfall, 404 und tatsächlichen Datenfehler. Layoutmatrix
+320/390/768/900/1024/1440 px, Reduced Motion, kein horizontaler Überlauf und
+keine Überdeckung der mobilen Navigation. Keine schweren/kritischen Axe-
+Befunde im geprüften Profil. Browser-Sichtprüfung mit öffentlichen Volta-Bräu-
+Daten auf Desktop und mobiler Grösse; keine echte Production-Testmutation.
+Die synthetische API liegt unter `web/e2e/fixtures/spot-api.mjs`; der Testlauf
+benötigt `PLAYWRIGHT_SPOT_FIXTURE=1` und einen ausdrücklich darauf konfigurierten
+lokalen Next-Server. Eine physische iPhone-/VoiceOver-Abnahme wird nicht behauptet.
+Light-/Dark-Systemparität und die verbleibenden Home-, Karten- und Nebenseiten
+sind damit noch nicht insgesamt abgeschlossen.

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   presentSpotExperience,
   spotExperienceDetailGroups,
@@ -37,10 +38,11 @@ function ExperienceRow({ card, area = false }: { card: PublicSpotCard; area?: bo
   );
 }
 
-export function SpotExperience({ profile }: { profile: unknown }) {
+export function SpotExperience({ profile, children }: { profile: unknown; children?: ReactNode }) {
   const experience = presentSpotExperience(profile);
   return <>
     {experience.offers.length > 0 && <section className="b-detail-section" aria-label="Angebote"><h2 className="b-section-title">Das kannst du hier erleben</h2><div className="b-experience-list">{experience.offers.map(offer => <ExperienceRow key={offer.id} card={offer} />)}</div></section>}
+    {children}
     {experience.areas.length > 0 && <section className="b-detail-section" aria-label="Räume und Bereiche"><h2 className="b-section-title">Dein Platz vor Ort</h2><div className="b-experience-list">{experience.areas.map(area => <ExperienceRow key={area.id} card={area} area />)}</div></section>}
     {experience.shared.length > 0 && <section className="b-detail-section" aria-label="Ausstattung und Anreise"><h2 className="b-section-title">Gut zu wissen</h2><VisitorDetails facts={experience.shared} /></section>}
   </>;

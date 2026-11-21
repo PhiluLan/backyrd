@@ -8,6 +8,7 @@ export type PublicWorldSpotProfile = {
     spotId: string;
     name: string;
     addressLine1: string | null;
+    postalCode?: string | null;
     locality: string | null;
     countryCode: string | null;
     latitude: number | null;
@@ -32,6 +33,9 @@ function canonicalHours(value: unknown) {
     const record = day as {day?:unknown;intervals?:unknown};
     const label = typeof record.day === "string" ? dayNames[record.day] : undefined;
     if (!label || !Array.isArray(record.intervals)) continue;
+    if (record.intervals.length === 0) {
+      rows.push({day_of_week:label,open_time:"",close_time:"",idx:rows.length});
+    }
     for (const interval of record.intervals) {
       if (!interval || typeof interval !== "object") continue;
       const window = interval as {start?:unknown;end?:unknown};
@@ -47,13 +51,14 @@ export function applyCanonicalWorldSpot<S extends object, T extends {
   opening_hours: unknown[];
 }>(detail: T, profile: PublicWorldSpotProfile | null): T {
   if (!profile?.worldManifestHash || profile.spot.source !== "WORLD_KNOWLEDGE") return detail;
-  const legacySpot = detail.spot as S & {header_photo_path?:unknown};
+  const legacySpot = detail.spot as S & {header_photo_path?:unknown;address?:string|null};
   return {
     ...detail,
     spot: {
       ...legacySpot,
       name: profile.spot.name,
       address: profile.spot.addressLine1,
+      legacy_address: legacySpot.address ?? null,
       city: profile.spot.locality,
       country: profile.spot.countryCode,
       lat: profile.spot.latitude,

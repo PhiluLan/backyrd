@@ -203,13 +203,13 @@ test("canonical Owner image failures remain local and fall back without changing
 
 test("public Spot Detail exposes useful canonical truth and honest hours uncertainty", async () => {
   const [page, dto, migration] = await Promise.all([
-    read("web/app/spots/[id]/page.tsx"),
+    read("web/components/consumer/spot-profile.tsx"),
     read("web/lib/public-spot-detail.ts"),
     read("supabase/migrations/20260829080205_gate2_public_spot_detail_truth_v1.sql"),
   ]);
   assert.match(dto, /description: string \| null/);
   assert.match(dto, /opening_hours/);
-  assert.match(page, /Was dich hier erwartet/);
+  assert.match(page, /Über diesen Ort/);
   assert.match(page, /Aktuell nicht verlässlich hinterlegt/);
   assert.match(migration, /spot_effective_content_v1/);
   assert.match(migration, /distribution_trust_entity_is_eligible_v1/);
@@ -220,17 +220,18 @@ test("public Web follows the mobile Home type hierarchy without exposing raw Spo
   const [layout, css, spot, shell] = await Promise.all([
     read("web/app/layout.tsx"),
     read("web/app/consumer.css"),
-    read("web/app/spots/[id]/page.tsx"),
+    read("web/components/consumer/spot-profile.tsx"),
     read("web/components/consumer/consumer-shell.tsx"),
   ]);
   assert.match(layout, /Libre_Franklin/);
   assert.match(layout, /DM_Serif_Display/);
   assert.match(css, /font-family: var\(--font-libre-franklin\)/);
-  assert.match(css, /\.b-display\s*\{\s*font-family: var\(--font-dm-serif\)/);
+  assert.match(css, /\.b-display\s*\{\s*font-family: var\(--font-libre-franklin\)/);
   assert.match(shell, /b-logo-mark/);
-  assert.match(spot, /"description.highlight": "Beschreibung"/);
-  assert.match(spot, /"contact.public_email": "E-Mail"/);
-  assert.match(spot, /<summary>Mehr Infos<\/summary>/);
+  assert.match(spot, /field\("description.highlight"\)/);
+  assert.match(spot, /contactLabels/);
+  assert.match(spot, /Mehr Infos/);
+  assert.doesNotMatch(spot, /presentWorld|Object\.entries\(.*value/);
   assert.doesNotMatch(spot, /World Knowledge<\/p>/);
 });
 
