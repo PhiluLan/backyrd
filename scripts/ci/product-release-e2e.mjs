@@ -286,6 +286,7 @@ try {
   assert.equal(await page.getByRole("button", { name: "Datenschutz zur KI-Suche öffnen", exact: true }).count(), 0, "Wohin keeps its AI notice out of the discovery interface");
   assert.equal(await page.getByText(/Suchangaben an OpenAI/).count(), 0);
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-search-390.png`});
+  assert.equal(await page.getByTestId("nuknuk-motion-figure").count(), 0, "Beta welcome does not mount the deferred character");
   await page.getByRole("button", { name:/Bern entdecken/ }).click();
   assert.equal(await page.getByRole("textbox", { name:"Dein Suchwunsch", exact:true }).inputValue(),"Zeig mir etwas Besonderes in Bern.");
   assert.equal(await page.getByRole("button", { name:/Kaffee am Vormittag|Etwas zum Mittagessen|Eine Idee für den Nachmittag|Gemütlich ausgehen|Noch etwas trinken/ }).count(),1,"one idea uses the current daypart");
@@ -314,6 +315,7 @@ try {
   try {
     await page.getByRole("button", { name:"Orte finden", exact: true }).click();
     await page.getByRole("progressbar", { name: "NukNuk sucht" }).waitFor();
+    assert.equal(await page.getByTestId("nuknuk-motion-figure").count(), 0, "Beta pending state has no character animation");
     assert.equal(await page.getByText(firstWish, { exact: true }).count(), 1, "the loading view shows the wish once");
     if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-search-progress-390.png`});
   } finally {

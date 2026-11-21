@@ -29,6 +29,8 @@ import { userFacingError } from "@/lib/userFacingError";
 import { backyrdTheme, usesFixedDarkAppearance } from "@/theme/backyrd";
 import { homeDaypart } from "@/lib/home-daypart";
 
+const showNuknukCharacter = backyrdTheme.nuknuk.showCharacter;
+
 let greetedActor: string | null = null;
 
 type SearchIdea = { icon: React.ComponentProps<typeof Ionicons>["name"]; title: string; wish: string };
@@ -470,7 +472,7 @@ function WohinExperience() {
   };
   const searchProgress = pendingSearch ? <>
     {pendingSearch.isReply ? <View style={styles.userMessage}><AppText role="caption" tone="pink">Deine Ergänzung</AppText><AppText role="body">{pendingSearch.message}</AppText></View> : null}
-    <View style={styles.assistantPresence} onLayout={event => setAssistantTop(event.nativeEvent.layout.y)}><WohinWaitCard key={requestGeneration.current} isReply={pendingSearch.isReply} onLeave={leaveSearch} /></View>
+    <View style={styles.assistantPresence} onLayout={showNuknukCharacter ? event => setAssistantTop(event.nativeEvent.layout.y) : undefined}><WohinWaitCard key={requestGeneration.current} isReply={pendingSearch.isReply} onLeave={leaveSearch} /></View>
   </> : null;
   const discoveryPlaceholder = !editing && wohinIsDiscoveryPlaceholder(submittedQuery);
   const needsDiscovery = Boolean(city && authenticated && conversation && !editing && !loading && !clarificationQuestion
@@ -516,6 +518,7 @@ function WohinExperience() {
   const [presenceVisible, setPresenceVisible] = useState(true);
   const scrollMetrics = useRef({ offset: 0, height: 0 });
   useEffect(() => {
+    if (!showNuknukCharacter) return;
     if (!user) greetedActor = null;
     if (focused && identityReady && verifiedActorId && greetedActor !== verifiedActorId) {
       greetedActor = verifiedActorId;
@@ -525,7 +528,7 @@ function WohinExperience() {
   }, [focused, identityReady, verifiedActorId, user, conversation]);
   useEffect(() => {
     setAcknowledged(false);
-    if (!loading || !focused) return;
+    if (!showNuknukCharacter || !loading || !focused) return;
     const timer = setTimeout(() => setAcknowledged(true), 720);
     return () => clearTimeout(timer);
   }, [loading, focused, pendingSearch]);
@@ -534,6 +537,7 @@ function WohinExperience() {
   const presenceLeft = conversation ? 0 : threadWidth - 45 - 156 * .65 / 2;
   const presenceTop = conversation ? assistantTop : 8 + (heroHeight - 156) / 2;
   const checkPresenceVisibility = useCallback(() => {
+    if (!showNuknukCharacter) return;
     const { offset, height } = scrollMetrics.current;
     const top = 20 + presenceTop;
     setPresenceVisible(height === 0 || (top + presenceHeight > offset && top < offset + height));
@@ -634,7 +638,7 @@ function WohinExperience() {
     <Stack.Screen options={{ title: "Wohin", headerShown: false }} />
     <LinearGradient pointerEvents="none" colors={color.gradient} style={styles.ambient} />
     <View style={styles.header}>
-      <NuknukAvatar height={38} appearance="outline" />
+      {showNuknukCharacter ? <NuknukAvatar height={38} appearance="outline" /> : null}
       <View style={styles.headerCopy}><AppText role="cardTitle">Wohin<AppText role="cardTitle" tone="pink">?</AppText></AppText><AppText role="caption" tone="secondary">Mit NukNuk · {city ?? (identityReady ? "Deine Stadt" : "Stadt wird geladen")}</AppText></View>
       {!conversation && authenticated ? <Pressable accessibilityRole="button" accessibilityLabel="Letzte Anfragen öffnen" onPress={openHistory} style={styles.iconButton}><Ionicons name="time-outline" size={23} color={color.text} /></Pressable> : null}
       {conversation ? <Pressable accessibilityRole="button" accessibilityLabel="Neue Suche" disabled={loading} onPress={startNewSearch} style={styles.iconButton}><Ionicons name="create-outline" size={21} color={loading ? color.muted : color.text} /></Pressable> : null}
@@ -650,21 +654,21 @@ function WohinExperience() {
         onViewableItemsChanged={onViewableItemsChanged}
         extraData={coverImages}
         scrollEventThrottle={100}
-        onScroll={event => { scrollMetrics.current.offset = event.nativeEvent.contentOffset.y; checkPresenceVisibility(); }}
-        onLayout={event => { scrollMetrics.current.height = event.nativeEvent.layout.height; checkPresenceVisibility(); }}
+        onScroll={showNuknukCharacter ? event => { scrollMetrics.current.offset = event.nativeEvent.contentOffset.y; checkPresenceVisibility(); } : undefined}
+        onLayout={showNuknukCharacter ? event => { scrollMetrics.current.height = event.nativeEvent.layout.height; checkPresenceVisibility(); } : undefined}
         keyExtractor={candidate => `${response?.decisionId}:${candidate.spotId}`}
         onContentSizeChange={() => { if (showingResults) requestAnimationFrame(scrollToResults); }}
         ItemSeparatorComponent={() => <View style={{ height: 28 }} />}
-        ListHeaderComponent={<View style={styles.threadHeader} onLayout={event => { resultTop.current = event.nativeEvent.layout.height; setThreadWidth(event.nativeEvent.layout.width); }}>
+        ListHeaderComponent={<View style={styles.threadHeader} onLayout={event => { resultTop.current = event.nativeEvent.layout.height; if (showNuknukCharacter) setThreadWidth(event.nativeEvent.layout.width); }}>
         {!conversation ? <View style={styles.welcome}>
-          <View style={styles.welcomeHero} testID="wohin-welcome-hero" onLayout={event => setHeroHeight(event.nativeEvent.layout.height)}>
+          <View style={styles.welcomeHero} testID="wohin-welcome-hero" onLayout={showNuknukCharacter ? event => setHeroHeight(event.nativeEvent.layout.height) : undefined}>
             <View style={styles.welcomeCopy}>
               <AppText role="screenTitle" style={styles.welcomeTitle}>{greeting}{greetingName ? `, ${greetingName}` : ""}!</AppText>
               <AppText role="body" tone="secondary" style={styles.welcomeText}>Erzähl mir, worauf du Lust hast. Ich suche einen Ort, der zu dir passt.</AppText>
             </View>
-            <View style={styles.welcomeCharacter}>
+            {showNuknukCharacter ? <View style={styles.welcomeCharacter}>
               <LinearGradient colors={[color.tint, color.background]} style={styles.characterGlow} />
-            </View>
+            </View> : null}
           </View>
           <View style={styles.welcomeIdeas}>
             {ideasReady ? ideas.map(({ icon, title, wish }) => <Pressable key={title} accessibilityRole="button" accessibilityLabel={title} disabled={!canCompose} onPress={() => selectIdea(wish)} style={({ pressed }) => [styles.welcomeIdea, pressed && styles.pressed, !canCompose && styles.unavailableIdea]}>
@@ -677,30 +681,30 @@ function WohinExperience() {
         </View> : <>
           {conversationHistory}
           {searchProgress}
-          {!loading && (clarificationQuestion || newPlan || offTopic) ? <View style={styles.assistantPresence} onLayout={assistantLayout}>{conversationPrompt}</View> : null}
+          {!loading && (clarificationQuestion || newPlan || offTopic) ? <View style={styles.assistantPresence} onLayout={showNuknukCharacter ? assistantLayout : undefined}>{conversationPrompt}</View> : null}
           {editing ? <View style={styles.inlineActions}><AppText role="meta" tone="secondary">Dein Wunsch ist unten bereit zum Bearbeiten.</AppText><Pressable accessibilityRole="button" accessibilityLabel={candidates.length ? "Zurück zu deinen Vorschlägen" : "Zurück zum Gespräch"} onPress={() => { setEditing(false); Keyboard.dismiss(); }} style={styles.followUpButton}><AppText role="label" tone="pink">{candidates.length ? "Vorschläge behalten" : "Beim Gespräch bleiben"}</AppText></Pressable></View> : null}
         </>}
         {offTopic && !conversation ? conversationPrompt : null}
         {identityError ? <View style={styles.emptyState}><Text style={{ color: color.warning }}>Dein Profil konnte gerade nicht geprüft werden. Wohin ist vorübergehend nicht verfügbar.</Text><Pressable accessibilityRole="button" onPress={() => setIdentityAttempt(value => value + 1)} style={styles.followUpButton}><AppText role="label" tone="pink">Erneut prüfen</AppText></Pressable></View> : null}
         {identityReady && !identityError && !authenticated ? <AppText role="body" tone="secondary">Bitte melde dich an, um Wohin zu nutzen.</AppText> : null}
         {identityReady && !identityError && authenticated && !city ? <AppText role="body" tone="secondary">Deine Stadt fehlt noch im Profil. Ergänze sie, damit ich in deiner Nähe suchen kann.</AppText> : null}
-        {error ? <View style={[styles.emptyState, styles.assistantPresence]} onLayout={assistantLayout} accessibilityLiveRegion="polite"><AppText role="body" tone="error">{error}</AppText>{retryRequest ? <Pressable accessibilityRole="button" disabled={!canCompose} onPress={() => void run(retryRequest.request.naturalLanguage, retryRequest.request, retryRequest.conversation)} style={styles.followUpButton}><AppText role="label" tone="pink">Dieselbe Suche erneut versuchen</AppText></Pressable> : null}</View> : null}
-        {showingResults ? <View style={[styles.results, styles.assistantPresence]} onLayout={assistantLayout}>
+        {error ? <View style={[styles.emptyState, styles.assistantPresence]} onLayout={showNuknukCharacter ? assistantLayout : undefined} accessibilityLiveRegion="polite"><AppText role="body" tone="error">{error}</AppText>{retryRequest ? <Pressable accessibilityRole="button" disabled={!canCompose} onPress={() => void run(retryRequest.request.naturalLanguage, retryRequest.request, retryRequest.conversation)} style={styles.followUpButton}><AppText role="label" tone="pink">Dieselbe Suche erneut versuchen</AppText></Pressable> : null}</View> : null}
+        {showingResults ? <View style={[styles.results, styles.assistantPresence]} onLayout={showNuknukCharacter ? assistantLayout : undefined}>
           <AppText role="sectionTitle" accessibilityRole="header">Wie wär’s hier?</AppText>
           <AppText role="meta" tone="secondary">{candidates.length === 1 ? "Eine Möglichkeit für deinen Plan" : `${candidates.length} Möglichkeiten. Schau dich um.`}</AppText>
           {candidates.some(candidate => candidate.tier === "UNCONFIRMED_FALLBACK") ? <AppText role="meta" tone="secondary">Bei den markierten Orten sind noch Angaben offen. Die Hinweise stehen direkt am Vorschlag.</AppText> : null}
         </View> : null}
-        {followUp ? <View style={[styles.emptyState, !error && styles.assistantPresence]} onLayout={!error ? assistantLayout : undefined} accessibilityLiveRegion="polite"><AppText role="body">{followUp.message}</AppText>{followUpNotes.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}</View> : null}
-        {needsDiscovery ? <View style={[styles.emptyState, !error && !followUp && styles.assistantPresence]} onLayout={!error && !followUp ? assistantLayout : undefined}>
+        {followUp ? <View style={[styles.emptyState, !error && styles.assistantPresence]} onLayout={showNuknukCharacter && !error ? assistantLayout : undefined} accessibilityLiveRegion="polite"><AppText role="body">{followUp.message}</AppText>{followUpNotes.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}</View> : null}
+        {needsDiscovery ? <View style={[styles.emptyState, !error && !followUp && styles.assistantPresence]} onLayout={showNuknukCharacter && !error && !followUp ? assistantLayout : undefined}>
           {discoveryPlaceholder ? <AppText role="body">Da brauche ich noch eine kleine Idee von dir. Worauf hast du Lust?</AppText> : null}
           {discovery.length ? <AppText role="bodyStrong">Orte zum Entdecken</AppText> : null}
           {discovery.length ? <AppText role="body" tone="secondary">Diese Orte kannst du unabhängig von deiner Suche entdecken. Ob dein ganzer Plan dort klappt, ist noch offen.</AppText> : null}
           {discovery.map(spot => <Pressable key={spot.id} accessibilityRole="button" onPress={() => router.push(`/spot/${spot.id}` as never)} style={styles.discoverySpot}><View style={styles.headerCopy}><AppText role="bodyStrong">{spot.name}</AppText><AppText role="caption" tone="secondary">{[spot.category_name, spot.city].filter(Boolean).join(" · ")}</AppText></View><Ionicons name="arrow-forward" size={18} color={color.pink} /></Pressable>)}
           {discoveryLoading ? <ActivityIndicator color={color.pink} /> : <View style={styles.ideas}>{(discovery.length ? discoveryDirections.slice(1) : discoveryDirections.length ? discoveryDirections : wohinDiscoveryCategories()).map(direction => <Pressable key={direction.label} accessibilityRole="button" onPress={() => selectIdea(direction.query)} style={styles.idea}><AppText role="label">{direction.label}</AppText></Pressable>)}</View>}
         </View> : null}
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        {showNuknukCharacter ? <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           <NuknukAvatar visible={presenceShown} height={presenceHeight} placement={{ left: presenceLeft, top: presenceTop }} animate active={focused && presenceShown && presenceVisible && !historyOpen && !selectedDetails && identityReady} state={presenceState} motionKey={loading ? requestGeneration.current : response?.decisionId ?? "welcome"} />
-        </View>
+        </View> : null}
         </View>}
         ListFooterComponent={<View style={styles.threadFooter}>
           {showingResults ? <AppText role="body" tone="secondary">Was meinst du? Wenn dir noch etwas wichtig ist, schreib’s mir einfach.</AppText> : null}
@@ -758,8 +762,8 @@ const createStyles = (color: typeof darkColors) => StyleSheet.create({
   thread: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 20, paddingBottom: 20 },
   threadHeader: { gap: 24, paddingBottom: 24 },
   threadFooter: { gap: 16, paddingTop: 20 },
-  welcome: { paddingTop: 8, paddingBottom: 24, gap: 24 },
-  welcomeHero: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 168 },
+  welcome: { paddingTop: 8, paddingBottom: 24, gap: 32 },
+  welcomeHero: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: showNuknukCharacter ? 168 : undefined },
   welcomeCopy: { flex: 1, gap: 12 },
   welcomeTitle: { fontSize: 30, lineHeight: 35, letterSpacing: -0.9 },
   welcomeText: { fontSize: 16, lineHeight: 23 },
@@ -789,7 +793,7 @@ const createStyles = (color: typeof darkColors) => StyleSheet.create({
   sendButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: color.pink, alignItems: "center", justifyContent: "center" },
   primaryDisabled: { backgroundColor: color.disabled },
   pressed: { opacity: 0.75 },
-  assistantPresence: { paddingLeft: 62, minHeight: 76 },
+  assistantPresence: { paddingLeft: showNuknukCharacter ? 62 : 0, minHeight: showNuknukCharacter ? 76 : undefined },
   results: { gap: 12 },
   resultCard: { gap: 12 },
   cardArtwork: { borderRadius: 26, overflow: "hidden", backgroundColor: color.artwork },
