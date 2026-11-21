@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
     marginBottom: foundationTheme.spacing.lg,
   },
   kicker: {
-    color: "#FF4F91",
+    color: "#F24D86",
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 3.4,

@@ -175,7 +175,7 @@ export default function GlobalSafetyEnforcementGuard({
               <Ionicons
                 name="lock-closed"
                 size={34}
-                color="#FF4F91"
+                color="#F24D86"
               />
             </View>
 
@@ -200,7 +200,7 @@ export default function GlobalSafetyEnforcementGuard({
               <Ionicons
                 name="shield-checkmark-outline"
                 size={20}
-                color="#050506"
+                color="#11151D"
               />
               <Text style={styles.primaryButtonText}>
                 Entscheidung ansehen
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   body: { marginTop: 17, color: "#A1A1AA", fontSize: 16, lineHeight: 24 },
   primaryButton: {
     marginTop: 32, minHeight: 58, borderRadius: 19, flexDirection: "row", alignItems: "center",
-    justifyContent: "center", gap: 10, backgroundColor: "#FF4F91",
+    justifyContent: "center", gap: 10, backgroundColor: "#F24D86",
   },
   primaryButtonText: { color: backyrdTheme.color.onAccent, fontSize: 16, fontWeight: "900" },
   secondaryButton: {

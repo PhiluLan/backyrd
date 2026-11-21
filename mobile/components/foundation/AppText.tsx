@@ -1,7 +1,7 @@
 import { createContext, forwardRef, type ReactNode, useContext } from "react";
 import { type StyleProp, type TextInputProps, type TextProps, type TextStyle, StyleSheet, Alert, Linking, Text, TextInput, View, useWindowDimensions } from "react-native";
 
-import { backyrdTheme as theme, useBackyrdTheme, useSFPro } from "../../theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme } from "../../theme/backyrd";
 
 export type TextRole = "displayXL" | "displayL" | "displayM" | "screenTitle" | "sectionTitle" | "cardTitle" | "body" | "bodyStrong" | "meta" | "label" | "caption";
 
@@ -11,9 +11,9 @@ const roles: Record<TextRole, TextStyle> = {
   displayXL: { fontFamily: theme.type.display, ...theme.typeScale.displayXL },
   displayL: { fontFamily: theme.type.display, ...theme.typeScale.displayL },
   displayM: { fontFamily: theme.type.display, ...theme.typeScale.displayM },
-  screenTitle: { fontFamily: theme.type.bodyBold, ...theme.typeScale.screenTitle },
-  sectionTitle: { fontFamily: theme.type.bodyBold, ...theme.typeScale.sectionTitle },
-  cardTitle: { fontFamily: theme.type.bodyBold, ...theme.typeScale.cardTitle },
+  screenTitle: { fontFamily: theme.type.display, ...theme.typeScale.screenTitle },
+  sectionTitle: { fontFamily: theme.type.display, ...theme.typeScale.sectionTitle },
+  cardTitle: { fontFamily: theme.type.display, ...theme.typeScale.cardTitle },
   body: { fontFamily: theme.type.body, ...theme.typeScale.body },
   bodyStrong: { fontFamily: theme.type.bodyMedium, ...theme.typeScale.body },
   meta: { fontFamily: theme.type.bodyMedium, ...theme.typeScale.meta },
@@ -40,10 +40,10 @@ function uiFont(style: StyleProp<TextStyle>, fallback: string) {
 }
 
 export function HomeTypographyProvider({ children }: { children: ReactNode }) {
-  return <HomeTypographyContext.Provider value={useSFPro}>{children}</HomeTypographyContext.Provider>;
+  return <HomeTypographyContext.Provider value={false}>{children}</HomeTypographyContext.Provider>;
 }
 
-/** Canonical typography, with native SF Pro scoped to the iOS Home screen. */
+/** Canonical Backyrd typography across every surface, including iOS Home. */
 export function AppText({ role = "body", tone = "primary", maxFontSizeMultiplier, style, ...props }: Props) {
   const { width } = useWindowDimensions();
   const homeSFPro = useContext(HomeTypographyContext);

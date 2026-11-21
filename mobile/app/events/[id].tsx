@@ -90,7 +90,7 @@ export default function EventDetailScreen() {
   useEffect(() => { void load(); const generationRef = request; return () => { ++generationRef.current; }; }, [load]);
 
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator color="#FF4F91" /><Text style={styles.stateText}>Event wird geladen …</Text></View>;
+    return <View style={styles.center}><ActivityIndicator color="#F24D86" /><Text style={styles.stateText}>Event wird geladen …</Text></View>;
   }
   if (error || !event) {
     return (
@@ -173,7 +173,7 @@ export default function EventDetailScreen() {
               <Ionicons name="location-outline" size={21} color={backyrdTheme.color.openGreen} />
               <View style={styles.factCopy}><Text style={styles.factLabel}>Wo</Text><Text style={styles.factValue}>{event.venue_name || "Ort noch nicht bestätigt"}</Text>{address ? <Text style={styles.factSecondary}>{address}</Text> : null}</View>
             </View>
-            {event.is_free === true || event.price_min !== null ? <><View style={styles.divider} /><View style={styles.factRow}><Ionicons name="ticket-outline" size={21} color="#FF4F91" /><View style={styles.factCopy}><Text style={styles.factLabel}>Eintritt</Text><Text style={styles.factValue}>{event.is_free === true ? "Kostenlos" : `ab ${event.price_currency} ${event.price_min?.toFixed(2)}`}</Text></View></View></> : null}
+            {event.is_free === true || event.price_min !== null ? <><View style={styles.divider} /><View style={styles.factRow}><Ionicons name="ticket-outline" size={21} color="#F24D86" /><View style={styles.factCopy}><Text style={styles.factLabel}>Eintritt</Text><Text style={styles.factValue}>{event.is_free === true ? "Kostenlos" : `ab ${event.price_currency} ${event.price_min?.toFixed(2)}`}</Text></View></View></> : null}
           </View>
 
           {event.admission_note ? <Text style={styles.description}>{event.admission_note}</Text>:null}
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   cancelled: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(248,113,113,0.13)" },
   cancelledText: { color: "#FCA5A5", fontSize: 10, fontWeight: "900" },
   postponed: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(201,177,244,0.13)" },
-  postponedText: { color: "#FF4F91", fontSize: 10, fontWeight: "900" },
+  postponedText: { color: "#F24D86", fontSize: 10, fontWeight: "900" },
   title: { color: backyrdTheme.color.textPrimary, fontSize: 36, lineHeight: 41, fontWeight: "700", letterSpacing: -0.7 },
   factCard: { padding: 18, borderRadius: 24, backgroundColor: backyrdTheme.color.surface, borderWidth: 1, borderColor: backyrdTheme.color.border },
   factRow: { flexDirection: "row", gap: 13, alignItems: "flex-start" },
