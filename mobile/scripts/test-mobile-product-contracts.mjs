@@ -19,6 +19,7 @@ const decision = read("app/(tabs)/wohin.tsx");
 const retiredDecision = read("app/(tabs)/decision.tsx");
 const homeRail = read("components/HomeSpotRail.tsx");
 const home = read("app/(tabs)/index.tsx");
+const homeHeading = read("components/HomeDisplayHeading.tsx");
 const tabs = read("app/(tabs)/_layout.tsx");
 const entryGate = read("app/gate.tsx");
 const map = read("app/(tabs)/map.tsx");
@@ -97,6 +98,15 @@ assert.match(entryGate, /Erst einmal Orte entdecken/, "signed-out users must be 
 assert.match(tabs, /const isGuest = !user/, "guest navigation must identify signed-out users");
 assert.match(tabs, /href: isGuest \? null : undefined/, "guest navigation must not advertise signed-in tabs");
 assert.match(home, /if \(!user\) \{[\s\S]*search: normalized/, "guest home search must use public catalog rather than Decision");
+const homeSectionOrder = [
+  home.indexOf("<HomeSpotRail spots={topSpots}"),
+  home.indexOf("<HomeEventsSection"),
+  home.indexOf('<HomeDisplayHeading title="Neu auf backyrd"'),
+  home.indexOf('<HomeDisplayHeading title="Deine letzte Suche"'),
+];
+assert.ok(homeSectionOrder.every(index => index >= 0) && homeSectionOrder.every((index, position) => position === 0 || homeSectionOrder[position - 1] < index), "Home must preserve nearby, events, new places and recent search order");
+assert.doesNotMatch(home, /Orte {2,}in/, "Home headings must use ordinary word spacing");
+assert.doesNotMatch(home + homeRail + homeHeading, /letterSpacing:\s*\w+\s*\*\s*-0\.075/, "Home display text must not use size-proportional compressed tracking");
 assert.match(map, /spotMatchesSearch\(s, debouncedSearch, spotMoods\[s\.id\]/, "map search must include catalog context");
 assert.match(map, /getPrivacySafeLocation\(\{[\s\S]*?requestPermission: false/, "automatic map centering must reuse existing location permission without prompting");
 assert.doesNotMatch(map, /ClusteredMapView|clusterPolicyFor/, "map must not render numeric clusters");
