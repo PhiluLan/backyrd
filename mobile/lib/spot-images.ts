@@ -34,6 +34,30 @@ export type DiscoverySpot = {
   hours: SpotHoursRow[];
 };
 
+/** Hide duplicate catalog rows for the same physical venue without merging branches. */
+export function deduplicatePhysicalDiscoverySpots(spots: readonly DiscoverySpot[]): DiscoverySpot[] {
+  const output: DiscoverySpot[] = [];
+  const positions = new Map<string, number>();
+  const quality = (spot: DiscoverySpot) => Number(Boolean(spot.address?.trim()))
+    + Number(Boolean(spot.header_photo_url)) + Number(Boolean(spot.category_name)) + Number(spot.hours.length > 0);
+  for (const spot of spots) {
+    const name = spot.name.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("de-CH");
+    const coordinates = Number.isFinite(spot.lat) && Number.isFinite(spot.lng)
+      ? `${Number(spot.lat).toFixed(6)}:${Number(spot.lng).toFixed(6)}`
+      : null;
+    const address = spot.address?.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("de-CH") || null;
+    const identity = coordinates ? `${name}|geo:${coordinates}` : address ? `${name}|address:${address}` : `id:${spot.id}`;
+    const existing = positions.get(identity);
+    if (existing === undefined) {
+      positions.set(identity, output.length);
+      output.push(spot);
+    } else if (quality(spot) > quality(output[existing])) {
+      output[existing] = spot;
+    }
+  }
+  return output;
+}
+
 function normalizedUrl(value: string | null | undefined) {
   const clean = value?.trim();
   if (!clean) return null;

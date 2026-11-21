@@ -243,6 +243,7 @@ assert.match(spotDetail, /if \(!decisionOrigin\)/, "Spot Detail must suppress De
 assert.match(pushNotificationRouter, /Platform\.OS === "web"\) return/, "Web must not invoke native push notification APIs");
 assert.doesNotMatch(decision, /create_decision_session_v1|Math\.max\(\s*82/);
 assert.match(home, /pathname: "\/\(tabs\)\/wohin"/, "Home search must enter Wohin");
+assert.match(home, /setQuery\(""\);\s*router\.push\(\{ pathname: "\/\(tabs\)\/wohin"/, "Home must clear a submitted Decision wish instead of restoring a horizontally scrolled draft");
 assert.match(tabs, /name="wohin"/, "Wohin must be visible in app navigation");
 assert.match(tabs, /name="decision" options=\{\{ href: null \}\}/, "Old Decision must not be a visible tab");
 assert.match(home, /auto: "1"/, "Home submission must execute Decision");

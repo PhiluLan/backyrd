@@ -7,15 +7,13 @@ import { librarianConcept } from '@backyrd/world-knowledge-core';
 
 const MAX_RESPONSE_BYTES = 65_536;
 const SIMPLE_SEARCH_TIMEOUT_MS = 6_000;
-const simpleSearchInstructions = `Du bist NukNuk. Übersetze diese einfache Suche nach einem Ort mit genau einer Aktivität in das vorgegebene JSON-Schema. Ausgabe nur {"singleActivity":true,"meaning":{"facts":[...]}}. facts ohne id und subjectIds. Jeder Fakt hat key, modality, basis und value. Bewahre alle genannten Wünsche. Trinken gehen: food.drink mit value {"text":"drinks"}, REQUIRED. Kaffee trinken: food.drink mit Text coffee, REQUIRED. Café/Restaurant als ausdrücklich gewünschter Ortstyp: offer.kind mit Text CAFE/RESTAURANT, REQUIRED. Essen gehen: food.meal mit Text meal, REQUIRED. Gemütlich: atmosphere.character mit Text gemütlich, PREFERRED. Ausdrücklich genannter Suchort: location.destination mit seinem Namen, REQUIRED. basis EXPLICIT für genannte Fakten. Keine zusätzlichen Fakten, Entitäten oder Leereinträge. Keine Erläuterung.`;
-
 type SimpleCriterion = readonly [key: string, modality: 'REQUIRED' | 'PREFERRED', value: string];
 
 /** Match the entire wish. An extra word may carry a constraint the short prompt does not cover. */
 function simpleSearchCriteria(query: string): SimpleCriterion[] | null {
   const text = query.normalize('NFC').trim().toLocaleLowerCase('de-CH').replace(/\s+/gu, ' ').replace(/[.?]$/u, '');
   const criteria: SimpleCriterion[] = [];
-  const drinks = /^(?:(gemütlich) )?(?:(?:et)?was )?trinken(?: gehen)?$/u.exec(text);
+  const drinks = /^(?:(gemütlich) )?(?:(?:et)?was )?trinken(?: gehen)?( in basel)?$/u.exec(text);
   const coffee = /^(?:ein )?(?:(gemütliches) )?caf[eé]( in basel)?( für einen kaffee)?$/u.exec(text);
   const restaurant = /^(?:ein )?(?:(gemütliches) )?restaurant( in basel)?$/u.exec(text);
   if (drinks) criteria.push(['food.drink', 'REQUIRED', 'drinks']);
@@ -25,8 +23,23 @@ function simpleSearchCriteria(query: string): SimpleCriterion[] | null {
   } else if (restaurant) criteria.push(['offer.kind', 'REQUIRED', 'restaurant']);
   else return null;
   if (drinks?.[1] || coffee?.[1] || restaurant?.[1]) criteria.push(['atmosphere.character', 'PREFERRED', 'cozy']);
-  if (coffee?.[2] || restaurant?.[2]) criteria.push(['location.destination', 'REQUIRED', 'basel']);
+  if (drinks?.[2] || coffee?.[2] || restaurant?.[2]) criteria.push(['location.destination', 'REQUIRED', 'basel']);
   return criteria;
+}
+
+function deterministicSimpleMeaning(criteria: readonly SimpleCriterion[]): unknown {
+  const textValue = (key: string, value: string) => key === 'atmosphere.character' && value === 'cozy' ? 'gemütlich'
+    : key === 'offer.kind' && value === 'cafe' ? 'CAFE'
+      : key === 'offer.kind' && value === 'restaurant' ? 'RESTAURANT'
+        : key === 'location.destination' && value === 'basel' ? 'Basel' : value;
+  return {
+    singleActivity: true,
+    meaning: {
+      facts: criteria.map(([key, modality, value]) => ({
+        key, modality, basis: 'EXPLICIT', value: { text: textValue(key, value) },
+      })),
+    },
+  };
 }
 
 function matchesSimpleCriteria(plan: LibrarianRequest, expected: readonly SimpleCriterion[]): boolean {
@@ -181,7 +194,11 @@ export function createDecisionProductNuknukProvider(input: {
       ? simpleSearchCriteria(original) : null;
     if (simpleCriteria) {
       try {
-        const simple = interpret(await complete({ ...prompt, instructions: simpleSearchInstructions }, userInput, 'simple'));
+        // The entire accepted grammar is anchored above. Building this tiny,
+        // lossless meaning locally avoids a costly model invocation for the
+        // most common beta searches while every unrecognised word still takes
+        // the full NukNuk path.
+        const simple = validateNuknukCompactSearch(deterministicSimpleMeaning(simpleCriteria), { query:original, reference });
         if (simple.requestState === 'EXECUTABLE' && simple.plan && !simple.clarification && !simple.clarificationIssue
           && matchesSimpleCriteria(simple.plan, simpleCriteria)) {
           assertExplicitContext(request, simple.plan);

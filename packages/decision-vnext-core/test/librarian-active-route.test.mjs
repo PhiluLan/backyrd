@@ -415,7 +415,7 @@ test('a bar that closed at midnight on Saturday cannot be recommended on Sunday 
  assert.ok(!closedCard || (closedCard.rank === null && closedCard.tier === 'INELIGIBLE'),JSON.stringify(closedCard));
 });
 
-test('NukNuk short searches preserve the full criteria before using the same Librarian route', async () => {
+test('NukNuk deterministic simple searches preserve the full criteria before using the same Librarian route', async () => {
  const {createDecisionProductNuknukProvider} = await import('../dist/product-nuknuk-provider.js');
  const text = 'Gemütlich was trinken gehen';
  const compactFact = (key,text,modality) => ({key,value:{text},modality,basis:'EXPLICIT'});
@@ -425,10 +425,8 @@ test('NukNuk short searches preserve the full criteria before using the same Lib
  const spot = binding(111,profile([offer('bar','DRINKS')],[area('inside',[prop('atmosphere.character','gemütlich')])],'BAR'));
  const full = compact([drinks,cozy]);
  for (const scenario of [
-  {input:text,short:full,modes:['short']},
-  {input:text,short:compact([drinks]),modes:['short','full']},
-  {input:text,short:compact([drinks,compactFact('atmosphere.character','gemütlich','REQUIRED')]),modes:['short','full']},
-  {input:text,short:compact([drinks,cozy,compactFact('location.destination','Bern','REQUIRED')]),modes:['short','full']},
+  {input:text,modes:[],expected:[['food.drink','REQUIRED'],['atmosphere.character','PREFERRED']]},
+  {input:'Gemütlich etwas trinken in Basel',modes:[],expected:[['food.drink','REQUIRED'],['atmosphere.character','PREFERRED'],['location.destination','REQUIRED']]},
   {input:'Heute Abend gemütlich was trinken gehen',modes:['full']},
   {input:'Gemütlich was trinken gehen, bei Regen lieber ins Museum.',modes:['full']},
   {input:'Gemütlich was trinken gehen. Rückfrage: Drinnen oder draussen? Antwort: Draussen.',dialogue:true,modes:['dialogue','full','full']},
@@ -454,10 +452,10 @@ test('NukNuk short searches preserve the full criteria before using the same Lib
    return accepted;
   }});
   assert.deepEqual(modes,scenario.modes,scenario.input);
-  if (scenario.input !== text) continue;
+  if (!scenario.expected) continue;
   assert.equal(result.status,200,JSON.stringify(result.diagnostics));
   assert.equal(result.body.primaryCandidateId,spot.decisionProjection.spotId);
-  assert.deepEqual(accepted.facts.map(f=>[f.key,f.modality]),[['food.drink','REQUIRED'],['atmosphere.character','PREFERRED']]);
+  assert.deepEqual(accepted.facts.map(f=>[f.key,f.modality]),scenario.expected);
  }
 });
 

@@ -24,7 +24,7 @@ import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { invokeDecisionProduct, recordDecisionProductInteraction } from "@/lib/decision/productDecision";
 import { createWohinRequest, wohinAvailability as availabilityText, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinClarificationQuery, wohinDiscoveryCategories, wohinDiscoveryDirections, wohinIsDiscoveryPlaceholder, wohinFollowUp, wohinLimitations, wohinPlaceMeta, wohinMessageKind, wohinOffTopicMessage } from "@/lib/decision/wohinModel";
 import { recordDecisionFailure, type DecisionFailurePhase } from "@/lib/decision/productDecisionDiagnostics";
-import { loadCanonicalSpotHeaders, loadDiscoverySpots, type DiscoverySpot } from "@/lib/spot-images";
+import { deduplicatePhysicalDiscoverySpots, loadCanonicalSpotHeaders, loadDiscoverySpots, type DiscoverySpot } from "@/lib/spot-images";
 import { supabase } from "@/lib/supabase";
 import { userFacingError } from "@/lib/userFacingError";
 import { backyrdTheme, usesFixedDarkAppearance } from "@/theme/backyrd";
@@ -497,7 +497,7 @@ function WohinExperience() {
       const matches = results.flatMap(result => result.status === "fulfilled" ? result.value : [])
         .filter(spot => !excluded.has(spot.id) && direction.category.test(spot.category_name ?? ""));
       const spots = new Map(matches.map(spot => [spot.id, spot]));
-      if (active) setDiscovery([...spots.values()].slice(0, 3));
+      if (active) setDiscovery(deduplicatePhysicalDiscoverySpots([...spots.values()]).slice(0, 3));
     })().finally(() => {
       if (active) setDiscoveryLoading(false);
     });

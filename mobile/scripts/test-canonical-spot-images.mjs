@@ -38,7 +38,14 @@ new Function("exports", "require", "module", compiled)(module.exports, (specifie
   throw new Error(`Unexpected dependency: ${specifier}`);
 }, module);
 
-const { resolveCanonicalSpotImage } = module.exports;
+const { deduplicatePhysicalDiscoverySpots, resolveCanonicalSpotImage } = module.exports;
+
+const discoverySpot = (id, name, address, lat, lng) => ({ id, name, address, lat, lng, city:"Basel", category_id:null, category_name:null, status:"approved", created_at:"2026-11-21T00:00:00Z", header_photo_url:null, distribution_priority:0, hours:[] });
+assert.deepEqual(deduplicatePhysicalDiscoverySpots([
+  discoverySpot("old","Chez Grisoni",null,47.5519093,7.5904225),
+  discoverySpot("canonical"," Chez  Grisoni ","Klosterberg 15",47.5519093,7.5904225),
+  discoverySpot("branch","Chez Grisoni","Another address",47.56,7.6),
+]).map(spot=>spot.id),["canonical","branch"],"the same physical venue uses its richer canonical row while a real second branch remains distinct");
 
 const storedGooglePhotos = new Map();
 let googleInvokeCount = 0;

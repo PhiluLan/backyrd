@@ -31,6 +31,9 @@ assert.deepEqual((await r.readRecentDecisionSearches(A)).map(row=>row.query),['T
 r=runtime();r.setRecentDecisionActor(A);
 assert.equal((await r.readRecentDecisionSearches(A)).length,2,'multiple requests survive a native app restart');
 const coffee=(await r.readRecentDecisionSearches(A))[1];
+const coffeeTimestamp=coffee.searchedAt;
+await r.recordRecentDecisionRequest(A,' COFFEE   with sam ');
+assert.equal((await r.readRecentDecisionSearches(A))[1].searchedAt,coffeeTimestamp,'a failed retry cannot refresh an older completed search');
 await r.rememberRecentDecisionSearch(A,' coffee   with SAM ',[candidate(id1)]);
 assert.equal((await r.readRecentDecisionSearches(A)).length,2,'repeated requests move to the front instead of duplicating');
 assert.equal((await r.readRecentDecisionSearches(A))[0].id,coffee.id,'an updated request keeps its stable identity');
