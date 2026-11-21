@@ -1070,3 +1070,39 @@ Light-/Dark-Ansichten bei 390 px und die nach Layoutabschluss erfasste kleine
 Abnahme bleibt beim Founder über OTA; eine physische iPhone-Prüfung wird nicht
 behauptet. Die bestehende Product-Regression prüft weiterhin echte Entwurfs-
 übernahme, Gespräch, Speicherung, Fehlerfälle und unveränderte Request-Inhalte.
+
+### Veröffentlichungsbeleg: Wohin als Einladung
+
+Am 21. November 2026 auf Production für beide iOS-Runtimes veröffentlicht.
+Quelle Main `5e363058870008484f41531a42e3ca2a48a4fa08`,
+[PR #779](https://github.com/PhiluLan/backyrd/pull/779),
+[alle erforderlichen PR-Gates erfolgreich](https://github.com/PhiluLan/backyrd/actions/runs/44849058216).
+Exakte Main-/IOS_OTA-Zertifizierungen erfolgreich:
+[1.1.1](https://github.com/PhiluLan/backyrd/actions/runs/44849741936),
+[1.1.0](https://github.com/PhiluLan/backyrd/actions/runs/44849746348).
+GitHub-ZIP-Prüfsummen und öffentliche EAS-/CI-Konfiguration abgeglichen.
+Upload ausschliesslich aus versiegelten Artefakten mit `--skip-bundler`.
+
+Runtime **1.1.1**:
+
+- Update: `01a1fbb9-b05a-7e4d-86c0-8b5461a90d07`
+- Gruppe: `b126f2fd-6ad1-450c-b5ab-2dafc52e013b`
+- Manifest SHA-256: `da2cb7c723c2aae0875b715f60738b43a4dce0919bf884b3e12f1637a5445f6b`
+- Ausgeliefertes Bundle SHA-256: `6f0060479204aa766245a36853ab39ba110fbd966857b9e94c183ca4d2cd0656`
+- Vorherige Gruppe als Rückfallpunkt: `8991539a-71cc-47e7-ab65-f13284c93578`
+
+Runtime **1.1.0**:
+
+- Update: `01a1fbb9-1751-7609-b068-65564375e561`
+- Gruppe: `5288fe86-d95f-4da2-ab93-29be784cb5f4`
+- Manifest SHA-256: `0748cb4bbe78609c5afb4b77635fa4f3b66d4554f1b792a6860ab982c19a482c`
+- Ausgeliefertes Bundle SHA-256: `65643ff027e3946191cfa5e1064b34ed97167dde87255f4be2c5e4c524b33501`
+- Vorherige Gruppe als Rückfallpunkt: `199f5e56-fb2b-42c7-a9ef-5bdd0e7fcf2a`
+
+Nach beiden Uploads beide Production-Manifeste und tatsächliche CDN-Bundle-Bytes
+erneut geprüft: erfolgreich, beide Runtimes parallel verfügbar. Lokaler finaler
+Product-Browserablauf erfolgreich, einschliesslich Gespräch, unveränderter
+Request-Inhalte, persistenter Composer-Instanz und gelöschtem Verlauf nach Reload.
+Light/Dark bei 390 px und die abgeschlossene 320-px-Darstellung visuell geprüft.
+Die physische OTA-Aktivierung und visuelle Founder-Abnahme bleiben offen. Keine
+Backend-/Decision-Aktivierung; die Figur bleibt für die Beta deaktiviert.
