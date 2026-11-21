@@ -1,92 +1,6 @@
-export type DecisionInputMode = "guided" | "free";
-export type DecisionOption = {
-  key: string;
-  label: string;
-  placeTypes?: string[];
-  queryHint: string;
-};
-export const DIRECTION_OPTIONS: DecisionOption[] = [
-  {
-    key: "restaurant",
-    label: "Essen",
-    placeTypes: ["restaurant"],
-    queryHint: "Restaurant, Essen, Lunch oder Dinner",
-  },
-  {
-    key: "cafe",
-    label: "Café",
-    placeTypes: ["cafe"],
-    queryHint: "Café, Kaffee, gemütlich sitzen",
-  },
-  {
-    key: "bar",
-    label: "Drinks",
-    placeTypes: ["bar"],
-    queryHint: "Bar, Drinks, Cocktails oder Wein",
-  },
-  {
-    key: "culture",
-    label: "Kultur",
-    placeTypes: ["culture"],
-    queryHint: "Museum, Kunst, Galerie oder Kultur",
-  },
-  {
-    key: "activity",
-    label: "Aktivität",
-    placeTypes: ["activity", "experience"],
-    queryHint: "Aktivität, Erlebnis, etwas unternehmen",
-  },
-  {
-    key: "outing",
-    label: "Ausflug",
-    placeTypes: ["outing", "experience"],
-    queryHint: "Ausflug, rausgehen, entdecken",
-  },
-];
-export const AUDIENCE_OPTIONS: DecisionOption[] = [
-  {
-    key: "kids",
-    label: "Mit Kind",
-    placeTypes: ["activity", "culture", "outing", "experience", "cafe"],
-    queryHint: "kinderfreundlich, mit Kind, Familie",
-  },
-  {
-    key: "date",
-    label: "Date",
-    placeTypes: ["restaurant", "bar", "cafe", "culture"],
-    queryHint: "Date, romantisch, persönlich",
-  },
-  {
-    key: "friends",
-    label: "Freunde",
-    placeTypes: ["bar", "restaurant", "activity", "cafe"],
-    queryHint: "mit Freunden, Gruppe, locker",
-  },
-  {
-    key: "solo",
-    label: "Allein",
-    placeTypes: ["cafe", "culture", "outing"],
-    queryHint: "alleine, solo, me time",
-  },
-];
-export const MOOD_OPTIONS: DecisionOption[] = [
-  { key: "cozy", label: "Cozy", queryHint: "cozy gemütlich warm" },
-  { key: "quiet", label: "Ruhig", queryHint: "ruhig nicht laut entspannt" },
-  {
-    key: "inspiring",
-    label: "Inspirierend",
-    queryHint: "inspirierend kreativ besonders",
-  },
-  { key: "urban", label: "Urban", queryHint: "urban städtisch modern" },
-  { key: "chic", label: "Chic", queryHint: "chic stilvoll schön" },
-  {
-    key: "lively",
-    label: "Lebhaft",
-    queryHint: "lebhaft energie gute stimmung",
-  },
-];
+import { createWohinRequest, visibleWohinCandidates } from "../../mobile/lib/decision/wohinModel";
 
-const REQUEST_VERSION = "backyrd.decision-vnext.product-request@1.0" as const;
+type RequestVersion = "backyrd.decision-vnext.product-request@1.0";
 const RESPONSE_VERSION = "backyrd.decision-vnext.product-response@1.0" as const;
 const PRESENTATION_VERSION = "backyrd.decision-vnext.product-presentation@1.0" as const;
 const RANKING_POLICY_VERSION = "backyrd.decision-vnext.product-ranking-policy@1.0" as const;
@@ -97,7 +11,7 @@ const HASH = /^[a-f0-9]{64}$/;
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
 
 type DecisionProductRequest = {
-  contractVersion: typeof REQUEST_VERSION;
+  contractVersion: RequestVersion;
   requestId: string;
   idempotencyKey: string;
   naturalLanguage: string;
@@ -151,7 +65,7 @@ type DecisionProductResponse = {
   envelopeHash: string;
   rankingPolicyVersion: typeof RANKING_POLICY_VERSION;
   rankingPolicyHash: string;
-  interpretation: Record<string, unknown> & { interpretationHash: string; rawTextPersisted: false };
+  interpretation: Record<string, unknown> & { interpretationHash: string; rawTextPersisted: false; targetCity: string | null };
   clarification?: string;
   primaryCandidateId: string | null;
   candidates: DecisionResult[];
@@ -171,6 +85,7 @@ export class DecisionWebClarification extends Error {
 }
 
 export type DecisionRun = {
+  interpretation: DecisionProductResponse["interpretation"];
   clarification?: string;
   submittedQuery: string;
   decisionId: string;
@@ -184,13 +99,7 @@ export type DecisionRun = {
 };
 export type DecisionRequest = {
   city: string;
-  inputMode: DecisionInputMode;
-  rawFreeText?: string | null;
-  directions: string[];
-  audiences: string[];
-  moods: string[];
-  moodA?: string;
-  moodB?: string;
+  rawFreeText: string;
 };
 
 export type DecisionAction = {
@@ -199,51 +108,7 @@ export type DecisionAction = {
   rejectedCandidateIds: string[];
 };
 
-const clean = (value?: string | null) =>
-  (value ?? "").trim().replace(/\s+/g, " ");
 const unique = <T>(items: T[]) => Array.from(new Set(items));
-const labels = (options: DecisionOption[], keys: string[]) =>
-  keys
-    .map((key) => options.find((option) => option.key === key)?.label)
-    .filter(Boolean)
-    .join(" + ");
-const hints = (options: DecisionOption[], keys: string[]) =>
-  keys.flatMap(
-    (key) => options.find((option) => option.key === key)?.queryHint ?? [],
-  );
-
-function buildNaturalLanguage(input: DecisionRequest) {
-  const city = clean(input.city) || "Basel";
-  const directionLabel = labels(DIRECTION_OPTIONS, input.directions);
-  const audienceLabel = labels(AUDIENCE_OPTIONS, input.audiences);
-  const moodLabel = labels(MOOD_OPTIONS, input.moods);
-  const moodText = [clean(input.moodA), clean(input.moodB), moodLabel]
-    .filter(Boolean)
-    .join(" + ");
-  const free = input.inputMode === "free" ? clean(input.rawFreeText) : "";
-  const query = free
-    ? [
-        free,
-        directionLabel ? `Gewünschte Richtung: ${directionLabel}` : null,
-        audienceLabel ? `Situation: ${audienceLabel}` : null,
-        moodText ? `Stimmung: ${moodText}` : null,
-      ]
-        .filter(Boolean)
-        .join("\n")
-    : [
-        directionLabel ? `Richtung: ${directionLabel}` : null,
-        audienceLabel ? `Situation: ${audienceLabel}` : null,
-        moodText ? `Stimmung: ${moodText}` : null,
-        unique([
-          ...hints(DIRECTION_OPTIONS, input.directions),
-          ...hints(AUDIENCE_OPTIONS, input.audiences),
-          ...hints(MOOD_OPTIONS, input.moods),
-        ]).join(", ") || null,
-      ]
-        .filter(Boolean)
-        .join("\n");
-  return { city, query };
-}
 
 const uniqueIdentifiers = (values: string[]) => unique(values.filter((value) => IDENTIFIER.test(value))).slice(0, 50);
 
@@ -251,19 +116,8 @@ export function buildCanonicalDecisionRequest(
   input: DecisionRequest,
   action: DecisionAction = { alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] },
 ): DecisionProductRequest {
-  const { city, query } = buildNaturalLanguage(input);
-  const requestId = crypto.randomUUID();
-  const explicit: DecisionProductRequest["explicit"] = {
-    moods: uniqueIdentifiers(input.moods),
-  };
-  if (IDENTIFIER.test(city)) { explicit.targetCity = city; explicit.targetCityRole = "SEARCH_CONTEXT"; }
-  return {
-    contractVersion: REQUEST_VERSION,
-    requestId,
-    idempotencyKey: requestId,
-    naturalLanguage: query,
-    includeEvents: true,
-    explicit,
+  const request = createWohinRequest({ query: input.rawFreeText, city: input.city, requestId: crypto.randomUUID() });
+  return { ...request,
     alternativeRequested: action.alternativeRequested,
     previouslyPresentedCandidateIds: uniqueIdentifiers(action.previouslyPresentedCandidateIds),
     rejectedCandidateIds: uniqueIdentifiers(action.rejectedCandidateIds),
@@ -271,23 +125,29 @@ export function buildCanonicalDecisionRequest(
 }
 
 const unavailable = () => new Error("Die aktuelle Decision ist gerade nicht verfügbar.");
-async function invokeDecision(body: unknown, submittedQuery = ""): Promise<unknown> {
+export class DecisionWebDialogue extends Error {
+  constructor(readonly route: "NEW_PLAN" | "OFF_TOPIC") { super("decision_dialogue_choice"); }
+}
+
+async function invokeDecision(body: unknown, submittedQuery = "", options: { signal?: AbortSignal; supportsDialogueChoice?: boolean } = {}): Promise<unknown> {
   const response = await fetch("/api/decision", {
     method: "POST",
     credentials: "same-origin",
     cache: "no-store",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...(options.supportsDialogueChoice ? { "x-backyrd-dialogue-choice": "1" } : {}) },
+    signal: options.signal,
     body: JSON.stringify(body),
   });
   if (!response.ok) {
     if (response.status === 422) {
       const failure = await response.json();
+      if (failure?.route === "NEW_PLAN" || failure?.route === "OFF_TOPIC") throw new DecisionWebDialogue(failure.route);
       if (typeof failure?.clarification === "string" && /^[^?!<>\r\n]{9,239}\?$/u.test(failure.clarification)) {
         throw new DecisionWebClarification(failure.clarification, submittedQuery);
       }
       if (failure?.error === "decision_nuknuk_unresolved") throw new Error("decision_nuknuk_unresolved");
     }
-    if (response.status === 401) throw new Error("Bitte melde dich an, um Für jetzt zu nutzen.");
+    if (response.status === 401) throw new Error("Bitte melde dich an, um Wohin zu nutzen.");
     throw unavailable();
   }
   return response.json() as Promise<unknown>;
@@ -442,13 +302,14 @@ async function validateResponse(value: unknown, request: DecisionProductRequest)
   return response;
 }
 
-export async function runWebDecision(input: DecisionRequest, action?: DecisionAction): Promise<DecisionRun> {
+export async function runWebDecision(input: DecisionRequest, action?: DecisionAction, options: { signal?: AbortSignal; supportsDialogueChoice?: boolean } = {}): Promise<DecisionRun> {
   const request = buildCanonicalDecisionRequest(input, action);
-  const data = await invokeDecision(request, request.naturalLanguage);
+  const data = await invokeDecision(request, request.naturalLanguage, options);
   const response = await validateResponse(data, request);
-  const results = response.candidates.filter((candidate) => candidate.rank !== null && !candidate.contextualReject);
+  const results = visibleWohinCandidates(response);
   return {
     decisionId: response.decisionId,
+    interpretation: response.interpretation,
     clarification: response.clarification,
     submittedQuery: request.naturalLanguage,
     personalized: response.personalization.state === "ACTIVE",

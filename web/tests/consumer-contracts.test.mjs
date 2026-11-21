@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
 
-test("Web keeps its guided option labels while Mobile uses the single Wohin vNext route", async () => {
+test("Web and Mobile share the canonical free-text Wohin request", async () => {
   const [web, retiredMobileRoute, wohin, mobileRequest, mobileTransport, release] = await Promise.all([
     read("web/lib/decision-web-api.ts"),
     read("mobile/app/(tabs)/decision.tsx"),
@@ -14,28 +14,8 @@ test("Web keeps its guided option labels while Mobile uses the single Wohin vNex
     read("mobile/lib/decision/productDecision.ts"),
     read("mobile/lib/decision/productDecisionRelease.generated.ts"),
   ]);
-  const expected = [
-    ["restaurant", "Essen"],
-    ["cafe", "Café"],
-    ["bar", "Drinks"],
-    ["culture", "Kultur"],
-    ["activity", "Aktivität"],
-    ["outing", "Ausflug"],
-    ["kids", "Mit Kind"],
-    ["date", "Date"],
-    ["friends", "Freunde"],
-    ["solo", "Allein"],
-    ["cozy", "Cozy"],
-    ["quiet", "Ruhig"],
-    ["inspiring", "Inspirierend"],
-    ["urban", "Urban"],
-    ["chic", "Chic"],
-    ["lively", "Lebhaft"],
-  ];
-  for (const [key, label] of expected) {
-    const pattern = new RegExp(`key:\\s*["']${key}["'][\\s\\S]{0,100}label:\\s*["']${label}["']`);
-    assert.match(web, pattern);
-  }
+  assert.match(web, /createWohinRequest/);
+  assert.doesNotMatch(web, /DIRECTION_OPTIONS|AUDIENCE_OPTIONS|queryHint|buildNaturalLanguage/);
   assert.match(retiredMobileRoute, /Redirect href="\/\(tabs\)\/wohin"/);
   assert.doesNotMatch(retiredMobileRoute, /DIRECTION_OPTIONS|functions\.invoke|requestDecision/);
   assert.match(wohin, /createWohinRequest/);
@@ -80,9 +60,9 @@ test("Web Decision uses the strict vNext single-route Product contract", async (
   assert.match(source, /item\.decisionId !== expectedDecisionId/);
   assert.doesNotMatch(source, /item\.requestHash !== await contentHash\(request\)/);
   assert.match(experience, /current\.presentation\.name/);
-  assert.match(experience, /current\.actualAvailability/);
-  assert.match(experience, /spot\.reasons/);
-  assert.match(experience, /resultCopy\(current\)\.considerations/);
+  assert.match(experience, /wohinAvailability/);
+  assert.match(experience, /wohinRecommendation/);
+  assert.match(experience, /wohinConsiderations/);
   assert.doesNotMatch(experience, /Grenzen:.*join/);
   assert.match(experience, /IntersectionObserver/);
   assert.match(experience, /candidate_impression/);
@@ -102,7 +82,7 @@ test("Decision history remains explicitly Legacy-only", async () => {
 
 test("Consumer navigation and canonical terminology are stable", async () => {
   const shell = await read("web/components/consumer/consumer-shell.tsx");
-  for (const label of ["Entdecken", "Für jetzt", "Orte", "Momente"]) {
+  for (const label of ["Entdecken", "Wohin", "Orte", "Momente"]) {
     assert.match(shell, new RegExp(`label:\\s*["']${label}["']`));
   }
   assert.doesNotMatch(shell, /label:\s*["']Karte["']/);

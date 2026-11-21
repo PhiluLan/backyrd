@@ -1189,3 +1189,56 @@ Light/Dark-Darstellung und Profilbearbeitung im Browser visuell geprüft.
 Die physische OTA-Aktivierung, native Tastatur-/VoiceOver-Prüfung und visuelle
 Founder-Abnahme bleiben offen. Keine Backend-/Decision-Aktivierung und keine
 Änderung an RLS, Moderation oder Datenlöschfristen.
+
+## Punkt 2 – App/Web-Parität: Wohin im Consumer Web
+
+Der Founder hat nach dem Vergleich der Live-Website mit dem veröffentlichten
+App-Stand die Angleichung von Wohin, Gespräch, Verlauf und Ergebnisdarstellung
+beauftragt. Taskklasse `PRODUCT_RELEASE`; kein Ranking-/Backend-Release.
+
+Der Web-Einstieg heisst nun ebenfalls Wohin und übernimmt «Zeit für was Gutes.»,
+kurze Inspirationsentwürfe und eine durchgehende Eingabe. Der geführte Formular-
+ablauf mit lokalen Intent-Hinweisen entfällt. Inspiration und Verlaufsübernahme
+füllen ausschliesslich einen bearbeitbaren Entwurf, ohne automatische Suche.
+Eine verifizierte Anmeldung und eine bekannte oder eingegebene Suchregion sind
+Voraussetzung für das Absenden. Fehler beim Laden der Identität bleiben sichtbar.
+
+Die vorhandene reine Mobile-Präsentationsdatei `wohinModel.ts` wird tatsächlich
+wiederverwendet: kanonischer Freitext-Request, Besuchersprache, Unsicherheiten,
+Rückfragen, Themenwechsel und Auswahl der sichtbaren Kandidaten. Die zwei
+Anpassungen dort sind import-/typbezogen sowie ein äquivalenter regulärer
+Ausdruck ohne DotAll-Flag für das bestehende ES2017-Webziel. Native Modelltests
+bleiben unverändert ausführbar; es gibt keine neue Engine oder Client-Rangfolge.
+Web behält seine strikte Hash-/Vertragsprüfung. Das verifiziert angemeldete
+Server-Proxy nutzt weiterhin nur den bestehenden `decision-v13`-Einstieg; das
+bereits in Mobile verwendete Dialogue-Choice-Protokoll wird durchgereicht.
+
+Antworten und höchstens fünf bereits serverseitig geordnete Vorschläge stehen
+im selben Gespräch. Grosse Bildkarten, Besuchshinweise und aktuelle Rückfragen
+ersetzen die einzelne Trefferansicht. Nach dem Absenden und nach einer Antwort
+wird der neue Bereich sichtbar und fokussierbar; der Composer bleibt dieselbe
+DOM-Instanz. Wartezustand und Abbruch entsprechen der tatsächlichen Anfrage;
+keine simulierten Fortschrittsstufen. Reduced Motion beendet die Spinnerbewegung.
+Veraltete Antworten werden nach Abbruch, Unmount oder Identitätswechsel ignoriert.
+
+Anfragenverlauf: höchstens 20 Einträge für 30 Tage, lokal in diesem Browser und
+nach Konto getrennt. Nur explizit abgesendete Anfragen werden gespeichert,
+keine Entwürfe oder automatischen Analytics-/Lernsignale. Einzel-/Gesamtlöschung
+wird bestätigt. Ein während der Suche gelöschter Verlauf wird durch deren spätere
+Antwort nicht wiederhergestellt. Abmelden entfernt den lokalen Verlauf auch dann,
+wenn Wohin bereits verlassen wurde; Kontowechsel entfernt fremde Einträge.
+Speicherfehler werden offen angezeigt und verhindern die Suche nicht. Keine
+Synchronisierung mit dem verschlüsselten Geräteverlauf der iOS-App. Bestehende
+Legacy-Einträge bleiben separat und ausdrücklich historisch zugänglich; sie
+werden nicht als neue Wohin-Anfragen ausgegeben.
+
+Validierung: Web-TypeScript, Web-Vertragstests einschliesslich Speichergrenzen und
+Kontotrennung; 30 bestehende Mobile-Modelltests und Single-Route-Prüfung. Sechs
+synthetische Browserabläufe prüfen Request-Inhalt, persistente Eingabe, sichtbare
+Ergebnisse, Rückfrage, Fehler/Retry, ungültige Antwort, Verlaufsübernahme/-löschung,
+Löschung während einer Suche, expliziten Planwechsel und Abmelden ausserhalb von
+Wohin. Layout bei 320/390/768/1440 px ohne horizontalen Seitenüberlauf; keine
+schweren/kritischen Axe-Befunde im neuen Einstieg. Keine Production-Fixtures,
+keine realen Consent-/Lösch-/Moderationsaktionen für Tests. Browser-Sichtprüfung
+von Desktop und Mobile; eine physische Tastatur-/VoiceOver-Abnahme wird nicht
+behauptet. Kein Schema-, RLS-, Ranking-, Prompt- oder Edge-Deployment.

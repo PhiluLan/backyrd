@@ -56,7 +56,7 @@ export function HomeExperience() {
     const value = query.trim();
     router.push(
       value
-        ? `/decision?mode=free&query=${encodeURIComponent(value)}`
+        ? `/decision?query=${encodeURIComponent(value)}`
         : "/decision",
     );
   }
@@ -87,7 +87,7 @@ export function HomeExperience() {
                 placeholder="Zum Beispiel: ruhig essen, aber nicht langweilig …"
               />
               <Button type="submit">
-                Für jetzt <ArrowIcon />
+                Wohin <ArrowIcon />
               </Button>
             </form>
             <WeatherContext city="Basel" />

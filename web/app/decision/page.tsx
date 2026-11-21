@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { DecisionExperience } from "@/components/consumer/decision-experience";
 
 export const metadata: Metadata = {
-  title: "Für jetzt",
+  title: "Wohin",
   description:
     "Beschreibe deinen Moment. Backyrd findet den Ort, der jetzt passt.",
   alternates: { canonical: "/decision" },
