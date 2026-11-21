@@ -276,8 +276,19 @@ export function moreInfo(
         // Preserve qualifiers; unsupported conditions must not become unconditional claims.
         if (
           condition &&
-          Object.keys(condition).some(
-            (key) => !["days", "dayparts", "area", "occasion"].includes(key),
+          Object.entries(condition).some(
+            ([key, value]) =>
+              value != null &&
+              ![
+                "days",
+                "dayparts",
+                "area",
+                "occasion",
+                "groupSize",
+                "ageContext",
+                "accompaniment",
+                "eventMode",
+              ].includes(key),
           )
         )
           return [];
@@ -302,6 +313,39 @@ export function moreInfo(
           )
         )
           return [];
+        const group = object(condition?.groupSize);
+        if (
+          condition?.groupSize != null &&
+          (!group ||
+            typeof group.min !== "number" ||
+            typeof group.max !== "number" ||
+            !Number.isInteger(group.min) ||
+            !Number.isInteger(group.max) ||
+            group.min < 1 ||
+            group.max < group.min)
+        )
+          return [];
+        const age =
+          condition?.ageContext == null ? null : token(condition.ageContext);
+        if (condition?.ageContext != null && !age) return [];
+        const accompanimentLabels: Readonly<Record<string, string>> = {
+          ALONE: "Alleine",
+          ADULT: "Mit erwachsener Begleitung",
+          LEGAL_GUARDIAN: "Mit erziehungsberechtigter Begleitung",
+          GROUP: "In der Gruppe",
+        };
+        const accompaniment =
+          typeof condition?.accompaniment === "string"
+            ? accompanimentLabels[condition.accompaniment]
+            : null;
+        if (condition?.accompaniment != null && !accompaniment) return [];
+        const event =
+          condition?.eventMode === "EVENT"
+            ? "Bei Veranstaltungen"
+            : condition?.eventMode === "NORMAL_OPERATION"
+              ? "Im regulären Betrieb"
+              : null;
+        if (condition?.eventMode != null && !event) return [];
         const days = Array.isArray(condition?.days)
           ? condition.days
               .map((day) =>
@@ -316,6 +360,12 @@ export function moreInfo(
           ...values(condition?.dayparts),
           clean(condition?.area),
           clean(condition?.occasion),
+          group
+            ? `${group.min === group.max ? group.min : `${group.min}–${group.max}`} ${group.max === 1 ? "Person" : "Personen"}`
+            : null,
+          age,
+          accompaniment,
+          event,
         ].filter(Boolean);
         return [[title, ...qualifiers].join(" · ")];
       });
