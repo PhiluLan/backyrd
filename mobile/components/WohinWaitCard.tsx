@@ -39,7 +39,7 @@ export function WohinWaitCard({ isReply, onLeave }: { isReply: boolean; onLeave:
       {dots.map((dot, index) => <Animated.View key={index} accessible={false} style={[styles.dot, { backgroundColor: color.pink, opacity: dot }]} />)}
       <AppText role="caption" tone="pink">NukNuk</AppText>
     </View>
-    <AppText role="body">{isReply ? "Alles klar, ich schaue noch einmal." : "Ich schaue, was zu deinem Plan passt."}</AppText>
+    <AppText role="cardTitle" style={styles.searchLine}>{isReply ? "Alles klar. Ich schau noch einmal." : "Ich schau mich für dich um."}</AppText>
     {seconds >= 12 ? <AppText role="meta" tone="secondary" accessibilityLiveRegion="polite">{seconds >= 24 ? "Das dauert gerade länger. Ich bin noch dran. Du kannst deinen Wunsch jederzeit anpassen." : "Noch einen Moment …"}</AppText> : null}
     <Pressable accessibilityRole="button" onPress={onLeave} style={styles.action}><AppText role="caption" tone="secondary">Wunsch anpassen</AppText></Pressable>
   </View>;
@@ -48,6 +48,7 @@ export function WohinWaitCard({ isReply, onLeave }: { isReply: boolean; onLeave:
 const styles = StyleSheet.create({
   reply: { gap: 12, paddingVertical: 6 },
   status: { flexDirection: "row", alignItems: "center", gap: 6 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  searchLine: { fontSize: 25, lineHeight: 32, letterSpacing: -0.5 },
   action: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center" },
 });

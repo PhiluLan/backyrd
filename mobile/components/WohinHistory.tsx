@@ -21,7 +21,7 @@ function requestDate(timestamp: number) {
 export function WohinRecentRequests({ entries, color, loading, unavailable, onSelect, disabled, onOpen, width }: EntriesProps & { onOpen: () => void; width: number }) {
   return <View style={styles.section} testID="wohin-recent-requests">
     <View style={styles.headingRow}>
-      <AppText role="sectionTitle" style={styles.sectionTitle}>Zuletzt mit NukNuk</AppText>
+      <AppText role="sectionTitle" style={styles.sectionTitle}>Deine letzten Ideen</AppText>
       <Pressable accessibilityRole="button" accessibilityLabel="Alle Anfragen öffnen" onPress={onOpen} style={styles.textButton}><AppText role="caption" tone="pink">Verlauf</AppText><Ionicons name="arrow-forward" color={color.pink} size={16} /></Pressable>
     </View>
     {loading ? <ActivityIndicator accessibilityLabel="Anfragen werden geladen" color={color.pink} /> : unavailable
@@ -49,7 +49,7 @@ export function WohinHistorySheet({ visible, onClose, entries, color, loading, u
     <View style={styles.backdrop}>
       <SafeAreaView edges={["bottom", "left", "right"]} style={[styles.sheet, { backgroundColor: color.background, borderColor: color.border }]} accessibilityViewIsModal testID="wohin-history-sheet">
         <View style={styles.sheetHeader}>
-          <View style={styles.flex}><AppText role="sectionTitle">{deletion ? "Verlauf aufräumen" : "Deine Anfragen"}</AppText><AppText role="caption" tone="secondary">{Platform.OS === "web" ? "In diesem Tab" : "Auf diesem Gerät"} · bis zu 30 Tage</AppText></View>
+          <View style={styles.flex}><AppText role="sectionTitle">{deletion ? "Verlauf aufräumen" : "Deine Ideen"}</AppText><AppText role="caption" tone="secondary">{Platform.OS === "web" ? "In diesem Tab" : "Auf diesem Gerät"} · bis zu 30 Tage</AppText></View>
           <Pressable accessibilityRole="button" accessibilityLabel="Anfragen schliessen" onPress={onClose} style={styles.close}><Ionicons name="close" size={25} color={color.text} /></Pressable>
         </View>
         {unavailable ? <View style={styles.notice}><AppText role="body" tone="secondary">Dein Verlauf konnte gerade nicht auf diesem Gerät geladen oder geändert werden.</AppText><Pressable accessibilityRole="button" disabled={busy} onPress={onRetry} style={styles.textButton}><AppText role="label" tone="pink">Noch einmal versuchen</AppText></Pressable></View> : null}

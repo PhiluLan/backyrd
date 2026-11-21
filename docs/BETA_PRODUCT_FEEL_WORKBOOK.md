@@ -1042,3 +1042,31 @@ Vorschauen der neuen Begrüssung visuell geprüft. Native Aktivierung und visuel
 Founder-Abnahme auf dem physischen iPhone werden nicht behauptet. Die bisherigen
 zehn Raster-Layer, Motion-Steuerung und Lifecycle-Tests sind gegenüber der
 vorherigen Main-Version unverändert erhalten. Keine Backend-/Decision-Aktivierung.
+
+### Wohin: Einladung mit mehr Persönlichkeit
+
+Der Founder empfindet die Beta-Oberfläche weiterhin als steif und hat die
+Richtung «mutig, urban und lässig» ausdrücklich gewählt. Der neue Einstieg setzt
+auf «Zeit für was Gutes.» in grosser, enger Typografie, gezieltes Pink und einen
+kräftigeren, statischen Farbverlauf. Eine kleine persönliche Begrüssung bleibt;
+der grosse formelle Tageszeit-Gruss entfällt. Kurze Inspirationskarten lassen
+sich horizontal entdecken. Sie zeigen eine Stimmung statt ausgeschriebener
+Beispielfragen; Antippen füllt weiterhin nur den bearbeitbaren Entwurf.
+Die vorhandenen Suchtexte, Tageszeit- und Stadtbindung bleiben unverändert.
+
+NukNuk spricht in den UI-eigenen Warte-, Bearbeitungs- und Ergebnistexten direkter.
+Es gibt keine simulierten Fortschrittsstufen, neue Interpretation oder erfundene
+persönliche Gewissheit. Das bestehende Eingabefeld bleibt dieselbe Instanz über
+Suche und Folgefragen; es bekommt einen klaren Fokusrahmen. Verlauf und Speicherung
+bleiben erhalten. Auf dem Einstieg wird ein vollständig leerer Verlauf nicht als
+zusätzlicher Inhaltsblock angezeigt; er bleibt über den Header erreichbar.
+Die Figur bleibt für die Beta deaktiviert, die bestehende Motion-Arbeit erhalten.
+
+Taskklasse `PRODUCT_RELEASE`; Scope: Mobile-Wohin-Präsentation, Warte-/Verlauf-UI,
+bestehende Browser-Regression und Arbeitsbuch. Keine neuen Abhängigkeiten,
+Backend-, Schema-, Auth-, Consent-, Ranking- oder Decision-Request-Änderungen.
+Light-/Dark-Ansichten bei 390 px und die nach Layoutabschluss erfasste kleine
+320-px-Ansicht visuell geprüft; kein horizontaler Seitenüberlauf. Native visuelle
+Abnahme bleibt beim Founder über OTA; eine physische iPhone-Prüfung wird nicht
+behauptet. Die bestehende Product-Regression prüft weiterhin echte Entwurfs-
+übernahme, Gespräch, Speicherung, Fehlerfälle und unveränderte Request-Inhalte.
