@@ -30,12 +30,24 @@ numeric_suffix="${project_suffix//[^0-9]/}"; numeric_suffix="${numeric_suffix:-$
 port_base=$((57000 + (numeric_suffix % 30) * 20))
 started=false
 keep_running="${BACKYRD_KEEP_SUPABASE_RUNNING:-false}"
+lease_pid=""
+lease_seconds="${BACKYRD_LOCAL_SUPABASE_LEASE_SECONDS:-1800}"
+case "$keep_running" in true|false) ;; *) printf 'BACKYRD_KEEP_SUPABASE_RUNNING must be true or false.\n' >&2; exit 1 ;; esac
+if ! [[ "$lease_seconds" =~ ^[0-9]+$ ]] || (( lease_seconds < 60 || lease_seconds > 14400 )); then
+  printf 'BACKYRD_LOCAL_SUPABASE_LEASE_SECONDS must be between 60 and 14400.\n' >&2
+  exit 1
+fi
 cleanup() {
-  if test "$keep_running" = true; then
-    printf 'Disposable local Supabase kept running at %s. Stop it with: %s stop --workdir %s --no-backup\n' "$API_URL" "$supabase_cli" "$validation_root"
+  if test "$keep_running" = true && test "$started" = true; then
+    printf 'Disposable local Supabase kept running at %s for at most %s seconds. Stop it with: %s stop --project-id %s --no-backup\n' "$API_URL" "$lease_seconds" "$supabase_cli" "$project_id"
     return
   fi
-  if test "$started" = true; then "$supabase_cli" stop --workdir "$validation_root" --no-backup >/dev/null 2>&1 || true; fi
+  if test -n "$lease_pid"; then kill "$lease_pid" >/dev/null 2>&1 || true; fi
+  if test -n "$lease_pid"; then
+    "$supabase_cli" stop --project-id "$project_id" --no-backup --yes >/dev/null 2>&1 || true
+  elif test "$started" = true; then
+    "$supabase_cli" stop --workdir "$validation_root" --no-backup --yes >/dev/null 2>&1 || true
+  fi
   case "$validation_root" in
     "${TMPDIR:-/tmp}"/backyrd-current-db.*|/tmp/backyrd-current-db.*) rm -rf "$validation_root" ;;
     *) printf 'Refusing unexpected cleanup path: %s\n' "$validation_root" >&2 ;;
@@ -69,6 +81,11 @@ if rg -q 'hjgcrrzfjchzqoegcywn' "$validation_root/supabase/config.toml" "$valida
 fi
 
 start_log="$validation_root/supabase-start.log"
+lease_args=(arm --project-id "$project_id" --owner-pid "$$" \
+  --ttl-seconds "$lease_seconds" --cli "$supabase_cli")
+if test "$keep_running" = true; then lease_args+=(--keep-after-owner); fi
+lease_pid="$(python3 "$repo_root/scripts/ci/supabase-local-stack-lease.py" "${lease_args[@]}")"
+kill -0 "$lease_pid" >/dev/null 2>&1 || { printf 'Disposable Supabase lease watcher did not start.\n' >&2; exit 1; }
 if ! "$supabase_cli" start --workdir "$validation_root" --exclude studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,postgres-meta --agent=no >"$start_log" 2>&1; then
   sed -E -e 's#postgresql://[^[:space:]]+#postgresql://[REDACTED]#g' -e 's#sb_(publishable|secret)_[A-Za-z0-9_-]+#[REDACTED_LOCAL_KEY]#g' "$start_log" >&2
   exit 1
