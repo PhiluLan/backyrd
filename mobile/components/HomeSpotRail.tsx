@@ -11,7 +11,7 @@ import type { LocationCoordinates } from "../lib/locationContext";
 import type { DiscoverySpot } from "../lib/spot-images";
 import type { SpotOpeningStatus } from "../lib/spot-opening-status";
 import { haversineKm } from "../lib/utils/haversine";
-import { backyrdTheme as theme, useSFPro } from "../theme/backyrd";
+import { backyrdTheme as theme } from "../theme/backyrd";
 
 /** The same place card and rail geometry for all Home discovery entry points. */
 export function HomeSpotRail({ spots, moods, moodCounts, location, label, openingStatuses, onVisibleArtworkReady, presentation = "flat" }: {
@@ -36,12 +36,12 @@ export function HomeSpotRail({ spots, moods, moodCounts, location, label, openin
     return () => { active = false; subscription.remove(); };
   }, [presentation]);
   const cardWidth = homeRailCardWidth(width, { minimum: 248, maximum: 356 });
-  const cardHeight = Math.round(cardWidth * 1.08);
-  const spotNameSize = Math.max(28, Math.min(40, Math.round(cardWidth * 0.11)));
-  const cockpitSpotName = {
+  const cardHeight = Math.round(cardWidth * 1.03);
+  const spotNameSize = Math.max(30, Math.min(38, Math.round(cardWidth * 0.108)));
+  const spotNameMetrics = {
     fontSize: spotNameSize,
-    lineHeight: Math.round(spotNameSize * 1.06),
-    letterSpacing: spotNameSize * -0.075,
+    lineHeight: Math.round(spotNameSize * 1.03),
+    letterSpacing: -0.25,
   };
   function meta(spot: DiscoverySpot) {
     if (location && spot.lat !== null && spot.lng !== null) {
@@ -71,7 +71,7 @@ export function HomeSpotRail({ spots, moods, moodCounts, location, label, openin
       <OpeningStatusBadge status={openingStatuses[spot.id] ?? "unknown"} style={styles.statusPill} />
       <View style={styles.cardContent}>
         <LinearGradient pointerEvents="none" colors={["rgba(5,5,5,0)", "rgba(5,5,5,0.32)", "rgba(5,5,5,0.56)"]} locations={[0, 0.3, 1]} style={[StyleSheet.absoluteFill, styles.textScrim]} />
-        <AppText role={useSFPro ? "displayXL" : "displayM"} numberOfLines={useSFPro ? 2 : undefined} style={[styles.name, useSFPro && styles.cockpitSpotName, useSFPro && cockpitSpotName]}>{spot.name}</AppText>
+        <AppText role="displayM" numberOfLines={2} style={[styles.name, spotNameMetrics]}>{spot.name}</AppText>
         <MoodSignature labels={moods[spot.id] ?? []} moodCount={moodCounts[spot.id]} compact onImage singleLine />
         <AppText role="meta" style={styles.meta}>{meta(spot)}</AppText>
       </View>
@@ -87,7 +87,6 @@ const styles = StyleSheet.create({
   statusPill: { position: "absolute", top: theme.spacing.md, left: theme.spacing.md, maxWidth: "88%", zIndex: 1 },
   textScrim: { top: -36 },
   name: { color: "#FFFFFF" },
-  cockpitSpotName: { color: "#F8F8F8" },
   meta: { marginTop: 8, color: "rgba(246,240,232,0.78)" },
   pressed: { opacity: 0.9, transform: [{ scale: theme.motion.pressScale }] },
 });

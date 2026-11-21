@@ -38,7 +38,7 @@ import { supabase } from "../../lib/supabase";
 import { homeRailCardWidth } from "../../lib/home-rail";
 import { homeDaypart } from "../../lib/home-daypart";
 import { useStartupContent } from "../../providers/StartupContentProvider";
-import { backyrdTheme as theme, useBackyrdTheme, useSFPro } from "../../theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme } from "../../theme/backyrd";
 
 function cleanName(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -60,7 +60,6 @@ function HomeContent() {
   const [city, setCity] = useState("Basel");
   const [locationLabel, setLocationLabel] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
-  const [measuredGreeting, setMeasuredGreeting] = useState<{ name: string; width: number } | null>(null);
   const [spots, setSpots] = useState<DiscoverySpot[]>([]);
   const [newSpots, setNewSpots] = useState<DiscoverySpot[]>([]);
   const [recentSearch, setRecentSearch] = useState<(RecentDecisionSearch & { actorId: string }) | null>(null);
@@ -71,15 +70,11 @@ function HomeContent() {
   const now = useMinuteClock();
   const daypart = homeDaypart(now);
   const headlineName = user ? firstName ?? "du" : null;
-  const greetingBaseSize = Math.max(36, Math.min(48, Math.round(width * 0.12)));
-  const greetingAvailableWidth = width - 2 * theme.layout.pageGutter - 8;
-  const greetingDisplaySize = measuredGreeting?.name === headlineName
-    ? Math.max(28, Math.min(greetingBaseSize, Math.floor(greetingBaseSize * greetingAvailableWidth / measuredGreeting.width)))
-    : greetingBaseSize;
-  const cockpitGreetingMetrics = {
+  const greetingDisplaySize = Math.max(42, Math.min(50, Math.round(width * 0.126)));
+  const greetingMetrics = {
     fontSize: greetingDisplaySize,
-    lineHeight: Math.round(greetingDisplaySize * 1.06),
-    letterSpacing: greetingDisplaySize * -0.075,
+    lineHeight: Math.round(greetingDisplaySize * 1.04),
+    letterSpacing: -0.35,
   };
   const openingStatuses: Record<string, SpotOpeningStatus> = Object.fromEntries(Object.entries(openingSchedules).map(([id, schedule]) => [id, spotOpeningStatusNow(schedule.rows, now, schedule.missingDayIsUnknown)]));
   const [spotMoods, setSpotMoods] = useState<Record<string, string[]>>({});
@@ -208,13 +203,12 @@ function HomeContent() {
 
   const topSpots = spots.slice(0, 6);
   const initialArtworkReady = topSpots.slice(0, 2).every(spot => readyArtworkIds.has(spot.id));
-  const greetingReady = !useSFPro || !headlineName || measuredGreeting?.name === headlineName;
   const initialSectionsReady = eventsReady;
   useEffect(() => {
-    if (!loading && (error || (detailsReady && initialArtworkReady && greetingReady && initialSectionsReady))) reportHomeReady?.();
-  }, [detailsReady, error, greetingReady, initialArtworkReady, initialSectionsReady, loading, reportHomeReady]);
+    if (!loading && (error || (detailsReady && initialArtworkReady && initialSectionsReady))) reportHomeReady?.();
+  }, [detailsReady, error, initialArtworkReady, initialSectionsReady, loading, reportHomeReady]);
   const heroCardWidth = homeRailCardWidth(width, { minimum: 248, maximum: 356 });
-  const heroCardHeight = Math.round(heroCardWidth * 1.08);
+  const heroCardHeight = Math.round(heroCardWidth * 1.03);
   const activeRecent = recentSearch?.actorId === user?.id ? recentSearch : null;
 
   function submitDecision(value = query) {
@@ -258,13 +252,7 @@ function HomeContent() {
             </View>
           </View>
 
-          {useSFPro && headlineName ? <AppText accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none" numberOfLines={1} role="displayXL" style={[styles.greetingMeasure, styles.cockpitGreeting, { color: color.textPrimary, fontSize: greetingBaseSize, lineHeight: Math.round(greetingBaseSize * 1.06), letterSpacing: greetingBaseSize * -0.075 }]} onTextLayout={event => {
-            const measuredWidth = event.nativeEvent.lines[0]?.width ?? 0;
-            if (measuredWidth > 0 && (measuredGreeting?.name !== headlineName || Math.abs(measuredGreeting.width - measuredWidth) > 1)) {
-              setMeasuredGreeting({ name: headlineName, width: measuredWidth });
-            }
-          }}>Hey{"  "}{headlineName},</AppText> : null}
-          <AppText accessibilityLabel={headlineName ? `Hey ${headlineName},` : "Hey"} numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.pageTitle, useSFPro && styles.cockpitGreeting, useSFPro && cockpitGreetingMetrics, { color: color.textPrimary }]}>{headlineName ? <>Hey{useSFPro ? "  " : " "}<Text style={{ color: color.pink }}>{headlineName},</Text></> : "Hey"}</AppText>
+          <AppText accessibilityLabel={headlineName ? `Hey ${headlineName},` : "Hey"} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} role="displayXL" style={[styles.pageTitle, greetingMetrics, { color: color.textPrimary }]}>{headlineName ? <>Hey <Text style={{ color: color.pink }}>{headlineName},</Text></> : "Hey"}</AppText>
           <AppText testID="home-daypart-title" accessibilityRole="header" role="displayM" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.daypartTitle}>
             Heute <Text style={styles.daypartAccent}>{daypart}</Text> schon was{"\u00a0"}vor<Text style={{ color: color.textPrimary }}>?</Text>
           </AppText>
@@ -278,9 +266,7 @@ function HomeContent() {
 
           <View style={[styles.sectionHeader, currentLocation && styles.nearbySectionHeader, fontScale > 1.3 && { flexDirection: "column", alignItems: "flex-start" }]}>
             <View style={currentLocation ? styles.nearbyTitleBlock : styles.sectionTitleBlock}>
-              {currentLocation
-                ? <HomeDisplayHeading title="Orte in deiner Nähe" displayTitle="Orte  in  deiner  Nähe" accent="" />
-                : <AppText role="sectionTitle">{currentLocation ? "Orte in deiner Nähe" : `Orte in ${city} entdecken`}</AppText>}
+              <HomeDisplayHeading title={currentLocation ? "Orte in deiner Nähe" : `Orte in ${city} entdecken`} accent="" />
               {!loading && !currentLocation ? <AppText role="meta" tone="secondary">Ohne aktuellen Standort · Auswahl nach Stadt</AppText> : null}
             </View>
           </View>
@@ -326,7 +312,7 @@ const styles = StyleSheet.create({
   sectionTitleBlock: { flex: 1, minWidth: 0 },
   nearbyTitleBlock: { alignSelf: "stretch", minWidth: 0 },
   root: { flex: 1, backgroundColor: theme.color.background },
-  content: { paddingTop: theme.spacing.lg, paddingBottom: theme.control.tabBar + theme.spacing.display },
+  content: { paddingTop: 26, paddingBottom: theme.control.tabBar + theme.spacing.display },
   header: { minHeight: 60, paddingHorizontal: theme.spacing.xl, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md },
   headerLargeType: { flexDirection: "column", alignItems: "stretch", gap: theme.spacing.sm },
   greetingBlock: { flex: 1, minWidth: 0 },
@@ -334,20 +320,18 @@ const styles = StyleSheet.create({
   locationRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   locationText: { fontSize: 18, lineHeight: 24 },
   headerActionsLargeType: { alignSelf: "flex-end" },
-  pageTitle: { marginTop: theme.spacing.lg, marginHorizontal: theme.layout.pageGutter, textAlign: "left" },
-  greetingMeasure: { position: "absolute", left: 0, top: 0, width: 10000, opacity: 0 },
-  cockpitGreeting: { color: "#F8F8F8", fontWeight: "700" },
-  daypartTitle: { marginTop: theme.spacing.xs, marginHorizontal: theme.layout.pageGutter, alignSelf: "stretch", fontSize: 22, lineHeight: 30 },
+  pageTitle: { marginTop: 34, marginHorizontal: theme.layout.pageGutter, textAlign: "left" },
+  daypartTitle: { marginTop: 12, marginHorizontal: theme.layout.pageGutter, alignSelf: "stretch", fontSize: 22, lineHeight: 28, letterSpacing: -0.1 },
   daypartAccent: { textDecorationLine: "underline", textDecorationStyle: "solid", textDecorationColor: theme.color.pink },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   profileButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#141416", borderWidth: 1, borderColor: "rgba(255,67,142,0.28)" },
   guestLogin: { minHeight: 44, justifyContent: "center", paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.color.border },
-  searchShell: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl, minHeight: 68, paddingHorizontal: theme.spacing.lg, paddingRight: theme.spacing.xs, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.lg, backgroundColor: theme.color.surfaceElevated },
-  searchInput: { flex: 1, minWidth: 0, minHeight: 68, color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 18, paddingVertical: 12 },
+  searchShell: { marginTop: 26, marginHorizontal: theme.spacing.xl, minHeight: 70, paddingHorizontal: theme.spacing.lg, paddingRight: theme.spacing.xs, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: theme.color.border, borderRadius: 35, backgroundColor: theme.color.surfaceElevated },
+  searchInput: { flex: 1, minWidth: 0, minHeight: 70, color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 18, lineHeight: 24, paddingVertical: 12 },
   searchAction: { width: 48, height: 48, alignItems: "center", justifyContent: "center", borderRadius: theme.radius.pill },
   searchHint: { marginHorizontal: theme.layout.pageGutter, marginTop: theme.spacing.xs },
   eyebrow: { letterSpacing: 1.15, marginBottom: 6 },
-  sectionHeader: { marginTop: theme.spacing.xxl, paddingHorizontal: theme.spacing.xl, minHeight: 52, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: theme.spacing.md },
+  sectionHeader: { marginTop: 44, paddingHorizontal: theme.spacing.xl, minHeight: 52, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: theme.spacing.md },
   nearbySectionHeader: { flexDirection: "column", alignItems: "stretch", gap: 0 },
   newSpotsHeading: { marginTop: theme.spacing.xxl, paddingHorizontal: theme.layout.pageGutter },
   recentQuery: { marginTop: theme.spacing.sm, fontSize: 16, lineHeight: 24, fontStyle: "italic" },
