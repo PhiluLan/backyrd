@@ -757,8 +757,11 @@ try {
   await page.getByText("Platz für deine nächsten Ideen.",{exact:true}).waitFor();
   await page.getByRole("button",{name:"Anfragen schliessen",exact:true}).click();
   await page.reload({waitUntil:"domcontentloaded"});
-  await page.getByText("Hier findest du deine Anfragen später wieder.",{exact:true}).waitFor();
+  await page.getByRole("button",{name:"Letzte Anfragen öffnen",exact:true}).click();
+  await page.getByText("Platz für deine nächsten Ideen.",{exact:true}).waitFor();
   assert.equal(await page.getByRole("button",{name:/^Anfrage übernehmen:/}).count(),0,"cleared history remains empty across reload");
+  await page.getByRole("button",{name:"Anfragen schliessen",exact:true}).click();
+  await page.getByTestId("wohin-recent-requests").waitFor({state:"hidden"});
 
   const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await guestContext.route(`${endpoint}/**`, remoteFixture);
