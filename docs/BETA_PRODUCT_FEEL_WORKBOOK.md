@@ -1152,3 +1152,40 @@ Einstellungen, Sichtbarkeit, Freigaben, Datenrechte und Profilbearbeitung.
 Physische iPhone-/Tastatur- und VoiceOver-Abnahme werden nicht behauptet und
 bleiben bei der Founder-Abnahme über OTA. Dies ist keine RLS-/Sicherheitsrevision.
 Der Veröffentlichungsbeleg wird nach exakter Main-Zertifizierung ergänzt.
+
+### Veröffentlichungsbeleg: Konto, Datenschutz und Support
+
+Am 21. November 2026 auf Production für beide iOS-Runtimes veröffentlicht.
+Quelle Main `787f017c386a4cce24d1dc619807e3241997849b`,
+[PR #781](https://github.com/PhiluLan/backyrd/pull/781),
+[alle erforderlichen PR-Gates erfolgreich](https://github.com/PhiluLan/backyrd/actions/runs/44854140572).
+Exakte Main-/IOS_OTA-Zertifizierungen erfolgreich:
+[1.1.1](https://github.com/PhiluLan/backyrd/actions/runs/44854433944),
+[1.1.0](https://github.com/PhiluLan/backyrd/actions/runs/44854445311).
+GitHub-ZIP-Prüfsummen und öffentliche EAS-/CI-Konfiguration abgeglichen.
+Upload ausschliesslich aus versiegelten Artefakten mit `--skip-bundler`.
+
+Runtime **1.1.1**:
+
+- Update: `01a1fbe6-fcbf-7354-9240-cb64bf5141ec`
+- Gruppe: `76b81119-adf3-43f5-b8a4-2ad22f1d2566`
+- Manifest SHA-256: `dcacc9d4ba8284ab372ae752de2bd01279bd1f88b26e69ddae44290b79d2bbf5`
+- Ausgeliefertes Bundle SHA-256: `f88fc6b9e68e5b0b5445461bf5023a646245bfb877d2a9c4ed0ea3ef27348276`
+- Vorherige Gruppe als Rückfallpunkt: `b126f2fd-6ad1-450c-b5ab-2dafc52e013b`
+
+Runtime **1.1.0**:
+
+- Update: `01a1fbe7-b732-714e-92cf-2f2e344ec7a1`
+- Gruppe: `ac94e480-9e48-4e64-9eb0-6873542f7495`
+- Manifest SHA-256: `7c6597cee1814e39a5692bcb6a4e45b7d44e92d9223e546b5ee3bd164ab83d8f`
+- Ausgeliefertes Bundle SHA-256: `bc78dbaa8afcdefa60e7b2bbe2ea0647975ed9941b24043e67ee0b3fae8baada`
+- Vorherige Gruppe als Rückfallpunkt: `5288fe86-d95f-4da2-ab93-29be784cb5f4`
+
+Nach beiden Uploads beide Production-Manifeste und tatsächliche CDN-Bundle-Bytes
+erneut geprüft: erfolgreich, beide Runtimes parallel verfügbar. Lokaler finaler
+Product-Browserablauf und unabhängiger Nebenwege-Ablauf erfolgreich. Die exakten
+CI-Exporte haben die erweiterte Regression ebenfalls bestanden.
+Light/Dark-Darstellung und Profilbearbeitung im Browser visuell geprüft.
+Die physische OTA-Aktivierung, native Tastatur-/VoiceOver-Prüfung und visuelle
+Founder-Abnahme bleiben offen. Keine Backend-/Decision-Aktivierung und keine
+Änderung an RLS, Moderation oder Datenlöschfristen.
