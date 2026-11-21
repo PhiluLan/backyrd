@@ -24,7 +24,7 @@
 .removeMood:focus-visible { outline: 2px solid var(--pink); outline-offset: 3px; }
 
 .summary { max-width: 680px; }
-.summaryTitle { font-family: inherit; font-size: 21px; font-weight: 600; line-height: 28px; margin: 0; letter-spacing: -.4px; }
+.summaryTitle { font-family: inherit; font-size: clamp(26px,2.6vw,34px); font-weight: 750; line-height: 1.2; margin: 0; letter-spacing: -.4px; }
 .summarySubtitle { color: var(--muted); font-size: 13px; line-height: 20px; margin: 6px 0 24px; }
 .topMoods { display: grid; gap: 19px; }
 .leadingLabel { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; }

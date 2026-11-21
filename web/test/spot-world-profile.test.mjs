@@ -34,7 +34,7 @@ const profile = {
 test("a manifested World profile replaces legacy identity, location and hours together", () => {
   const result = applyCanonicalWorldSpot(legacy, profile);
   assert.deepEqual(result.spot, {
-    name: "Kanonisch", address: "Weltweg 1", city: "Basel", country: "CH",
+    name: "Kanonisch", address: "Weltweg 1", legacy_address:"Altweg", city: "Basel", country: "CH",
     lat: 47.5, lng: 7.5, header_photo_path: "photo",
   });
   assert.deepEqual(result.opening_hours, [
@@ -44,4 +44,9 @@ test("a manifested World profile replaces legacy identity, location and hours to
 
 test("no manifest means no partial World override", () => {
   assert.equal(applyCanonicalWorldSpot(legacy, { ...profile, worldManifestHash: null }), legacy);
+});
+
+test("explicitly closed World days survive the public adapter without closing unknown days", () => {
+  const result=applyCanonicalWorldSpot(legacy,{...profile,spot:{...profile.spot,regularHours:[{day:"MONDAY",intervals:[]},{day:"TUESDAY",intervals:[{start:"17:00",end:"00:30"}]}]}});
+  assert.deepEqual(result.opening_hours,[{day_of_week:"Montag",open_time:"",close_time:"",idx:0},{day_of_week:"Dienstag",open_time:"17:00",close_time:"00:30",idx:1}]);
 });
