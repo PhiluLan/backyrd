@@ -12,6 +12,7 @@
   margin-bottom: 32px;
 }
 .header h1 {
+  font-weight: 700;
   font-size: 30px;
   line-height: 1.1;
   letter-spacing: -1px;
@@ -537,10 +538,14 @@
 }
 @media (max-width: 900px) {
   .composer {
+    position: fixed;
     bottom: 94px;
+    left: 24px;
+    right: 24px;
+    margin: 0;
   }
   .experience {
-    padding-bottom: 120px;
+    padding-bottom: 190px;
   }
   .journey {
     min-height: 180px;
@@ -578,9 +583,6 @@
   .history {
     padding: 20px;
   }
-  .composer {
-    margin-inline: -4px;
-  }
   .invitation {
     font-size: 17px;
   }
@@ -600,7 +602,4 @@
 .answer {
   outline: none;
   scroll-margin-top: 100px;
-}
-.header h1 {
-  font-weight: 700;
 }

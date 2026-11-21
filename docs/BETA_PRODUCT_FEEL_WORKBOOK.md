@@ -1217,7 +1217,9 @@ Antworten und höchstens fünf bereits serverseitig geordnete Vorschläge stehen
 im selben Gespräch. Grosse Bildkarten, Besuchshinweise und aktuelle Rückfragen
 ersetzen die einzelne Trefferansicht. Nach dem Absenden und nach einer Antwort
 wird der neue Bereich sichtbar und fokussierbar; der Composer bleibt dieselbe
-DOM-Instanz. Wartezustand und Abbruch entsprechen der tatsächlichen Anfrage;
+DOM-Instanz. Eine während der Suche bereits getippte nächste Ergänzung wird durch
+die Antwort nicht überschrieben. Die mobile Eingabe bleibt oberhalb der Navigation;
+der Mindestabstand wird bei schmalen Viewports mitgeprüft. Wartezustand und Abbruch entsprechen der tatsächlichen Anfrage;
 keine simulierten Fortschrittsstufen. Reduced Motion beendet die Spinnerbewegung.
 Veraltete Antworten werden nach Abbruch, Unmount oder Identitätswechsel ignoriert.
 

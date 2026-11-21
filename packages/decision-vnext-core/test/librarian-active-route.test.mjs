@@ -79,14 +79,20 @@ test('the real Web transport accepts the new hashed response without a client co
  const {readFileSync}=await import('node:fs');
  const source=readFileSync(new URL('../../../web/lib/decision-web-api.ts',import.meta.url),'utf8');
  const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+ // Load the real shared visitor/request module now imported by the Web adapter.
+ // Only the transport is faked; normalization and response checks remain real.
+ const presentationSource=readFileSync(new URL('../../../mobile/lib/decision/wohinModel.ts',import.meta.url),'utf8');
+ const presentationCode=ts.transpileModule(presentationSource,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+ const presentation={};new Function('exports',presentationCode)(presentation);
  const exports={};
- new Function('exports','fetch','crypto',code)(exports,async(url,options)=>{
+ const requirePresentation=specifier=>{assert.equal(specifier,'../../mobile/lib/decision/wohinModel');return presentation;};
+ new Function('exports','require','fetch','crypto',code)(exports,requirePresentation,async(url,options)=>{
    assert.equal(url,'/api/decision');
    const request=JSON.parse(options.body);
    const r=await exercise({text:request.naturalLanguage,meaning:plan([meal()]),catalog:[binding(1,profile())],requestOverride:request});
    assert.equal(r.status,200,JSON.stringify(r.diagnostics));return new Response(JSON.stringify(r.body));
  },globalThis.crypto);
- const result=await exports.runWebDecision({inputMode:'free',rawFreeText:'Etwas essen',city:'Basel',directions:[],audiences:[],moods:[]});
+ const result=await exports.runWebDecision({rawFreeText:'Etwas essen',city:'Basel'});
  assert.equal(result.results.length,1);assert.equal(result.primaryCandidateId,binding(1,profile()).decisionProjection.spotId);
 });
 test('whole-city evaluation does not discard later valid candidates before contextual rejection',async()=>{

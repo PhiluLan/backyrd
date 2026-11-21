@@ -531,6 +531,18 @@ test("entry fits small and desktop screens and respects reduced motion", async (
       ),
     ).toBe(true);
     await expect(page.getByRole("heading", { name: /Zeit für/ })).toBeVisible();
+    if (width <= 900) {
+      const inputBottom = await page
+        .locator("#wohin-message")
+        .evaluate(
+          (node) => node.closest("form")!.getBoundingClientRect().bottom,
+        );
+      const navTop = await page
+        .locator(".b-mobile-nav")
+        .evaluate((node) => node.getBoundingClientRect().top);
+      expect(inputBottom).toBeLessThan(navTop - 8);
+    }
+
     if (process.env.BACKYRD_WEB_SCREENSHOTS)
       await page.screenshot({
         path: `${process.env.BACKYRD_WEB_SCREENSHOTS}/wohin-entry-${width}.png`,
