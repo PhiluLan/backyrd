@@ -84,7 +84,9 @@ for (const path of ["lib/social-feed.ts", "app/(tabs)/profile.tsx", "app/user/[i
 }
 assert.match(read("app/(tabs)/feed.tsx"), /updatePostsForMode\(feedMode, \(\) => \[\]\)/, "a failed safety refresh must remove stale feed posts");
 assert.match(read("app/gate.tsx"), /verifiedUserError\.status !== 401 && verifiedUserError\.status !== 403[\s\S]*throw verifiedUserError/, "a transient identity error must not log out the user");
-assert.match(read("app/(tabs)/profile.tsx"), /await signOutWithPushCleanup\(\)/, "account logout must detach push before ending the session");
+assert.match(read("app/(tabs)/settings.tsx"), /await signOutWithPushCleanup\(\)/, "account logout must detach push before ending the session");
+assert.match(read("app/(tabs)/wohin.tsx"), /DecisionFeedbackCard[\s\S]*response\?\.decisionId/, "decision feedback must stay attached to the displayed decision");
+assert.match(read("lib/productFeedback.ts"), /submit_product_feedback_v1/, "decision feedback must use the authenticated feedback RPC");
 assert.doesNotMatch(read("app/auth/login.tsx") + read("app/auth/register.tsx"), /accounts\.google\.com\/o\/oauth2|exchangeCodeForSession/, "Google sign-in must not exchange a Google code as a Supabase code");
 for (const authScreen of ["app/auth/login.tsx", "app/auth/register.tsx"]) {
   const source = read(authScreen);

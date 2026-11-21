@@ -17,6 +17,7 @@ import type { DecisionProductCandidate, DecisionProductRequest, DecisionProductR
 import { AppText, HomeTypographyProvider, ProductText as Text, ProductTextInput as TextInput } from "@/components/foundation/AppText";
 import { NuknukAvatar } from "@/components/NuknukAvatar";
 import { WohinWaitCard } from "@/components/WohinWaitCard";
+import { DecisionFeedbackCard } from "@/components/DecisionFeedbackCard";
 import { eventImageUrl } from "@/lib/events-v1";
 import { Image } from "expo-image";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
@@ -710,7 +711,8 @@ function WohinExperience() {
         </View> : null}
         </View>}
         ListFooterComponent={<View style={styles.threadFooter}>
-          {showingResults ? <AppText role="body" tone="secondary">Noch nicht dein Ding? Sag mir, was anders sein soll.</AppText> : null}
+          {showingResults && response?.decisionId ? <DecisionFeedbackCard key={response.decisionId} decisionId={response.decisionId} color={color} /> : null}
+          {showingResults ? <AppText role="body" tone="secondary">Noch nicht dein Ding? Sag mir unten einfach, was anders sein soll.</AppText> : null}
         {conversation && !loading && !editing ? <Pressable accessibilityRole="button" accessibilityLabel="Suche ändern" onPress={editQuery} style={styles.followUpButton}><AppText role="caption" tone="secondary">Ursprünglichen Wunsch bearbeiten</AppText></Pressable> : null}
         </View>}
         renderItem={({ item: candidate }) => <DecisionResultCard candidate={candidate} width={cardWidth} recommendation={wohinRecommendation(candidate, response?.interpretation, false)} imageUrl={coverImages.has(candidate.spotId) ? coverImages.get(candidate.spotId)! : (candidate.presentation.event ? eventImageUrl(candidate.presentation.event.imageStoragePath) ?? candidate.presentation.imageUrl : candidate.presentation.imageUrl)} onOpen={() => openSpot(candidate)} onDetails={() => setSelectedDetails(candidate)} />}

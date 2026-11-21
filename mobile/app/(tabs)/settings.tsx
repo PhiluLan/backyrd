@@ -1,6 +1,6 @@
 import React from "react";
 import { ScreenHeader } from "../../components/foundation/Screen";
-import { View, Pressable, StyleSheet, ScrollView, Platform } from "react-native";
+import { Alert, View, Pressable, StyleSheet, ScrollView, Platform } from "react-native";
 import { ProductText as Text } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,6 +9,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { isInternalMobileUser } from "../../lib/internalAccess";
 import { backyrdTheme as productTheme, useBackyrdTheme } from "../../theme/backyrd";
 import { useAndroidAppearancePreference, type AndroidAppearancePreference } from "../../theme/appearancePreference";
+import { signOutWithPushCleanup } from "../../lib/signOut";
 
 const appearanceChoices = [
   { value: "system", label: "System", icon: "phone-portrait-outline" },
@@ -55,7 +56,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: color.background }]}>
       <ScrollView contentContainerStyle={styles.container}>
-        <ScreenHeader inset={false} eyebrow="Dein Backyrd" title="Einstellungen" subtitle="Dein Profil, deine Privatsphäre und Hilfe für unterwegs." backLabel="Zurück zum Profil" onBack={() => router.canGoBack() ? router.back() : router.replace("/profile")} />
+        <ScreenHeader inset={false} title="Einstellungen" subtitle="Alles Wichtige für dein Konto – an einem Ort." backLabel="Zurück zum Profil" onBack={() => router.canGoBack() ? router.back() : router.replace("/profile")} />
 
         {Platform.OS === "android" ? <>
           <Text style={[styles.groupLabel, { color: color.pink }]}>Darstellung</Text>
@@ -80,38 +81,46 @@ export default function SettingsScreen() {
           </View>
         </> : null}
 
-        <Text style={[styles.groupLabel, { color: color.pink }]}>Dein Konto</Text>
+        <Text style={[styles.groupLabel, { color: color.textSecondary }]}>Konto</Text>
         <View style={styles.group}>
           <SettingsRow
             icon="person-outline"
             title="Profil"
-            subtitle="Deine Angaben, Momente und gespeicherten Orte"
+            subtitle="Name, Foto, Bio und Interessen"
             onPress={() => router.push("/profile")}
           />
-          <SettingsRow icon="key-outline" title="Passwort zurücksetzen" subtitle="Einen Link zum Zurücksetzen per E-Mail anfordern" onPress={() => router.push("/auth/forgot-password")} />
+          <SettingsRow icon="key-outline" title="Anmeldung & Passwort" subtitle="Passwort ändern oder zurücksetzen" onPress={() => router.push("/auth/forgot-password")} />
+        </View>
+
+        <Text style={[styles.groupLabel, { color: color.textSecondary }]}>Privatsphäre</Text>
+        <View style={styles.group}>
           <SettingsRow
-            icon="eye-outline"
-            title="Sichtbarkeit"
-            subtitle="Wer dein Profil und deine Momente sehen kann"
+            icon="lock-closed-outline"
+            title="Sichtbarkeit & Blockierungen"
+            subtitle="Wer dich und deine Inhalte sehen kann"
             onPress={() => router.push("/settings/privacy" as any)}
           />
+          <SettingsRow icon="notifications-outline" title="Mitteilungen" subtitle="Was Backyrd dir mitteilen darf" onPress={() => router.push("/safety-notifications")} />
+          <SettingsRow
+            icon="shield-checkmark-outline"
+            title="Datenschutz & deine Daten"
+            subtitle="Einwilligungen und Datennutzung verwalten"
+            onPress={() => router.push("/privacy-consent" as any)}
+          />
+        </View>
+
+        <Text style={[styles.groupLabel, { color: color.textSecondary }]}>Deine Aktivität</Text>
+        <View style={styles.group}>
           <SettingsRow
             icon="time-outline"
             title="Deine Entdeckungen"
-            subtitle="Orte, die du mit Wohin gefunden hast"
+            subtitle="Frühere Suchen und gefundene Orte"
             onPress={() => router.push("/profile/history" as any)}
           />
         </View>
 
-        <Text style={[styles.groupLabel, { color: color.pink }]}>Privatsphäre & Hilfe</Text>
+        <Text style={[styles.groupLabel, { color: color.textSecondary }]}>Hilfe & Sicherheit</Text>
         <View style={styles.group}>
-          <SettingsRow
-            icon="shield-checkmark-outline"
-            title="Datenschutz & Einwilligungen"
-            subtitle="Du entscheidest, welche Daten du freigibst"
-            onPress={() => router.push("/privacy-consent" as any)}
-          />
-          <SettingsRow icon="notifications-outline" title="Mitteilungen" subtitle="Neuigkeiten zu deinem Konto und deinen Meldungen" onPress={() => router.push("/safety-notifications")} />
           <SettingsRow icon="person-circle-outline" title="Konto-Status" subtitle="Hinweise und mögliche Einschränkungen deines Kontos" onPress={() => router.push("/safety/account-status")} />
           <SettingsRow
             icon="help-buoy-outline"
@@ -122,12 +131,32 @@ export default function SettingsScreen() {
         </View>
 
         {internal ? <>
-          <Text style={[styles.groupLabel, { color: color.pink }]}>Intern</Text>
+          <Text style={[styles.groupLabel, { color: color.textSecondary }]}>Intern</Text>
           <View style={styles.group}>
             <SettingsRow icon="pulse-outline" title="App- & Release-Status" subtitle="Version, Runtime und aktives Update" onPress={() => router.push("/release-diagnostics")} />
             <SettingsRow icon="hammer-outline" title="DEV" subtitle="Interne Entwickleransicht" onPress={() => router.push("/dev")} />
           </View>
         </> : null}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Aus Backyrd ausloggen"
+          onPress={() => Alert.alert("Ausloggen?", "Du kannst dich jederzeit wieder anmelden.", [
+            { text: "Abbrechen", style: "cancel" },
+            { text: "Ausloggen", style: "destructive", onPress: async () => {
+              try {
+                await signOutWithPushCleanup();
+                router.replace("/gate" as any);
+              } catch {
+                Alert.alert("Ausloggen noch nicht möglich", "Prüfe deine Verbindung und versuche es noch einmal.");
+              }
+            } },
+          ])}
+          style={[styles.signOut, { borderColor: color.border }]}
+        >
+          <Ionicons name="log-out-outline" size={19} color={color.textSecondary} />
+          <Text style={[styles.signOutText, { color: color.textSecondary }]}>Ausloggen</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -143,18 +172,18 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
   group: {
-    gap: 0, borderRadius: 24, overflow: "hidden",
+    gap: 0, borderRadius: 18, overflow: "hidden",
   },
   groupLabel: {
     marginTop: 28,
     marginBottom: 10,
-    color: productTheme.color.pink,
+    color: productTheme.color.textSecondary,
     fontFamily: productTheme.type.bodyBold,
-    fontSize: 19, lineHeight: 25,
-    letterSpacing: -0.3,
+    fontSize: 14, lineHeight: 20,
+    letterSpacing: 0.2,
   },
   row: {
-    minHeight: 86,
+    minHeight: 78,
     borderRadius: 0,
     backgroundColor: productTheme.color.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -194,4 +223,6 @@ const styles = StyleSheet.create({
   appearanceOptions: { flexDirection: "row", gap: 8, marginTop: 17 },
   appearanceOption: { minHeight: 52, flex: 1, minWidth: 0, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 5, borderWidth: 1, borderRadius: 14 },
   appearanceOptionLabel: { fontSize: 13, fontWeight: "700" },
+  signOut: { marginTop: 34, minHeight: 52, borderWidth: 1, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
+  signOutText: { fontSize: 15, fontWeight: "700" },
 });
