@@ -328,7 +328,7 @@ try {
   const cards = page.getByTestId("wohin-result-card");
   const dock = page.getByTestId("wohin-composer-dock");
   await dock.waitFor();
-  for (const [mode, expected] of [["light", "rgb(247, 247, 245)"], ["dark", "rgb(5, 5, 5)"]]) {
+  for (const [mode, expected] of [["light", "rgb(245, 247, 250)"], ["dark", "rgb(29, 34, 43)"]]) {
     await page.emulateMedia({ colorScheme: mode });
     await dock.evaluate(async (node, background) => {
       for (let tick = 0; tick < 30; tick++) {
@@ -706,7 +706,7 @@ try {
       await page.setViewportSize({width,height:844});
       for (const mode of ["light", "dark"]) {
         await page.emulateMedia({colorScheme:mode});
-        const expected = mode === "light" ? "rgb(247, 247, 245)" : "rgb(5, 5, 5)";
+        const expected = mode === "light" ? "rgb(245, 247, 250)" : "rgb(29, 34, 43)";
         await page.waitForFunction(background => {
           let node = document.elementFromPoint(2,400);
           while (node) {
@@ -716,7 +716,7 @@ try {
           }
           return false;
         }, expected);
-        const headingColor = mode === "light" ? "rgb(25, 25, 28)" : "rgb(246, 240, 232)";
+        const headingColor = mode === "light" ? "rgb(23, 27, 34)" : "rgb(245, 246, 246)";
         await page.waitForFunction(({title,color}) => [...document.querySelectorAll('[role="heading"]')].some(node => node.textContent === title && getComputedStyle(node).color === color), {title,color:headingColor});
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth),0,`${path}: no horizontal overflow`);
         const metrics = await heading.evaluate(node => {
@@ -727,7 +727,7 @@ try {
             longest:Math.max(...node.textContent.split(/\s+/).map(word=>measure.measureText(word).width))};
         });
         assert.ok(!metrics.font.includes("DMSerif"),`${path}: canonical sans-serif heading`);
-        assert.equal(metrics.color,mode === "light" ? "rgb(25, 25, 28)" : "rgb(246, 240, 232)");
+        assert.equal(metrics.color,mode === "light" ? "rgb(23, 27, 34)" : "rgb(245, 246, 246)");
         assert.ok(metrics.longest <= metrics.available+2,`${path}: words remain whole at ${width}px`);
       }
     }
