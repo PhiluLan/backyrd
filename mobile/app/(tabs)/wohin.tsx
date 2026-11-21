@@ -33,7 +33,7 @@ const showNuknukCharacter = backyrdTheme.nuknuk.showCharacter;
 
 let greetedActor: string | null = null;
 
-type SearchIdea = { icon: React.ComponentProps<typeof Ionicons>["name"]; title: string; wish: string };
+type SearchIdea = { icon: React.ComponentProps<typeof Ionicons>["name"]; title: string; detail: string; wish: string };
 
 type SearchConversation = {
   wish: string;
@@ -43,7 +43,7 @@ type SearchConversation = {
 const darkColors = {
   background: "#050505", card: "#101010", text: "#F6F0E8", muted: "#9B9B9F",
   border: "#FFFFFF24", pink: "#FF4F91", warning: "#F7C65C", onAccent: "#08080A",
-  gradient: ["#21131B", "#0D090B", "#050505"] as readonly [string, string, string],
+  gradient: ["#351324", "#140C10", "#050505"] as readonly [string, string, string],
   panel: "#101010", tint: "#29151F", dock: "#171719", dockBorder: "#FFFFFF33",
   disabled: "#252528", message: "#171719", prompt: "#171719",
   focusBorder: "#63344C", subButton: "#171719", question: "#20141B", artwork: "#171719",
@@ -53,7 +53,7 @@ const darkColors = {
 const lightColors: typeof darkColors = {
   background: "#F7F7F5", card: "#FFFFFF", text: "#19191C", muted: "#53535A",
   border: "#19191C21", pink: "#C71559", warning: "#8C5700", onAccent: "#FFFFFF",
-  gradient: ["#F3E7ED", "#F7F4F5", "#F7F7F5"],
+  gradient: ["#F4DBE6", "#F7F1F4", "#F7F7F5"],
   panel: "#FFFFFF", tint: "#F5E5EC", dock: "#FFFFFF", dockBorder: "#19191C47",
   disabled: "#EEEEF0", message: "#FFFFFF", prompt: "#FFFFFF",
   focusBorder: "#D6A6BE", subButton: "#EEEEF0", question: "#F5E5EC", artwork: "#EEEEF0",
@@ -601,19 +601,19 @@ function WohinExperience() {
   const evening = daypart === "Abend" || daypart === "Nacht";
   const morning = daypart === "Morgen" || daypart === "Vormittag";
   const localIdea: SearchIdea | null = !city ? null : evening
-    ? { icon: "wine-outline", title: daypart === "Nacht" ? "Noch etwas trinken" : "Gemütlich ausgehen", wish: `Wo kann ich jetzt in ${city} gemütlich etwas trinken?` }
+    ? { icon: "wine-outline", title: daypart === "Nacht" ? "Noch auf einen Drink?" : "Auf einen Drink", detail: "Anstossen. Runterkommen.", wish: `Wo kann ich jetzt in ${city} gemütlich etwas trinken?` }
     : morning
-      ? { icon: "cafe-outline", title: "Kaffee am Vormittag", wish: `Wo kann ich heute Vormittag in ${city} gemütlich Kaffee trinken?` }
+      ? { icon: "cafe-outline", title: "Erst mal Kaffee", detail: "Deine kleine Pause vom Alltag.", wish: `Wo kann ich heute Vormittag in ${city} gemütlich Kaffee trinken?` }
       : daypart === "Mittag"
-        ? { icon: "restaurant-outline", title: "Etwas zum Mittagessen", wish: `Wo kann ich heute Mittag in ${city} etwas essen?` }
-        : { icon: "compass-outline", title: "Eine Idee für den Nachmittag", wish: `Was kann ich heute Nachmittag in ${city} unternehmen?` };
-  const tomorrowIdea: SearchIdea | null = city ? { icon: "sunny-outline", title: "Morgen etwas erleben", wish: `Was kann ich morgen in ${city} unternehmen?` } : null;
-  const nearbyIdea: SearchIdea | null = city ? { icon: "compass-outline", title: `${city} entdecken`, wish: `Zeig mir etwas Besonderes in ${city}.` } : null;
+        ? { icon: "restaurant-outline", title: "Zeit für was Feines", detail: "Eine Pause, die gut tut.", wish: `Wo kann ich heute Mittag in ${city} etwas essen?` }
+        : { icon: "compass-outline", title: "Heute noch was erleben", detail: "Einfach mal anders abbiegen.", wish: `Was kann ich heute Nachmittag in ${city} unternehmen?` };
+  const tomorrowIdea: SearchIdea | null = city ? { icon: "sunny-outline", title: "Morgen was Neues", detail: "Etwas, das hängen bleibt.", wish: `Was kann ich morgen in ${city} unternehmen?` } : null;
+  const nearbyIdea: SearchIdea | null = city ? { icon: "compass-outline", title: `${city} mal anders`, detail: "Raus aus der üblichen Runde.", wish: `Zeig mir etwas Besonderes in ${city}.` } : null;
   const ideasReady = identityReady;
   const ideas = [localIdea, tomorrowIdea, nearbyIdea].flatMap(idea => idea ? [idea] : []);
   const recentRequests = recentHistory?.actorId === verifiedActorId && verifiedActorId === user?.id ? recentHistory.entries : [];
   const greetingName = verifiedActorId === user?.id ? firstName : null;
-  const greeting = morning ? "Guten Morgen" : evening ? "Guten Abend" : "Hallo";
+  const greeting = greetingName ? `Hey ${greetingName}.` : "Hey. Schön, bist du da.";
   const replyMode = Boolean(conversation && !editing && !discoveryPlaceholder);
   const draft = replyMode ? clarificationAnswer : query;
   const sendEnabled = replyMode ? replyEnabled : canSearch;
@@ -663,26 +663,29 @@ function WohinExperience() {
         {!conversation ? <View style={styles.welcome}>
           <View style={styles.welcomeHero} testID="wohin-welcome-hero" onLayout={showNuknukCharacter ? event => setHeroHeight(event.nativeEvent.layout.height) : undefined}>
             <View style={styles.welcomeCopy}>
-              <AppText role="screenTitle" style={styles.welcomeTitle}>{greeting}{greetingName ? `, ${greetingName}` : ""}!</AppText>
-              <AppText role="body" tone="secondary" style={styles.welcomeText}>Erzähl mir, worauf du Lust hast. Ich suche einen Ort, der zu dir passt.</AppText>
+              <AppText role="bodyStrong" tone="secondary" style={styles.welcomeGreeting}>{greeting}</AppText>
+              <AppText role="displayXL" accessibilityRole="header" style={styles.welcomeTitle}>Zeit für{"\n"}<AppText role="displayXL" tone="pink" style={styles.welcomeTitle}>was Gutes.</AppText></AppText>
+              <AppText role="body" tone="secondary" style={styles.welcomeText}>Ein guter Drink. Zeit zusammen.{"\n"}Oder einfach mal was anderes.</AppText>
             </View>
             {showNuknukCharacter ? <View style={styles.welcomeCharacter}>
               <LinearGradient colors={[color.tint, color.background]} style={styles.characterGlow} />
             </View> : null}
           </View>
           <View style={styles.welcomeIdeas}>
-            {ideasReady ? ideas.map(({ icon, title, wish }) => <Pressable key={title} accessibilityRole="button" accessibilityLabel={title} disabled={!canCompose} onPress={() => selectIdea(wish)} style={({ pressed }) => [styles.welcomeIdea, pressed && styles.pressed, !canCompose && styles.unavailableIdea]}>
-              <View style={styles.welcomeIdeaIcon}><Ionicons name={icon} size={23} color={color.pink} /></View>
-              <View style={styles.welcomeIdeaCopy}><AppText role="bodyStrong" style={styles.welcomeIdeaTitle}>{title}</AppText><AppText role="caption" tone="secondary" numberOfLines={2}>{wish}</AppText></View>
-              <Ionicons name="arrow-forward" size={19} color={color.pink} />
+            <AppText role="caption" tone="secondary" style={styles.ideaIntro}>Ein kleiner Anstoss</AppText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.ideaRailViewport} contentContainerStyle={styles.ideaRail} keyboardShouldPersistTaps="handled">
+            {ideasReady ? ideas.map(({ icon, title, detail, wish }, index) => <Pressable key={title} accessibilityRole="button" accessibilityLabel={title} accessibilityHint={detail} disabled={!canCompose} onPress={() => selectIdea(wish)} style={({ pressed }) => [styles.welcomeIdea, { width: Math.min(224, viewportWidth * 0.57), backgroundColor: index === 0 ? color.tint : color.card }, pressed && styles.pressed, !canCompose && styles.unavailableIdea]}>
+              <View style={styles.ideaTop}><Ionicons name={icon} size={24} color={color.pink} /><Ionicons name="arrow-forward" style={styles.ideaArrow} size={19} color={color.pink} /></View>
+              <View style={styles.welcomeIdeaCopy}><AppText role="cardTitle" style={styles.welcomeIdeaTitle}>{title}</AppText><AppText role="caption" tone="secondary" style={styles.welcomeIdeaDetail}>{detail}</AppText></View>
             </Pressable>) : <ActivityIndicator color={color.pink} />}
+            </ScrollView>
           </View>
-          {authenticated ? <WohinRecentRequests entries={recentRequests} color={color} loading={!historyLoaded} unavailable={historyUnavailable} onSelect={usePreviousRequest} disabled={!canCompose} onOpen={openHistory} width={Math.max(180, Math.min(240, viewportWidth * 0.62))} /> : null}
+          {authenticated && (recentRequests.length > 0 || !historyLoaded || historyUnavailable) ? <WohinRecentRequests entries={recentRequests} color={color} loading={!historyLoaded} unavailable={historyUnavailable} onSelect={usePreviousRequest} disabled={!canCompose} onOpen={openHistory} width={Math.max(180, Math.min(240, viewportWidth * 0.62))} /> : null}
         </View> : <>
           {conversationHistory}
           {searchProgress}
           {!loading && (clarificationQuestion || newPlan || offTopic) ? <View style={styles.assistantPresence} onLayout={showNuknukCharacter ? assistantLayout : undefined}>{conversationPrompt}</View> : null}
-          {editing ? <View style={styles.inlineActions}><AppText role="meta" tone="secondary">Dein Wunsch ist unten bereit zum Bearbeiten.</AppText><Pressable accessibilityRole="button" accessibilityLabel={candidates.length ? "Zurück zu deinen Vorschlägen" : "Zurück zum Gespräch"} onPress={() => { setEditing(false); Keyboard.dismiss(); }} style={styles.followUpButton}><AppText role="label" tone="pink">{candidates.length ? "Vorschläge behalten" : "Beim Gespräch bleiben"}</AppText></Pressable></View> : null}
+          {editing ? <View style={styles.inlineActions}><AppText role="meta" tone="secondary">Unten kannst du deine Idee anpassen.</AppText><Pressable accessibilityRole="button" accessibilityLabel={candidates.length ? "Zurück zu deinen Vorschlägen" : "Zurück zum Gespräch"} onPress={() => { setEditing(false); Keyboard.dismiss(); }} style={styles.followUpButton}><AppText role="label" tone="pink">{candidates.length ? "Vorschläge behalten" : "Beim Gespräch bleiben"}</AppText></Pressable></View> : null}
         </>}
         {offTopic && !conversation ? conversationPrompt : null}
         {identityError ? <View style={styles.emptyState}><Text style={{ color: color.warning }}>Dein Profil konnte gerade nicht geprüft werden. Wohin ist vorübergehend nicht verfügbar.</Text><Pressable accessibilityRole="button" onPress={() => setIdentityAttempt(value => value + 1)} style={styles.followUpButton}><AppText role="label" tone="pink">Erneut prüfen</AppText></Pressable></View> : null}
@@ -691,7 +694,7 @@ function WohinExperience() {
         {error ? <View style={[styles.emptyState, styles.assistantPresence]} onLayout={showNuknukCharacter ? assistantLayout : undefined} accessibilityLiveRegion="polite"><AppText role="body" tone="error">{error}</AppText>{retryRequest ? <Pressable accessibilityRole="button" disabled={!canCompose} onPress={() => void run(retryRequest.request.naturalLanguage, retryRequest.request, retryRequest.conversation)} style={styles.followUpButton}><AppText role="label" tone="pink">Dieselbe Suche erneut versuchen</AppText></Pressable> : null}</View> : null}
         {showingResults ? <View style={[styles.results, styles.assistantPresence]} onLayout={showNuknukCharacter ? assistantLayout : undefined}>
           <AppText role="sectionTitle" accessibilityRole="header">Wie wär’s hier?</AppText>
-          <AppText role="meta" tone="secondary">{candidates.length === 1 ? "Eine Möglichkeit für deinen Plan" : `${candidates.length} Möglichkeiten. Schau dich um.`}</AppText>
+          <AppText role="meta" tone="secondary">{candidates.length === 1 ? "Eine Idee für dich." : `${candidates.length} Ideen für dich. Welche spricht dich an?`}</AppText>
           {candidates.some(candidate => candidate.tier === "UNCONFIRMED_FALLBACK") ? <AppText role="meta" tone="secondary">Bei den markierten Orten sind noch Angaben offen. Die Hinweise stehen direkt am Vorschlag.</AppText> : null}
         </View> : null}
         {followUp ? <View style={[styles.emptyState, !error && styles.assistantPresence]} onLayout={showNuknukCharacter && !error ? assistantLayout : undefined} accessibilityLiveRegion="polite"><AppText role="body">{followUp.message}</AppText>{followUpNotes.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}</View> : null}
@@ -707,19 +710,19 @@ function WohinExperience() {
         </View> : null}
         </View>}
         ListFooterComponent={<View style={styles.threadFooter}>
-          {showingResults ? <AppText role="body" tone="secondary">Was meinst du? Wenn dir noch etwas wichtig ist, schreib’s mir einfach.</AppText> : null}
+          {showingResults ? <AppText role="body" tone="secondary">Noch nicht dein Ding? Sag mir, was anders sein soll.</AppText> : null}
         {conversation && !loading && !editing ? <Pressable accessibilityRole="button" accessibilityLabel="Suche ändern" onPress={editQuery} style={styles.followUpButton}><AppText role="caption" tone="secondary">Ursprünglichen Wunsch bearbeiten</AppText></Pressable> : null}
         </View>}
         renderItem={({ item: candidate }) => <DecisionResultCard candidate={candidate} width={cardWidth} recommendation={wohinRecommendation(candidate, response?.interpretation, false)} imageUrl={coverImages.has(candidate.spotId) ? coverImages.get(candidate.spotId)! : (candidate.presentation.event ? eventImageUrl(candidate.presentation.event.imageStoragePath) ?? candidate.presentation.imageUrl : candidate.presentation.imageUrl)} onOpen={() => openSpot(candidate)} onDetails={() => setSelectedDetails(candidate)} />}
       />
       <View style={[styles.dock, { paddingBottom: dockPadding }]} testID="wohin-composer-dock">
         {editing && conversation ? <AppText role="caption" tone="secondary" style={styles.editLabel}>Wunsch bearbeiten</AppText> : null}
-        <View style={styles.chatDock}>
+        <View style={[styles.chatDock, keyboardVisible && styles.chatDockFocused]}>
           <View style={styles.inputColumn}>
           {/* Measure the same wrapped text independently: a sized input's scroll
               height cannot reliably shrink again on every platform. */}
           <Text accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" pointerEvents="none" style={[styles.inputText, styles.inputMeasure]} onLayout={event => setInputHeight(Math.max(44, Math.min(120, Math.ceil(event.nativeEvent.layout.height))))}>{draft}{"\u200b"}</Text>
-          <TextInput ref={searchInputRef} accessibilityLabel={replyMode ? clarificationQuestion ? "Antwort auf NukNuks Rückfrage" : "Nachricht an NukNuk" : "Dein Suchwunsch"} placeholder={replyMode ? clarificationQuestion ? "Deine Antwort …" : "Schreib einfach weiter …" : "Erzähl mir …"} placeholderTextColor={color.muted} style={[styles.inputText, styles.searchInput, { height: inputHeight }]} autoCapitalize="sentences" multiline scrollEnabled={inputHeight >= 120} maxLength={replyMode ? replyLimit : 2000} editable={!loading && (!replyMode || replyLimit > 0)} value={draft}
+          <TextInput ref={searchInputRef} accessibilityLabel={replyMode ? clarificationQuestion ? "Antwort auf NukNuks Rückfrage" : "Nachricht an NukNuk" : "Dein Suchwunsch"} placeholder={replyMode ? clarificationQuestion ? "Deine Antwort …" : "Was darf anders sein?" : "Worauf hast du Lust?"} placeholderTextColor={color.muted} style={[styles.inputText, styles.searchInput, { height: inputHeight }]} autoCapitalize="sentences" multiline scrollEnabled={inputHeight >= 120} maxLength={replyMode ? replyLimit : 2000} editable={!loading && (!replyMode || replyLimit > 0)} value={draft}
             onChangeText={value => { if (replyMode) setClarificationAnswer(value); else setQuery(value); setOffTopic(false); setError(null); setRetryRequest(null); }}
           />
           </View>
@@ -764,16 +767,22 @@ const createStyles = (color: typeof darkColors) => StyleSheet.create({
   threadFooter: { gap: 16, paddingTop: 20 },
   welcome: { paddingTop: 8, paddingBottom: 24, gap: 32 },
   welcomeHero: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: showNuknukCharacter ? 168 : undefined },
-  welcomeCopy: { flex: 1, gap: 12 },
-  welcomeTitle: { fontSize: 30, lineHeight: 35, letterSpacing: -0.9 },
-  welcomeText: { fontSize: 16, lineHeight: 23 },
+  welcomeCopy: { flex: 1, gap: 16 },
+  welcomeGreeting: { fontSize: 15, lineHeight: 22 },
+  welcomeTitle: { fontSize: 56, lineHeight: 58, letterSpacing: -2.2 },
+  welcomeText: { fontSize: 17, lineHeight: 25 },
   welcomeCharacter: { width: 90, height: 168, alignItems: "center", justifyContent: "center" },
   characterGlow: { position: "absolute", width: 110, height: 146, borderRadius: 55, right: -10, top: 12, opacity: 0.8 },
-  welcomeIdeas: { gap: 2 },
-  welcomeIdea: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 13, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.border },
-  welcomeIdeaIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: color.tint, alignItems: "center", justifyContent: "center" },
-  welcomeIdeaCopy: { flex: 1, gap: 4 },
-  welcomeIdeaTitle: { fontSize: 17, lineHeight: 23 },
+  welcomeIdeas: { gap: 14 },
+  ideaIntro: { fontSize: 14, lineHeight: 20 },
+  ideaRailViewport: { marginHorizontal: -24 },
+  ideaRail: { gap: 12, paddingHorizontal: 24, paddingBottom: 2, alignItems: "stretch" },
+  welcomeIdea: { minHeight: 168, borderRadius: 24, padding: 20, gap: 24, justifyContent: "space-between" },
+  ideaTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  ideaArrow: { transform: [{ rotate: "-45deg" }] },
+  welcomeIdeaCopy: { gap: 8 },
+  welcomeIdeaTitle: { fontSize: 22, lineHeight: 26, letterSpacing: -0.4 },
+  welcomeIdeaDetail: { fontSize: 13, lineHeight: 19 },
   unavailableIdea: { opacity: 0.5 },
   ideas: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   idea: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 15, paddingVertical: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border, borderRadius: 24 },
@@ -785,7 +794,8 @@ const createStyles = (color: typeof darkColors) => StyleSheet.create({
   inlineActions: { gap: 6 },
   dock: { paddingHorizontal: 18, paddingTop: 10, backgroundColor: color.background },
   editLabel: { marginBottom: 7, paddingHorizontal: 10 },
-  chatDock: { minHeight: 56, flexDirection: "row", alignItems: "flex-end", gap: 10, backgroundColor: color.dock, borderRadius: 28, padding: 6 },
+  chatDock: { minHeight: 56, flexDirection: "row", alignItems: "flex-end", gap: 10, backgroundColor: color.dock, borderWidth: StyleSheet.hairlineWidth, borderColor: color.dockBorder, borderRadius: 28, padding: 6 },
+  chatDockFocused: { borderColor: color.pink },
   inputColumn: { flex: 1 },
   inputText: { color: color.text, fontSize: 17, lineHeight: 24, paddingHorizontal: 12, paddingVertical: 10 },
   inputMeasure: { position: "absolute", top: 0, left: 0, right: 0, opacity: 0 },

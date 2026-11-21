@@ -287,9 +287,9 @@ try {
   assert.equal(await page.getByText(/Suchangaben an OpenAI/).count(), 0);
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-search-390.png`});
   assert.equal(await page.getByTestId("nuknuk-motion-figure").count(), 0, "Beta welcome does not mount the deferred character");
-  await page.getByRole("button", { name:/Bern entdecken/ }).click();
+  await page.getByRole("button", { name:/Bern mal anders/ }).click();
   assert.equal(await page.getByRole("textbox", { name:"Dein Suchwunsch", exact:true }).inputValue(),"Zeig mir etwas Besonderes in Bern.");
-  assert.equal(await page.getByRole("button", { name:/Kaffee am Vormittag|Etwas zum Mittagessen|Eine Idee für den Nachmittag|Gemütlich ausgehen|Noch etwas trinken/ }).count(),1,"one idea uses the current daypart");
+  assert.equal(await page.getByRole("button", { name:/Erst mal Kaffee|Zeit für was Feines|Heute noch was erleben|Auf einen Drink|Noch auf einen Drink/ }).count(),1,"one idea uses the current daypart");
   assert.equal(state.decisions.length,0,"an idea fills the draft so the user can edit before sending");
   const wishComposer = page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true });
   await wishComposer.fill("");
@@ -410,7 +410,7 @@ try {
   const releaseRefinedDecision = holdDecisionResponse(refinedWish);
   try {
     await page.getByRole("button", {name:"Nachricht senden",exact:true}).click();
-    await page.getByText("Alles klar, ich schaue noch einmal.", {exact:true}).waitFor();
+    await page.getByText("Alles klar. Ich schau noch einmal.", {exact:true}).waitFor();
     await page.getByText("Lieber mit Terrasse", {exact:true}).waitFor();
   } finally {
     releaseRefinedDecision();
@@ -485,7 +485,7 @@ try {
   state.unavailable = false;
   await page.getByRole("button",{name:"Neue Suche",exact:true}).click();
   await page.getByRole("button",{name:"Letzte Anfragen öffnen",exact:true}).click();
-  await page.getByText("Deine Anfragen",{exact:true}).waitFor();
+  await page.getByText("Deine Ideen",{exact:true}).waitFor();
   const historySheet = page.getByRole("dialog");
   await historySheet.getByRole("button",{name:"Anfrage übernehmen: XYZ",exact:true}).waitFor();
   await historySheet.getByRole("button",{name:`Anfrage übernehmen: ${firstWish}`,exact:true}).waitFor();
@@ -504,7 +504,7 @@ try {
   await page.getByRole("button",{name:"Anfragen schliessen",exact:true}).click();
   await page.reload({waitUntil:"domcontentloaded"});
   await page.getByRole("button",{name:"Letzte Anfragen öffnen",exact:true}).click();
-  await page.getByText("Deine Anfragen",{exact:true}).waitFor();
+  await page.getByText("Deine Ideen",{exact:true}).waitFor();
   assert.equal(await page.getByRole("dialog").getByRole("button",{name:"Anfrage übernehmen: XYZ",exact:true}).count(),0,"removed requests stay removed after reload");
   await page.getByRole("button",{name:"Anfragen schliessen",exact:true}).click();
   await page.goto(appUrl, {waitUntil:"domcontentloaded"});
@@ -757,8 +757,11 @@ try {
   await page.getByText("Platz für deine nächsten Ideen.",{exact:true}).waitFor();
   await page.getByRole("button",{name:"Anfragen schliessen",exact:true}).click();
   await page.reload({waitUntil:"domcontentloaded"});
-  await page.getByText("Hier findest du deine Anfragen später wieder.",{exact:true}).waitFor();
+  await page.getByRole("button",{name:"Letzte Anfragen öffnen",exact:true}).click();
+  await page.getByText("Platz für deine nächsten Ideen.",{exact:true}).waitFor();
   assert.equal(await page.getByRole("button",{name:/^Anfrage übernehmen:/}).count(),0,"cleared history remains empty across reload");
+  await page.getByRole("button",{name:"Anfragen schliessen",exact:true}).click();
+  await page.getByTestId("wohin-recent-requests").waitFor({state:"hidden"});
 
   const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await guestContext.route(`${endpoint}/**`, remoteFixture);
