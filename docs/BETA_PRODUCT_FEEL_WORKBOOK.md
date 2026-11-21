@@ -1106,3 +1106,49 @@ Request-Inhalte, persistenter Composer-Instanz und gelöschtem Verlauf nach Relo
 Light/Dark bei 390 px und die abgeschlossene 320-px-Darstellung visuell geprüft.
 Die physische OTA-Aktivierung und visuelle Founder-Abnahme bleiben offen. Keine
 Backend-/Decision-Aktivierung; die Figur bleibt für die Beta deaktiviert.
+
+### Versteckte Consumer-Seiten: Konto, Datenschutz und Support
+
+Der Founder hat die Hauptseiten vorerst akzeptiert und beauftragt nun die
+Nebenwege auf dasselbe Backyrd-Niveau zu bringen. Taskklasse `PRODUCT_RELEASE`.
+Scope ist die Mobile-Präsentation, keine neue Backend-/Decision-Funktion.
+
+- Gemeinsamer Kopfbereich mit sicherer Zurücknavigation, vollbreiten Sans-serif-
+  Überschriften, lesbaren Erklärungen und konsistentem Abstand für Einstellungen,
+  Sichtbarkeit, Entdeckungsverlauf, Datenschutz, Freigaben, Entscheidungsverlauf,
+  Dokumente, Datenrechte, Support, Mitteilungen, Meldungsdetails, Konto-Status,
+  Personensuche, Nachrichten und Erfolge.
+- Einstellungen bündeln bestehende Wege; Passwort-Hilfe, Mitteilungen und
+  Konto-Status sind direkt erreichbar. Keine neuen Berechtigungen.
+- Profilbearbeitung verwendet dauerhafte Feldnamen und Hilfen statt nur
+  Platzhalter. Namen bleiben vollständig lesbar; ein fehlender Wohnort wird
+  nicht als Basel ausgegeben. Avatar-Sofortspeicherung und Entwurfsverwerfen
+  bleiben explizit. Im Browser funktioniert nun auch die Verwerfbestätigung;
+  native Bestätigungen bleiben erhalten.
+- Datenschutzschalter erhalten vollbreite Erklärungen und klare Zustände.
+  Zeitangaben unterscheiden tatsächliche Freigabe und Widerruf. Rechtstexte
+  werden konservativ als Überschriften, Absätze, Listen und Hervorhebungen
+  dargestellt; HTTP(S)-Links zeigen ihr Ziel. Inhalt, Version, Hash und
+  Annahmestatus werden weder zusammengefasst noch verändert.
+- Fehler bei Profilinhalten, Erfolgen und Konto-Status werden nicht als leere
+  oder gesunde Daten ausgegeben. Unbekannte Zähler zeigen einen Strich;
+  Wiederholen lädt den Zustand neu. Interne Safety-Enums erhalten neutrale
+  deutsche Anzeigenamen, ohne Moderationsentscheidungen zu verändern.
+
+Vorhandene RPCs, Eigentümerprüfung, RLS, verpflichtende Dokumentannahme,
+optionale Consent-Zwecke, Betriebssystemfreigaben, private Profilbestätigung,
+Entfolgen-Warnung, Entsperren, Einspruch und Datenlöschfristen bleiben erhalten.
+Keine Migration, Provider-, Abhängigkeits-, Ranking- oder Backend-Aktivierung.
+Home, Spotprofil, Wohin und die ausgeblendete NukNuk-Figur bleiben unangetastet.
+
+Validierung: TypeScript, Mobile-Lint (keine Fehler; zwei bestehende Warnungen
+in WeatherContext und SpotEventsSection) und Mobile-Vertragstests. Die erweiterte
+Product-Browserregression nutzt ausschliesslich abgefangene synthetische Daten:
+14 Nebenwege bei 320/430 px in Light/Dark, Überschriftenkontrast und Überlauf,
+beschriftete Profilfelder, Entwurf behalten/verwerfen, Rechtstextdarstellung
+sowie fünf Ladefehler mit Wiederholen. Keine echten Einwilligungs-, Lösch-,
+Entsperr- oder Moderationsaktionen für Testzwecke. Visuelle Browserprüfung der
+Einstellungen, Sichtbarkeit, Freigaben, Datenrechte und Profilbearbeitung.
+Physische iPhone-/Tastatur- und VoiceOver-Abnahme werden nicht behauptet und
+bleiben bei der Founder-Abnahme über OTA. Dies ist keine RLS-/Sicherheitsrevision.
+Der Veröffentlichungsbeleg wird nach exakter Main-Zertifizierung ergänzt.

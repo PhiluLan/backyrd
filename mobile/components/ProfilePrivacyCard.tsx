@@ -74,26 +74,9 @@ export default function ProfilePrivacyCard({
 
   return (
     <View style={styles.card}>
-      <View style={styles.icon}>
-        <Ionicons
-          accessibilityElementsHidden
-          name={isPrivate ? "lock-closed" : "globe-outline"}
-          size={21}
-          color={theme.color.pink}
-        />
-      </View>
-
-      <View style={styles.copy}>
-        <AppText role="bodyStrong">
-          {isPrivate ? "Privates Konto" : "Öffentliches Konto"}
-        </AppText>
-        <AppText role="caption" tone="secondary" style={styles.body}>
-          {isPrivate
-            ? "Dein Profil und deine Momente sind für andere verborgen. Keine neuen Follower oder Markierungen. Wer deinen vollständigen Nutzernamen kennt, kann dir schreiben. Blockieren verhindert Kontakt."
-            : "Andere Nutzer können dich finden, dir folgen und deine Momente sehen."}
-        </AppText>
-      </View>
-
+      <View style={styles.heading}>
+        <View style={styles.icon}><Ionicons accessibilityElementsHidden name={isPrivate ? "lock-closed" : "globe-outline"} size={22} color={theme.color.pink} /></View>
+        <AppText role="bodyStrong" style={styles.copy}>{isPrivate ? "Privates Konto" : "Öffentliches Konto"}</AppText>
       <Switch
         accessibilityLabel="Profil privat anzeigen"
         accessibilityHint={
@@ -108,22 +91,25 @@ export default function ProfilePrivacyCard({
         trackColor={{ false: theme.color.surfaceElevated, true: "rgba(255,79,145,0.42)" }}
         thumbColor={isPrivate ? theme.color.pink : theme.color.textSecondary}
       />
+      </View>
+      <AppText role="body" tone="secondary" style={styles.body}>{isPrivate
+        ? "Dein Profil ist in der Suche verborgen. Neue Follower und Markierungen sind deaktiviert. Wer deinen vollständigen Nutzernamen kennt, kann dir weiterhin schreiben. Blockieren verhindert Kontakt."
+        : "Andere können dein Profil finden, dir folgen und deine Momente sehen."}</AppText>
+      {isPrivate ? <AppText role="meta" tone="secondary">Momente mit Ortsbezug können weiterhin auf den Ortsseiten sichtbar sein.</AppText> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: 18,
-    marginTop: 16,
+    marginHorizontal: 0,
+    marginTop: 0,
     padding: 16,
     borderRadius: 22,
     borderWidth: 1,
     borderColor: theme.color.border,
     backgroundColor: theme.color.surface,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+    gap: 16,
   },
   icon: {
     width: 42,
@@ -133,8 +119,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255,79,145,0.11)",
   },
+  heading: { flexDirection: "row", alignItems: "center", gap: 12 },
   copy: { flex: 1 },
   body: {
-    marginTop: 4,
+    lineHeight: 24,
   },
 });

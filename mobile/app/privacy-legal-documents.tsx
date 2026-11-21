@@ -1,9 +1,10 @@
+import { ScreenHeader } from "@/components/foundation/Screen";
 import { backyrdTheme } from "../theme/backyrd";
 // mobile/app/privacy-legal-documents.tsx
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { ProductText as Text } from "../components/foundation/AppText";
+import { DocumentBody, ProductText as Text } from "../components/foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -42,17 +43,7 @@ export default function PrivacyLegalDocumentsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
 
-      <View style={styles.header}>
-        <Pressable
-          accessibilityLabel="Zurück"
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons name="chevron-back" size={24} color={backyrdTheme.color.textPrimary} />
-        </Pressable>
-
-        <Text style={styles.headerTitle}>Rechtsdokumente</Text>
-      </View>
+      <ScreenHeader title="Dokumente" eyebrow="Datenschutz" subtitle="Bedingungen und Hinweise zum Nachlesen." backLabel="Zurück" onBack={() => router.canGoBack() ? router.back() : router.replace("/settings")} />
 
 
       {loading ? (
@@ -74,6 +65,7 @@ export default function PrivacyLegalDocumentsScreen() {
               return (
                 <View key={row.document_id} style={styles.card}>
                   <Pressable
+                    accessibilityRole="button" accessibilityLabel={`${row.title}, Version ${row.version}`} accessibilityState={{ expanded: open }}
                     style={styles.cardHeader}
                     onPress={() =>
                       setExpanded(open ? null : row.document_id)
@@ -110,9 +102,7 @@ export default function PrivacyLegalDocumentsScreen() {
                       {!!row.summary && (
                         <Text style={styles.summary}>{row.summary}</Text>
                       )}
-                      <Text style={styles.documentText}>
-                        {row.content_markdown}
-                      </Text>
+                      <DocumentBody text={row.content_markdown} />
                     </View>
                   )}
                 </View>
@@ -128,37 +118,13 @@ export default function PrivacyLegalDocumentsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: backyrdTheme.color.background },
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.12)",
-  },
-  backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: backyrdTheme.color.surfaceElevated,
-    marginRight: 13,
-  },
-  headerTitle: {
-    color: backyrdTheme.color.textPrimary,
-    fontSize: 22,
-    fontWeight: "900",
-    flex: 1,
-  },
-
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
-  content: { padding: 18, paddingBottom: 48 },
+  content: { paddingHorizontal: 24, paddingBottom: 48 },
   card: {
     borderRadius: 21,
     backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: backyrdTheme.color.border,
     marginBottom: 11,
     overflow: "hidden",
   },
@@ -171,37 +137,17 @@ const styles = StyleSheet.create({
   cardTitle: { color: backyrdTheme.color.textPrimary, fontSize: 17, fontWeight: "900" },
   meta: { color: backyrdTheme.color.textMuted, fontSize: 12, marginTop: 6 },
   acceptance: { fontSize: 12, fontWeight: "900", marginTop: 8 },
-  accepted: { color: "#55D59B" },
-  notAccepted: { color: "#F5B949" },
+  accepted: { color: backyrdTheme.color.success },
+  notAccepted: { color: backyrdTheme.color.warning },
   documentBody: {
     padding: 18,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.09)",
+    borderTopColor: backyrdTheme.color.border,
   },
   summary: {
     color: backyrdTheme.color.textPrimary,
     fontWeight: "800",
     lineHeight: 21,
     marginBottom: 15,
-  },
-  documentText: { color: "#AEAEA7", lineHeight: 21 },
-  empty: {
-    alignItems: "center",
-    padding: 30,
-    borderRadius: 23,
-    backgroundColor: backyrdTheme.color.surface,
-  },
-  emptyTitle: {
-    color: backyrdTheme.color.textPrimary,
-    fontSize: 19,
-    fontWeight: "900",
-    textAlign: "center",
-    marginTop: 13,
-  },
-  emptyText: {
-    color: "#8C8C96",
-    textAlign: "center",
-    lineHeight: 20,
-    marginTop: 8,
   },
 });

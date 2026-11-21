@@ -1,3 +1,4 @@
+import { ScreenHeader } from "@/components/foundation/Screen";
 // mobile/app/privacy-consents.tsx
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -12,7 +13,6 @@ import { supabase } from "@/lib/supabase";
 import {
   ConsentPurposeKey,
   ConsentStateRow,
-  consentPurposeTitle,
   getMyConsentState,
   setMyConsent,
 } from "@/lib/consent";
@@ -54,7 +54,7 @@ const PURPOSE_PRESENTATION: Record<
       "Backyrd darf deine vorhandenen Signale verwenden, um Vorschläge besser auf dich abzustimmen.",
   },
   optional_product_analytics: {
-    title: "Optionale Produktanalyse",
+    title: "Nutzung auswerten",
     description:
       "Hilft uns zu verstehen, wie Backyrd genutzt wird, damit wir das Produkt gezielt verbessern können.",
   },
@@ -64,7 +64,7 @@ const PURPOSE_PRESENTATION: Record<
       "Zeigt Orte in deiner Nähe und kann den Ort für deinen Moment vorschlagen. Du kannst einen Ort auch selbst auswählen.",
   },
   push_notifications: {
-    title: "Push-Benachrichtigungen",
+    title: "Benachrichtigungen",
     description:
       "Backyrd darf dir relevante Benachrichtigungen auf diesem Gerät senden.",
   },
@@ -79,7 +79,7 @@ const PURPOSE_PRESENTATION: Record<
       "Backyrd darf von dir ausgewählte Fotos für unterstützte Produktfunktionen analysieren.",
   },
   model_improvement: {
-    title: "Produktverbesserung",
+    title: "Modelle verbessern",
     description:
       "Erlaubt die dafür vorgesehene Nutzung freigegebener Daten zur Verbesserung der Backyrd-Modelle.",
   },
@@ -95,7 +95,7 @@ function presentPurpose(row: ConsentStateRow) {
   }
 
   return {
-    title: consentPurposeTitle(row.purpose_key, row.title_de),
+    title: PURPOSE_PRESENTATION[row.purpose_key].title,
     description: row.description_de,
   };
 }
@@ -288,20 +288,7 @@ export default function PrivacyConsentScreen() {
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={styles.header}>
-        <Pressable
-          accessibilityLabel="Zurück"
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons accessibilityElementsHidden name="chevron-back" size={24} color={theme.color.textPrimary} />
-        </Pressable>
-
-        <View style={styles.headerCopy}>
-          <AppText role="label" tone="pink" style={styles.eyebrow}>DATENSCHUTZ</AppText>
-          <AppText role="screenTitle" style={styles.title}>Datenschutz & Einwilligungen</AppText>
-        </View>
-      </View>
+      <ScreenHeader title="Deine Freigaben" eyebrow="Datenschutz" subtitle="Optionale Freigaben kannst du jederzeit ändern." backLabel="Zurück" onBack={() => router.canGoBack() ? router.back() : router.replace("/settings")} />
 
       {loading ? (
         <View style={styles.loading}>
@@ -316,14 +303,7 @@ export default function PrivacyConsentScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.introCard}>
-            <Ionicons accessibilityElementsHidden name="shield-checkmark-outline" size={25} color={theme.color.pink} />
-            <Text style={styles.introTitle}>Du entscheidest.</Text>
-            <Text style={styles.introText}>
-              Du kannst Backyrd ohne Standort durchsuchen und Spots entdecken.
-              Der Standort hilft dabei, Orte in deiner Nähe und den Ort deines Moments zu finden. Du kannst ihn auch selbst auswählen und die Freigabe jederzeit widerrufen.
-            </Text>
-          </View>
+          <Text style={styles.introText}>Du kannst Orte auch ohne Standortfreigabe suchen und entdecken.</Text>
 
           {savedMessage ? <Text accessibilityLiveRegion="polite" style={styles.introText}>{savedMessage}</Text> : null}
           <Text style={styles.sectionTitle}>FUNKTIONEN & EINWILLIGUNGEN</Text>
@@ -335,60 +315,29 @@ export default function PrivacyConsentScreen() {
 
             return (
               <View key={row.purpose_key} style={styles.consentCard}>
-                <View style={styles.iconWrap}>
-                  <Ionicons
-                    accessibilityElementsHidden
-                    name={ICONS[row.purpose_key]}
-                    size={22}
-                    color={theme.color.pink}
-                  />
-                </View>
-
-                <View style={styles.cardCopy}>
-                  <View style={styles.cardTitleRow}>
-                    <AppText role="bodyStrong" style={styles.cardTitle}>
-                      {presentation.title}
-                    </AppText>
-                    {row.purpose_key === "precise_location" ? (
-                      <View style={styles.smartReviewBadge}>
-                        <Text style={styles.smartReviewBadgeText}>
-                          Moment-Ortsauswahl
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <AppText role="meta" tone="secondary" style={styles.cardText}>
-                    {presentation.description}
-                  </AppText>
-                  <Text style={styles.statusText}>
-                    {row.purpose_key === "precise_location"
-                      ? enabled
-                        ? "Standort freigegeben"
-                        : "Standort nicht freigegeben"
-                      : enabled
-                        ? "Aktiv"
-                        : "Nicht aktiv"}
-                    {row.granted_at
-                      ? ` · seit ${new Date(row.granted_at).toLocaleDateString("de-CH")}`
-                      : ""}
-                  </Text>
-                </View>
-
+                <View style={styles.consentHeading}>
+                  <View style={styles.iconWrap}><Ionicons accessibilityElementsHidden name={ICONS[row.purpose_key]} size={22} color={theme.color.pink} /></View>
+                  <AppText role="bodyStrong" style={styles.cardCopy}>{presentation.title}</AppText>
                 {saving ? (
                   <ActivityIndicator color={theme.color.pink} />
                 ) : (
                   <Switch
                     value={enabled}
                     accessibilityLabel={presentation.title}
+                    accessibilityHint={presentation.description}
+                    accessibilityState={{ checked: enabled, disabled: savingKey !== null, busy: saving }}
                     disabled={savingKey !== null}
                     onValueChange={(value) => void toggle(row, value)}
                     trackColor={{
-                      false: "rgba(255,255,255,0.16)",
+                      false: theme.color.surfaceElevated,
                       true: "rgba(255,125,167,0.48)",
                     }}
                     thumbColor={enabled ? theme.color.pink : "#D8D8DC"}
                   />
                 )}
+                </View>
+                <AppText role="body" tone="secondary" style={styles.cardText}>{presentation.description}</AppText>
+                <Text style={styles.statusText}>{row.purpose_key === "precise_location" ? enabled ? "Standort freigegeben" : "Standort nicht freigegeben" : enabled ? "Aktiv" : "Nicht aktiv"}{enabled && row.granted_at ? ` · seit ${new Date(row.granted_at).toLocaleDateString("de-CH")}` : row.current_status === "withdrawn" && row.withdrawn_at ? ` · widerrufen am ${new Date(row.withdrawn_at).toLocaleDateString("de-CH")}` : ""}</Text>
               </View>
             );
           })}
@@ -402,14 +351,14 @@ export default function PrivacyConsentScreen() {
             onPress={() => void sendTestPush()}
           >
             {sendingTestPush ? (
-              <ActivityIndicator color="#050506" />
+              <ActivityIndicator color={theme.color.onAccent} />
             ) : (
               <>
                 <Ionicons
                   accessibilityElementsHidden
                   name="paper-plane-outline"
                   size={20}
-                  color="#050506"
+                  color={theme.color.onAccent}
                 />
                 <Text style={styles.testPushButtonText}>
                   Test-Benachrichtigung senden
@@ -421,9 +370,7 @@ export default function PrivacyConsentScreen() {
           <View style={styles.necessaryCard}>
             <Text style={styles.necessaryTitle}>Notwendige Verarbeitung</Text>
             <Text style={styles.necessaryText}>
-              Konto, Authentifizierung, Sicherheit, Moderation und technisch
-              notwendige Fehlerdiagnose können nicht über optionale Schalter
-              deaktiviert werden.
+              Anmeldung, Sicherheit, Inhaltsprüfung und notwendige Fehlerdiagnose gehören zum Betrieb von Backyrd. Diese Verarbeitung wird durch die optionalen Schalter nicht ausgeschaltet.
             </Text>
           </View>
 
@@ -441,70 +388,30 @@ export default function PrivacyConsentScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.color.background },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.color.border,
-  },
-  backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.color.surfaceElevated,
-    marginRight: 13,
-  },
-  headerCopy: { flex: 1 },
-  eyebrow: {
-    color: theme.color.pink,
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 1.3,
-  },
-  title: {
-    marginTop: 2,
-  },
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
-  content: { padding: 18, paddingBottom: 46 },
-  introCard: {
-    borderRadius: 24,
-    padding: 20,
-    backgroundColor: theme.color.surface,
-    borderWidth: 1,
-    borderColor: "rgba(255,125,167,0.22)",
-    marginBottom: 25,
-  },
-  introTitle: {
-    color: theme.color.textPrimary,
-    fontSize: 21,
-    fontWeight: "900",
-    marginTop: 12,
-  },
+  content: { paddingHorizontal: 24, paddingBottom: 48 },
   introText: {
-    color: "#B9B9C1",
+    marginBottom: 24,
+    color: theme.color.textSecondary,
     lineHeight: 21,
     marginTop: 8,
   },
   sectionTitle: {
-    color: "#8E8E99",
+    color: theme.color.textSecondary,
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 1.25,
     marginBottom: 10,
   },
+  consentHeading: { flexDirection: "row", alignItems: "center", gap: 12 },
   consentCard: {
-    flexDirection: "row",
-    alignItems: "center",
+    gap: 12,
     borderRadius: 20,
     padding: 15,
     backgroundColor: theme.color.surface,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: theme.color.border,
   },
   iconWrap: {
     width: 42,
@@ -513,30 +420,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,125,167,0.10)",
-    marginRight: 13,
   },
   cardCopy: { flex: 1, paddingRight: 12 },
-  cardTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 7,
-  },
-  smartReviewBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,125,167,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(255,125,167,0.25)",
-  },
-  smartReviewBadgeText: {
-    color: "#FFC5DA",
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 0.4,
-  },
-  cardTitle: { flexShrink: 1 },
   cardText: { marginTop: 4 },
   statusText: {
     color: theme.color.textMuted,

@@ -1,4 +1,5 @@
 import React from "react";
+import { ScreenHeader } from "../../components/foundation/Screen";
 import { View, Pressable, StyleSheet, ScrollView, Platform } from "react-native";
 import { ProductText as Text } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -31,7 +32,7 @@ function SettingsRow({
     <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityHint={subtitle} onPress={onPress} style={[styles.row, { backgroundColor: color.surface, borderColor: color.border }]}>
       <View style={styles.rowLeft}>
         <View style={[styles.iconWrap, { backgroundColor: color.surfaceElevated }]}>
-          <Ionicons accessibilityElementsHidden name={icon} size={18} color={color.textPrimary} />
+          <Ionicons accessibilityElementsHidden name={icon} size={21} color={color.pink} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[styles.rowTitle, { color: color.textPrimary }]}>{title}</Text>
@@ -54,17 +55,10 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: color.background }]}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Zurück zum Profil" onPress={() => router.canGoBack() ? router.back() : router.replace("/profile")} style={[styles.backButton, { backgroundColor: color.surface }]}>
-            <Ionicons accessibilityElementsHidden name="chevron-back" size={22} color={color.textPrimary} />
-          </Pressable>
-          <Text style={[styles.kicker, { color: color.pink }]}>DEIN BACKYRD</Text>
-        </View>
-        <Text style={[styles.title, { color: color.textPrimary }]}>Einstellungen</Text>
-        <Text style={[styles.subtitle, { color: color.textSecondary }]}>Profil, Privatsphäre und deine App.</Text>
+        <ScreenHeader inset={false} eyebrow="Dein Backyrd" title="Einstellungen" subtitle="Dein Profil, deine Privatsphäre und Hilfe für unterwegs." backLabel="Zurück zum Profil" onBack={() => router.canGoBack() ? router.back() : router.replace("/profile")} />
 
         {Platform.OS === "android" ? <>
-          <Text style={[styles.groupLabel, { color: color.pink }]}>DARSTELLUNG</Text>
+          <Text style={[styles.groupLabel, { color: color.pink }]}>Darstellung</Text>
           <View style={[styles.appearanceGroup, { backgroundColor: color.surface, borderColor: color.border }]}>
             <Text style={[styles.rowTitle, { color: color.textPrimary }]}>Erscheinungsbild</Text>
             <Text style={[styles.rowSubtitle, { color: color.textSecondary }]}>Wähle, wie Backyrd auf diesem Gerät aussieht.</Text>
@@ -86,14 +80,15 @@ export default function SettingsScreen() {
           </View>
         </> : null}
 
-        <Text style={[styles.groupLabel, { color: color.pink }]}>ACCOUNT</Text>
+        <Text style={[styles.groupLabel, { color: color.pink }]}>Dein Konto</Text>
         <View style={styles.group}>
           <SettingsRow
             icon="person-outline"
             title="Profil"
-            subtitle="Dein Account, Momente, Gespeichertes und Erfolge"
+            subtitle="Deine Angaben, Momente und gespeicherten Orte"
             onPress={() => router.push("/profile")}
           />
+          <SettingsRow icon="key-outline" title="Passwort zurücksetzen" subtitle="Einen Link zum Zurücksetzen per E-Mail anfordern" onPress={() => router.push("/auth/forgot-password")} />
           <SettingsRow
             icon="eye-outline"
             title="Sichtbarkeit"
@@ -108,7 +103,7 @@ export default function SettingsScreen() {
           />
         </View>
 
-        <Text style={[styles.groupLabel, { color: color.pink }]}>PRIVATSPHÄRE</Text>
+        <Text style={[styles.groupLabel, { color: color.pink }]}>Privatsphäre & Hilfe</Text>
         <View style={styles.group}>
           <SettingsRow
             icon="shield-checkmark-outline"
@@ -116,6 +111,8 @@ export default function SettingsScreen() {
             subtitle="Du entscheidest, welche Daten du freigibst"
             onPress={() => router.push("/privacy-consent" as any)}
           />
+          <SettingsRow icon="notifications-outline" title="Mitteilungen" subtitle="Neuigkeiten zu deinem Konto und deinen Meldungen" onPress={() => router.push("/safety-notifications")} />
+          <SettingsRow icon="person-circle-outline" title="Konto-Status" subtitle="Hinweise und mögliche Einschränkungen deines Kontos" onPress={() => router.push("/safety/account-status")} />
           <SettingsRow
             icon="help-buoy-outline"
             title="Sicherheit & Support"
@@ -125,7 +122,7 @@ export default function SettingsScreen() {
         </View>
 
         {internal ? <>
-          <Text style={[styles.groupLabel, { color: color.pink }]}>INTERN</Text>
+          <Text style={[styles.groupLabel, { color: color.pink }]}>Intern</Text>
           <View style={styles.group}>
             <SettingsRow icon="pulse-outline" title="App- & Release-Status" subtitle="Version, Runtime und aktives Update" onPress={() => router.push("/release-diagnostics")} />
             <SettingsRow icon="hammer-outline" title="DEV" subtitle="Interne Entwickleransicht" onPress={() => router.push("/dev")} />
@@ -145,36 +142,22 @@ const styles = StyleSheet.create({
     padding: productTheme.layout.pageGutter,
     paddingBottom: 120,
   },
-  header: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 18 },
-  backButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
-  title: {
-    color: productTheme.color.textPrimary,
-    fontFamily: productTheme.type.display,
-    ...productTheme.typeScale.displayM,
-  },
-  kicker: { color: productTheme.color.pink, fontFamily: productTheme.type.bodyBold, fontSize: productTheme.typeScale.label.fontSize, letterSpacing: 2.5 },
-  subtitle: {
-    color: productTheme.color.textSecondary,
-    marginTop: 6,
-    marginBottom: 22,
-    lineHeight: 20,
-  },
   group: {
-    gap: 12,
+    gap: 0, borderRadius: 24, overflow: "hidden",
   },
   groupLabel: {
-    marginTop: 26,
+    marginTop: 28,
     marginBottom: 10,
     color: productTheme.color.pink,
     fontFamily: productTheme.type.bodyBold,
-    fontSize: productTheme.typeScale.label.fontSize,
-    letterSpacing: 1.4,
+    fontSize: 19, lineHeight: 25,
+    letterSpacing: -0.3,
   },
   row: {
-    minHeight: 76,
-    borderRadius: 18,
+    minHeight: 86,
+    borderRadius: 0,
     backgroundColor: productTheme.color.surface,
-    borderWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: productTheme.color.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -203,9 +186,9 @@ const styles = StyleSheet.create({
   },
   rowSubtitle: {
     color: productTheme.color.textSecondary,
-    fontSize: 13,
-    marginTop: 4,
-    lineHeight: 18,
+    fontSize: 14,
+    marginTop: 5,
+    lineHeight: 20,
   },
   appearanceGroup: { padding: 16, borderWidth: 1, borderRadius: 18 },
   appearanceOptions: { flexDirection: "row", gap: 8, marginTop: 17 },

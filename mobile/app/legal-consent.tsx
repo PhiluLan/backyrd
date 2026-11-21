@@ -3,7 +3,7 @@ import { backyrdTheme } from "../theme/backyrd";
 
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { ProductText as Text } from "../components/foundation/AppText";
+import { DocumentBody, ProductText as Text } from "../components/foundation/AppText";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -91,9 +91,7 @@ export default function LegalConsentScreen() {
             {!!document.summary && (
               <Text style={styles.summary}>{document.summary}</Text>
             )}
-            <Text style={styles.contentText}>
-              {document.content_markdown}
-            </Text>
+            <DocumentBody text={document.content_markdown} />
           </View>
         ))}
 
@@ -103,7 +101,7 @@ export default function LegalConsentScreen() {
           onPress={() => void acceptAll()}
         >
           {accepting ? (
-            <ActivityIndicator color="#050506" />
+            <ActivityIndicator color={backyrdTheme.color.onAccent} />
           ) : (
             <Text style={styles.buttonText}>
               Dokumente bestätigen
@@ -117,13 +115,6 @@ export default function LegalConsentScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: backyrdTheme.color.background },
-  loading: {
-    flex: 1,
-    backgroundColor: backyrdTheme.color.background,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
   content: { padding: 22, paddingBottom: 50 },
   eyebrow: {
     color: backyrdTheme.color.pink,
@@ -146,8 +137,7 @@ const styles = StyleSheet.create({
   },
   documentTitle: { color: backyrdTheme.color.textPrimary, fontSize: 22, fontWeight: "900" },
   version: { color: backyrdTheme.color.pink, fontWeight: "800", marginTop: 5 },
-  summary: { color: "#BEBEC6", lineHeight: 20, marginTop: 12 },
-  contentText: { color: backyrdTheme.color.textSecondary, lineHeight: 21, marginTop: 18 },
+  summary: { color: backyrdTheme.color.textSecondary, lineHeight: 20, marginTop: 12 },
   button: {
     minHeight: 54,
     borderRadius: 18,
@@ -159,5 +149,5 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: backyrdTheme.color.onAccent, fontWeight: "900", fontSize: 16 },
-  inlineError: { marginTop: 16, padding: 12, borderRadius: 14, color: "#FFD1DF", backgroundColor: "rgba(255,79,145,0.13)", fontSize: 14, lineHeight: 20 },
+  inlineError: { marginTop: 16, padding: 12, borderRadius: 14, color: backyrdTheme.color.danger, backgroundColor: "rgba(255,79,145,0.13)", fontSize: 14, lineHeight: 20 },
 });

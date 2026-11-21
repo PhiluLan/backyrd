@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 // app/(tabs)/achievements.tsx
 import React, { useState, useCallback } from "react";
 import {
@@ -16,11 +17,12 @@ import { useFocusEffect } from "@react-navigation/native";
 import AchievementPopup from "../../components/AchievementPopup";
 import { AppText } from "../../components/foundation/AppText";
 import { IconButton } from "../../components/foundation/Button";
-import { Screen } from "../../components/foundation/Screen";
+import { Screen, ScreenHeader } from "../../components/foundation/Screen";
 import { StateView } from "../../components/foundation/StateView";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
 export default function AchievementsScreen() {
+  const router = useRouter();
   const { achievements, loading, error, refetch } = useAchievements();
   const [newAchievement, setNewAchievement] = useState<NewlyUnlockedAchievement | null>(null);
 
@@ -93,15 +95,7 @@ export default function AchievementsScreen() {
         </View>
       )}
 
-      <View style={styles.headerRow}>
-        <View style={styles.headerCopy}>
-          <AppText role="caption" tone="lime" style={styles.kicker}>DEIN BACKYRD</AppText>
-          <AppText role="displayM">ERFOLGE.</AppText>
-        </View>
-        <IconButton accessibilityLabel="Erfolge neu laden" onPress={() => void refetch()} style={styles.reloadBtn}>
-          <Ionicons name="refresh" size={21} color={theme.color.textPrimary} />
-        </IconButton>
-      </View>
+      <ScreenHeader inset={false} title="Deine Erfolge" eyebrow="Dein Backyrd" onBack={() => router.canGoBack() ? router.back() : router.replace("/profile")} action={<IconButton accessibilityLabel="Erfolge neu laden" onPress={() => void refetch()} style={styles.reloadBtn}><Ionicons name="refresh" size={21} color={theme.color.textPrimary} /></IconButton>} />
 
       {loading ? <StateView kind="loading" title="Erfolge werden geladen" /> : null}
       {!loading && error ? <StateView kind="error" title="Erfolge gerade nicht erreichbar" message="Bitte versuche es noch einmal." actionLabel="Erneut laden" onAction={() => void refetch()} /> : null}
@@ -111,7 +105,7 @@ export default function AchievementsScreen() {
         <FlatList
           data={grouped}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ gap: 12, paddingBottom: 40 }}
+          contentContainerStyle={{ gap: 12, paddingBottom: 128 }}
           renderItem={({ item }) => (
             <View style={[styles.card, item.unlocked && styles.cardUnlocked]}>
               <View style={styles.row}>
@@ -173,16 +167,6 @@ const styles = StyleSheet.create({
     elevation: 999,
     alignItems: "center",
   },
-
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.xl,
-  },
-  headerCopy: { flex: 1, gap: theme.spacing.xxs },
-  kicker: { letterSpacing: 1.8 },
 
   reloadBtn: {
     backgroundColor: theme.color.surfaceElevated,

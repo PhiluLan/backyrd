@@ -1,8 +1,9 @@
+import { ScreenHeader } from "@/components/foundation/Screen";
 import { backyrdTheme } from "../../theme/backyrd";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ProductText as Text } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -36,23 +37,26 @@ export default function SafetyAccountStatusScreen() {
     useState<SafetyWriteStatus | null>(null);
   const [measures, setMeasures] = useState<Measure[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [acknowledging, setAcknowledging] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading(true); setLoadError(false);
+    try {
+      const nextStatus = await getSafetyWriteStatus();
 
-    const nextStatus = await getSafetyWriteStatus();
+      const { data, error } = await supabase
+        .from("safety_account_measures")
+        .select(
+          "id,measure_type,status,ends_at,public_explanation,reason_code,created_at",
+        )
+        .order("created_at", { ascending: false })
+        .limit(20);
 
-    const { data } = await supabase
-      .from("safety_account_measures")
-      .select(
-        "id,measure_type,status,ends_at,public_explanation,reason_code,created_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    setStatus(nextStatus);
-    setMeasures((data ?? []) as Measure[]);
-    setLoading(false);
+      if (error || !nextStatus || !Array.isArray(data)) throw new Error("account_status_unavailable");
+      setStatus(nextStatus);
+      setMeasures((data ?? []) as Measure[]);
+    } catch { setLoadError(true); } finally { setLoading(false); }
   }, []);
 
   useFocusEffect(
@@ -62,51 +66,28 @@ export default function SafetyAccountStatusScreen() {
   );
 
   async function acknowledge(measureId: string) {
-    await supabase.rpc(
-      "safety_acknowledge_warning_v1",
-      { p_measure_id: measureId },
-    );
-    await load();
+    if (acknowledging) return;
+    setAcknowledging(measureId);
+    try {
+      const { error } = await supabase.rpc("safety_acknowledge_warning_v1", { p_measure_id: measureId });
+      if (error) throw error;
+      await load();
+    } catch { Alert.alert("Nicht bestätigt", "Deine Bestätigung konnte nicht gespeichert werden. Bitte versuche es erneut."); }
+    finally { setAcknowledging(null); }
   }
 
   return (
     <SafeAreaView style={styles.root}>
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          style={styles.iconButton}
-        >
-          <Ionicons
-            name="chevron-back"
-            size={24}
-            color={backyrdTheme.color.textPrimary}
-          />
-        </Pressable>
-
-        <Text style={styles.headerTitle}>
-          Konto & Sicherheit
-        </Text>
-
-        <View style={styles.iconButton} />
-      </View>
+      <ScreenHeader title="Dein Konto-Status" eyebrow="Sicherheit & Support" subtitle="Hinweise und mögliche Einschränkungen deines Kontos." onBack={() => router.canGoBack() ? router.back() : router.replace("/settings")} />
 
       <ScrollView
         contentContainerStyle={styles.content}
       >
-        <Text style={styles.kicker}>
-          KONTO & SICHERHEIT
-        </Text>
-        <Text style={styles.title}>
-          Dein Konto-Status
-        </Text>
-        <Text style={styles.subtitle}>
-          Hier siehst du Verwarnungen,
-          Schreibsperren und laufende Massnahmen.
-        </Text>
+
 
         {loading ? (
           <StateView kind="loading" title="Account-Status wird geladen" />
-        ) : (
+        ) : loadError ? <StateView kind="error" title="Konto-Status nicht verfügbar" message="Wir konnten deine Angaben gerade nicht laden." actionLabel="Erneut versuchen" onAction={() => void load()} /> : (
           <>
             <View style={styles.summaryCard}>
               <View>
@@ -118,8 +99,8 @@ export default function SafetyAccountStatusScreen() {
                     styles.summaryValue,
                     {
                       color: status?.canWrite
-                        ? "#7CDD9F"
-                        : "#FF9B68",
+                        ? backyrdTheme.color.success
+                        : backyrdTheme.color.warning,
                     },
                   ]}
                 >
@@ -150,13 +131,13 @@ export default function SafetyAccountStatusScreen() {
                 <Ionicons
                   name="shield-checkmark-outline"
                   size={28}
-                  color="#7CDD9F"
+                  color={backyrdTheme.color.success}
                 />
                 <Text style={styles.emptyTitle}>
-                  Keine aktiven Massnahmen
+                  Keine Einträge im Verlauf
                 </Text>
                 <Text style={styles.emptyText}>
-                  Dein Account ist ohne Einschränkungen aktiv.
+                  Hier erscheinen Hinweise zu Massnahmen für dein Konto.
                 </Text>
               </View>
             ) : (
@@ -168,16 +149,16 @@ export default function SafetyAccountStatusScreen() {
                   <View style={styles.measureTop}>
                     <Text style={styles.measureTitle}>
                       {labels[measure.measure_type] ??
-                        measure.measure_type}
+                        "Weitere Massnahme"}
                     </Text>
                     <Text style={styles.statusPill}>
-                      {measure.status}
+                      {({ active: "Aktiv", expired: "Abgelaufen", revoked: "Aufgehoben", acknowledged: "Zur Kenntnis genommen" } as Record<string, string>)[measure.status] ?? "Status nicht verfügbar"}
                     </Text>
                   </View>
 
                   <Text style={styles.measureText}>
                     {measure.public_explanation ??
-                      "Für deinen Account gilt eine Safety-Massnahme."}
+                      "Für dein Konto liegt eine Sicherheitsmassnahme vor."}
                   </Text>
 
                   {measure.ends_at ? (
@@ -195,10 +176,11 @@ export default function SafetyAccountStatusScreen() {
                       onPress={() =>
                         void acknowledge(measure.id)
                       }
+                      accessibilityRole="button" disabled={acknowledging !== null}
                       style={styles.ackButton}
                     >
                       <Text style={styles.ackButtonText}>
-                        Zur Kenntnis genommen
+                        {acknowledging === measure.id ? "Wird bestätigt …" : "Zur Kenntnis genommen"}
                       </Text>
                     </Pressable>
                   ) : null}
@@ -217,51 +199,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: backyrdTheme.color.background,
   },
-  header: {
-    minHeight: 58,
-    paddingHorizontal: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: backyrdTheme.color.surfaceElevated,
-    borderWidth: 1,
-    borderColor: backyrdTheme.color.border,
-  },
-  headerTitle: {
-    color: backyrdTheme.color.textPrimary,
-    fontSize: 17,
-    fontWeight: "800",
-  },
   content: {
     padding: 20,
     paddingBottom: 80,
-  },
-  kicker: {
-    color: backyrdTheme.color.pink,
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 2.5,
-  },
-  title: {
-    marginTop: 12,
-    color: backyrdTheme.color.textPrimary,
-    fontSize: 38,
-    lineHeight: 41,
-    fontWeight: "900",
-    letterSpacing: -1,
-  },
-  subtitle: {
-    marginTop: 10,
-    color: "#8E8E98",
-    fontSize: 15,
-    lineHeight: 22,
   },
   summaryCard: {
     marginTop: 28,
@@ -272,7 +212,7 @@ const styles = StyleSheet.create({
     borderColor: backyrdTheme.color.border,
   },
   summaryLabel: {
-    color: "#85858E",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 12,
     fontWeight: "800",
     textTransform: "uppercase",
@@ -312,7 +252,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     marginTop: 6,
-    color: "#85858E",
+    color: backyrdTheme.color.textSecondary,
     textAlign: "center",
   },
   measureCard: {
@@ -341,13 +281,13 @@ const styles = StyleSheet.create({
   },
   measureText: {
     marginTop: 10,
-    color: "#B0B0B8",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },
   measureMeta: {
     marginTop: 10,
-    color: "#777780",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 12,
   },
   ackButton: {

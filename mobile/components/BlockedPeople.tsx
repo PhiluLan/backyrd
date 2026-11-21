@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from "react";
 import { Alert, Pressable, View } from "react-native";
 import { useFocusEffect } from "expo-router";
+import { StateView } from "./foundation/StateView";
 import { AppText } from "./foundation/AppText";
 import { supabase } from "../lib/supabase";
 import { parseMentionPeople, type MentionPerson } from "../../packages/shared/src/presentation/social";
@@ -21,7 +22,7 @@ export function BlockedPeople() {
   useFocusEffect(useCallback(() => { void load(); }, [load]));
   function unblock(person: MentionPerson) {
     if (pending.current) return;
-    Alert.alert("Blockierung aufheben?", `Ihr könnt euch danach wieder schreiben, sofern keine weitere Blockierung besteht.`, [
+    Alert.alert("Blockierung aufheben?", `${person.display_name} und du könnt euch danach wieder schreiben, sofern keine weitere Blockierung besteht.`, [
       {text: "Abbrechen", style: "cancel"},
       {text: "Aufheben", onPress: () => {
         if (pending.current) return;
@@ -42,6 +43,6 @@ export function BlockedPeople() {
   return <View style={{gap:12,marginTop:24,paddingBottom:32}}>
     <AppText role="sectionTitle">Blockierte Personen</AppText>
     <AppText tone="secondary">Blockierungen verhindern Nachrichten und weitere Interaktionen zwischen euren Konten.</AppText>
-    {state === "loading" ? <AppText>Blockierungen werden geladen …</AppText> : state === "error" ? <Pressable accessibilityRole="button" onPress={() => void load()} style={{minHeight:44}}><AppText tone="pink">Nicht geladen. Erneut versuchen</AppText></Pressable> : !people.length ? <AppText>Du hast niemanden blockiert.</AppText> : people.map(p => <View key={p.user_id} style={{gap:8,padding:16,borderRadius:theme.radius.md,backgroundColor:theme.color.surface}}><AppText>{p.display_name}</AppText><Pressable accessibilityRole="button" disabled={Boolean(busy)} accessibilityLabel={`Blockierung von ${p.display_name} aufheben`} onPress={() => unblock(p)} style={{minHeight:44,justifyContent:"center"}}><AppText tone="pink">{busy===p.user_id?"Wird aufgehoben …":"Blockierung aufheben"}</AppText></Pressable></View>)}
+    {state === "loading" ? <StateView kind="loading" title="Blockierungen werden geladen" /> : state === "error" ? <StateView kind="error" title="Blockierungen nicht geladen" message="Deine Liste konnte gerade nicht geladen werden." actionLabel="Erneut versuchen" onAction={() => void load()} /> : !people.length ? <AppText role="meta" tone="secondary">Du hast niemanden blockiert.</AppText> : people.map(p => <View key={p.user_id} style={{gap:8,padding:16,borderRadius:theme.radius.md,backgroundColor:theme.color.surface}}><AppText>{p.display_name}</AppText><Pressable accessibilityRole="button" disabled={Boolean(busy)} accessibilityLabel={`Blockierung von ${p.display_name} aufheben`} onPress={() => unblock(p)} style={{minHeight:44,justifyContent:"center"}}><AppText tone="pink">{busy===p.user_id?"Wird aufgehoben …":"Blockierung aufheben"}</AppText></Pressable></View>)}
   </View>;
 }

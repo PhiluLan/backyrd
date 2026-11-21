@@ -1,4 +1,4 @@
-import { backyrdTheme } from "../../theme/backyrd";
+import { backyrdTheme, usesFixedDarkAppearance } from "../../theme/backyrd";
 import { hydrateSocialPosts } from "../../lib/social-feed";
 // mobile/app/user/[id].tsx
 import React, { useCallback, useMemo, useRef, useState } from "react";
@@ -171,7 +171,8 @@ function formatSince(value?: string | null) {
 }
 
 export default function UserProfileScreen() {
-  const isLight = useColorScheme() === "light";
+  const scheme = useColorScheme();
+  const isLight = !usesFixedDarkAppearance && scheme === "light";
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
   const userId = typeof params.id === "string" ? params.id : null;
@@ -567,11 +568,11 @@ export default function UserProfileScreen() {
             <Avatar uri={profile.avatar_url ?? undefined} name={displayName} size={104} />
 
             <View style={styles.identityBlock}>
-              <Text style={styles.displayName} numberOfLines={1}>
+              <Text style={styles.displayName}>
                 {displayName}
               </Text>
 
-              <Text style={styles.handleText} numberOfLines={1}>
+              <Text style={styles.handleText}>
                 {handle}
                 {profile.city ? ` · ${profile.city}` : ""}
               </Text>
@@ -820,11 +821,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 28,
     gap: 12,
-  },
-  loadingText: {
-    color: backyrdTheme.color.textMuted,
-    fontSize: 15,
-    fontWeight: "800",
   },
   listContent: {
     paddingHorizontal: 14,

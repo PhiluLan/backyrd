@@ -2,7 +2,8 @@ import { backyrdTheme } from "../theme/backyrd";
 // mobile/app/privacy-consent.tsx
 
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ScreenHeader } from "../components/foundation/Screen";
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ProductText as Text } from "../components/foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
@@ -20,7 +21,7 @@ const ITEMS: HubItem[] = [
   {
     title: "Einwilligungen",
     description:
-      "Optionale Verarbeitung, Standort, Push und Personalisierung verwalten.",
+      "Standort, Benachrichtigungen und persönliche Vorschläge einstellen.",
     icon: "options-outline",
     route: "/privacy-consents",
     tone: "pink",
@@ -36,7 +37,7 @@ const ITEMS: HubItem[] = [
   {
     title: "Einwilligungsverlauf",
     description:
-      "Erteilte, erneuerte und widerrufene Einwilligungen nachvollziehen.",
+      "Nachsehen, wann du Freigaben erteilt oder widerrufen hast.",
     icon: "time-outline",
     route: "/privacy-history",
     tone: "green",
@@ -44,7 +45,7 @@ const ITEMS: HubItem[] = [
   {
     title: "Meine Daten",
     description:
-      "Datenexport anfordern oder eine bestehende Kontolöschung verwalten.",
+      "Eine Kopie deiner Daten erstellen oder dein Konto löschen.",
     icon: "archive-outline",
     route: "/privacy-data-rights",
     tone: "amber",
@@ -58,38 +59,12 @@ export default function PrivacyCenterScreen() {
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={styles.header}>
-        <Pressable
-          accessibilityLabel="Zurück"
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons accessibilityElementsHidden name="chevron-back" size={24} color={backyrdTheme.color.textPrimary} />
-        </Pressable>
-
-        <View style={styles.headerCopy}>
-          <Text style={styles.eyebrow}>DATENSCHUTZ</Text>
-          <Text style={styles.title}>Deine Daten. Deine Kontrolle.</Text>
-        </View>
-      </View>
+      <ScreenHeader title="Datenschutz" eyebrow="Dein Backyrd" subtitle="Deine Freigaben, Dokumente und Daten an einem Ort." onBack={() => router.canGoBack() ? router.back() : router.replace("/settings")} />
 
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.hero}>
-          <View style={styles.heroIcon}>
-            <Ionicons accessibilityElementsHidden name="shield-checkmark" size={31} color={backyrdTheme.color.pink} />
-          </View>
-          <Text style={styles.heroTitle}>Privatsphäre bei Backyrd</Text>
-          <Text style={styles.heroText}>
-            Hier verwaltest du Einwilligungen, liest gültige Dokumente und
-            siehst nachvollziehbar, wann du welche Entscheidung getroffen hast.
-          </Text>
-        </View>
-
-        <Text style={styles.sectionTitle}>DEIN DATENSCHUTZ</Text>
-
         {ITEMS.map((item) => (
           <Pressable
             key={item.route}
@@ -118,7 +93,7 @@ export default function PrivacyCenterScreen() {
           <Ionicons accessibilityElementsHidden name="mail-outline" size={21} color={backyrdTheme.color.pink} />
           <View style={styles.contactCopy}>
             <Text style={styles.contactTitle}>Datenschutzkontakt</Text>
-            <Text style={styles.contactText}>hello@backyrd.ch</Text>
+            <Pressable accessibilityRole="link" accessibilityLabel="Datenschutzkontakt per E-Mail" onPress={() => { void Linking.openURL("mailto:hello@backyrd.ch").catch(() => Alert.alert("E-Mail nicht geöffnet", "Du erreichst uns unter hello@backyrd.ch.")); }} style={{ minHeight: 44, justifyContent: "center" }}><Text style={styles.contactText}>hello@backyrd.ch</Text></Pressable>
             <Text style={styles.contactAddress}>
               backyrd by Philipp Langer · Spalenring 64 · 4055 Basel
             </Text>
@@ -131,76 +106,16 @@ export default function PrivacyCenterScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: backyrdTheme.color.background },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: backyrdTheme.color.border,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: backyrdTheme.color.surfaceElevated,
-    marginRight: 13,
-  },
-  headerCopy: { flex: 1 },
-  eyebrow: {
-    color: backyrdTheme.color.pink,
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 1.3,
-  },
-  title: { color: backyrdTheme.color.textPrimary, fontSize: 22, fontWeight: "900", marginTop: 2 },
-  content: { padding: 18, paddingBottom: 46 },
-  hero: {
-    padding: 22,
-    borderRadius: 26,
-    backgroundColor: backyrdTheme.color.surface,
-    borderWidth: 1,
-    borderColor: "rgba(255,125,167,0.24)",
-    marginBottom: 26,
-  },
-  heroIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,125,167,0.11)",
-  },
-  heroTitle: {
-    color: backyrdTheme.color.textPrimary,
-    fontSize: 24,
-    fontWeight: "900",
-    marginTop: 18,
-  },
-  heroText: {
-    color: backyrdTheme.color.textSecondary,
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 9,
-  },
-  sectionTitle: {
-    color: backyrdTheme.color.textMuted,
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 1.2,
-    marginBottom: 10,
-  },
+  content: { paddingHorizontal: 24, paddingBottom: 48 },
   item: {
-    minHeight: 90,
+    minHeight: 100,
     flexDirection: "row",
     alignItems: "center",
     padding: 15,
     borderRadius: 21,
     backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: "rgba(127,127,127,0.16)",
     marginBottom: 10,
   },
   itemIcon: {
@@ -216,11 +131,11 @@ const styles = StyleSheet.create({
   tone_green: { backgroundColor: "rgba(82,205,151,0.18)" },
   tone_amber: { backgroundColor: "rgba(245,185,73,0.18)" },
   itemCopy: { flex: 1, paddingRight: 10 },
-  itemTitle: { color: backyrdTheme.color.textPrimary, fontSize: 16, fontWeight: "900" },
+  itemTitle: { color: backyrdTheme.color.textPrimary, fontSize: 18, fontWeight: "700" },
   itemDescription: {
     color: backyrdTheme.color.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 15,
+    lineHeight: 22,
     marginTop: 4,
   },
   contactCard: {

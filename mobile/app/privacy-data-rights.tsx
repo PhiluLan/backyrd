@@ -1,3 +1,4 @@
+import { ScreenHeader } from "@/components/foundation/Screen";
 import { backyrdTheme } from "../theme/backyrd";
 // mobile/app/privacy-data-rights.tsx
 
@@ -48,6 +49,7 @@ export default function PrivacyDataRightsScreen() {
   );
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       setLoadError(false);
       setRows(await getMyDataRightsRequests());
@@ -188,16 +190,7 @@ export default function PrivacyDataRightsScreen() {
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={styles.header}>
-        <Pressable
-          accessibilityLabel="Zurück"
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons name="chevron-back" size={24} color={backyrdTheme.color.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Meine Daten</Text>
-      </View>
+      <ScreenHeader title="Meine Daten" eyebrow="Datenschutz" subtitle="Eine Datenkopie erstellen oder dein Konto verwalten." backLabel="Zurück" onBack={() => router.canGoBack() ? router.back() : router.replace("/settings")} />
 
       {loading ? (
         <View style={styles.loading}>
@@ -222,14 +215,7 @@ export default function PrivacyDataRightsScreen() {
             />
           }
         >
-          <View style={styles.intro}>
-            <Ionicons name="archive-outline" size={28} color={backyrdTheme.color.pink} />
-            <Text style={styles.introTitle}>Deine Datenschutzrechte</Text>
-            <Text style={styles.introText}>
-              Du kannst eine maschinenlesbare Kopie deiner Daten anfordern oder
-              dein Konto zur Löschung vormerken.
-            </Text>
-          </View>
+
 
           <View style={styles.card}>
             <View style={styles.cardHead}>
@@ -272,10 +258,10 @@ export default function PrivacyDataRightsScreen() {
               onPress={() => void createExport()}
             >
               {working === "export" ? (
-                <ActivityIndicator color="#050506" />
+                <ActivityIndicator color={backyrdTheme.color.onAccent} />
               ) : (
                 <>
-                  <Ionicons name="download-outline" size={19} color="#050506" />
+                  <Ionicons name="download-outline" size={19} color={backyrdTheme.color.onAccent} />
                   <Text style={styles.primaryButtonText}>
                     Datenexport erstellen
                   </Text>
@@ -287,7 +273,7 @@ export default function PrivacyDataRightsScreen() {
           <View style={[styles.card, styles.dangerCard]}>
             <View style={styles.cardHead}>
               <View style={[styles.iconWrap, styles.dangerIcon]}>
-                <Ionicons name="trash-outline" size={23} color="#FF7D87" />
+                <Ionicons name="trash-outline" size={23} color={backyrdTheme.color.danger} />
               </View>
               <View style={styles.cardCopy}>
                 <Text style={styles.cardTitle}>Konto und Daten löschen</Text>
@@ -352,52 +338,14 @@ export default function PrivacyDataRightsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: backyrdTheme.color.background },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.12)",
-  },
-  backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: backyrdTheme.color.surfaceElevated,
-    marginRight: 13,
-  },
-  headerTitle: {
-    color: backyrdTheme.color.textPrimary,
-    fontSize: 22,
-    fontWeight: "900",
-    flex: 1,
-  },
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
-  content: { padding: 18, paddingBottom: 48 },
-  intro: {
-    padding: 21,
-    borderRadius: 24,
-    backgroundColor: backyrdTheme.color.surface,
-    borderWidth: 1,
-    borderColor: "rgba(255,125,167,0.23)",
-    marginBottom: 15,
-  },
-  introTitle: {
-    color: backyrdTheme.color.textPrimary,
-    fontSize: 23,
-    fontWeight: "900",
-    marginTop: 14,
-  },
-  introText: { color: backyrdTheme.color.textSecondary, lineHeight: 21, marginTop: 8 },
+  content: { paddingHorizontal: 24, paddingBottom: 48 },
   card: {
     padding: 18,
     borderRadius: 22,
     backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: backyrdTheme.color.border,
     marginBottom: 13,
   },
   dangerCard: { borderColor: "rgba(255,125,135,0.22)" },
@@ -424,7 +372,7 @@ const styles = StyleSheet.create({
   dangerStatus: { backgroundColor: "rgba(255,125,135,0.07)" },
   statusLabel: { color: backyrdTheme.color.textPrimary, fontWeight: "900" },
   statusMeta: { color: backyrdTheme.color.textMuted, fontSize: 12, lineHeight: 17, marginTop: 5 },
-  errorText: { color: "#FF7D87", fontSize: 12, marginTop: 7 },
+  errorText: { color: backyrdTheme.color.danger, fontSize: 12, marginTop: 7 },
   primaryButton: {
     minHeight: 52,
     borderRadius: 17,
@@ -450,7 +398,7 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     backgroundColor: backyrdTheme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: backyrdTheme.color.border,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 12,
