@@ -1244,3 +1244,44 @@ schweren/kritischen Axe-Befunde im neuen Einstieg. Keine Production-Fixtures,
 keine realen Consent-/Lösch-/Moderationsaktionen für Tests. Browser-Sichtprüfung
 von Desktop und Mobile; eine physische Tastatur-/VoiceOver-Abnahme wird nicht
 behauptet. Kein Schema-, RLS-, Ranking-, Prompt- oder Edge-Deployment.
+
+### Veröffentlichungsbeleg: Wohin im Consumer Web
+
+Am 21. November 2026 über die bestehende Vercel-Integration auf
+[www.backyrd.ch/decision](https://www.backyrd.ch/decision) veröffentlicht.
+Quelle Main `e29ed86e470e75c8b5230a7865346f97c262f613`,
+[PR #783](https://github.com/PhiluLan/backyrd/pull/783),
+[erforderliche PR-Gates erfolgreich](https://github.com/PhiluLan/backyrd/actions/runs/44889004282).
+Der geprüfte PR-Head `0fcd750afc50941559fdd7c5a3b3bd8789ed6f99` und Main
+besitzen denselben Web-Quellbaum `d5a1c70a222e9048684639137285880cde6d30ac`.
+[Nachgelagerter Main-Prüflauf](https://github.com/PhiluLan/backyrd/actions/runs/44889712747).
+
+GitHub/Vercel meldet Production-Web-Deployment `7961468035` für genau diese
+Main-Quelle als erfolgreich, abgeschlossen um `2026-11-21T09:28:38Z`.
+Zugeordnete Deployment-Adresse:
+[backyrd-itf5a68l0-backyrd.vercel.app](https://backyrd-itf5a68l0-backyrd.vercel.app).
+Bisheriger erfolgreicher Rückfallpunkt: Deployment `7957190835`, Quelle
+`03c7256d9d8cfecae3b4a9235570eafb21d7bbb2`.
+
+Die benutzerseitige Auslieferung wurde zusätzlich auf der tatsächlichen
+öffentlichen Domain per Browser geprüft: Titel und Navigation «Wohin», neue
+persönliche Einladung, geladene Suchregion, Inspirationsentwürfe, Eingabe,
+Verlauf mit verständlichem leerem Zustand sowie Mobile-/Desktop-Darstellung.
+Keine Meldung eines Deployment-Status allein wird als sichtbare Auslieferung
+gewertet. Die geschützte Vercel-Vorschau war ohne zusätzliche Vercel-Anmeldung
+nicht visuell erreichbar; die Sichtprüfung erfolgte lokal und auf Production.
+
+Lokaler finaler Production-Build: erfolgreich. Alle sechs gezielten synthetischen
+Browserabläufe bestehen auch gegen diesen Build, einschliesslich nachfolgendem
+Entwurf und mobilem Abstand zur Navigation. 76 Web-Vertrags-/Speichertests,
+775 Decision-Tests und 30 bestehende Mobile-Modelltests erfolgreich; Web- und
+Mobile-TypeScript sowie Single-Route-Prüfung erfolgreich. Lint ohne Fehler,
+mit bestehenden Warnungen ausserhalb der neuen Wohin-Dateien. Zwei vorhandene
+Integrationstest-Harnesses laden nun zusätzlich das echte gemeinsam verwendete
+Präsentationsmodul; der Transport bleibt ihre einzige Ersetzung.
+
+Keine echten Production-Testeinträge, Einwilligungs-, Lösch- oder
+Moderationsaktionen wurden für diese Prüfung erzeugt. Kein Supabase-Edge-/
+Schema-/Ranking-/Prompt-Release und kein natives OTA. Der Verlauf bleibt lokal
+im jeweiligen Browser; die iOS-Gerätehistorie wird nicht synchronisiert.
+Physische Tastatur-, VoiceOver- und Founder-Abnahme bleiben offen.
