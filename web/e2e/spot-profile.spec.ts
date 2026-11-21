@@ -31,13 +31,9 @@ test("consumer profile keeps canonical facts, approachable copy and useful discl
   await expect(hours).toContainText("17:00–00:30");
   await page.locator("summary", { hasText: "Sonderöffnungszeiten" }).click();
   await expect(page.locator("main")).toContainText("24. Dezember 2026");
-  const offer = page
-    .locator("details")
-    .filter({
-      has: page.locator(
-        'summary[aria-label="Degustation: mehr Informationen"]',
-      ),
-    });
+  const offer = page.locator("details").filter({
+    has: page.locator('summary[aria-label="Degustation: mehr Informationen"]'),
+  });
   await page
     .locator('summary[aria-label="Degustation: mehr Informationen"]')
     .click();
@@ -99,6 +95,10 @@ test("profile and actions stay usable across mobile, tablet and desktop", async 
     }
   }
   await page.setViewportSize({ width: 390, height: 844 });
+  await page
+    .getByRole("heading", { name: "Rund um diesen Ort", exact: true })
+    .scrollIntoViewIfNeeded();
+  await expect(page.getByRole("link", { name: /Nebenan/ })).toBeVisible();
   const results = await new AxeBuilder({ page }).include("main").analyze();
   expect(
     results.violations.filter((item) =>

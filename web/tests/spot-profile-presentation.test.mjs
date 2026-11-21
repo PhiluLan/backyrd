@@ -3,7 +3,40 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
-import * as taxonomy from "@backyrd/world-knowledge-core/browser";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+const nodeRequire = createRequire(import.meta.url);
+const modules = new Map();
+// Contract tests run before the package build in CI. Load the actual catalog
+// sources in one realm, preserving their canonical hashing and enum validation.
+function loadWorldSource(file) {
+  if (modules.has(file)) return modules.get(file);
+  const result = {};
+  modules.set(file, result);
+  const code = ts.transpileModule(readFileSync(file, "utf8"), {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  vm.runInThisContext(`(function(exports,require){${code}\n})`, {
+    filename: file,
+  })(result, (name) =>
+    name.startsWith(".")
+      ? loadWorldSource(resolve(dirname(file), name.replace(/\.js$/, ".ts")))
+      : nodeRequire(name),
+  );
+  return result;
+}
+const core = fileURLToPath(
+  new URL("../../packages/world-knowledge-core/src/", import.meta.url),
+);
+const taxonomy = {
+  ...loadWorldSource(resolve(core, "spot-catalog.ts")),
+  ...loadWorldSource(resolve(core, "registry.ts")),
+  ...loadWorldSource(resolve(core, "authoring-taxonomy.ts")),
+};
 const exports = {};
 vm.runInNewContext(
   ts.transpileModule(

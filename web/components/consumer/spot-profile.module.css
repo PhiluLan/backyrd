@@ -434,9 +434,6 @@
   .nearby {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .nearby a:last-child:nth-child(odd) {
-    display: none;
-  }
   .content :global(.b-experience-toggle) > span:not(:last-child) {
     display: none;
   }
