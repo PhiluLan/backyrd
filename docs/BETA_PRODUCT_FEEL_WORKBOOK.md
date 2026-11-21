@@ -1006,3 +1006,39 @@ Taskklasse `PRODUCT_RELEASE`; ausschliesslich Mobile-Präsentation, bestehende
 Browser-Regression und dieser Arbeitsbucheintrag. Keine neuen Abhängigkeiten,
 API-, Schema-, Backend- oder Rankingänderungen. Native visuelle Founder-Abnahme
 folgt über OTA; keine behauptete native Bewegungs- oder Performance-Abnahme.
+
+### Veröffentlichungsbeleg: Beta ohne NukNuk-Grafik
+
+Am 21. November 2026 auf Production für beide iOS-Runtimes veröffentlicht.
+Quelle Main `a27bc85d8b4d71a01cf0741d0868b8d25d96f8b8`,
+[PR #777](https://github.com/PhiluLan/backyrd/pull/777),
+[alle erforderlichen PR-Gates erfolgreich](https://github.com/PhiluLan/backyrd/actions/runs/44845370406).
+Exakte Main-/IOS_OTA-Zertifizierungen erfolgreich:
+[1.1.1](https://github.com/PhiluLan/backyrd/actions/runs/44846187459),
+[1.1.0](https://github.com/PhiluLan/backyrd/actions/runs/44846189903).
+GitHub-ZIP-Prüfsummen und öffentliche EAS-/CI-Konfiguration abgeglichen.
+Upload ausschliesslich aus den zertifizierten Artefakten mit `--skip-bundler`.
+
+Runtime **1.1.1**:
+
+- Update: `01a1fb9a-4ba4-7254-b513-c69ea9f0f1d1`
+- Gruppe: `8991539a-71cc-47e7-ab65-f13284c93578`
+- Manifest SHA-256: `3b3fe83982088448d428a0165b12db411be2cf5c0b2a9950f79fe2bfff71fd6a`
+- Ausgeliefertes Bundle SHA-256: `fe445b60af20bb8e9024a6ea9e018daabaf66d308c1dfbcc56543dcbbf88c1b4`
+- Vorherige Gruppe als Rückfallpunkt: `6d6816c6-e329-4645-903c-b20958bec0f5`
+
+Runtime **1.1.0**:
+
+- Update: `01a1fb99-083c-7c40-aa65-f486a89331e9`
+- Gruppe: `199f5e56-fb2b-42c7-a9ef-5bdd0e7fcf2a`
+- Manifest SHA-256: `d8f23036268872a12404ed9439323849dc27ff8802002c672e6e01b59b4a9e98`
+- Ausgeliefertes Bundle SHA-256: `7664618fb544d50ca5349090779f28f7c7fcf07d10a401b71f45c2279d102d5e`
+- Vorherige Gruppe als Rückfallpunkt: `dbc3b030-d33a-4b77-b83a-d3431e82bc80`
+
+Nach beiden Uploads beide Production-Manifeste und tatsächliche CDN-Bundle-Bytes
+erneut gegen die zertifizierten Artefakte geprüft: erfolgreich, beide Runtimes
+parallel verfügbar. Lokaler Product-Browserablauf erfolgreich; Light-/Dark-
+Vorschauen der neuen Begrüssung visuell geprüft. Native Aktivierung und visuelle
+Founder-Abnahme auf dem physischen iPhone werden nicht behauptet. Die bisherigen
+zehn Raster-Layer, Motion-Steuerung und Lifecycle-Tests sind gegenüber der
+vorherigen Main-Version unverändert erhalten. Keine Backend-/Decision-Aktivierung.
