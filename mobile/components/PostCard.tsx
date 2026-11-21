@@ -353,7 +353,7 @@ export default function SocialPostCard({
                 <Ionicons
                   name="checkmark-circle"
                   size={15}
-                  color="#FF4F91"
+                  color="#F24D86"
                 />
               ) : null}
             </View>
@@ -800,7 +800,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: "#FF4F91",
+    backgroundColor: "#F24D86",
   },
   actionBar: {
     minHeight: 50,

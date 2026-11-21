@@ -60,7 +60,7 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarStyle,
         tabBarBackground: () => (
-          <BlurView intensity={54} tint={isLight ? "light" : "dark"} style={[styles.tabBarGlass, { backgroundColor: isLight ? "rgba(255,255,255,0.78)" : "rgba(8,8,9,0.72)" }]} />
+          <BlurView intensity={54} tint={isLight ? "light" : "dark"} style={[styles.tabBarGlass, { backgroundColor: isLight ? "rgba(248,249,251,0.88)" : "rgba(29,34,43,0.84)" }]} />
         ),
         tabBarActiveTintColor: color.pink,
         tabBarInactiveTintColor: color.textMuted,
@@ -191,18 +191,18 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     borderRadius: theme.radius.lg,
     borderWidth: 1,
-    borderColor: "rgba(246,240,232,0.12)",
+    borderColor: theme.color.border,
     backgroundColor: "transparent",
     overflow: "hidden",
     elevation: 0,
-    shadowColor: "#000",
-    shadowOpacity: 0.34,
+    shadowColor: "#11151D",
+    shadowOpacity: 0.28,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 12 },
   },
   tabBarGlass: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(8,8,9,0.72)",
+    backgroundColor: "rgba(29,34,43,0.84)",
   },
   plusWrap: {
     flex: 1,
@@ -216,8 +216,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.pink,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.34,
+    shadowColor: "#11151D",
+    shadowOpacity: 0.3,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,

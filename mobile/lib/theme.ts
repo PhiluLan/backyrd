@@ -3,17 +3,17 @@
 import { backyrdTheme } from "../theme/backyrd";
 
 export const colors = {
-  background: "#050506",
-  primary: "#FF4F91",
-  accent: "#D8FF3E",
-  highlight: "#19191C",
+  background: "#1D222B",
+  primary: "#F24D86",
+  accent: "#242B35",
+  highlight: "#2B323D",
   text: {
-    primary: "#F7F3E9",
-    secondary: "#D6D2CA",
-    muted: "#A8A5A0",
+    primary: "#F5F6F6",
+    secondary: "#B3BAC3",
+    muted: "#89929F",
   },
-  border: "rgba(247,243,233,0.15)",
-  overlay: "rgba(0,0,0,0.6)",
+  border: "#4A5361",
+  overlay: "rgba(17,21,29,0.72)",
 };
 
 export const spacing = {
@@ -35,8 +35,8 @@ export const radius = {
 export const typography = {
   fontRegular: backyrdTheme.type.body,
   fontBold: backyrdTheme.type.bodyBold,
-  h1: { fontFamily: backyrdTheme.type.bodyBold, fontSize: 28 },
-  h2: { fontFamily: backyrdTheme.type.bodyBold, fontSize: 22 },
+  h1: { fontFamily: backyrdTheme.type.display, fontSize: 30 },
+  h2: { fontFamily: backyrdTheme.type.display, fontSize: 24 },
   body: { fontFamily: backyrdTheme.type.body, fontSize: 16 },
   small: { fontFamily: backyrdTheme.type.body, fontSize: 14 },
 };

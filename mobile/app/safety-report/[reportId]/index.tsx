@@ -106,7 +106,7 @@ export default function SafetyReportDetailScreen() {
       ) : (
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor="#FF4F91" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor="#F24D86" />}
         >
           {error ? <View style={styles.errorCard}><Text style={styles.errorText}>{error}</Text></View> : null}
           {report ? (
@@ -151,7 +151,7 @@ export default function SafetyReportDetailScreen() {
               </Section>
 
               <View style={styles.infoCard}>
-                <Ionicons name="information-circle-outline" size={22} color="#FF4F91" />
+                <Ionicons name="information-circle-outline" size={22} color="#F24D86" />
                 <Text style={styles.infoText}>
                   Aus Datenschutzgründen zeigen wir keine Kontomassnahmen oder persönlichen Details der gemeldeten Person.
                 </Text>

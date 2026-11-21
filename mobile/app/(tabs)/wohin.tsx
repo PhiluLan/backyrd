@@ -42,23 +42,23 @@ type SearchConversation = {
 };
 
 const darkColors = {
-  background: "#050505", card: "#101010", text: "#F6F0E8", muted: "#9B9B9F",
-  border: "#FFFFFF24", pink: "#FF4F91", warning: "#F7C65C", onAccent: "#08080A",
-  gradient: ["#351324", "#140C10", "#050505"] as readonly [string, string, string],
-  panel: "#101010", tint: "#29151F", dock: "#171719", dockBorder: "#FFFFFF33",
-  disabled: "#252528", message: "#171719", prompt: "#171719",
-  focusBorder: "#63344C", subButton: "#171719", question: "#20141B", artwork: "#171719",
-  detailText: "#D7D7DB", chat: "#050505", brief: "#101010",
+  background: "#1D222B", card: "#242B35", text: "#F5F6F6", muted: "#B3BAC3",
+  border: "#4A5361", pink: "#F24D86", warning: "#F7C65C", onAccent: "#11151D",
+  gradient: ["#3A2936", "#252731", "#1D222B"] as readonly [string, string, string],
+  panel: "#242B35", tint: "#392E3A", dock: "#222934", dockBorder: "#4A5361",
+  disabled: "#303843", message: "#2B323D", prompt: "#2B323D",
+  focusBorder: "#8B4A65", subButton: "#2B323D", question: "#392E3A", artwork: "#303843",
+  detailText: "#DDE1E5", chat: "#1D222B", brief: "#242B35",
 };
 
 const lightColors: typeof darkColors = {
-  background: "#F7F7F5", card: "#FFFFFF", text: "#19191C", muted: "#53535A",
-  border: "#19191C21", pink: "#C71559", warning: "#8C5700", onAccent: "#FFFFFF",
-  gradient: ["#F4DBE6", "#F7F1F4", "#F7F7F5"],
-  panel: "#FFFFFF", tint: "#F5E5EC", dock: "#FFFFFF", dockBorder: "#19191C47",
-  disabled: "#EEEEF0", message: "#FFFFFF", prompt: "#FFFFFF",
-  focusBorder: "#D6A6BE", subButton: "#EEEEF0", question: "#F5E5EC", artwork: "#EEEEF0",
-  detailText: "#53535A", chat: "#F7F7F5", brief: "#FFFFFF",
+  background: "#F5F7FA", card: "#F8F9FB", text: "#171B22", muted: "#65707B",
+  border: "#D6DCE3", pink: "#D63C70", warning: "#8C5700", onAccent: "#FFFFFF",
+  gradient: ["#F0E7ED", "#F8F9FB", "#F5F7FA"],
+  panel: "#F8F9FB", tint: "#F0E7ED", dock: "#F8F9FB", dockBorder: "#B8C1CC",
+  disabled: "#E7EAF0", message: "#FFFFFF", prompt: "#FFFFFF",
+  focusBorder: "#D39BB0", subButton: "#E7EAF0", question: "#F0E7ED", artwork: "#E7EAF0",
+  detailText: "#65707B", chat: "#F5F7FA", brief: "#F8F9FB",
 };
 
 async function withinIdentityDeadline<T>(operation: PromiseLike<T>): Promise<T> {

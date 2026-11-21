@@ -732,7 +732,7 @@ export default function UserProfileScreen() {
       <Animated.View style={[styles.headerBackdrop, { height: headerHeight }]} pointerEvents="none">
         <Image source={{ uri: headerImage }} style={styles.headerImage} blurRadius={8} />
         <LinearGradient
-          colors={isLight ? ["rgba(247,247,245,0.08)", "rgba(247,247,245,0.82)", "#F7F7F5"] : ["rgba(0,0,0,0.08)", "rgba(10,10,11,0.72)", "#050506"]}
+          colors={isLight ? ["rgba(245,247,250,0.08)", "rgba(245,247,250,0.82)", "#F5F7FA"] : ["rgba(17,21,29,0.08)", "rgba(29,34,43,0.78)", "#1D222B"]}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
@@ -961,7 +961,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 52,
     borderRadius: 18,
-    backgroundColor: "#FF4F91",
+    backgroundColor: "#F24D86",
     alignItems: "center",
     justifyContent: "center",
   },

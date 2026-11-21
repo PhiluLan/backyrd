@@ -19,7 +19,7 @@ function appearanceColor(name: AppearanceColorName): string {
   return `var(--backyrd-${name}, ${appearanceColors.dark[name]})`;
 }
 
-// Native SF Pro is available for the Home presentation on iOS.
+// Kept for existing responsive Home geometry. Typography itself is branded in AppText.
 export const useSFPro = Platform.OS === "ios";
 
 export const backyrdTheme = {
@@ -27,15 +27,15 @@ export const backyrdTheme = {
   nuknuk: { showCharacter: false },
   color: {
     background: appearanceColor("background"),
-    backgroundLight: "#ECECEA",
+    backgroundLight: "#F5F7FA",
     surface: appearanceColor("surface"),
     surfaceElevated: appearanceColor("surfaceElevated"),
-    surfaceLight: "#F5F3EE",
+    surfaceLight: "#F8F9FB",
     surfaceLightElevated: "#FFFFFF",
     textPrimary: appearanceColor("textPrimary"),
-    textPrimaryLight: "#17161A",
+    textPrimaryLight: "#171B22",
     textSecondary: appearanceColor("textSecondary"),
-    textSecondaryLight: "#827D77",
+    textSecondaryLight: "#65707B",
     textMuted: appearanceColor("textMuted"),
     pink: appearanceColor("pink"),
     blue: appearanceColor("blue"),
@@ -46,7 +46,7 @@ export const backyrdTheme = {
     acid: appearanceColor("acid"),
     border: appearanceColor("border"),
     borderStrong: appearanceColor("borderStrong"),
-    borderLight: "rgba(23,22,26,0.14)",
+    borderLight: "#D6DCE3",
     success: appearanceColor("success"),
     warning: appearanceColor("warning"),
     closingSoon: appearanceColor("closingSoon"),
@@ -60,18 +60,18 @@ export const backyrdTheme = {
   border: { hairline: 1, standard: 1 },
   motion: { image: 180, pressScale: 0.98 },
   type: {
-    display: "LibreFranklin_700Bold",
+    display: "BarlowCondensed_800ExtraBold",
     body: "LibreFranklin_400Regular",
     bodyMedium: "LibreFranklin_600SemiBold",
     bodyBold: "LibreFranklin_700Bold",
   },
   typeScale: {
-    displayXL: { fontSize: 54, lineHeight: 59, letterSpacing: -1.3 },
-    displayL: { fontSize: 44, lineHeight: 49, letterSpacing: -1 },
-    displayM: { fontSize: 36, lineHeight: 41, letterSpacing: -0.7 },
-    screenTitle: { fontSize: 28, lineHeight: 34, letterSpacing: -0.45 },
-    sectionTitle: { fontSize: 22, lineHeight: 28, letterSpacing: -0.3 },
-    cardTitle: { fontSize: 20, lineHeight: 26, letterSpacing: -0.25 },
+    displayXL: { fontSize: 56, lineHeight: 53, letterSpacing: -1.4 },
+    displayL: { fontSize: 46, lineHeight: 44, letterSpacing: -1.05 },
+    displayM: { fontSize: 37, lineHeight: 36, letterSpacing: -0.75 },
+    screenTitle: { fontSize: 30, lineHeight: 31, letterSpacing: -0.5 },
+    sectionTitle: { fontSize: 24, lineHeight: 25, letterSpacing: -0.35 },
+    cardTitle: { fontSize: 22, lineHeight: 23, letterSpacing: -0.3 },
     body: { fontSize: 16, lineHeight: 23 },
     meta: { fontSize: 14, lineHeight: 19 },
     label: { fontSize: 13, lineHeight: 18, letterSpacing: 0.1 },

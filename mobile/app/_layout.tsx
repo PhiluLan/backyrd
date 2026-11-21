@@ -9,6 +9,7 @@ import { StyleSheet, View } from "react-native";
 import { LibreFranklin_400Regular } from "@expo-google-fonts/libre-franklin/400Regular";
 import { LibreFranklin_600SemiBold } from "@expo-google-fonts/libre-franklin/600SemiBold";
 import { LibreFranklin_700Bold } from "@expo-google-fonts/libre-franklin/700Bold";
+import { BarlowCondensed_800ExtraBold } from "@expo-google-fonts/barlow-condensed/800ExtraBold";
 import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { AnalyticsProvider } from "../providers/AnalyticsProvider";
 import { AnalyticsErrorBoundary } from "../components/AnalyticsErrorBoundary";
@@ -70,6 +71,7 @@ function BootstrappedApp() {
     LibreFranklin_400Regular,
     LibreFranklin_600SemiBold,
     LibreFranklin_700Bold,
+    BarlowCondensed_800ExtraBold,
   });
   const { loading: authLoading } = useAuth();
   const [safetyStartupReady, setSafetyStartupReady] = useState(false);

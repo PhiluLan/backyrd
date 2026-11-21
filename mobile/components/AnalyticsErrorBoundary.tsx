@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   badgeText: {
-    color: "#FF4F91",
+    color: "#F24D86",
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1.4,
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: 24,
     borderRadius: 18,
-    backgroundColor: "#FF4F91",
+    backgroundColor: "#F24D86",
     alignItems: "center",
     justifyContent: "center",
   },

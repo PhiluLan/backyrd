@@ -104,7 +104,7 @@ export function Input(props: React.ComponentProps<typeof TextInput>) {
       {...props}
       style={[
         {
-          backgroundColor: "#111113",
+          backgroundColor: theme.colors.highlight,
           color: theme.colors.text.primary,
           borderRadius: theme.radius.md,
           padding: theme.spacing.md,
@@ -138,14 +138,14 @@ export function Button({
           paddingHorizontal: 14,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#18A76D", // Default-Farbe
+          backgroundColor: theme.colors.primary,
         },
         style,
       ]}
     >
       <Text
         style={[
-          { color: "#050506", fontWeight: "800" },
+          { color: "#11151D", fontWeight: "800" },
           textStyle,
         ]}
       >
@@ -173,7 +173,7 @@ export function Card({ children }: { children: ReactNode }) {
   return (
     <View
       style={{
-        backgroundColor: "#111113",
+        backgroundColor: theme.colors.accent,
         borderRadius: theme.radius.lg,
         borderWidth: 1,
         borderColor: theme.colors.border,
