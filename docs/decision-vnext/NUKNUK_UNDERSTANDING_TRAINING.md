@@ -546,7 +546,7 @@ Sie starten beide vom unveränderten Basismodell, nicht voneinander oder vom alt
 Adapter. Auswahl nach fachlicher Sichtung derselben zwölf Entwicklungsantworten;
 erst danach neue Prüfaufgaben, Basisvergleich und Wiederholungen.
 
-**Ressourcenschutz, Stand 9. November 2026:** Docker bleibt aus. Der bestehende
+**Ressourcenschutz, aktualisiert am 21. November 2026:** Der bestehende
 Trainingsstarter und der Basis-/Adapter-Vergleich starten MLX ausschliesslich über
 `nuknuk-resource-guard.py`. Ein exklusiver Benutzer-Lock verhindert zwei gleichzeitig
 geschützte Modellläufe. Direkt ausserhalb dieses Starters gestartete Programme
@@ -555,13 +555,20 @@ werden dadurch nicht automatisch überwacht.
 Vor dem Modellstart und danach im Abstand von einer Sekunde prüft der Wächter den
 macOS-Speicherdruck, neuen Swap, die Summe des RSS der eigenen Prozessgruppe und
 freien Platz auf Arbeits- und Ausgabevolume. Messaufrufe haben jeweils eine Sekunde
-Timeout. Bereits die erste Speicherwarnung beendet die eigene Gruppe per SIGKILL;
-ebenso weniger als 30 GiB freie SSD, mehr als 28 GiB Gruppen-RSS, mehr als 512 MiB
-zusätzlicher Swap oder ein laufendes Docker Desktop. Vorhandener alter Swap allein
-verhindert den Start nicht. Grenzen sind konservative Betriebsregeln für diesen
-48-GiB-Mac, keine nachgewiesenen Mindestanforderungen des Modells. Die MLX-Richtlinie
-ist 24 GiB und der Cache auf 256 MiB begrenzt; dies ist kein hartes OS-Speicherlimit.
-RSS allein erfasst nicht verlässlich sämtliche Metal-/Systemspeicherlast.
+Timeout. Drei aufeinanderfolgende Speicherwarnungen beenden die eigene Gruppe nur
+zusammen mit mehr als 128 MiB neuem Swap per SIGKILL; kritischer Speicherdruck
+beendet sie sofort. Ebenso sofort greifen weniger
+als 30 GiB freie SSD, mehr als 28 GiB Modellgruppen-RSS oder
+-Footprint, mehr als 512 MiB zusätzlicher Swap, mehr als 8 GiB Docker-Footprint
+oder mehr als 34 GiB gemeinsamer Modell-/Docker-Footprint. Docker wird separat
+gemessen und nicht mehr allein wegen seiner Anwesenheit blockiert. Für den von
+macOS geschützten Docker-VM-XPC-Prozess wird RSS als konservativer Ersatz genutzt,
+wenn dessen physischer Footprint nicht lesbar ist. Vorhandener
+alter Swap allein verhindert den Start nicht. Grenzen sind konservative
+Betriebsregeln für diesen 48-GiB-Mac, keine nachgewiesenen Mindestanforderungen des
+Modells. Die MLX-Richtlinie ist 24 GiB und der Cache auf 256 MiB begrenzt; dies ist
+kein hartes OS-Speicherlimit. RSS allein erfasst nicht verlässlich sämtliche
+Metal-/Systemspeicherlast.
 
 Ein separater kleiner Watchdog besitzt eine Pipe zum Hauptwächter. Stirbt dieser,
 führt das Pipe-Ende sofort zur Beendigung der Modellgruppe. Fehlt zehn Sekunden

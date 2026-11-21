@@ -55,6 +55,24 @@ later rollout.
 
 ### Local MacBook inference check
 
+The persistent local service uses the canonical
+`scripts/decision-diagnostics/nuknuk-resource-guard.py` in persistent-serving
+mode. It may coexist with Docker while new swap stays within 512 MiB, Docker stays
+below an 8 GiB physical footprint and
+the combined model/Docker footprint stays at or below 34 GiB. The existing model
+group, disk and independent-watchdog limits remain fail-closed. Critical pressure
+stops immediately; a non-critical warning must persist for three consecutive
+samples and coincide with more than 128 MiB of new swap. This keeps a stable,
+cold-loaded model from creating a restart loop.
+
+Disposable Current Candidate Supabase stacks are owned by
+`scripts/ci/supabase-local-stack-lease.py`. The detached lease stops an orphaned
+`backyrd-current-*` stack if its validation shell disappears. An explicitly kept
+stack still expires after 30 minutes by default; operators may choose a bounded
+value from 60 seconds to four hours with
+`BACKYRD_LOCAL_SUPABASE_LEASE_SECONDS`. The lease cannot target Production or a
+normal developer project identifier.
+
 The 48 GiB M4 Pro ran the local 4-bit Qwen3.5-27B snapshot with a separate
 MLX conversion of the selected adapter. All 496 LoRA projection pairs were
 shape-checked against the local base weights. This used a different quantized

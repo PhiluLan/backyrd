@@ -19,6 +19,16 @@ guard_spec.loader.exec_module(guard)
 class TrainingBoundaryTests(unittest.TestCase):
     healthy = {"pressure": 1, "swapUsedBytes": 0, "diskFreeBytes": 100 * guard.GIB}
 
+    def setUp(self):
+        self.guard_lock_dir = tempfile.TemporaryDirectory()
+        self.guard_lock_patch = patch.object(
+            guard, "SUPERVISOR_LOCK_PATH", Path(self.guard_lock_dir.name) / "guard.lock")
+        self.guard_lock_patch.start()
+
+    def tearDown(self):
+        self.guard_lock_patch.stop()
+        self.guard_lock_dir.cleanup()
+
     def test_disk_reserve_blocks_before_model_start(self):
         sample = {**self.healthy, "diskFreeBytes": 29 * guard.GIB}
         with tempfile.TemporaryDirectory() as tmp, patch.object(guard.sys, "platform", "darwin"), patch.object(guard, "read_host", return_value=sample), patch.object(guard.subprocess, "Popen") as launch:
@@ -31,14 +41,32 @@ class TrainingBoundaryTests(unittest.TestCase):
         self.assertIsNone(guard.stop_reason(initial, initial))
         for change, expected in [
             ({"pressure": 4}, "CRITICAL_HOST_MEMORY_PRESSURE"),
-            ({"pressure": 2}, "HOST_MEMORY_WARNING"),
+            ({"pressure": 2}, None),
             ({"swapUsedBytes": 14 * guard.GIB}, "SWAP_GROWTH_OVER_512_MIB"),
             ({"diskFreeBytes": 29 * guard.GIB}, "DISK_RESERVE_BELOW_30_GIB"),
             ({"modelRssBytes": 29 * guard.GIB}, "MODEL_GROUP_RSS_OVER_28_GIB"),
-            ({"dockerRunning": True}, "DOCKER_RUNNING"),
+            ({"dockerRunning": True, "dockerPhysicalFootprintBytes": 4 * guard.GIB}, None),
+            ({"dockerPhysicalFootprintBytes": 9 * guard.GIB}, "DOCKER_PHYSICAL_FOOTPRINT_OVER_8_GIB"),
+            ({"modelPhysicalFootprintBytes": 28 * guard.GIB,
+              "dockerPhysicalFootprintBytes": 9 * guard.GIB}, "DOCKER_PHYSICAL_FOOTPRINT_OVER_8_GIB"),
         ]:
             with self.subTest(expected=expected):
                 self.assertEqual(guard.stop_reason({**initial, **change}, initial), expected)
+
+        combined = {**initial, "modelPhysicalFootprintBytes": 27 * guard.GIB,
+                    "dockerPhysicalFootprintBytes": 8 * guard.GIB}
+        self.assertEqual(guard.stop_reason(combined, initial),
+                         "MODEL_AND_DOCKER_PHYSICAL_FOOTPRINT_OVER_34_GIB")
+        warning = {**initial, "pressure": 2}
+        self.assertIsNone(guard.stop_reason(warning, initial, guard.MEMORY_WARNING_SAMPLES - 1))
+        self.assertIsNone(guard.stop_reason(warning, initial, guard.MEMORY_WARNING_SAMPLES))
+        growing_warning = {
+            **warning,
+            "swapUsedBytes": initial["swapUsedBytes"] + guard.MEMORY_WARNING_SWAP_GROWTH_BYTES + 1,
+        }
+        self.assertEqual(guard.stop_reason(growing_warning, initial, guard.MEMORY_WARNING_SAMPLES),
+                         "HOST_MEMORY_WARNING_WITH_SWAP_GROWTH")
+        self.assertEqual(guard.preflight_reason(warning), "HOST_MEMORY_WARNING")
 
     def test_only_one_guarded_run_can_hold_host_lock(self):
         import os
@@ -49,9 +77,9 @@ class TrainingBoundaryTests(unittest.TestCase):
         finally:
             os.close(lock)
 
-    def run_synthetic(self, third_sample, expected):
+    def run_synthetic(self, third_sample, expected, *, repeat=1):
         # Real tiny child + real separate watchdog, no model or resource load.
-        with tempfile.TemporaryDirectory() as tmp, patch.object(guard.sys, "platform", "darwin"), patch.object(guard, "POLL_SECONDS", 0.05), patch.object(guard, "BOOTSTRAP", "import time; time.sleep(60)"), patch.object(guard, "read_host", side_effect=[self.healthy, self.healthy, third_sample]):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(guard.sys, "platform", "darwin"), patch.object(guard, "POLL_SECONDS", 0.05), patch.object(guard, "BOOTSTRAP", "import time; time.sleep(60)"), patch.object(guard, "read_host", side_effect=[self.healthy, self.healthy, *([third_sample] * repeat)]):
             receipt = Path(tmp) / "receipt.json"
             self.assertEqual(guard.supervise("mlx_vlm.train", [], receipt), 75)
             data = json.loads(receipt.read_text())
@@ -60,9 +88,14 @@ class TrainingBoundaryTests(unittest.TestCase):
             self.assertGreaterEqual(len(receipt.with_suffix(".samples.jsonl").read_text().splitlines()), 1)
             return data
 
-    def test_warning_immediately_kills_real_owned_process(self):
-        data = self.run_synthetic({**self.healthy, "pressure": 2}, "HOST_MEMORY_WARNING")
-        self.assertEqual(len(data["samples"]), 2)
+    def test_sustained_warning_kills_real_owned_process_after_short_debounce(self):
+        data = self.run_synthetic({
+            **self.healthy,
+            "pressure": 2,
+            "swapUsedBytes": self.healthy["swapUsedBytes"] + guard.MEMORY_WARNING_SWAP_GROWTH_BYTES + 1,
+        }, "HOST_MEMORY_WARNING_WITH_SWAP_GROWTH",
+                                  repeat=guard.MEMORY_WARNING_SAMPLES)
+        self.assertEqual(len(data["samples"]), guard.MEMORY_WARNING_SAMPLES + 1)
 
     def test_output_disk_becoming_full_stops_real_owned_process(self):
         self.run_synthetic({**self.healthy, "diskFreeBytes": 29 * guard.GIB}, "DISK_RESERVE_BELOW_30_GIB")
@@ -121,11 +154,17 @@ class TrainingBoundaryTests(unittest.TestCase):
             self.assertEqual(json.loads(receipt.read_text())["status"], "MANUAL_STOP_REQUESTED")
 
     def test_host_reader_counts_owned_workers_and_output_volume(self):
-        processes = "101 101 1024 /python\n102 101 2048 /python\n999 999 9000 /unrelated\n"
-        with patch.object(guard.subprocess, "check_output", side_effect=["1", "used = 0.00M", processes, "PID COMMAND MEM CMPRS\n101 python 30G 1G"]), patch.object(guard, "physical_footprint", side_effect=[20 * guard.GIB, 9 * guard.GIB]), patch.object(guard.shutil, "disk_usage", side_effect=[type("Disk", (), {"free": 100 * guard.GIB})(), type("Disk", (), {"free": 29 * guard.GIB})()]):
+        processes = ("101 1 101 1024 /python\n102 101 101 2048 /python\n"
+                     "200 1 200 4096 /Applications/Docker.app/com.docker.backend\n"
+                     "201 200 201 8192 /System/com.apple.Virtualization.VirtualMachine\n"
+                     "999 1 999 9000 /unrelated\n")
+        with patch.object(guard.subprocess, "check_output", side_effect=["1", "used = 0.00M", processes, "PID COMMAND MEM CMPRS\n101 python 30G 1G"]), patch.object(guard, "physical_footprint", side_effect=[20 * guard.GIB, 9 * guard.GIB, 2 * guard.GIB, PermissionError()]), patch.object(guard.shutil, "disk_usage", side_effect=[type("Disk", (), {"free": 100 * guard.GIB})(), type("Disk", (), {"free": 29 * guard.GIB})()]):
             sample = guard.read_host(101, (Path("/synthetic-output"),))
             self.assertEqual(sample["modelRssBytes"], 3072 * 1024)
             self.assertEqual(sample["modelPhysicalFootprintBytes"], 29 * guard.GIB)
+            self.assertEqual(sample["dockerRssBytes"], 12288 * 1024)
+            self.assertEqual(sample["dockerPhysicalFootprintBytes"], 2 * guard.GIB + 8192 * 1024)
+            self.assertEqual(sample["dockerFootprintFallbackPids"], 1)
             self.assertEqual(guard.stop_reason(sample, self.healthy), "DISK_RESERVE_BELOW_30_GIB")
             self.assertEqual(guard.stop_reason({**sample, "diskFreeBytes": 100 * guard.GIB}, self.healthy), "MODEL_GROUP_PHYSICAL_FOOTPRINT_OVER_28_GIB")
             self.assertEqual(sample["diskFreeBytes"], 29 * guard.GIB)
@@ -144,7 +183,7 @@ class TrainingBoundaryTests(unittest.TestCase):
                 code = ("import importlib.util,pathlib;"
                         + "s=importlib.util.spec_from_file_location('g'," + repr(str(Path(guard.__file__).resolve())) + ");"
                         + "g=importlib.util.module_from_spec(s);s.loader.exec_module(g);"
-                        + "g.sys.platform='darwin';g.BOOTSTRAP=" + repr(bootstrap) + ";"
+                        + "g.sys.platform='darwin';g.SUPERVISOR_LOCK_PATH=pathlib.Path(" + repr(str(Path(self.guard_lock_dir.name) / ("child-" + str(freeze) + ".lock"))) + ");g.BOOTSTRAP=" + repr(bootstrap) + ";"
                         + "g.read_host=lambda *a,**k:" + repr(self.healthy) + ";"
                         + "g.supervise('mlx_vlm.train',[],pathlib.Path(" + repr(str(receipt)) + "))")
                 supervisor = subprocess.Popen([sys.executable, "-u", "-c", code], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
