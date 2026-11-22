@@ -50,6 +50,34 @@ const range = (fact: LibrarianFact): readonly [
     const { amount: n, operator: op } = fact.value;
     return op === "EQ" ? [n, n] : op === "LT" ? [0, n - 1] : op === "LTE" ? [0, n] : op === "GT" ? [n + 1, 130] : op === "GTE" ? [n, 130] : null;
 };
+/** Shared interpretation of typed participants, not a second reading of prose.
+ * Recipient roles do not establish company. Family accompaniment is a product
+ * inference, never an invented numeric adult age or a waiver of a known rule. */
+export function librarianCompanionContext(request: Pick<LibrarianRequest, "entities">, facts: readonly LibrarianFact[]) {
+    const active = facts.filter(f => !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality));
+    const present = new Set(active.filter(f => f.value.kind === "TEXT" && (f.key === "people.role"
+        && ["self", "requester", "ich", "companion", "participant", "visitor", "begleitung"].includes(librarianTerm(f.value.text))
+        || f.key === "people.relationship" && ["adult_accompanied", "family_outing", "children_alone", "unaccompanied"].includes(librarianTerm(f.value.text)))).flatMap(f => f.subjectIds));
+    const recipients = new Set(active.filter(f => f.key === "people.role" && f.value.kind === "TEXT"
+        && ["recipient", "gift_recipient", "empfänger", "empfaenger"].includes(librarianTerm(f.value.text))).flatMap(f => f.subjectIds).filter(id => !present.has(id)));
+    const ages = active.filter(f => f.key === "people.age" && f.subjectIds.length === 1 && !recipients.has(f.subjectIds[0]!));
+    const relationships = active.filter(f => f.key === "people.relationship" && f.value.kind === "TEXT"
+        && (!f.subjectIds.length || f.subjectIds.some(id => !recipients.has(id))));
+    const has = (terms: readonly string[]) => relationships.some(f => f.value.kind === "TEXT" && terms.includes(librarianTerm(f.value.text)));
+    const selfIds = active.filter(f => f.key === "people.role" && f.value.kind === "TEXT"
+        && ["self", "requester", "ich"].includes(librarianTerm(f.value.text))).flatMap(f => f.subjectIds);
+    const selfKnownMinor = ages.some(f => selfIds.includes(f.subjectIds[0]!) && (range(f)?.[1] ?? 130) < 18);
+    const hasMinorChild = ages.some(f => !selfIds.includes(f.subjectIds[0]!) && (range(f)?.[1] ?? 130) < 18);
+    const childRelation = has(["tochter", "daughter", "sohn", "son", "kind", "child"]);
+    const familyCompanionship = has(["adult_accompanied", "family_outing", "familie", "familienausflug", "familienaktivität", "mit meiner tochter", "mit meinem sohn"])
+        || childRelation && hasMinorChild;
+    const unaccompanied = has(["unaccompanied", "children_alone", "ohne begleitung", "kinder allein"]);
+    const activeGroups = request.entities.filter(e => e.kind === "GROUP" && active.some(f => f.subjectIds.includes(e.id)));
+    const explicitAdult = ages.some(f => (range(f)?.[0] ?? 0) >= 18) && (activeGroups.length === 1 || familyCompanionship);
+    const adultAccompaniment = !unaccompanied && (explicitAdult || familyCompanionship && !selfKnownMinor);
+    return { familyCompanionship, hasMinorChild, familyWithMinor: familyCompanionship && hasMinorChild,
+        adultAccompaniment, unaccompanied, selfIds, companionFacts: relationships, childParticipantContext: familyCompanionship || childRelation };
+}
 export function librarianGlobalEligibility(input: {
     readonly request: LibrarianRequest;
     readonly facts: readonly LibrarianFact[];
@@ -71,22 +99,15 @@ export function librarianGlobalEligibility(input: {
     const activeGroups = request.entities.filter(e => e.kind === "GROUP" && facts.some(f => !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality) && f.subjectIds.includes(e.id)));
     // A partial GROUP must never hide an explicitly mentioned participant's age.
     const ageFacts = facts.filter(f => f.key === "people.age" && !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality) && f.subjectIds.length === 1);
-    const companionFacts = facts.filter(f => f.key === "people.relationship" && ["CONTEXT", "REQUIRED"].includes(f.modality) && f.value.kind === "TEXT");
-    const hasCompanionTerm = (terms: readonly string[]) => companionFacts.some(f => f.value.kind === "TEXT" && terms.includes(librarianTerm(f.value.text)));
-    const unaccompanied = hasCompanionTerm(["unaccompanied", "children_alone", "ohne begleitung", "kinder allein"]);
-    const familyCompanionship = hasCompanionTerm(["adult_accompanied", "family_outing", "familie", "familienausflug", "familienaktivität", "mit meiner tochter", "mit meinem sohn"]);
-    const selfIds = facts.filter(f => f.key === "people.role" && ["CONTEXT", "REQUIRED"].includes(f.modality)
-        && f.value.kind === "TEXT" && ["self", "requester", "ich"].includes(librarianTerm(f.value.text))).flatMap(f => f.subjectIds);
-    const selfKnownMinor = ageFacts.some(f => selfIds.includes(f.subjectIds[0]!) && (range(f)?.[1] ?? 130) < 18);
-    const explicitAdult = ageFacts.some(f => (range(f)?.[0] ?? 0) >= 18) && (activeGroups.length === 1 || familyCompanionship);
-    const adultAccompaniment = !unaccompanied && (explicitAdult || familyCompanionship && !selfKnownMinor);
+    const companions = librarianCompanionContext(request, facts);
+    const { selfIds, adultAccompaniment, unaccompanied, companionFacts } = companions;
     const counts = facts.filter(f => f.key === "people.count" && !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality) && f.value.kind === "COUNT" && f.value.operator === "EQ");
     const count = counts.length === 1 && counts[0]!.value.kind === "COUNT" ? counts[0]!.value.amount : null;
     const participantIds = [...new Set([...ageFacts.flatMap(f => f.subjectIds), ...facts.filter(f => !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality))
         .flatMap(f => f.subjectIds).filter(id => request.entities.some(e => e.id === id && e.kind === "PERSON")), ...activeGroups.flatMap(group => group.members)])];
     // A globally mentioned child still participates even if the model emitted
     // no separate person entity. An adult's known age cannot cover that child.
-    const childParticipantContext = familyCompanionship || hasCompanionTerm(["tochter","daughter","sohn","son","kind","child"])
+    const childParticipantContext = companions.childParticipantContext
         || facts.some(f => f.key === "condition.children" && !["EXCLUDED","NOT_REQUIRED","PREFERRED"].includes(f.modality));
     const childAgeDocumented = (minimum:number) => !childParticipantContext || ageFacts.some(f =>
         f.subjectIds.some(id => !selfIds.includes(id)) && (range(f)?.[0] ?? -1) >= minimum);

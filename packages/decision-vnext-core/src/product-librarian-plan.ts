@@ -107,9 +107,9 @@ export function librarianDiagnosis(reason: string): LibrarianDiagnosis | undefin
     if (reason.includes("NOT_AUTHORIZED")) return "SOURCE_NOT_AUTHORIZED";
     if (reason.includes("CONFLICT")) return "CONFLICTING_DATA";
     if (reason.includes("NOT_UNDERSTOOD")) return "UNINTERPRETED_VALUE";
-    if (reason.includes("NOT_RECORDED") || reason.endsWith("MISSING") || reason === "PROPERTY_VALUE_NOT_KNOWN") return "MISSING_DATA";
+    if (reason.includes("NOT_RECORDED") || reason.endsWith("MISSING") || reason.endsWith("NOT_DOCUMENTED") || reason === "PROPERTY_VALUE_NOT_KNOWN") return "MISSING_DATA";
     if (reason.includes("CONDITIONS") || reason.includes("TIME_UNCONFIRMED") || reason.includes("WEEKDAY_UNKNOWN")) return "CONDITIONS_UNRESOLVED";
-    if (reason.includes("NOT_PROVEN") || reason.includes("UNPROVEN") || reason.includes("UNBOUND")) return "EVIDENCE_INSUFFICIENT";
+    if (reason.includes("NOT_PROVEN") || reason.includes("UNPROVEN") || reason.includes("UNBOUND") || reason === "PRICE_RANGE_DOES_NOT_PROVE_BUDGET" || reason === "MANDATORY_PRICE_FEES_UNCONFIRMED") return "EVIDENCE_INSUFFICIENT";
     return undefined;
 }
 

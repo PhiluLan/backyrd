@@ -234,7 +234,7 @@ window as an unrelated fallback. Conditional weather plans retain their own
 branch proofs. Provisional copy describes partial evidence without asserting
 that the whole offer fits.
 
-NukNuk compact search v5 retains open undertakings as the existing
+NukNuk compact search v6 retains open undertakings as the existing
 `open_discovery` activity, separately from companions, ages and other criteria.
 Its bounded source guard covers explicit open-action wording without choosing
 a concrete activity. Specific requests, alternatives, scope and exclusions
@@ -245,6 +245,32 @@ offers from the canonical offer catalogue. A generic venue visit additionally
 requires a discovery venue type; an unrelated room or an all-ages meal does
 not establish an activity. Selected activity areas and documented age limits
 remain binding. No raw query or intermediate translation is persisted.
+
+Spatial conditions apply to the actual requested offers both for global visits
+and explicitly scoped activities. An unscoped discovery duty cannot borrow a
+room from unrelated drinks or catering. The compact adapter binds its derived
+discovery to the sole activity entity when that scope is unambiguous; separate
+activities keep their own areas.
+
+Typed companion interpretation is shared between matching, entry checks and
+the public context summary. A minor companion's daughter/son relationship
+preserves family context; explicit absent accompaniment or a known minor
+requester prevents unsupported adult-accompaniment inference. Recipient roles
+alone do not establish presence. No numeric age or group size is inferred.
+An open undertaking with a minor companion requires documented suitability on
+the actual activity: a child programme or explicit all-ages suitability. This
+is a search-purpose check, separate from access restrictions. Missing entry
+rules remain informational, known age restrictions remain binding, and a
+specific meal/activity with child context does not acquire an invented play
+requirement. A bar/restaurant with an actual suitable activity remains eligible.
+
+A monetary condition uses the requested cost component, not whichever tariff
+is cheapest at the venue. Dietary-food/restaurant searches cannot borrow drink
+prices. The complete selected price range must meet a hard bound; an overlap
+is UNKNOWN, not proof of an affordable matching option. Exact-price conditions
+need an exact tariff; mandatory fees must be documented as included before a
+total is confirmed. A known base already above a cap still contradicts it.
+Optional price preferences remain optional and do not exclude candidates.
 
 This is a PRODUCT_RELEASE change in Decision core and its existing regression
 tests. It changes no client contract, database schema, grants, consent or

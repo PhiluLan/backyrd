@@ -3,6 +3,20 @@ import assert from 'node:assert/strict';
 import {librarianMandatoryEvidenceSatisfied} from '../dist/product-librarian-language.js';
 import {fact,request,profile,offer,area,prop,binding,search,meal,date,evening,worldFact} from './librarian-matching-fixtures.mjs';
 import {exercise} from './librarian-active-route-fixtures.mjs';
+import {librarianCompanionContext} from '../dist/product-librarian-eligibility.js';
+
+test('typed family context distinguishes recipients, adult children and explicitly minor or absent accompaniment',()=>{
+ const age=(id,n)=>fact('age:'+id,'people.age',{amount:n,operator:'EQ',unit:'YEARS'},'CONTEXT',[id]);
+ const child=age('p2',4),relation=fact('daughter','people.relationship','daughter','CONTEXT',['p2']);
+ const check=facts=>{const q=request([fact('visit','experience.activity','open_discovery'),...facts]);return librarianCompanionContext(q,q.facts);};
+ assert.equal(check([child,relation]).adultAccompaniment,true);
+ assert.equal(check([age('p2',25),relation]).familyWithMinor,false);
+ const recipient=fact('recipient','people.role','gift_recipient','CONTEXT',['p2']);
+ assert.equal(check([child,relation,recipient]).familyWithMinor,false);
+ assert.equal(check([child,relation,recipient,fact('visitor','people.role','companion','CONTEXT',['p2'])]).familyWithMinor,true);
+ assert.equal(check([child,relation,fact('alone','people.relationship','children_alone','CONTEXT',['p2'])]).adultAccompaniment,false);
+ assert.equal(check([child,relation,age('p1',16),fact('self','people.role','self','CONTEXT',['p1'])]).adultAccompaniment,false);
+});
 
 test('supporting visit conditions alone never become an experience or unrelated fallback cards',async()=>{
  for (const facts of [
@@ -29,16 +43,16 @@ test('supporting visit conditions alone never become an experience or unrelated 
  }
 });
 
-test('open discovery requires an actual activity in the requested area, including at mixed venues',async()=>{
+test('open discovery with a child requires an age-suitable activity in the requested area, including at mixed venues',async()=>{
  const meaning=request([
   fact('outing','experience.activity','open_discovery'),fact('inside','offer.area','indoor'),
   fact('age','people.age',{amount:4,operator:'EQ',unit:'YEARS'},'CONTEXT',['p2']),
  ]);
  const restaurant=binding(981,profile([offer('food','DINNER',['inside'],[prop('participation.age_suitability','all ages')])]));
- const museum=binding(982,profile([offer('exhibit','PERMANENT_EXHIBITION')],[area()],'MUSEUM'));
+ const museum=binding(982,profile([offer('exhibit','PERMANENT_EXHIBITION',['inside'],[prop('participation.age_suitability','all ages')])],[area()],'MUSEUM'));
  const play=binding(983,profile([offer('play','MOVEMENT_PLAY')]));
  const outdoor=binding(984,profile([offer('play','MOVEMENT_PLAY',['terrace']),offer('coffee','CAFE',['inside'])],[area('inside'),area('terrace')]));
- const tooOld=binding(985,profile([offer('sport','CLIMBING',['inside'],[prop('participation.minimum_age',6)])]));
+ const tooOld=binding(985,profile([offer('sport','CHILDREN_COURSE',['inside'],[prop('participation.minimum_age',6)])]));
  const catalog=[restaurant,outdoor,tooOld,museum,play];
  const result=search(meaning,catalog);
  assert.deepEqual(new Set(result.ranked.map(row=>row.spotId)),new Set([museum,play].map(row=>row.decisionProjection.spotId)));
@@ -72,6 +86,48 @@ test('NukNuk open-wish handoff keeps age and company through retrieval and Produ
  assert.equal(r.body.interpretation.group.adultPresent,true);
  assert.equal(r.body.interpretation.group.companionType,'FAMILY');
  assert.equal(r.reads,1);
+});
+
+test('scoped indoor evidence cannot be borrowed by an unscoped activity, and separate activities retain their own areas',()=>{
+ for(const subjects of [[],['a1']]){
+  const q=request([fact('inside','offer.area','indoor','REQUIRED',['a1']),fact('visit','experience.activity','open_discovery','REQUIRED',subjects)]);
+  const bad=binding(988,profile([offer('course','WORKSHOP',[]),offer('drink','DRINKS',['inside'])]));
+  const good=binding(989,profile([offer('course','WORKSHOP',['inside']),offer('drink','DRINKS',['inside'])]));
+  assert.equal(search(q,[bad]).ranked.length,0);
+  const yes=search(q,[good]);assert.equal(yes.ranked.length,1);
+  assert.deepEqual(yes.ranked[0].offerIds,['course']);
+ }
+ const two=request([fact('course','experience.activity','Workshop','REQUIRED',['a1']),fact('in','offer.area','indoor','REQUIRED',['a1']),fact('coffee','food.drink','coffee','REQUIRED',['a2'])]);
+ const venue=binding(990,profile([offer('course','WORKSHOP',['inside']),offer('coffee','CAFE',['terrace'])],[area('inside'),area('terrace')]));
+ assert.equal(search(two,[venue]).ranked.length,1,'an indoor requirement on the workshop must not move the separate coffee visit indoors');
+});
+
+test('open child discovery needs suitability on the actual activity, not on the catering',async()=>{
+ const meaning=request([fact('open','experience.activity','open_discovery'),fact('inside','offer.area','indoor'),
+  fact('age','people.age',{amount:4,operator:'EQ',unit:'YEARS'},'CONTEXT',['p2']),
+  fact('company','people.relationship','daughter','CONTEXT',['p2'])]);
+ const boardGames=binding(991,profile([offer('games','PLAY',['inside'])]));
+ const borrowed=binding(992,profile([offer('tour','GUIDED_TOUR',['inside']),offer('coffee','CAFE',['inside'],[prop('participation.age_suitability','all ages')])]));
+ const childPlay=binding(993,profile([offer('play','MOVEMENT_PLAY',['inside'])]));
+ const museum=binding(994,profile([offer('visit','PERMANENT_EXHIBITION',['inside'],[prop('participation.age_suitability','all ages')])],[area()],'MUSEUM'));
+ const r=await exercise({text:'Mit meiner vierjährigen Tochter etwas drinnen unternehmen',meaning,catalog:[boardGames,borrowed,childPlay,museum]});
+ assert.equal(r.status,200,JSON.stringify(r.diagnostics));
+ assert.deepEqual(new Set(r.body.candidates.filter(c=>c.rank!==null).map(c=>c.spotId)),new Set([childPlay,museum].map(b=>b.decisionProjection.spotId)));
+ assert.equal(r.body.interpretation.group.minimumAge,4);
+ assert.equal(r.body.interpretation.group.adultPresent,true);
+ assert.equal(r.body.interpretation.group.companionType,'FAMILY');
+ assert.equal(meaning.facts.filter(f=>f.key==='people.age').length,1,'no numeric adult age may be invented');
+});
+
+test('a vegetarian-food budget cannot use a drinks tariff on a mixed snack offer',()=>{
+ const q=request([fact('venue','offer.kind','RESTAURANT'),fact('diet','food.diet','vegetarian'),
+  fact('money','budget.maximum',{amount:30,operator:'LTE',currency:'CHF'}),fact('scope','budget.scope',{scope:'PER_PERSON'},'CONTEXT',[])]);
+ const venue=profile([offer('apero','APERITIF',['inside'],[prop('food.diet','vegetarian')],[{label:'Getränke',currency:'CHF',min:5,max:21,basis:'PER_PERSON',minimumAge:null,maximumAge:null,mandatoryFeesIncluded:true,includes:'Getränke',conditions:{weekdays:[],dayparts:[],event:null,validFrom:null,validUntil:null}}])]);
+ const r=search(q,[binding(995,venue)]);
+ assert.equal(r.ranked.length,0);
+ assert.equal(r.unresolved[0].facts.find(f=>f.factId==='money').reason,'REQUESTED_PRICE_COMPONENT_NOT_DOCUMENTED');
+ const meal=profile([offer('lunch','LUNCH',['inside'],[prop('food.diet','vegetarian')],[{...venue.offers[0].prices[0],label:'Mittagsmenü',includes:'Essen',min:22,max:22}])]);
+ assert.equal(search(q,[binding(996,meal)]).ranked.length,1);
 });
 
 // Verify the admission invariant independently of wording and field families.

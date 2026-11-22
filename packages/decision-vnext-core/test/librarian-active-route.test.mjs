@@ -202,13 +202,15 @@ test('absent child restriction is an honest notice while documented age exclusio
  assert.ok(admitted.reasons.some(reason=>!reason.confirmed&&reason.statement.includes('Alterseignung ist hier nicht vollständig dokumentiert')));
  assert.equal(r.body.candidates.find(c=>c.spotId===barred.decisionProjection.spotId).rank,null);
 });
-test('overlapping meal prices confirm budget without a price warning; known excess stays excluded',async()=>{
+test('overlapping meal prices stay provisional with a budget warning; known excess stays excluded',async()=>{
  const b=(id,min,max)=>binding(id,profile([offer('dinner','DINNER',['inside'],[],[price(min,{max})])]));
  const good=b(822,11,19),overlap=b(823,11,26),expensive=b(824,21,26);
  const r=await exercise({text:'Essen bis zwanzig Franken pro Person',meaning:plan([meal(),...budget(20)]),catalog:[overlap,expensive,good]});
  assert.equal(r.status,200);assert.notEqual(r.body.primaryCandidateId,null);
  const c=r.body.candidates.find(c=>c.spotId===overlap.decisionProjection.spotId);
- assert.ok(c.rank!==null);assert.equal(c.tier,'ELIGIBLE_CONFIRMED');assert.ok(c.reasons.some(r=>r.confirmed&&r.statement.includes('Budget passt')));assert.ok(!c.reasons.some(r=>r.domain==='LIMITATION'&&r.statement.includes('Preis')));
+ assert.equal(c.rank,null);assert.equal(c.tier,'UNCONFIRMED_FALLBACK');
+ assert.ok(!c.reasons.some(r=>r.confirmed&&r.statement.includes('Budget passt')));
+ assert.ok(c.reasons.some(r=>!r.confirmed&&r.statement.includes('Budget')));
  assert.equal(r.body.candidates.find(c=>c.spotId===expensive.decisionProjection.spotId).rank,null);
 });
 test('an indoor cafe cannot confirm an indoor child activity, and cannot substitute for a mandatory indoor activity area',async()=>{
@@ -216,7 +218,7 @@ test('an indoor cafe cannot confirm an indoor child activity, and cannot substit
  const b=binding(825,p);b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['CLIMBING_GYM'];
  const r=await exercise({text:'Indoor Bewegungsspiel mit Kind',meaning:plan([fact('play','experience.activity','Bewegungsspiel'),fact('in','offer.area','drinnen'),fact('age','people.age',{amount:4,operator:'EQ',unit:'YEARS'},'CONTEXT',['p2'])]),catalog:[b]});
  assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,null);assert.equal(r.body.candidates[0].tier,'UNCONFIRMED_FALLBACK');
- assert.ok(r.body.candidates[0].reasons.some(r=>r.statement.includes('die Kombination deiner Wünsche')&&!r.confirmed));
+ assert.ok(r.body.candidates[0].reasons.some(r=>r.statement.includes('drinnen')&&!r.confirmed));
  assert.ok(!r.body.candidates[0].reasons.some(r=>r.code==='librarian-provisional-visit'));
 });
 test('partial wheelchair access is explained; a specifically disproven step-free entrance remains excluded',async()=>{

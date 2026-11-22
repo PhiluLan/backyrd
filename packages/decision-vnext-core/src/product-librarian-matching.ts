@@ -5,7 +5,7 @@ import { bookingEvidence, takeawayEvidence, externalConsumptionEvidence, qualita
 import { librarianAllAgesSuitability, librarianRankingPreference, librarianMandatoryEvidenceSatisfied, librarianFactPropertySourceKeys, librarianFacilityConcept, librarianMealExtentConcept } from "./product-librarian-language.js";
 import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
-import { librarianGlobalEligibility } from "./product-librarian-eligibility.js";
+import { librarianGlobalEligibility, librarianCompanionContext } from "./product-librarian-eligibility.js";
 import { experienceBookingMode, spotTypeSupports, experienceActivitySupports, declaredExperienceConcepts, parseExperienceProfile, hasOfferModule, SPOT_TYPE_CATALOG, OFFER_CATALOG, type ExperienceProfile, type ExperienceProperty, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
 import { contentHash, deepFreeze } from "./canonical.js";
 import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianFact, type LibrarianRequest, type LunaExpression } from "./product-luna-librarian.js";
@@ -453,9 +453,13 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     // an unrelated cafe or facility elsewhere at the same spot.
     const rainSuitability = fact.key === "offer.weather_suitability" && concept === "rain_suitable";
     const physicalArea = fact.key === "offer.area" || rainSuitability || fact.key === "location.setting" && ["indoor", "outdoor", "terrace"].includes(concept ?? "");
-    const spatialActivities = physicalArea && (!fact.subjectIds.length || fact.subjectIds.every(id => request.entities.some(e => e.id === id && e.kind === "GROUP")))
+    const activityScope = (f: LibrarianFact) => f.subjectIds.filter(id => request.entities.some(e => e.id === id && ["ACTIVITY", "OFFER"].includes(e.kind)));
+    const spatialScope = activityScope(fact);
+    const globalSpatial = !fact.subjectIds.length || fact.subjectIds.every(id => request.entities.some(e => e.id === id && e.kind === "GROUP"));
+    const spatialActivities = physicalArea && (globalSpatial || spatialScope.length > 0)
         ? request.facts.filter(f => offerDuty(f) && ["REQUIRED"].includes(f.modality)
-            && collectFacts(request.logic).includes(f.id))
+            && collectFacts(request.logic).includes(f.id)
+            && (globalSpatial || !activityScope(f).length || activityScope(f).some(id => spatialScope.includes(id))))
             .map(f => atom(request, f, world, profile, profileHash, visit, false, semantics, offerAvailability)) : [];
     // An age declaration for a cafe must not qualify an animal activity in
     // that same room. Use the actual active activity witnesses, not new text
@@ -470,11 +474,22 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         && !["meal", "lunch", "dinner", "breakfast", "brunch", "snacks", "aperitif", "drinks", "coffee"].includes(librarianConcept(f.value.text) ?? ""));
     const suitabilityActivities = (primaryActivities.length ? primaryActivities : relatedActivities)
         .map(f => atom(request, f, world, profile, profileHash, visit, false, semantics, offerAvailability));
+    const familyDiscovery = fact.modality !== "EXCLUDED" && concept === "open_discovery"
+        && librarianCompanionContext(request, request.facts).hasMinorChild;
+    let familySuitabilityMissing = false;
     let steamBathNotImmersion = false;
     const positives: Witness[] = [], negatives: Witness[] = [], uncertain: Witness[] = [];
     const add = (truth: MatchTruth, offer: ExperienceOffer | null, areaId: string | null, evidence: unknown, conditional = false, sourceHashes: readonly string[] = []) => {
         // A nonmatching/unknown value is not evidence of semantic support.
         if (truth === "UNKNOWN") return;
+        if (truth === "MET" && familyDiscovery) {
+            const childOffer = offer && (OFFER_CONCEPTS[offer.kind] ?? []).some(actual => experienceActivitySupports(actual, "children_activity"));
+            const suitability = offer?.properties.filter(p => librarianAllAgesSuitability(p)
+                && librarianConditions(p.conditions, visit) !== "FAILED") ?? [];
+            if (!childOffer && !suitability.length) { familySuitabilityMissing = true; return; }
+            if (!childOffer && !suitability.some(p => librarianConditions(p.conditions, visit) === "MET")) conditional = true;
+            sourceHashes = [...sourceHashes, ...suitability.map(p => contentHash(p)), contentHash({policy:"FAMILY_OPEN_DISCOVERY_REQUIRES_OFFER_SUITABILITY",childOffer})];
+        }
         if (truth === "MET" && offer && ["bathing", "swimming"].includes(concept ?? "")
             && steamBathScope(offer, areaId, profile, visit)) {
             steamBathNotImmersion = true;
@@ -779,7 +794,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         return report("MET", "SCOPED_EVIDENCE_CONFIRMED", unique(positives));
     if (negatives.length && !uncertain.length)
         return report("FAILED", "SCOPED_REQUIREMENT_CONTRADICTED", unique(negatives));
-    const unresolvedReason = steamBathNotImmersion ? "STEAM_BATH_NOT_IMMERSION_EVIDENCE" : !observedKeys.size && typedWorldLimitation ? typedWorldLimitation : !observedKeys.size ? "PROPERTY_FAMILY_NOT_RECORDED"
+    const unresolvedReason = familySuitabilityMissing ? "FAMILY_ACTIVITY_SUITABILITY_NOT_DOCUMENTED" : steamBathNotImmersion ? "STEAM_BATH_NOT_IMMERSION_EVIDENCE" : !observedKeys.size && typedWorldLimitation ? typedWorldLimitation : !observedKeys.size ? "PROPERTY_FAMILY_NOT_RECORDED"
         : !knownValueChecks && outsideConditionChecks && !unknownValueChecks ? "PROPERTY_OUTSIDE_REQUESTED_CONDITIONS"
         : !knownValueChecks ? "PROPERTY_VALUE_NOT_KNOWN" : "PROPERTY_VALUE_NOT_PROVEN";
     return report("UNKNOWN", uncertain.length ? "CONDITIONS_OR_AVAILABILITY_UNKNOWN" : unresolvedReason, unique(uncertain));
@@ -888,17 +903,31 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
     const countGroups = facts.filter(f => f.key === "people.count" && !['EXCLUDED', 'PREFERRED', 'NOT_REQUIRED'].includes(f.modality)).flatMap(f => f.subjectIds.filter(id => request.entities.find(e => e.id === id)?.kind === "GROUP"));
     const groupIds = explicitGroups.length ? explicitGroups : sorted(countGroups), participantIds = new Set(groupIds.flatMap(id => request.entities.find(e => e.id === id)?.members ?? []));
     const ages = facts.filter(f => f.key === "people.age" && !['EXCLUDED', 'PREFERRED', 'NOT_REQUIRED'].includes(f.modality) && f.value.kind === "AGE" && f.value.operator === "EQ" && (!participantIds.size || f.subjectIds.every(id => participantIds.has(id))));
-    let min = 0, max = 0;
+    let min = 0, max = 0, feesComplete = true;
     const hashes: string[] = [];
     for (const offerId of scopedOfferIds) {
         const offer = profile.offers.find(o => o.id === offerId)!;
         if(offer.prices.some(p=>["PER_ROOM_NIGHT","PER_PERSON_NIGHT","PER_SITE_NIGHT"].includes(p.basis)))
             return result("UNKNOWN", "OVERNIGHT_PRICE_QUANTITY_OR_SCOPE_UNRESOLVED");
         const concepts = sorted([...(OFFER_CONCEPTS[offer.kind] ?? []), ...facts.filter(f => ["experience.activity", "offer.kind"].includes(f.key) && f.value.kind === "TEXT" && f.subjectIds.some(id => state.assignments[`owner:${id}:offer:${offerId}`] === offerId)).flatMap(f => f.value.kind === "TEXT" ? [librarianConcept(f.value.text) ?? ""] : [])]);
-        const purpose = eventEntry ? "entry" : ["meal", "lunch", "dinner", "breakfast"].some(c => concepts.includes(c)) ? "meal" : concepts.includes("coffee") ? "coffee" : concepts.includes("drinks") ? "drinks" : ["VISIT", "PERMANENT_EXHIBITION", "SPECIAL_EXHIBITION"].includes(offer.kind) ? "entry" : null;
+        const relevant = facts.filter(f => f.modality === "REQUIRED" && (() => {
+            const subjects = f.subjectIds.filter(id => request.entities.some(e => e.id === id && ["ACTIVITY", "OFFER"].includes(e.kind)));
+            return !subjects.length || subjects.some(id => state.assignments[`owner:${id}:offer:${offerId}`] === offerId);
+        })());
+        const consumption = relevant.filter(f => ["experience.activity", "offer.kind", "food.meal", "food.drink", "food.option"].includes(f.key)
+            && f.value.kind === "TEXT").flatMap(f => f.value.kind === "TEXT" ? [librarianConcept(f.value.text)] : []);
+        const requestedDrink = consumption.some(c => ["coffee", "drinks", "aperitif", "beer", "cocktails"].includes(c ?? ""));
+        const requestedMeal = relevant.some(f => ["food.meal", "food.dish", "food.cuisine"].includes(f.key))
+            || consumption.some(c => ["meal", "lunch", "dinner", "breakfast", "brunch", "snacks"].includes(c ?? ""))
+            || !requestedDrink && (relevant.some(f => f.key === "food.diet") || consumption.some(c => ["restaurant", "pizzeria"].includes(c ?? "")));
+        // Select the requested cost component first. A drink tariff on a
+        // snack/restaurant offer cannot establish a vegetarian meal budget.
+        const purpose = eventEntry ? "entry" : requestedMeal ? "meal" : requestedDrink ? consumption.includes("coffee") ? "coffee" : "drinks"
+            : ["meal", "lunch", "dinner", "breakfast"].some(c => concepts.includes(c)) ? "meal" : concepts.includes("coffee") ? "coffee" : concepts.includes("drinks") ? "drinks" : ["VISIT", "PERMANENT_EXHIBITION", "SPECIAL_EXHIBITION"].includes(offer.kind) ? "entry" : null;
         if (purpose === null)
             return result("UNKNOWN", "PRICE_PURPOSE_UNSTRUCTURED");
         const prices = offer.prices.filter(p => (librarianConcept(p.includes) === purpose || purpose === "meal" && ["lunch", "dinner", "breakfast"].includes(librarianConcept(p.includes) ?? "")) && p.currency === money.currency && librarianConditions(p.conditions, visit) === "MET");
+        if (!prices.length) return result("UNKNOWN", "REQUESTED_PRICE_COMPONENT_NOT_DOCUMENTED");
         const universal = prices.filter(p => p.minimumAge === null && p.maximumAge === null);
         const choose = (options: readonly ExperiencePrice[]): ExperiencePrice | null => {
             // Distinct labelled tariffs/components are not interchangeable offers.
@@ -934,6 +963,7 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
         else
             return result("UNKNOWN", "PRICE_COMPONENT_OR_AGE_SCOPE_AMBIGUOUS");
         for (const c of components) {
+            feesComplete = feesComplete && c.price.mandatoryFeesIncluded === true;
             const groupPerPerson = c.price.basis === "PER_GROUP" && scope === "PER_PERSON";
             if (groupPerPerson && ["EQ", "NEQ"].includes(money.operator))
                 return result("UNKNOWN", "GROUP_ALLOCATION_NOT_DOCUMENTED", hashes);
@@ -948,14 +978,21 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
     const pass = compare(max, money.amount, money.operator), minimumPass = compare(min, money.amount, money.operator);
     let truth: MatchTruth;
     if (money.operator === "EQ")
-        truth = money.amount >= min && money.amount <= max ? "MET" : "FAILED";
+        truth = min === max && min === money.amount ? "MET" : money.amount < min || money.amount > max ? "FAILED" : "UNKNOWN";
     else if (money.operator === "NEQ")
         truth = money.amount < min || max < money.amount ? "MET" : min === max && min === money.amount ? "FAILED" : "UNKNOWN";
     else if (["GTE", "GT"].includes(money.operator))
-        truth = pass === null ? "UNKNOWN" : pass ? "MET" : "FAILED";
+        truth = minimumPass === true ? "MET" : pass === false ? "FAILED" : "UNKNOWN";
     else
-        truth = minimumPass === null ? "UNKNOWN" : minimumPass ? "MET" : "FAILED";
-    return result(fact.modality === "EXCLUDED" ? (truth === "MET" ? "FAILED" : truth === "FAILED" ? "MET" : "UNKNOWN") : truth, truth === "MET" ? "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" : "BUDGET_NOT_PROVEN_OR_EXCEEDED", hashes);
+        truth = pass === true ? "MET" : minimumPass === false ? "FAILED" : "UNKNOWN";
+    // Additional mandatory fees cannot lower the payable amount. A known
+    // base already above a cap is still a contradiction; otherwise an
+    // incomplete total must not establish a hard monetary condition.
+    const baseAboveCap = ["LTE", "LT"].includes(money.operator) && minimumPass === false
+        || money.operator === "EQ" && min > money.amount;
+    if (!feesComplete && !baseAboveCap) truth = "UNKNOWN";
+    return result(fact.modality === "EXCLUDED" ? (truth === "MET" ? "FAILED" : truth === "FAILED" ? "MET" : "UNKNOWN") : truth,
+        truth === "MET" ? "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" : truth === "UNKNOWN" ? !feesComplete ? "MANDATORY_PRICE_FEES_UNCONFIRMED" : "PRICE_RANGE_DOES_NOT_PROVE_BUDGET" : "BUDGET_NOT_PROVEN_OR_EXCEEDED", hashes);
 }
 function prepareScenario(request: LibrarianRequest, scenario: Scenario, timezone: string | null, now: string) {
     const preferenceIds = new Set(scenario.preferredIds);

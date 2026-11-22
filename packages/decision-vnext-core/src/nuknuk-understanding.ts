@@ -256,7 +256,7 @@ export function buildNuknukCompactSearchRequest(input: { query: string; referenc
     },
   });
   const instructions = base.instructions
-    .replace('SPOT_GROUNDED_V6', 'COMPACT_SEARCH_V5')
+    .replace('SPOT_GROUNDED_V6', 'COMPACT_SEARCH_V6')
     .replace('Schema-JSON {meaning,moment}', 'Schema-JSON {meaning,clarification?,singleActivity?}')
     .replace(/^moment:.*\nQuotes.*\nFehlende Auswahlhilfe:.*\nDimension .*\n/mu, '')
     + `
@@ -270,6 +270,10 @@ Begleitung und jedes genannte Alter bleiben auch bei offenen Wünschen erhalten.
 Tochter/meinem Sohn» ist eine gemeinsame Unternehmung, kein Geschenk für die Person.
 Familienbegleitung als people.relationship adult_accompanied CONTEXT nach Produktregel;
 ein Kind als alleiniger Empfänger oder ausdrücklich allein beweist keine Begleitung.
+Die Besuchsaktivität behält dieselbe ACTIVITY-Entity bei Richtung und Bedingungen:
+«drinnen etwas unternehmen» bindet Indoor und Entdeckung an dieselbe Aktivität.
+Bei einer offenen Unternehmung mit einem minderjährigen Kind bleibt der Familienzweck
+erhalten. Das ist kein Essenswunsch und keine erfundene numerische Altersgrenze.
 Bei genau einer ungeteilten Aktivität ohne explizite Entitäten, Alternativen, Bindungen, Erweiterungen,
 Wetterbedingungen, Referenzen oder verknüpfte Unsicherheiten darfst du singleActivity:true setzen.
 Dann id und subjectIds in facts weglassen. Sonst id und subjectIds ausdrücklich angeben.
@@ -1036,7 +1040,7 @@ function prepareNuknukSearch(value: unknown, input: { query: string; reference: 
   const occupied = new Set([...normalizedFacts,...protectedMeaning.entities,...protectedMeaning.weatherConditions].map(row => row.id));
   const factsWithDiscovery = openDiscovery && !hasActivity && !hasScopedLogic && !occupied.has("sourceOpenDiscovery")
     ? [...normalizedFacts,{id:"sourceOpenDiscovery",key:"experience.activity",modality:"REQUIRED",basis:"INFERRED",
-        value:{text:"offene Entdeckung"},subjectIds:[]} as const] : normalizedFacts;
+        value:{text:"offene Entdeckung"},subjectIds:activityEntities.length === 1 ? [activityEntities[0]!.id] : []} as const] : normalizedFacts;
   const poolVisit = factsWithDiscovery.filter(fact =>
     ['experience.activity','offer.kind'].includes(fact.key) && fact.modality === "REQUIRED" && "text" in fact.value
     && ["swimming","bathing"].includes(librarianConcept(fact.value.text) ?? ""));
