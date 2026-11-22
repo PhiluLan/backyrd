@@ -73,6 +73,12 @@ export function parseFeedbackPage(value: unknown): FeedbackPage {
     helpful: integer(s.helpful), almost: integer(s.almost), not_helpful: integer(s.not_helpful),
   } };
 }
+export function feedbackInboxReady(value: unknown): boolean {
+  try {
+    const page = parseFeedbackPage(value);
+    return page.summary.total === 0 && page.rows.length === 0;
+  } catch { return false; }
+}
 export function parseFeedbackDetail(value: unknown): FeedbackDetail {
   const v = record(value), f = record(v.feedback), client = record(f.client_context);
   const context = f.decision_context === null ? null : record(f.decision_context);

@@ -77,7 +77,11 @@ Context follows the feedback/account deletion lifecycle. Feedback and review
 events stay distinct from optional analytics, moderation and ranking signals.
 
 Implementation class: DATABASE_PR plus the affected Admin and delivery gates.
-Backend publication must precede the Admin deployment. The exact SQL delivery
+Backend publication must precede feature activation. For Git-integrated staged
+deployments, navigation probes the authenticated inbox RPC with a future-only
+filter (no feedback rows) and advertises the feature only after the DB contract
+is available. Existing routes remain usable during rollout; direct access to
+the new route reports a missing migration honestly. The exact SQL delivery
 scope is a source proposal, not production execution authority; normal manual
 Main certification and deployment are still required. No Mobile OTA is needed.
 

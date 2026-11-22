@@ -4,9 +4,15 @@ import test from "node:test";
 import ts from "typescript";
 const source = await readFile(new URL("../lib/productFeedback.ts", import.meta.url), "utf8");
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { feedbackAvailabilityLabel, feedbackContextLabel, parseFeedbackPage, parseFeedbackDetail, feedbackError, reviewValidation } = await import(`data:text/javascript;base64,${Buffer.from(js).toString("base64")}`);
+const { feedbackInboxReady, feedbackAvailabilityLabel, feedbackContextLabel, parseFeedbackPage, parseFeedbackDetail, feedbackError, reviewValidation } = await import(`data:text/javascript;base64,${Buffer.from(js).toString("base64")}`);
 const row = { id: "f1", surface: "decision", sentiment: "almost", message: "<script>as text</script>", created_at: "2026-11-22T12:00:00Z", review_status: "new", issue_kind: null, issue_ref: "" };
 const page = { rows: [row], page_size: 30, summary: { total: 1, new: 1, reviewing: 0, done: 0, helpful: 0, almost: 1, not_helpful: 0 } };
+test("staged navigation activates only after the authenticated future-only contract probe succeeds", () => {
+  assert.equal(feedbackInboxReady(null), false);
+  assert.equal(feedbackInboxReady([]), false);
+  assert.equal(feedbackInboxReady(page), false);
+  assert.equal(feedbackInboxReady({ ...page, rows: [], summary: Object.fromEntries(Object.keys(page.summary).map(key => [key, 0])) }), true);
+});
 test("read bounded rows without interpreting user text as markup", () => { assert.equal(parseFeedbackPage(page).rows[0].message, row.message); });
 test("unknown statuses, missing totals and invalid response shapes fail honestly", () => {
   for (const bad of [null, {}, { ...page, summary: {} }, { ...page, rows: [{ ...row, review_status: "deleted" }] }, { ...page, summary: { ...page.summary, total: -1 } }]) assert.throws(() => parseFeedbackPage(bad));

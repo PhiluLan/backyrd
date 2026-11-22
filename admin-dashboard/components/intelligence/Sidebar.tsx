@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment, useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { feedbackInboxReady } from "@/lib/productFeedback";
 
 type NavigationItem = {
   href: string;
@@ -57,13 +59,15 @@ function isActivePath(pathname: string, href: string): boolean {
 function NavigationLinks({
   pathname,
   onNavigate,
+  feedbackReady,
 }: {
   pathname: string;
   onNavigate?: () => void;
+  feedbackReady: boolean;
 }) {
   return (
     <>
-      {navigationItems.map(({ href, label, icon, groupLabel }) => {
+      {navigationItems.filter(item => item.href !== "/feedback" || feedbackReady).map(({ href, label, icon, groupLabel }) => {
         const active = isActivePath(pathname, href);
 
         return (
@@ -87,6 +91,21 @@ function NavigationLinks({
 export function IntelligenceSidebar() {
   const pathname = usePathname() ?? "";
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [feedbackReady, setFeedbackReady] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    // A staged Git deployment must not advertise a feature before its DB release.
+    // Future-only filtering checks the authenticated contract without reading feedback.
+    void Promise.resolve(supabase.rpc("admin_list_product_feedback_v2", {
+      p_from: "9999-01-01T00:00:00Z", p_limit: 1,
+    }).abortSignal(controller.signal)).then(({ data, error }) => {
+      if (!controller.signal.aborted) setFeedbackReady(!error && feedbackInboxReady(data));
+    }).catch(() => {
+      if (!controller.signal.aborted) setFeedbackReady(false);
+    });
+    return () => controller.abort();
+  }, [pathname]);
 
   useEffect(() => {
     const closeAfterNavigation = window.setTimeout(() => setMobileOpen(false), 0);
@@ -127,7 +146,7 @@ export function IntelligenceSidebar() {
         </div>
 
         <nav className="bi-nav" aria-label="Founder-Navigation">
-          <NavigationLinks pathname={pathname} />
+          <NavigationLinks pathname={pathname} feedbackReady={feedbackReady} />
         </nav>
 
         <div className="bi-sidebarFooter">
@@ -196,6 +215,7 @@ export function IntelligenceSidebar() {
         <nav className="bi-nav bi-mobileNav" aria-label="Mobile Founder-Navigation">
           <NavigationLinks
             pathname={pathname}
+            feedbackReady={feedbackReady}
             onNavigate={() => setMobileOpen(false)}
           />
         </nav>
