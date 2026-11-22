@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "admin-product-feedback-inbox",
+  "previousEvidence": "decision-feedback-vnext-identity",
+  "previousFingerprints": {
+    "publicAclSha256": "a9dfe964defdf8181d8bbe6b804c69253c6674b880e8b8758c4207514ca2def9",
+    "applicationSchemaSha256": "eba5169af04d3284ea736afac472f77b97bef0945b205d359cfd81f1b5e2decb"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261122102945_admin_product_feedback_inbox.sql",
+      "sha256": "4d16241c886a3bb1d0d6ca97c3409f4cd4b0ee18cb645e17c6999def07b810c3"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/admin_product_feedback_inbox.sql",
+      "sha256": "62da968f4931e6418eac180a447a250d4874ae1d8a2f48da90325222e4bff376"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "9d7f1ffa69f4a0e127f1a4fa719170473c5da1cb4e60ad847b3b3967cb227856",
+    "applicationSchemaSha256": "e565bf113ba1f2005a49ab5e7bcf1429f9a5c59ccaad827261adf1a3dd991b0f"
+  }
+}

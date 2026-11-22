@@ -50,6 +50,41 @@ The Founder routes are:
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Product feedback inbox
+
+`/feedback` lists explicit user feedback with server-side status, sentiment,
+cause, period and literal-text filters. Totals describe submitted feedback in
+the selected filters, not all Decisions or a representative success rate.
+Stable timestamp/UUID cursors prevent gaps when several submissions share a
+timestamp. `/feedback/[id]` supports triage, notes, a shared topic/ticket reference
+and the latest 50 review events. Reopening is supported. Resolving requires a
+note; revision checks prevent silent overwrites by another Admin. Topic/ticket
+references are internal text, not automatic external issue creation.
+
+The inbox requires migration `20261122102945_admin_product_feedback_inbox.sql`.
+All three Admin RPCs authenticate with the existing `admin_is_admin_v1` boundary;
+ordinary users and anonymous clients cannot list, review or read audit events.
+The older list RPC remains compatible; new UI uses the filtered v2 contract.
+No service credential is shipped to the browser.
+
+New Product feedback captures a server-owned minimal context at submission:
+city, intent, day phase, candidate count, up to five ranked candidate names,
+eligibility/availability labels and ranking version. It excludes the original
+wish, participant ages, coordinates, provider payload and taste profile. It is
+not a claim that every captured candidate was viewed. Older/missing context is
+shown as unavailable; no retrospective reconstruction or backfill is performed.
+Context follows the feedback/account deletion lifecycle. Feedback and review
+events stay distinct from optional analytics, moderation and ranking signals.
+
+Implementation class: DATABASE_PR plus the affected Admin and delivery gates.
+Backend publication must precede feature activation. For Git-integrated staged
+deployments, navigation probes the authenticated inbox RPC with a future-only
+filter (no feedback rows) and advertises the feature only after the DB contract
+is available. Existing routes remain usable during rollout; direct access to
+the new route reports a missing migration honestly. The exact SQL delivery
+scope is a source proposal, not production execution authority; normal manual
+Main certification and deployment are still required. No Mobile OTA is needed.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
