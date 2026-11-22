@@ -351,6 +351,13 @@ test('Decision feedback identity repair permits only its exact migration after t
  const request={pending:[...deferred,migration],scope:{contractVersion,executionAuthorized:false,baseSha:base,migrations:[migration],deferredMigrations:deferred,functions:[],backupRunId:1,restoreDrill:{runId:1,artifactId:2,artifactDigest:'sha256:'+'a'.repeat(64)}},baseSha:base,deployFunctions:[],authDeploy:false,retiredFunctions:[],appliedDecisionProductFeedback:{status:'APPLIED_AND_VERIFIED'}};
  assert.deepEqual(scopeAnalyticsPageviewsMigrations(request).pendingMigrations,[migration]);
  for(const patch of [{appliedDecisionProductFeedback:null},{authDeploy:true},{deployFunctions:['decision-v13']},{pending:[...request.pending,target]},{scope:{...request.scope,migrations:[{...migration,sha256:'f'.repeat(64)}]}}])assert.throws(()=>scopeAnalyticsPageviewsMigrations({...request,...patch}));
+ const root=new URL('../..',import.meta.url).pathname;
+ const plan={...request,pendingMigrations:[migration],deferredMigrations:deferred,isolatedResearchScope:request.scope,authConfig:{deploy:false}};
+ const output=mkdtempSync(join(tmpdir(),'backyrd-feedback-identity-workspace-'));
+ prepareResearchMigrationWorkspace(plan,root,output);
+ assert.ok(existsSync(join(output,migration.path)));
+ for(const row of deferred)assert.equal(existsSync(join(output,row.path)),false);
+ assert.throws(()=>prepareResearchMigrationWorkspace({...plan,appliedDecisionProductFeedback:null},root,mkdtempSync(join(tmpdir(),'backyrd-feedback-identity-denied-'))),/scope_invalid/);
 });
 
 test('Decision product feedback release permits exactly the bounded SQL after the context timeout receipt', async () => {
