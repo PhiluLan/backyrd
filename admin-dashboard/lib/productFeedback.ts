@@ -7,6 +7,15 @@ export const feedbackKinds = {
 export type FeedbackStatus = keyof typeof feedbackStatuses;
 export type FeedbackSentiment = keyof typeof feedbackSentiments;
 export type FeedbackKind = keyof typeof feedbackKinds;
+export function feedbackContextLabel(value: string | null, kind: "intent" | "day_phase"): string {
+  if (!value) return kind === "intent" ? "Nicht bekannt" : "Nicht angegeben";
+  const labels: Record<string, string> = kind === "intent" ? {
+    COFFEE: "Kaffee trinken", EAT: "Essen gehen", FOOD: "Essen gehen", DRINK: "Etwas trinken", DRINKS: "Etwas trinken",
+    STAY: "Übernachten", CULTURE: "Kultur erleben", ACTIVITY: "Etwas unternehmen", SPORT: "Sport und Bewegung",
+    NIGHTLIFE: "Ausgehen", WELLNESS: "Entspannen",
+  } : { MORNING: "Morgens", MIDDAY: "Mittags", NOON: "Mittags", AFTERNOON: "Nachmittags", EVENING: "Abends", NIGHT: "Nachts" };
+  return labels[value.toUpperCase()] ?? "Nicht näher eingeordnet";
+}
 export type FeedbackRow = {
   id: string; surface: string; sentiment: FeedbackSentiment; message: string | null; created_at: string;
   review_status: FeedbackStatus; issue_kind: FeedbackKind | null; issue_ref: string;
