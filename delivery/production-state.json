@@ -743,6 +743,27 @@
       "certificationRunId": 44521550113,
       "manifestHash": "72b881b66eb82400695b96746c45a3da01cc1d9315ab6cf6688e9a10a133b71c"
     },
+    "decisionFeedbackIdentityRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "migration": {
+        "path": "supabase/migrations/20261122083411_product_feedback_vnext_identity.sql",
+        "sha256": "a8aaa548a36ffeedc7797e942ed088fe42e54388aedca0db8ef5c135eafaddad"
+      },
+      "sourceSha": "4a8fca48ccee980c02fee77ee981c9070bd9e8ea",
+      "deploymentRunId": 45011239497,
+      "certificationRunId": 45010607141,
+      "manifestHash": "5c35287fc16ee4178ab9a6a37f4bbc19eaf7dc744ea5fdfacaf1cb6874f43f78",
+      "auditHash": "07d53166d84af225be5eb7c338ba5ef6277875bd67f54399b6251df54041666e",
+      "backupRunId": 45008939402,
+      "verification": {
+        "currentProductIdentityAccepted": true,
+        "allThreeSentimentsVerified": true,
+        "unknownDecisionRejected": true,
+        "productionSmokeRolledBack": true,
+        "installedDeviceVerified": false
+      },
+      "note": "Exact certified forward migration only. Live authenticated-role RPC smoke returned receipts for all three sentiments bound to an existing owned Product decision; unknown identity was denied. Test writes were rolled back and absence verified. No Function/Auth deployment; historical full baseline and deferred Booking migrations remain unchanged. Physical iPhone acceptance is pending."
+    },
     "decisionProductFeedbackRelease": {
       "status": "APPLIED_AND_VERIFIED",
       "migration": {
