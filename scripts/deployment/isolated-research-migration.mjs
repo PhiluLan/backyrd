@@ -147,6 +147,11 @@ export const DECISION_CONTEXT_TIMEOUT_MIGRATION = Object.freeze({"path": "supaba
 export function decisionContextTimeoutAppliedReceipt(state, read, isAncestor) {
   return exactResearchReceipt(state, read, isAncestor, DECISION_CONTEXT_TIMEOUT_MIGRATION, "decisionContextTimeoutRelease");
 }
+export const DECISION_FEEDBACK_IDENTITY_SCOPE = "backyrd.decision-feedback-identity-delivery-scope@1.0";
+export const DECISION_FEEDBACK_IDENTITY_MIGRATION = Object.freeze({"path":"supabase/migrations/20261122083411_product_feedback_vnext_identity.sql","sha256":"a8aaa548a36ffeedc7797e942ed088fe42e54388aedca0db8ef5c135eafaddad"});
+export function decisionFeedbackIdentityAppliedReceipt(state, read, isAncestor) {
+  return exactResearchReceipt(state, read, isAncestor, DECISION_FEEDBACK_IDENTITY_MIGRATION, "decisionFeedbackIdentityRelease");
+}
 export const DECISION_PRODUCT_FEEDBACK_SCOPE = "backyrd.decision-product-feedback-delivery-scope@1.0";
 export const DECISION_PRODUCT_FEEDBACK_MIGRATION = Object.freeze({"path": "supabase/migrations/20261121121136_decision_product_feedback_v1.sql", "sha256": "858ce7b8dd82e1e52ed15798cbc19adb32702fec13a7865f1d61bca9f189e329"});
 export function decisionProductFeedbackAppliedReceipt(state, read, isAncestor) {
@@ -209,7 +214,7 @@ export function spotSearchFreshnessAppliedReceipt(state, read, isAncestor) {
 export function analyticsPageviewsAppliedReceipt(state, read, isAncestor) {
   return exactResearchReceipt(state, read, isAncestor, ANALYTICS_PAGEVIEWS_MIGRATION, "analyticsPageviewsRelease");
 }
-export function scopeAnalyticsPageviewsMigrations({ pending, scope, baseSha, deployFunctions, authDeploy, retiredFunctions, appliedAnalyticsPageviews, appliedSpotSearchFreshness, appliedBaselPlaceSources, appliedBaselOverture, appliedWorldResearchBatches, appliedBaselPlaceImportCreate, appliedSpotCategoryApproval, appliedSpotCrawler, appliedCrawlerApproval, appliedCrawlerBasics, appliedCrawlerShortlist, appliedCrawlerVisit, appliedDecisionContextTimeout, appliedDecisionProductFeedback }) {
+export function scopeAnalyticsPageviewsMigrations({ pending, scope, baseSha, deployFunctions, authDeploy, retiredFunctions, appliedAnalyticsPageviews, appliedSpotSearchFreshness, appliedBaselPlaceSources, appliedBaselOverture, appliedWorldResearchBatches, appliedBaselPlaceImportCreate, appliedSpotCategoryApproval, appliedSpotCrawler, appliedCrawlerApproval, appliedCrawlerBasics, appliedCrawlerShortlist, appliedCrawlerVisit, appliedDecisionContextTimeout, appliedDecisionProductFeedback, appliedDecisionFeedbackIdentity }) {
   const targets = {
     [ANALYTICS_PAGEVIEWS_SCOPE]: [ANALYTICS_PAGEVIEWS_MIGRATION, appliedAnalyticsPageviews, true],
     [SPOT_SEARCH_FRESHNESS_SCOPE]: [SPOT_SEARCH_FRESHNESS_MIGRATION, appliedSpotSearchFreshness, appliedAnalyticsPageviews],
@@ -218,6 +223,7 @@ export function scopeAnalyticsPageviewsMigrations({ pending, scope, baseSha, dep
     [WORLD_RESEARCH_BATCHES_SCOPE]: [WORLD_RESEARCH_BATCHES_MIGRATION, appliedWorldResearchBatches, appliedAnalyticsPageviews && appliedSpotSearchFreshness && appliedBaselPlaceSources && appliedBaselOverture],
     [BASEL_PLACE_IMPORT_CREATE_SCOPE]: [BASEL_PLACE_IMPORT_CREATE_MIGRATION, appliedBaselPlaceImportCreate, appliedAnalyticsPageviews && appliedSpotSearchFreshness && appliedBaselPlaceSources && appliedBaselOverture && appliedWorldResearchBatches],
     [DECISION_CONTEXT_TIMEOUT_SCOPE]: [DECISION_CONTEXT_TIMEOUT_MIGRATION, appliedDecisionContextTimeout, appliedCrawlerVisit],
+    [DECISION_FEEDBACK_IDENTITY_SCOPE]: [DECISION_FEEDBACK_IDENTITY_MIGRATION, appliedDecisionFeedbackIdentity, appliedDecisionProductFeedback],
     [DECISION_PRODUCT_FEEDBACK_SCOPE]: [DECISION_PRODUCT_FEEDBACK_MIGRATION, appliedDecisionProductFeedback, appliedDecisionContextTimeout],
     [CRAWLER_VISIT_SCOPE]: [CRAWLER_VISIT_MIGRATION, appliedCrawlerVisit, appliedCrawlerShortlist],
     [CRAWLER_SHORTLIST_SCOPE]: [CRAWLER_SHORTLIST_MIGRATION, appliedCrawlerShortlist, appliedCrawlerBasics],
@@ -373,11 +379,11 @@ export function prepareResearchMigrationWorkspace(plan,root,output) {
     ? scopeNuknukActivityMigrations({ pending: [...plan.pendingMigrations, ...(plan.deferredMigrations ?? [])],
       scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,
       authDeploy: plan.authConfig?.deploy === true, appliedNuknukActivity: plan.appliedNuknukActivity })
-    : [ANALYTICS_PAGEVIEWS_SCOPE, SPOT_SEARCH_FRESHNESS_SCOPE, BASEL_PLACE_SOURCES_SCOPE, BASEL_OVERTURE_SCOPE, WORLD_RESEARCH_BATCHES_SCOPE, BASEL_PLACE_IMPORT_CREATE_SCOPE, SPOT_CATEGORY_APPROVAL_SCOPE, SPOT_CRAWLER_SCOPE, CRAWLER_APPROVAL_SCOPE, CRAWLER_BASICS_SCOPE, CRAWLER_SHORTLIST_SCOPE, CRAWLER_VISIT_SCOPE, DECISION_CONTEXT_TIMEOUT_SCOPE, DECISION_PRODUCT_FEEDBACK_SCOPE].includes(plan.isolatedResearchScope?.contractVersion)
+    : [ANALYTICS_PAGEVIEWS_SCOPE, SPOT_SEARCH_FRESHNESS_SCOPE, BASEL_PLACE_SOURCES_SCOPE, BASEL_OVERTURE_SCOPE, WORLD_RESEARCH_BATCHES_SCOPE, BASEL_PLACE_IMPORT_CREATE_SCOPE, SPOT_CATEGORY_APPROVAL_SCOPE, SPOT_CRAWLER_SCOPE, CRAWLER_APPROVAL_SCOPE, CRAWLER_BASICS_SCOPE, CRAWLER_SHORTLIST_SCOPE, CRAWLER_VISIT_SCOPE, DECISION_CONTEXT_TIMEOUT_SCOPE, DECISION_PRODUCT_FEEDBACK_SCOPE, DECISION_FEEDBACK_IDENTITY_SCOPE].includes(plan.isolatedResearchScope?.contractVersion)
     ? scopeAnalyticsPageviewsMigrations({ pending: [...plan.pendingMigrations, ...plan.deferredMigrations],
       scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,
       authDeploy: plan.authConfig?.deploy === true, retiredFunctions: plan.retiredFunctions,
-      appliedAnalyticsPageviews: plan.appliedAnalyticsPageviews, appliedSpotSearchFreshness: plan.appliedSpotSearchFreshness, appliedBaselPlaceSources: plan.appliedBaselPlaceSources, appliedBaselOverture: plan.appliedBaselOverture, appliedWorldResearchBatches: plan.appliedWorldResearchBatches, appliedBaselPlaceImportCreate: plan.appliedBaselPlaceImportCreate, appliedSpotCategoryApproval: plan.appliedSpotCategoryApproval, appliedSpotCrawler: plan.appliedSpotCrawler, appliedCrawlerApproval: plan.appliedCrawlerApproval, appliedCrawlerBasics: plan.appliedCrawlerBasics, appliedCrawlerShortlist: plan.appliedCrawlerShortlist, appliedCrawlerVisit: plan.appliedCrawlerVisit, appliedDecisionContextTimeout: plan.appliedDecisionContextTimeout, appliedDecisionProductFeedback: plan.appliedDecisionProductFeedback })
+      appliedAnalyticsPageviews: plan.appliedAnalyticsPageviews, appliedSpotSearchFreshness: plan.appliedSpotSearchFreshness, appliedBaselPlaceSources: plan.appliedBaselPlaceSources, appliedBaselOverture: plan.appliedBaselOverture, appliedWorldResearchBatches: plan.appliedWorldResearchBatches, appliedBaselPlaceImportCreate: plan.appliedBaselPlaceImportCreate, appliedSpotCategoryApproval: plan.appliedSpotCategoryApproval, appliedSpotCrawler: plan.appliedSpotCrawler, appliedCrawlerApproval: plan.appliedCrawlerApproval, appliedCrawlerBasics: plan.appliedCrawlerBasics, appliedCrawlerShortlist: plan.appliedCrawlerShortlist, appliedCrawlerVisit: plan.appliedCrawlerVisit, appliedDecisionContextTimeout: plan.appliedDecisionContextTimeout, appliedDecisionProductFeedback, appliedDecisionFeedbackIdentity: plan.appliedDecisionProductFeedback })
     : plan.isolatedVoltaScope
     ? scopeVoltaMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedVoltaScope,
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,

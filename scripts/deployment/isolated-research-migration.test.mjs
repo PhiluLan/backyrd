@@ -346,6 +346,13 @@ test('Decision context timeout release permits exactly the bounded SQL and no ru
  assert.match(sql,/^alter function public\.backyrd_decision_vnext_product_context_v7\(uuid,text,text,text,text,text,text,bigint\)\s+set statement_timeout = '15s';\s+notify pgrst, 'reload schema';$/);
 });
 
+test('Decision feedback identity repair permits only its exact migration after the original feedback release', async () => {
+ const {DECISION_FEEDBACK_IDENTITY_SCOPE:contractVersion,DECISION_FEEDBACK_IDENTITY_MIGRATION:migration,scopeAnalyticsPageviewsMigrations}=await import('./isolated-research-migration.mjs');
+ const request={pending:[...deferred,migration],scope:{contractVersion,executionAuthorized:false,baseSha:base,migrations:[migration],deferredMigrations:deferred,functions:[],backupRunId:1,restoreDrill:{runId:1,artifactId:2,artifactDigest:'sha256:'+'a'.repeat(64)}},baseSha:base,deployFunctions:[],authDeploy:false,retiredFunctions:[],appliedDecisionProductFeedback:{status:'APPLIED_AND_VERIFIED'}};
+ assert.deepEqual(scopeAnalyticsPageviewsMigrations(request).pendingMigrations,[migration]);
+ for(const patch of [{appliedDecisionProductFeedback:null},{authDeploy:true},{deployFunctions:['decision-v13']},{pending:[...request.pending,target]},{scope:{...request.scope,migrations:[{...migration,sha256:'f'.repeat(64)}]}}])assert.throws(()=>scopeAnalyticsPageviewsMigrations({...request,...patch}));
+});
+
 test('Decision product feedback release permits exactly the bounded SQL after the context timeout receipt', async () => {
  const {DECISION_PRODUCT_FEEDBACK_SCOPE:contractVersion,DECISION_PRODUCT_FEEDBACK_MIGRATION:migration,scopeAnalyticsPageviewsMigrations}=await import('./isolated-research-migration.mjs');
  const request={pending:[...deferred,migration],scope:{contractVersion,executionAuthorized:false,baseSha:base,migrations:[migration],deferredMigrations:deferred,functions:[],backupRunId:1,restoreDrill:{runId:1,artifactId:2,artifactDigest:'sha256:'+'a'.repeat(64)}},baseSha:base,deployFunctions:[],authDeploy:false,retiredFunctions:[],appliedDecisionContextTimeout:{status:'APPLIED_AND_VERIFIED'}};

@@ -68,6 +68,12 @@
       "sha256": "9e6dfd03da110315fb61f2868b85eae7d35351a3c3a495c9fdcca658c2299496",
       "scope": "NUKNUK_ACTIVITY_OLDER_THAN_SEVEN_DAYS_ONLY",
       "source": "Founder separately authorized hourly retention of NukNuk activity records older than seven days in the release chat on 2026-11-16."
+    },
+    {
+      "path": "supabase/migrations/20261122083411_product_feedback_vnext_identity.sql",
+      "sha256": "a8aaa548a36ffeedc7797e942ed088fe42e54388aedca0db8ef5c135eafaddad",
+      "scope": "FEEDBACK_RPC_IDENTITY_REPLACEMENT_ONLY",
+      "source": "Founder requested the prepared and locally tested Decision feedback identity correction to be merged and published on 2026-11-22. Only the two feedback RPC signatures are replaced; stored feedback and legacy ownership remain intact."
     }
   ],
   "additiveProductMigrationScope": {
@@ -75,8 +81,8 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261121121136_decision_product_feedback_v1.sql",
-        "sha256": "858ce7b8dd82e1e52ed15798cbc19adb32702fec13a7865f1d61bca9f189e329"
+        "path": "supabase/migrations/20261122083411_product_feedback_vnext_identity.sql",
+        "sha256": "a8aaa548a36ffeedc7797e942ed088fe42e54388aedca0db8ef5c135eafaddad"
       }
     ],
     "executionAuthorized": false,
@@ -164,7 +170,49 @@
         "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
       }
     ],
-    "source": "Exact Founder-approved Beta security/privacy SQL and single Auth flag applied and verified on 2026-11-02. Independent immutable SQL/Auth receipts preserve their live source and manifest identities. The full historical baseline remains unchanged; four Booking migrations remain excluded. Future code-only plans cannot apply SQL or Auth; this record does not authorize any new runtime deployment."
+    "existingFunctionReceipt": {
+      "sourceSha": "422803e03b910db1770b7a44be1ea78f09a3e0bd",
+      "deploymentRunId": 42385325625,
+      "functions": [
+        {
+          "slug": "decision-north-star-internal",
+          "version": 124,
+          "bundleHash": "ac4ac51b808d058bac3fe752722e7e372299458fd422dfd0f18bc989afcf13ae",
+          "sourceSetHash": "4458bfacc04a503632ff7cdde68be72457add562a4df3b0dffaca7f347a0f59d"
+        },
+        {
+          "slug": "generate-data-export",
+          "version": 93,
+          "bundleHash": "dfe19bd411e7e21eb3e1edd60adb483253aa9462116f69fd09fbf49400dfc7f1",
+          "sourceSetHash": "9a6f0e96b0b03a62d23c0d2bab81c465e074faebbb65e9192d54448efa206c16"
+        },
+        {
+          "slug": "safety-evaluate",
+          "version": 103,
+          "bundleHash": "3b7b0cf62811ea1058226480a53855840581c9ebf10a9ca69c3ce1ce3054c336",
+          "sourceSetHash": "f4a019960a26c463c5fb1a2cdfdc55848bb6c5ab23f34492107217257580a4d3"
+        },
+        {
+          "slug": "weather-context",
+          "version": 1,
+          "bundleHash": "46e3d05a890d0dcdad797a9a6e2024839142173b0197ccb9650513a1166096be",
+          "sourceSetHash": "f832c85b99821d14075b3999c430145694854a8f8974b7e4dfceaa1401bdc904"
+        }
+      ]
+    },
+    "researchWorkerReceipt": {
+      "sourceSha": "cc72fc4aab30d4900a5125d004f72f8b3df2f4cd",
+      "deploymentRunId": 44291765953,
+      "functions": [
+        {
+          "slug": "decision-engine-worker",
+          "version": 183,
+          "bundleHash": "7834afce51a99c2d5efe74e8df12eb5d307a9baf76186954f1aaa7060cf326d9",
+          "sourceSetHash": "5ea6897d8786c5b424b41e6e73cf3bdf4819958e951615632a9f499abddd7a3f"
+        }
+      ]
+    },
+    "source": "P0 Decision reliability release only. The completed feedback migration is recorded separately; four Booking migrations, Auth, and all unrelated live Functions remain explicitly excluded."
   },
   "completedAdditiveProductMigrationScope": {
     "contractVersion": "backyrd.product-v1-additive-migration-scope@1.0",
@@ -620,74 +668,6 @@
       ]
     }
   },
-  "codeOnlyDeliveryScope": {
-    "contractVersion": "backyrd.code-only-delivery-scope@1.0",
-    "functions": [
-      "decision-v13",
-      "decision-admin-diagnostic"
-    ],
-    "deferredMigrations": [
-      {
-        "path": "supabase/migrations/20261020184245_booking_restaurant_service_lifecycle_v1.sql",
-        "sha256": "281f102648d780ec6e4ca4fad8a22929747767f656a517288430ec1cfc3388b9"
-      },
-      {
-        "path": "supabase/migrations/20261020185443_booking_reservation_amendments_v1.sql",
-        "sha256": "23ec32e5ccac1f445ca143dd93e34b631bc939eacffb91538e37793b5c1300bc"
-      },
-      {
-        "path": "supabase/migrations/20261020192107_booking_restaurant_walk_ins_v1.sql",
-        "sha256": "69d98e0afa071cc4c531f3743d5fb79084b84cd7d8e324dfc3968b74cdc71bb2"
-      },
-      {
-        "path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql",
-        "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
-      }
-    ],
-    "existingFunctionReceipt": {
-      "sourceSha": "422803e03b910db1770b7a44be1ea78f09a3e0bd",
-      "deploymentRunId": 42385325625,
-      "functions": [
-        {
-          "slug": "decision-north-star-internal",
-          "version": 124,
-          "bundleHash": "ac4ac51b808d058bac3fe752722e7e372299458fd422dfd0f18bc989afcf13ae",
-          "sourceSetHash": "4458bfacc04a503632ff7cdde68be72457add562a4df3b0dffaca7f347a0f59d"
-        },
-        {
-          "slug": "generate-data-export",
-          "version": 93,
-          "bundleHash": "dfe19bd411e7e21eb3e1edd60adb483253aa9462116f69fd09fbf49400dfc7f1",
-          "sourceSetHash": "9a6f0e96b0b03a62d23c0d2bab81c465e074faebbb65e9192d54448efa206c16"
-        },
-        {
-          "slug": "safety-evaluate",
-          "version": 103,
-          "bundleHash": "3b7b0cf62811ea1058226480a53855840581c9ebf10a9ca69c3ce1ce3054c336",
-          "sourceSetHash": "f4a019960a26c463c5fb1a2cdfdc55848bb6c5ab23f34492107217257580a4d3"
-        },
-        {
-          "slug": "weather-context",
-          "version": 1,
-          "bundleHash": "46e3d05a890d0dcdad797a9a6e2024839142173b0197ccb9650513a1166096be",
-          "sourceSetHash": "f832c85b99821d14075b3999c430145694854a8f8974b7e4dfceaa1401bdc904"
-        }
-      ]
-    },
-    "researchWorkerReceipt": {
-      "sourceSha": "cc72fc4aab30d4900a5125d004f72f8b3df2f4cd",
-      "deploymentRunId": 44291765953,
-      "functions": [
-        {
-          "slug": "decision-engine-worker",
-          "version": 183,
-          "bundleHash": "7834afce51a99c2d5efe74e8df12eb5d307a9baf76186954f1aaa7060cf326d9",
-          "sourceSetHash": "5ea6897d8786c5b424b41e6e73cf3bdf4819958e951615632a9f499abddd7a3f"
-        }
-      ]
-    },
-    "source": "P0 Decision reliability release only. The completed feedback migration is recorded separately; four Booking migrations, Auth, and all unrelated live Functions remain explicitly excluded."
-  },
   "completedDecisionProductFeedbackDeliveryScope": {
     "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
     "deferredMigrations": [
@@ -784,5 +764,102 @@
       ]
     },
     "source": "Founder requested production publication of the cleaner profile and optional Decision feedback on 2026-11-21. Exact additive feedback table and authenticated RPCs only; no Auth configuration, Edge Function, Decision ranking, Owner ranking, or unrelated schema changes."
+  },
+  "analyticsPageviewsDeliveryScope": {
+    "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
+    "deferredMigrations": [
+      {
+        "path": "supabase/migrations/20261020184245_booking_restaurant_service_lifecycle_v1.sql",
+        "sha256": "281f102648d780ec6e4ca4fad8a22929747767f656a517288430ec1cfc3388b9"
+      },
+      {
+        "path": "supabase/migrations/20261020185443_booking_reservation_amendments_v1.sql",
+        "sha256": "23ec32e5ccac1f445ca143dd93e34b631bc939eacffb91538e37793b5c1300bc"
+      },
+      {
+        "path": "supabase/migrations/20261020192107_booking_restaurant_walk_ins_v1.sql",
+        "sha256": "69d98e0afa071cc4c531f3743d5fb79084b84cd7d8e324dfc3968b74cdc71bb2"
+      },
+      {
+        "path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql",
+        "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
+      }
+    ],
+    "restoreDrill": {
+      "runId": 43878789183,
+      "artifactId": 14231428566,
+      "artifactDigest": "sha256:05df22f9723963b1cf7d0861bfed98154da461ab90405ed79a9ec1ce145323af"
+    },
+    "contractVersion": "backyrd.decision-feedback-identity-delivery-scope@1.0",
+    "executionAuthorized": false,
+    "migrations": [
+      {
+        "path": "supabase/migrations/20261122083411_product_feedback_vnext_identity.sql",
+        "sha256": "a8aaa548a36ffeedc7797e942ed088fe42e54388aedca0db8ef5c135eafaddad"
+      }
+    ],
+    "functions": [],
+    "backupRunId": 44891094128,
+    "existingFunctionReceipt": {
+      "sourceSha": "422803e03b910db1770b7a44be1ea78f09a3e0bd",
+      "deploymentRunId": 42385325625,
+      "functions": [
+        {
+          "slug": "decision-north-star-internal",
+          "version": 124,
+          "bundleHash": "ac4ac51b808d058bac3fe752722e7e372299458fd422dfd0f18bc989afcf13ae",
+          "sourceSetHash": "4458bfacc04a503632ff7cdde68be72457add562a4df3b0dffaca7f347a0f59d"
+        },
+        {
+          "slug": "generate-data-export",
+          "version": 93,
+          "bundleHash": "dfe19bd411e7e21eb3e1edd60adb483253aa9462116f69fd09fbf49400dfc7f1",
+          "sourceSetHash": "9a6f0e96b0b03a62d23c0d2bab81c465e074faebbb65e9192d54448efa206c16"
+        },
+        {
+          "slug": "safety-evaluate",
+          "version": 103,
+          "bundleHash": "3b7b0cf62811ea1058226480a53855840581c9ebf10a9ca69c3ce1ce3054c336",
+          "sourceSetHash": "f4a019960a26c463c5fb1a2cdfdc55848bb6c5ab23f34492107217257580a4d3"
+        },
+        {
+          "slug": "weather-context",
+          "version": 1,
+          "bundleHash": "46e3d05a890d0dcdad797a9a6e2024839142173b0197ccb9650513a1166096be",
+          "sourceSetHash": "f832c85b99821d14075b3999c430145694854a8f8974b7e4dfceaa1401bdc904"
+        }
+      ]
+    },
+    "decisionFunctionReceipt": {
+      "sourceSha": "c02bb7529f679be5d1ca403973d6f90f4b074ec6",
+      "deploymentRunId": 45001747991,
+      "functions": [
+        {
+          "slug": "decision-admin-diagnostic",
+          "version": 84,
+          "bundleHash": "9a69c586880df28ae425c7aa19c41dd72af4a20e7fe0842ce8ae0e9520bfe287",
+          "sourceSetHash": "20ed809b5ad0f1a6f6c0ae4cf933a6f19835a9747f1eda5042bcc4adf48caf61"
+        },
+        {
+          "slug": "decision-v13",
+          "version": 288,
+          "bundleHash": "39bac3b7e0299747f0cbe5f893a46404ec322c3fd816270fd171dfd5101885ec",
+          "sourceSetHash": "41ee16af8f841a9ea2b5089e103d79a83fb000e042a6564ca72216a633fbbc7d"
+        }
+      ]
+    },
+    "researchWorkerReceipt": {
+      "sourceSha": "cc72fc4aab30d4900a5125d004f72f8b3df2f4cd",
+      "deploymentRunId": 44291765953,
+      "functions": [
+        {
+          "slug": "decision-engine-worker",
+          "version": 183,
+          "bundleHash": "7834afce51a99c2d5efe74e8df12eb5d307a9baf76186954f1aaa7060cf326d9",
+          "sourceSetHash": "5ea6897d8786c5b424b41e6e73cf3bdf4819958e951615632a9f499abddd7a3f"
+        }
+      ]
+    },
+    "source": "Founder authorized publishing the tested Decision feedback identity fix on 2026-11-22. Exact migration only; no Auth, Edge Function, booking or ranking changes."
   }
 }

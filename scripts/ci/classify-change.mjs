@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { NUKNUK_ACTIVITY_MIGRATION } from "../deployment/isolated-research-migration.mjs";
+import { DECISION_FEEDBACK_IDENTITY_MIGRATION, NUKNUK_ACTIVITY_MIGRATION } from "../deployment/isolated-research-migration.mjs";
 import { resolveChangeContext } from "./resolve-change-context.mjs";
 import { validatePendingMigrationCorrection } from "./validate-pending-migration-correction.mjs";
 
@@ -144,7 +144,8 @@ export function isAuthorizedBoundedMigration(path, text, trustAnchor) {
   const entries = trustAnchor.authorizedBoundedMigrations;
   if (!Array.isArray(entries)) return false;
   const match = entries.find((entry) => entry?.path === path);
-  const acceptedScope = isApprovedNuknukActivityRetention(match) || isApprovedSpotEventEntry(match)
+  const acceptedScope = (match?.scope === "FEEDBACK_RPC_IDENTITY_REPLACEMENT_ONLY"
+    && path === DECISION_FEEDBACK_IDENTITY_MIGRATION.path && match.sha256 === DECISION_FEEDBACK_IDENTITY_MIGRATION.sha256) || isApprovedNuknukActivityRetention(match) || isApprovedSpotEventEntry(match)
     || isApprovedDiscoveryCounterEntry(match)
     || match?.scope === "CONSENT_ERASURE_AND_EXPIRED_PRIVATE_IDEMPOTENCY_ONLY"
     || (match?.scope === "EXPIRED_PRIVATE_AI_INTENT_CACHE_ONLY"
