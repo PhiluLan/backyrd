@@ -15,6 +15,7 @@ const navigationItems: NavigationItem[] = [
   { href: "/dashboard", label: "Übersicht", icon: "◫", groupLabel: "Überblick" },
   { href: "/founder", label: "Founder Cockpit", icon: "B" },
   { href: "/growth", label: "Analytics", icon: "↗" },
+  { href: "/feedback", label: "Produkt-Feedback", icon: "♡" },
   { href: "/spots", label: "Spots", icon: "⌖", groupLabel: "Spots" },
   { href: "/world-knowledge", label: "Aufgaben & Recherche", icon: "◇" },
   { href: "/spot-crawler", label: "Backyrd Crawler", icon: "⌕" },
