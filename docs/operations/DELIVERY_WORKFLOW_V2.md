@@ -115,6 +115,13 @@ by that gate changes: source or migration bytes, its tests or harness, toolchain
 identity, database image, authorization policy, or another declared semantic
 input. Receipt mismatch fails closed.
 
+The GitHub database job retains its execution receipt and schema/ACL snapshot
+even when downstream release evidence is missing. A subsequent run may download
+a receipt only from the same repository and workflow at an ancestor commit.
+It verifies all protected inputs, the pinned CLI and database image before
+resuming release-evidence validation. Changed inputs run the full gate. This
+retains one authoritative database gate; it does not add or waive a check.
+
 For an incremental pull-request update, the previous head itself is the gate
 receipt carrier. Reuse is allowed only when GitHub reports the exact named gate
 as successful for that head, Git proves `base -> previous head -> new head`, and
