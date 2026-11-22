@@ -182,6 +182,7 @@ jobs:
 
   database:
     name: Database clean boot and authorization
+    permissions: { contents: read, actions: read }
     if: needs.classify.outputs.database == 'true'
     needs: classify
     runs-on: ubuntu-latest
@@ -198,8 +199,76 @@ jobs:
           node scripts/ci/validate-database-lineage.mjs --base-sha "$BASE_SHA"
           node scripts/ci/validate-database-test-coverage.mjs --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA" --output "$RUNNER_TEMP/database-tests.txt"
           node --test scripts/ci/validate-database-lineage.test.mjs scripts/ci/validate-database-test-coverage.test.mjs scripts/ci/validate-database-release.test.mjs
-      - env: { BASE_SHA: "${{ needs.classify.outputs.base-sha }}", BACKYRD_CHANGED_DATABASE_TESTS_FILE: "${{ runner.temp }}/database-tests.txt" }
+      - name: Find an ancestor database execution receipt
+        id: prior-database
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ needs.classify.outputs.head-sha }}
+        run: |
+          node --input-type=module <<'NODE'
+          import {execFileSync} from 'node:child_process';
+          import {appendFileSync} from 'node:fs';
+          const repo=process.env.GITHUB_REPOSITORY;
+          const api=async path=>{
+            const r=await fetch(`https://api.github.com/repos/${repo}/${path}`,{headers:{authorization:`Bearer ${process.env.GH_TOKEN}`,accept:'application/vnd.github+json'}});
+            if(!r.ok)throw new Error(`receipt_lookup_http_${r.status}`);
+            return r.json();
+          };
+          const current=await api(`actions/runs/${process.env.GITHUB_RUN_ID}`);
+          const {artifacts=[]}=await api('actions/artifacts?per_page=100');
+          for(const a of artifacts){
+            const sha=a.workflow_run?.head_sha;
+            if(a.expired || a.name!==`database-gate-receipt-${sha}` || !/^[a-f0-9]{40}$/.test(sha??''))continue;
+            try{execFileSync('git',['merge-base','--is-ancestor',sha,process.env.HEAD_SHA],{stdio:'ignore'});}catch{continue;}
+            const run=await api(`actions/runs/${a.workflow_run.id}`);
+            if(run.workflow_id!==current.workflow_id || run.repository.full_name!==repo || run.head_sha!==sha)continue;
+            appendFileSync(process.env.GITHUB_OUTPUT,`run-id=${run.id}\nartifact=${a.name}\n`);
+            break;
+          }
+          NODE
+      - if: steps.prior-database.outputs.run-id != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ steps.prior-database.outputs.artifact }}
+          run-id: ${{ steps.prior-database.outputs.run-id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/prior-database
+      - name: Verify database receipt against all protected inputs
+        id: reuse-database
+        env: { RECEIPT: "${{ runner.temp }}/prior-database/database-gate-receipt.json" }
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from 'node:fs';
+          import {verifyDatabaseGateReceipt} from './scripts/ci/database-gate-receipt.mjs';
+          try{
+            const receipt=JSON.parse(readFileSync(process.env.RECEIPT,'utf8'));
+            if(!receipt.input.databaseImage.endsWith(':17.6.1.095'))throw new Error('database_image_not_pinned');
+            verifyDatabaseGateReceipt({root:process.cwd(),receipt,supabaseCliVersion:'2.80.0',databaseImage:receipt.input.databaseImage});
+            appendFileSync(process.env.GITHUB_OUTPUT,'reuse=true\n');
+          }catch{console.log('No input-identical database receipt; full execution required.');}
+          NODE
+      - if: steps.reuse-database.outputs.reuse != 'true'
+        env: { BASE_SHA: "${{ needs.classify.outputs.base-sha }}", BACKYRD_CHANGED_DATABASE_TESTS_FILE: "${{ runner.temp }}/database-tests.txt" }
         run: scripts/ci/validate-supabase-current.sh
+      - name: Resume release evidence from verified database execution
+        if: steps.reuse-database.outputs.reuse == 'true'
+        env:
+          BASE_SHA: ${{ needs.classify.outputs.base-sha }}
+          RECEIPT: ${{ runner.temp }}/prior-database/database-gate-receipt.json
+        run: |
+          image="$(jq -r .input.databaseImage "$RECEIPT")"
+          node scripts/ci/database-gate-receipt.mjs resume-evidence --receipt "$RECEIPT" --base-sha "$BASE_SHA" --head-sha HEAD --supabase-cli-version 2.80.0 --database-image "$image"
+          cp "$RECEIPT" "$RUNNER_TEMP/database-gate-receipt.json"
+      - name: Retain successful database execution for evidence-only repairs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: database-gate-receipt-${{ needs.classify.outputs.head-sha }}
+          path: |
+            ${{ runner.temp }}/database-gate-receipt.json
+            ${{ runner.temp }}/database-clean-boot-snapshot.json
+          if-no-files-found: ignore
+          retention-days: 7
 
   supply-chain:
     name: Dependency and supply-chain gate
