@@ -146,8 +146,9 @@
     "executionAuthorized": false,
     "source": "Founder explicit publication instruction on 2026-11-01 after disclosure of the exact seasonal-event migration, bounded release path, public Herbstmesse edition and untested database recovery risk. Only the pinned SQL, Admin/App/Web and two Decision functions are authorized; four Booking migrations and Auth remain excluded."
   },
-  "completedCodeOnlyDeliveryScope": {
+  "codeOnlyDeliveryScope": {
     "contractVersion": "backyrd.code-only-delivery-scope@1.0",
+    "executionAuthorized": false,
     "functions": [
       "decision-v13",
       "decision-admin-diagnostic"
@@ -212,7 +213,7 @@
         }
       ]
     },
-    "source": "P0 Decision reliability release only. The completed feedback migration is recorded separately; four Booking migrations, Auth, and all unrelated live Functions remain explicitly excluded."
+    "source": "Implementation candidate for the Founder-requested general Decision search-purpose correction on 2026-11-22. Only decision-v13 and decision-admin-diagnostic share the changed matching core. All SQL releases, including the completed Admin feedback inbox, retain their applied receipts. Four Booking migrations, Auth and unrelated live Functions remain excluded. Production requires a separate manual exact-Main certified release; this scope does not authorize publication."
   },
   "completedAdditiveProductMigrationScope": {
     "contractVersion": "backyrd.product-v1-additive-migration-scope@1.0",
@@ -765,7 +766,7 @@
     },
     "source": "Founder requested production publication of the cleaner profile and optional Decision feedback on 2026-11-21. Exact additive feedback table and authenticated RPCs only; no Auth configuration, Edge Function, Decision ranking, Owner ranking, or unrelated schema changes."
   },
-  "analyticsPageviewsDeliveryScope": {
+  "completedAdminProductFeedbackInboxDeliveryScope": {
     "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
     "deferredMigrations": [
       {
