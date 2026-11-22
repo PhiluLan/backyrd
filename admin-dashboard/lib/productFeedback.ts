@@ -7,6 +7,12 @@ export const feedbackKinds = {
 export type FeedbackStatus = keyof typeof feedbackStatuses;
 export type FeedbackSentiment = keyof typeof feedbackSentiments;
 export type FeedbackKind = keyof typeof feedbackKinds;
+export function feedbackAvailabilityLabel(value: string | null): string {
+  const labels: Record<string, string> = { open: "Öffnungszeit bestätigt", closed: "Zur Wunschzeit geschlossen",
+    unknown: "Öffnungszeit nicht bestätigt", not_requested: "Keine Besuchszeit angefragt",
+    not_authorized: "Keine freigegebenen Zeitangaben", expired: "Zeitangaben veraltet", disputed: "Zeitangaben widersprüchlich" };
+  return value ? labels[value] ?? "Zeitangaben nicht eingeordnet" : "Zeitangaben fehlen";
+}
 export function feedbackContextLabel(value: string | null, kind: "intent" | "day_phase"): string {
   if (!value) return kind === "intent" ? "Nicht bekannt" : "Nicht angegeben";
   const labels: Record<string, string> = kind === "intent" ? {
