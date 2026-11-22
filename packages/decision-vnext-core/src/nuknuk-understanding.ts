@@ -954,7 +954,10 @@ function prepareNuknukSearch(value: unknown, input: { query: string; reference: 
     : sourceMeaning;
   // Explicit numeric ages must not disappear into a generic indoor search.
   // This is a loss check, not an inferred age, group size or admission rule.
-  const statedAges = [...userText.matchAll(/\b(\d{1,3})[ -]*(?:jährige[nmrs]?|Jahre? alt|years? old)\b/giu)].map(match => Number(match[1]));
+  const companionAges = [...userText.matchAll(/\bmit\s+(?:(?:meiner|meinem|meinen|unserer|unserem|unseren|einer|einem|einen|der|dem|den)\s+)?(\d{1,3})[ -]*jährige[nmrs]?\s+(?:tochter|sohn|kind(?:ern)?|freund(?:in)?|person)\b/giu)]
+    .filter(match => !/\b(?:nicht|nie|keinesfalls)\s*$/iu.test(userText.slice(0, match.index)));
+  const selfAges = [...userText.matchAll(/\bich bin\s+(\d{1,3})\s+Jahre? alt\b/giu)];
+  const statedAges = [...companionAges, ...selfAges].map(match => Number(match[1]));
   if (statedAges.some(age => !protectedMeaning.facts.some(fact => fact.key === 'people.age'
     && !['PREFERRED','EXCLUDED','NOT_REQUIRED'].includes(fact.modality)
     && 'amount' in fact.value && fact.value.amount === age && fact.value.unit === 'YEARS'

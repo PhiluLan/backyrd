@@ -65,6 +65,17 @@ test('an open action cannot be substituted by dining, while an explicit meal sta
  assert.ok(dinner.plan.facts.some(f=>f.value.text==='meal'));
 });
 
+test('age loss checks distinguish actual companions from recipients and excluded company',()=>{
+ const reference={now:'2026-11-22T10:00:00Z',timezone:'Europe/Zurich'};
+ const meaning={facts:[{id:'meal',key:'food.meal',value:{text:'meal'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]}]};
+ for(const query of [
+  'Essen gehen, diesmal nicht mit meiner 4-jährigen Tochter',
+  'Ein Essen und ein Geschenk für meine 4-jährige Tochter',
+  'Im Restaurant treffen wir Freunde, die von ihrer 4-jährigen Tochter erzählen',
+ ]) assert.doesNotThrow(()=>validateNuknukCompactSearch({meaning},{query,reference}),query);
+ assert.throws(()=>validateNuknukCompactSearch({meaning},{query:'Ich bin 16 Jahre alt und möchte essen gehen',reference}),/source_age_not_retained/);
+});
+
 test('a single upcoming named weekday repairs an incompatible date in the search plan', () => {
   const reference = { now: '2026-11-16T08:00:00Z', timezone: 'Europe/Zurich' };
   const meaning = { facts: [
