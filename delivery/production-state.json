@@ -743,6 +743,45 @@
       "certificationRunId": 44521550113,
       "manifestHash": "72b881b66eb82400695b96746c45a3da01cc1d9315ab6cf6688e9a10a133b71c"
     },
+    "decisionSearchPurposeRelease": {
+      "status": "LIVE_AND_VERIFIED",
+      "sourceSha": "a4970e131c6dee367531aa96f75eb3efee5015f5",
+      "certificationRunId": 45027519656,
+      "mainRiskGateRunId": 45027505340,
+      "deploymentRunId": 45028234129,
+      "manifestHash": "73375e517f1fcaace01a57434966c0e4ed5c99c5ab734222c20b156f03addb90",
+      "planHash": "f00700d0c1a0bbd661cba809beea796e132869084a997a7311695ac32887d5b1",
+      "auditHash": "a66e82dc62b95da8f4f300eba011e7ce0e14aa269f678258031d11036142de2f",
+      "verifiedAt": "2026-11-22T13:36:58Z",
+      "functions": [
+        {
+          "slug": "decision-admin-diagnostic",
+          "version": 85,
+          "verifyJwt": true,
+          "bundleHash": "5761b87a1ebd9df8c30921ab41e6e4a5e3151752e5e8d4818467c70f4b2537c4",
+          "sourceSetHash": "d1dcbfe3fe94ae3044c966f00ea4637f250c09c01ecc2021bf9ecf96b93787ce"
+        },
+        {
+          "slug": "decision-v13",
+          "version": 289,
+          "verifyJwt": true,
+          "bundleHash": "6b03b01c2e51867c794643192a41895b2c9b30851ff7748ac366e7b8a7db8e42",
+          "sourceSetHash": "c814a221bca5d061845b21a7b4f77e1a3910568cc318ab76705a917af280afaa"
+        }
+      ],
+      "verification": {
+        "deploymentAuditResult": "PASS",
+        "onlyBoundFunctionsChanged": true,
+        "bothFunctionsActive": true,
+        "anonymousDecisionHttpStatus": 401,
+        "anonymousDiagnosticHttpStatus": 401,
+        "appliedMigrationCount": 0,
+        "authDeployed": false,
+        "mobileOtaPublished": false,
+        "liveAuthenticatedModelRequestVerified": false
+      },
+      "note": "Published the exact certified Main artifact for the general search-purpose correction. Decision v289 and Admin diagnostic v85 are ACTIVE with JWT verification; independent live function listing matches the immutable deployment audit. No unrelated function was changed, added or removed. Both anonymous HTTP probes are denied. No SQL/Auth change or Mobile OTA was deployed; existing app clients receive the server correction. Source-aware Product tests and the synthetic App browser journey passed; a real authenticated model request and physical-iPhone acceptance are not claimed. Global shipped SQL baseline and four deferred Booking migrations remain unchanged."
+    },
     "adminFeedbackInboxRelease": {
       "status": "APPLIED_AND_VERIFIED",
       "migration": {
