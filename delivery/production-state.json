@@ -743,6 +743,35 @@
       "certificationRunId": 44521550113,
       "manifestHash": "72b881b66eb82400695b96746c45a3da01cc1d9315ab6cf6688e9a10a133b71c"
     },
+    "adminFeedbackInboxRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "migration": {
+        "path": "supabase/migrations/20261122102945_admin_product_feedback_inbox.sql",
+        "sha256": "4d16241c886a3bb1d0d6ca97c3409f4cd4b0ee18cb645e17c6999def07b810c3"
+      },
+      "sourceSha": "c163d13a1e3ab46fe1cb28c8abc1304b03baf1ee",
+      "deploymentRunId": 45019436005,
+      "certificationRunId": 45018788511,
+      "manifestHash": "5afa3e9ef3ad6d5c5ec2e83ba641fde9cb7956ac1072576ad8daf5b6394626f8",
+      "auditHash": "e8b9339f0772f30748482e45fd7759d7b5c3d03543d12992586ad304d249cbae",
+      "backupRunId": 45008939402,
+      "admin": {
+        "githubDeploymentId": 7978205908,
+        "sourceSha": "c163d13a1e3ab46fe1cb28c8abc1304b03baf1ee",
+        "domain": "https://intelligence.backyrd.ch/feedback",
+        "httpStatus": 200,
+        "inboxAndReadinessCodeServed": true,
+        "authenticatedBrowserVerified": false
+      },
+      "verification": {
+        "adminRoleReadinessListDetailReviewAuditVerified": true,
+        "nonAdminAndAnonymousAccessDenied": true,
+        "concurrentEditConflictVerified": true,
+        "minimalServerOwnedContextVerified": true,
+        "productionSmokeRolledBack": true
+      },
+      "note": "Exact certified forward migration only; no Function/Auth deployment. Git/Vercel serves the approved Main UI; the authenticated future-only readiness probe becomes available after SQL activation. Live authenticated-role SQL smoke verified inbox/detail/review/audit and denied non-admin access; anonymous HTTP RPC access is denied. A new feedback submission verified bounded server-owned context without raw wish or participant details. All smoke writes were rolled back and absence verified. UI interaction was tested locally with synthetic APIs; live authenticated browser acceptance is not claimed. Historical full SQL baseline and four deferred Booking migrations remain unchanged."
+    },
     "decisionFeedbackIdentityRelease": {
       "status": "APPLIED_AND_VERIFIED",
       "migration": {
