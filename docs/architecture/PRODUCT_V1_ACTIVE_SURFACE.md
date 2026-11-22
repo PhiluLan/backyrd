@@ -221,3 +221,32 @@ hours are a nonblocking availability notice. Attributes retain their factual
 witnesses; unavailable slots that are actually documented remain exclusions.
 The response distinguishes confirmed fit from `actualAvailability: unknown` and
 includes a readable unconfirmed-time notice. No opening claim is synthesized.
+
+## Search purpose and supporting conditions
+
+Proof policy v3 separates a search direction from supporting visit conditions.
+An indoor/outdoor area, rain protection, access feature, capacity, location,
+price or time alone cannot prove a suitable experience. Property-led discovery
+such as cuisine, atmosphere, a view or a named facility remains supported.
+Missing direction produces an empty result with a clarification; a candidate
+without evidence for the requested experience cannot re-enter the presentation
+window as an unrelated fallback. Conditional weather plans retain their own
+branch proofs. Provisional copy describes partial evidence without asserting
+that the whole offer fits.
+
+NukNuk compact search v5 retains open undertakings as the existing
+`open_discovery` activity, separately from companions, ages and other criteria.
+Its bounded source guard covers explicit open-action wording without choosing
+a concrete activity. Specific requests, alternatives, scope and exclusions
+remain authoritative. Explicit numeric participant-age loss fails validation
+and uses the existing bounded repair; no age or group size is invented.
+Open discovery uses documented cultural, outdoor, attraction, sport and play
+offers from the canonical offer catalogue. A generic venue visit additionally
+requires a discovery venue type; an unrelated room or an all-ages meal does
+not establish an activity. Selected activity areas and documented age limits
+remain binding. No raw query or intermediate translation is persisted.
+
+This is a PRODUCT_RELEASE change in Decision core and its existing regression
+tests. It changes no client contract, database schema, grants, consent or
+learning policy. Publication still requires the exact-Main certified Product
+artifact and manual Production release; source code alone is not live evidence.

@@ -55,13 +55,16 @@ for(const question of EXPERIENCE_QUESTIONS.filter(q=>q.control==='TEXT'&&LUNA_LI
  const property=prop(question.key,value),scope=question.scopes.includes('SPOT')?'SPOT':question.scopes.includes('OFFER')?'OFFER':'AREA';
  const p=profile([offer('dinner','DINNER',['inside'],scope==='OFFER'?[property]:[])],[area('inside',scope==='AREA'?[property]:[])]);
  if(scope==='SPOT')p.properties=[property];
- const r=search(request([fact('value',question.key,value)]),[binding(991,p)]);
+ // Round-trip the authored condition on an actual visit. A supporting
+ // condition such as access/setting is not itself an experience direction.
+ const visit=()=>fact('visit','food.meal','meal');
+ const r=search(request([visit(),fact('value',question.key,value)]),[binding(991,p)]);
  assert.equal(state(r,'value'),'MET',JSON.stringify(candidate(r).facts));
  assert.equal(r.ranked.length,1);
  for(const [valueState,stored] of [['KNOWN',value==='14:00'?'15:00':'Anderer Prüfwert'],['UNKNOWN',null],['NOT_APPLICABLE',null]]){
   const changed=structuredClone(p),properties=scope==='SPOT'?changed.properties:scope==='OFFER'?changed.offers[0].properties:changed.areas[0].properties;
   properties[0]={...property,state:valueState,value:stored};
-  const unsupported=search(request([fact('value',question.key,value)]),[binding(991,changed)]);
+  const unsupported=search(request([visit(),fact('value',question.key,value)]),[binding(991,changed)]);
   assert.equal(state(unsupported,'value'),'UNKNOWN',`${question.key}: ${valueState}`);
   assert.equal(unsupported.ranked.length,0);
  }

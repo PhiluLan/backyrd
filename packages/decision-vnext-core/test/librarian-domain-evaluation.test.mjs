@@ -272,7 +272,7 @@ test('venue hours cannot erase structured recurring offer restrictions',()=>{
  assert.equal(librarianOfferAvailability(data.offers[0],world,visit).reason,'OFFER_ACTIVITY_OUTSIDE_CONDITIONS');
 });
 test('Basel region retains the real locality and does not erase a required exact destination',()=>{
- const q=request([fact('inside','offer.area','indoor')]);
+ const q=request([fact('meal','food.meal','meal'),fact('inside','offer.area','indoor')]);
  const b=binding(1120,profile());b.decisionProjection.facts.find(f=>f.key==='location.locality').value='Muttenz';
  assert.equal(search(q,[b]).ranked.length,1);
  assert.throws(()=>parseProductWorldResolverBinding(b,'Basel'),/locality_invalid/);

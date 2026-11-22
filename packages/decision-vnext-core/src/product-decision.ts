@@ -247,7 +247,14 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
     situationRequested ? evaluation.candidates.filter((candidate) => candidate.visitSituation.state === "CONFIRMED"
       && situationalExperienceCategories.has(candidate.worldClassification.primaryCategory ?? "")).map((candidate) => candidate.candidateId) : [],
   );
-  const ranked = candidateRows(evaluation, projection, input.presentations, situationalIds);
+  const rows = candidateRows(evaluation, projection, input.presentations, situationalIds);
+  // A room, access feature, budget or time window cannot select the experience
+  // on the user's behalf, including in the unconfirmed presentation window.
+  const missingDirection = (candidate: RankedCandidate) => candidate.assessment.reasons.some(reason =>
+    reason.reasonCode === "librarian-search-direction-missing");
+  const directionMissing = evaluation.limitations.includes("LIBRARIAN_SEARCH_DIRECTION_MISSING");
+  const ranked = rows.filter(candidate => !directionMissing && !missingDirection(candidate) && !candidate.assessment.reasons.some(reason =>
+    reason.reasonCode === "librarian-experience-not-proven"));
   const matchingEventVenues = new Set(ranked.filter(c=>c.presentation.event && rankable(c,situationalIds) && c.coreIntentCoverage === "CONFIRMED").flatMap(c=>c.presentation.event?.venueSpotId ? [c.presentation.event.venueSpotId] : []));
   const eligible = ranked.filter((candidate) => rankable(candidate, situationalIds) && !matchingEventVenues.has(candidate.spotId));
   // A recurring series occupies one card. Prefer the best supported matching
@@ -262,7 +269,9 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
   }
   const available = rankCandidateRows(eligible.filter(candidate => !candidate.presentation.event || series.get(candidate.presentation.event.eventId)?.spotId === candidate.spotId), situationalIds);
   const walkInQuestion = "Bei den passenden Orten fehlt uns die Angabe zur Voranmeldung. Kommt für dich auch ein Besuch mit Voranmeldung infrage?";
-  const clarification = input.clarification ?? (!available.length && evaluation.limitations.includes("LIBRARIAN_WALK_IN_EVIDENCE_MISSING")
+  const clarification = input.clarification ?? (directionMissing || rows.length && !ranked.length && rows.every(missingDirection)
+    ? "Was möchtest du am liebsten unternehmen: etwas entdecken, dich bewegen oder essen gehen?"
+    : !available.length && evaluation.limitations.includes("LIBRARIAN_WALK_IN_EVIDENCE_MISSING")
     && !request.naturalLanguage.includes(`Rückfrage: ${walkInQuestion}`) ? walkInQuestion : undefined);
   const occurrencesCollapsed = available.length < eligible.length;
   const fallback = ranked.filter(candidate => candidate.tier === "UNCONFIRMED_FALLBACK");

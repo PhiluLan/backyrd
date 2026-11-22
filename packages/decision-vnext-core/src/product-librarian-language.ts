@@ -1,7 +1,7 @@
 import { contentHash, deepFreeze } from "./canonical.js";
 import { LUNA_LIBRARIAN_FACT_KEYS } from "./product-luna-librarian-assets.js";
 import type { LibrarianFact, LunaFactKey } from "./product-luna-librarian.js";
-export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@64" as const;
+export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@65" as const;
 import { EXPERIENCE_LANGUAGE_CONCEPTS, EXPERIENCE_LANGUAGE_DATA, EXPERIENCE_QUESTIONS, BOOLEAN_CONCEPTS, librarianConcept, librarianTerm, type ExperienceProperty } from "@backyrd/world-knowledge-core";
 export { librarianTerm, librarianConcept, sameLibrarianText, OFFER_CONCEPTS, AREA_CONCEPTS, BOOLEAN_CONCEPTS } from "@backyrd/world-knowledge-core";
 /** Suitability is explicit product knowledge, not a venue-type heuristic. */
@@ -100,11 +100,12 @@ export const LIBRARIAN_LANGUAGE = deepFreeze({ version: LIBRARIAN_MATCHING_VERSI
 
 // Ranking and evaluation use one version authority. New evaluator versions must
 // never silently fall back to the unrelated legacy situation-only filter.
-export const PRODUCT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@19" as const;
-export const PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@20" as const;
+export const PRODUCT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@21" as const;
+export const PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@22" as const;
 export const LIBRARIAN_EVALUATOR_VERSIONS: readonly string[] = Object.freeze([
     ...[1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map(version => `decision-vnext-librarian-evaluator@${version}`),
     "decision-vnext-librarian-evaluator@15", "decision-vnext-librarian-evaluator@16",
     "decision-vnext-librarian-evaluator@17", "decision-vnext-librarian-evaluator@18",
+    "decision-vnext-librarian-evaluator@19", "decision-vnext-librarian-evaluator@20",
     PRODUCT_LIBRARIAN_EVALUATOR_VERSION, PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION,
 ]);

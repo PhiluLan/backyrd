@@ -6,7 +6,7 @@ import { librarianAllAgesSuitability, librarianRankingPreference, librarianManda
 import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
 import { librarianGlobalEligibility } from "./product-librarian-eligibility.js";
-import { experienceBookingMode, spotTypeSupports, experienceActivitySupports, declaredExperienceConcepts, parseExperienceProfile, hasOfferModule, SPOT_TYPE_CATALOG, type ExperienceProfile, type ExperienceProperty, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
+import { experienceBookingMode, spotTypeSupports, experienceActivitySupports, declaredExperienceConcepts, parseExperienceProfile, hasOfferModule, SPOT_TYPE_CATALOG, OFFER_CATALOG, type ExperienceProfile, type ExperienceProperty, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
 import { contentHash, deepFreeze } from "./canonical.js";
 import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianFact, type LibrarianRequest, type LunaExpression } from "./product-luna-librarian.js";
 import { parseProductWorldResolverBinding, type ProductWorldView } from "./product-world-resolver-binding.js";
@@ -154,7 +154,9 @@ function offerDuty(fact: LibrarianFact): boolean {
         || fact.key === "condition.children" && concept === "children_activity"
         || librarianFacilityConcept(fact) === "playground";
 }
-const openDiscoveryOffers = ["WALK", "VISIT", "SELF_GUIDED_VISIT", "PERMANENT_EXHIBITION", "SPECIAL_EXHIBITION"];
+const openDiscoveryOffers: readonly string[] = OFFER_CATALOG.filter(offer =>
+    ["CULTURE_ARTS", "OUTDOOR_NATURE", "ATTRACTIONS_LANDMARKS", "SPORT_MOVEMENT", "ACTIVITIES_PLAY"].includes(offer.group))
+    .map(offer => offer.kind);
 const contextual = (fact: LibrarianFact) => fact.modality === "CONTEXT";
 const neutral = (fact: LibrarianFact) => contextual(fact) || fact.modality === "NOT_REQUIRED";
 function assignments(request: LibrarianRequest, fact: LibrarianFact, offerId: string | null, areaId: string | null): Readonly<Record<string, string>> {
@@ -509,7 +511,10 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 && ["CULTURE_ARTS", "OUTDOOR_NATURE", "ATTRACTIONS_LANDMARKS"].includes(row.group)));
             const isGarden = place?.includes("BOTANICAL_GARDEN") ?? false;
             for (const offer of profile.offers) {
-                const matches = desired === "open_discovery" ? isDiscoveryVenue && openDiscoveryOffers.includes(offer.kind)
+                // Specific documented activities can also belong to a mixed
+                // venue. A generic VISIT still needs the discovery venue type.
+                const matches = desired === "open_discovery" ? openDiscoveryOffers.includes(offer.kind)
+                    && (offer.kind !== "VISIT" || isDiscoveryVenue)
                     : isGarden && offer.kind === "WALK";
                 if (matches)
                     for (const areaId of offer.areaIds.length ? offer.areaIds : [null])

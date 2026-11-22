@@ -6,7 +6,14 @@ import type { LibrarianFact, LibrarianRequest } from "./product-luna-librarian.j
 import { AREA_CATALOG } from "@backyrd/world-knowledge-core";
 
 export type LibrarianDiagnosis = "MISSING_DATA" | "UNSUPPORTED_REQUIREMENT" | "REQUEST_NEEDS_CLARIFICATION" | "UNINTERPRETED_VALUE" | "CONFLICTING_DATA" | "CONDITIONS_UNRESOLVED" | "EVIDENCE_INSUFFICIENT" | "SOURCE_NOT_AUTHORIZED";
-export const LIBRARIAN_PROOF_POLICY = "backyrd.librarian-proof-policy@2" as const;
+export const LIBRARIAN_PROOF_POLICY = "backyrd.librarian-proof-policy@3" as const;
+/** These constrain where/how a visit happens; none establishes what it is.
+ * Property-led discovery (cuisine, atmosphere, a named facility) stays valid. */
+export function librarianSearchCriterion(fact: LibrarianFact): boolean {
+    return !["TEMPORAL", "PRICE", "LOCATION", "CONTEXT"].includes(LIBRARIAN_FAMILY_STRATEGIES[fact.key])
+        && !["offer.area", "location.setting", "offer.weather_suitability", "condition.weather_protection",
+            "participation.accessibility", "offer.capacity", "people.count"].includes(fact.key);
+}
 export type LibrarianProofDimension = "EXPERIENCE" | "REQUIREMENT" | "AVAILABILITY" | "ACCESS" | "CONTEXT";
 export function librarianFacilityVisitAreaKinds(fact: LibrarianFact): readonly string[] {
     const concept = librarianFacilityConcept(fact);
@@ -67,7 +74,7 @@ export function librarianDecisionProof(request: LibrarianRequest, assessments: r
     // Fit uses all requested semantic criteria, but never schedule, price or
     // generated entry checks as a substitute for the requested experience.
     const semanticFit = verdict(entries.filter(e => e.blocking && active.some(f => f.id === e.factId
-        && !["TEMPORAL", "PRICE", "LOCATION", "CONTEXT"].includes(LIBRARIAN_FAMILY_STRATEGIES[f.key]))));
+        && librarianSearchCriterion(f))));
     const body = { policyVersion: LIBRARIAN_PROOF_POLICY, entries, semanticFit, experience: axis("EXPERIENCE"), requirements: axis("REQUIREMENT"), availability: axis("AVAILABILITY"), access: axis("ACCESS"),
         failedFactIds: entries.filter(e => e.blocking && e.state === "FAILED").map(e => e.factId),
         unknownFactIds: entries.filter(e => e.blocking && !["MET", "FAILED"].includes(e.state)).map(e => e.factId),

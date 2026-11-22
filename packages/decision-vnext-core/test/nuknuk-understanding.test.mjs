@@ -14,6 +14,68 @@ const example = understandingDevelopmentCases[0].content;
 const modelPath = '/models/45797d2985a12c55e6473686e9ea91b95e959553';
 const copy = () => structuredClone(example.target);
 
+test('open wishes keep an experience direction when the model only retains surrounding conditions',()=>{
+ const reference={now:'2026-11-22T10:00:00Z',timezone:'Europe/Zurich'};
+ for(const query of [
+  'Irgendwas drinnen machen mit meiner 4 jährigen Tochter',
+  'Mit meinem 8-jährigen Sohn etwas unternehmen',
+  'Etwas draussen erleben mit Freunden',
+  'Gemeinsam etwas machen',
+ ]) {
+  const ages=[...query.matchAll(/(\d+)[ -]*jährig/gu)].map(match=>Number(match[1]));
+  const meaning={entities:ages.map((_,i)=>({id:`person${i}`,kind:'PERSON',label:'Begleitung',members:[]})),facts:[
+   {id:'inside',key:'offer.area',value:{text:query.includes('draussen')?'outdoor':'indoor'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+   ...ages.map((age,i)=>({id:`age${i}`,key:'people.age',value:{amount:age,operator:'EQ',unit:'YEARS'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:[`person${i}`]})),
+   ...(ages.length?[{id:'company',key:'people.relationship',value:{text:'adult_accompanied'},modality:'CONTEXT',basis:'INFERRED',subjectIds:[] }]:[]),
+  ]};
+  const result=validateNuknukCompactSearch({meaning},{query,reference});
+  assert.equal(result.requestState,'EXECUTABLE',query);
+  assert.ok(result.plan.facts.some(f=>f.key==='experience.activity'&&f.value.text==='offene Entdeckung'&&f.modality==='REQUIRED'),query);
+  assert.deepEqual(result.plan.facts.filter(f=>f.key==='people.age').map(f=>f.value.amount),ages);
+  assert.ok(!result.plan.facts.some(f=>f.key.startsWith('food.')));
+ }
+});
+
+test('an explicit participant age cannot disappear and generic purpose cannot stay optional context',()=>{
+ const reference={now:'2026-11-22T10:00:00Z',timezone:'Europe/Zurich'};
+ const query='Mit meiner 4 jährigen Tochter etwas unternehmen';
+ const meaning={entities:[{id:'child',kind:'PERSON',label:'Tochter',members:[]}],facts:[
+  {id:'company',key:'people.relationship',value:{text:'adult_accompanied'},modality:'CONTEXT',basis:'INFERRED',subjectIds:['child']},
+  {id:'purpose',key:'experience.purpose',value:{text:'etwas unternehmen'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:[]}]};
+ assert.throws(()=>validateNuknukCompactSearch({meaning},{query,reference}),/source_age_not_retained/);
+ const result=validateNuknukCompactSearch({meaning:{entities:meaning.entities,facts:[...meaning.facts,
+  {id:'age',key:'people.age',value:{amount:4,operator:'EQ',unit:'YEARS'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:['child']},
+ ]}},{query,reference});
+ assert.equal(result.plan.facts.find(f=>f.id==='purpose').key,'experience.activity');
+ assert.equal(result.plan.facts.find(f=>f.id==='purpose').modality,'REQUIRED');
+ const age=result.searchMeaning.facts.find(f=>f.id==='age');
+ assert.throws(()=>validateNuknukCompactSearch({meaning:{entities:meaning.entities,facts:[...meaning.facts,{...age,subjectIds:[]}]}},{query,reference}),
+  /source_age_not_retained/,'an orphaned age must not bypass participant restrictions');
+ assert.throws(()=>validateNuknukCompactSearch({meaning:{entities:meaning.entities,facts:[meaning.facts[1],age]}},{query,reference}),
+  /source_companion_not_retained/);
+});
+
+test('an open action cannot be substituted by dining, while an explicit meal stays a meal',()=>{
+ const reference={now:'2026-11-22T10:00:00Z',timezone:'Europe/Zurich'};
+ const meaning={facts:[{id:'meal',key:'experience.activity',value:{text:'meal'},modality:'REQUIRED',basis:'INFERRED',subjectIds:[]}]};
+ const open=validateNuknukCompactSearch({meaning},{query:'Irgendwas drinnen machen',reference});
+ assert.ok(open.plan.facts.some(f=>f.value.text==='offene Entdeckung'));
+ const dinner=validateNuknukCompactSearch({meaning},{query:'Drinnen etwas essen gehen',reference});
+ assert.ok(!dinner.plan.facts.some(f=>f.value.text==='offene Entdeckung'));
+ assert.ok(dinner.plan.facts.some(f=>f.value.text==='meal'));
+});
+
+test('age loss checks distinguish actual companions from recipients and excluded company',()=>{
+ const reference={now:'2026-11-22T10:00:00Z',timezone:'Europe/Zurich'};
+ const meaning={facts:[{id:'meal',key:'food.meal',value:{text:'meal'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]}]};
+ for(const query of [
+  'Essen gehen, diesmal nicht mit meiner 4-jährigen Tochter',
+  'Ein Essen und ein Geschenk für meine 4-jährige Tochter',
+  'Im Restaurant treffen wir Freunde, die von ihrer 4-jährigen Tochter erzählen',
+ ]) assert.doesNotThrow(()=>validateNuknukCompactSearch({meaning},{query,reference}),query);
+ assert.throws(()=>validateNuknukCompactSearch({meaning},{query:'Ich bin 16 Jahre alt und möchte essen gehen',reference}),/source_age_not_retained/);
+});
+
 test('a single upcoming named weekday repairs an incompatible date in the search plan', () => {
   const reference = { now: '2026-11-16T08:00:00Z', timezone: 'Europe/Zurich' };
   const meaning = { facts: [
@@ -485,7 +547,8 @@ test('an explicit outdoor component filters indoor-only results and reports miss
   const input = { query: 'Sonntag Bewegung mit meinem Kind. Bei Schauern gern kurz unter ein Dach, aber wir möchten auch draussen spielen.', reference: example.reference };
   const fact = (id, key, text, modality) => ({ id, key, value: { text }, modality, basis: 'EXPLICIT', subjectIds: [] });
   const activity = fact('movement', 'experience.activity', 'movement_play', 'REQUIRED');
-  const meaning = { facts: [activity, fact('out', 'offer.area', 'outdoor', 'CONTEXT')] };
+  const meaning = { facts: [activity, fact('out', 'offer.area', 'outdoor', 'CONTEXT'),
+    fact('company','people.relationship','adult_accompanied','CONTEXT')] };
   const result = validateNuknukCompactSearch({ meaning }, input);
   assert.equal(result.plan.facts.find(f => f.id === 'out').modality, 'REQUIRED');
   const indoor = binding(1, profile([offer('play', 'MOVEMENT_PLAY', ['inside'])]));
