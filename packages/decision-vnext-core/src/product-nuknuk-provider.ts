@@ -215,7 +215,11 @@ export function createDecisionProductNuknukProvider(input: {
         result = interpret(raw);
       } catch (error) {
         if (!input.repairCompactMeaning) throw error;
-        const defect = error instanceof LibrarianContractError && error.code === 'condition_unbound'
+        const defect = error instanceof Error && error.message === 'nuknuk_source_age_not_retained'
+          ? 'Ein ausdrücklich genanntes Alter fehlt oder wurde verändert. Erhalte jedes genannte Personenalter als people.age CONTEXT mit EQ und YEARS an der zugehörigen Person.'
+          : error instanceof Error && error.message === 'nuknuk_source_companion_not_retained'
+          ? 'Eine ausdrücklich mitgebrachte Person fehlt in der Begleitung. Erhalte die gemeinsame Besuchsgruppe unter people.relationship CONTEXT; nicht als Geschenkempfänger oder vom Anbieter zu stellenden Partner umdeuten.'
+          : error instanceof LibrarianContractError && error.code === 'condition_unbound'
           ? 'Wetter nur übernehmen, falls es im Nutzerwunsch vorkommt. Verknüpfe echte Wenn-dann-Bedingungen mit den zugehörigen Alternativen.'
           : 'Achte auf getrennte Rollen für Suchort, Besuchszeit, Art des Angebots, eigene Tätigkeit und Inhalt zum Anschauen.';
         const repairPrompt = { ...prompt, instructions: prompt.instructions + '\n' + [

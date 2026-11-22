@@ -256,11 +256,20 @@ export function buildNuknukCompactSearchRequest(input: { query: string; referenc
     },
   });
   const instructions = base.instructions
-    .replace('SPOT_GROUNDED_V6', 'COMPACT_SEARCH_V4')
+    .replace('SPOT_GROUNDED_V6', 'COMPACT_SEARCH_V5')
     .replace('Schema-JSON {meaning,moment}', 'Schema-JSON {meaning,clarification?,singleActivity?}')
     .replace(/^moment:.*\nQuotes.*\nFehlende Auswahlhilfe:.*\nDimension .*\n/mu, '')
     + `
 KOMPAKTE SUCHÜBERGABE: Gib meaning.facts aus. Leere Listen und null bei logic weglassen.
+SUCHZWECK: Erhalte, was die Person erleben oder tun möchte, getrennt von Ort, Wetter,
+Innenbereich, Zeit, Budget und Begleitung. Diese Bedingungen ersetzen keine Tätigkeit.
+Eine offene Unternehmung als experience.activity «offene Entdeckung» REQUIRED erhalten,
+ohne eigenmächtig Essen, Kaffee oder eine konkrete Sportart zu ergänzen. Konkrete Wünsche
+und Alternativen haben Vorrang; keine zusätzliche Entdeckung zu einem reinen Essenswunsch.
+Begleitung und jedes genannte Alter bleiben auch bei offenen Wünschen erhalten. «Mit meiner
+Tochter/meinem Sohn» ist eine gemeinsame Unternehmung, kein Geschenk für die Person.
+Familienbegleitung als people.relationship adult_accompanied CONTEXT nach Produktregel;
+ein Kind als alleiniger Empfänger oder ausdrücklich allein beweist keine Begleitung.
 Bei genau einer ungeteilten Aktivität ohne explizite Entitäten, Alternativen, Bindungen, Erweiterungen,
 Wetterbedingungen, Referenzen oder verknüpfte Unsicherheiten darfst du singleActivity:true setzen.
 Dann id und subjectIds in facts weglassen. Sonst id und subjectIds ausdrücklich angeben.
@@ -943,6 +952,18 @@ function prepareNuknukSearch(value: unknown, input: { query: string; reference: 
   const protectedMeaning = userText === input.query && !/\b(?:Rückfrage|Antwort):/iu.test(input.query)
     ? protectNamedWeekday(userText, sourceMeaning, input.reference)
     : sourceMeaning;
+  // Explicit numeric ages must not disappear into a generic indoor search.
+  // This is a loss check, not an inferred age, group size or admission rule.
+  const statedAges = [...userText.matchAll(/\b(\d{1,3})[ -]*(?:jährige[nmrs]?|Jahre? alt|years? old)\b/giu)].map(match => Number(match[1]));
+  if (statedAges.some(age => !protectedMeaning.facts.some(fact => fact.key === 'people.age'
+    && !['PREFERRED','EXCLUDED','NOT_REQUIRED'].includes(fact.modality)
+    && 'amount' in fact.value && fact.value.amount === age && fact.value.unit === 'YEARS'
+    && fact.value.operator === 'EQ' && fact.subjectIds.some(id => protectedMeaning.entities.some(entity =>
+      entity.id === id && entity.kind === 'PERSON'))))) throw Error('nuknuk_source_age_not_retained');
+  const ownChildTogether = [...userText.matchAll(/\bmit\s+(?:meiner|meinem|meinen|unserer|unserem|unseren)\s+(?:\d{1,2}[ -]*jährige[nmrs]?\s+)?(?:tochter|sohn|kind(?:ern)?)\b/giu)]
+    .some(match => !/\b(?:nicht|nie|keinesfalls)\s*$/iu.test(userText.slice(0, match.index)));
+  if (ownChildTogether && !protectedMeaning.facts.some(fact => fact.key === 'people.relationship'
+    && ['CONTEXT','REQUIRED'].includes(fact.modality))) throw Error('nuknuk_source_companion_not_retained');
   const halfHours: Readonly<Record<string,number>> = {eins:1,zwei:2,drei:3,vier:4,fünf:5,sechs:6,sieben:7,acht:8,neun:9,zehn:10,elf:11,zwölf:12};
   const spokenHalf = [...userText.matchAll(/\b(?:ab|erst ab) halb (eins|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn|elf|zwölf)\b/giu)];
   const spokenHour = spokenHalf.length === 1 ? halfHours[spokenHalf[0]![1]!.toLocaleLowerCase("de-CH")] : undefined;
@@ -954,7 +975,11 @@ function prepareNuknukSearch(value: unknown, input: { query: string; reference: 
   const currentPosition = /\b(?:ich bin|wir sind)\s+(?:gerade\s+)?(?:in der|in|im)\s+([^,;.!?]+?)(?=\s+und\s+|[,;.!?]|$)/iu.exec(userText)?.[1];
   const explicitLocalStay = /\b(?:hier|dort|bleiben|um die Ecke|in der Nähe|im Quartier|Fussweg|Fahrzeit|Gehminuten)\b/iu.test(userText);
   const openVisit = /\b(?:zeig(?:e)?|empfiehl|nenn(?:e)?)\s+(mir|uns)\s+etwas,?\s+das\s+(man|ich|wir)\s+((?:(?:in Ruhe|allein[e]?|unkompliziert|unaufgeregt|entspannt|gemütlich)\s+)+)besuchen\s+kann(?:en)?\b/iu.exec(userText);
-  const openDiscovery = Boolean(openVisit) || /\b(?:du kannst (?:gerne? )?eine Idee aussuchen|such(?:e)? (?:mir|uns) etwas aus|(?:die )?Tätigkeit kannst du (?:frei )?(?:auswählen|aussuchen)|überrasch (?:mich|uns)(?: mit einer Idee)?)\b/iu.test(userText);
+  // A bounded source guard for explicitly open actions, not a second prose
+  // interpreter. Unknown wording stays with the model's typed search plan.
+  const openAction = /\b(?:irgendwas|irgendetwas|etwas|was)\s+(?:(?:drinnen|draussen|draußen|gemeinsam|zusammen|schönes|nettes|spannendes|anderes)\s+)*(?:machen|unternehmen|erleben)\b/iu.test(userText)
+    && !/\b(?:nicht|kein\w*)\s+(?:irgendwas|irgendetwas|etwas|was)\b/iu.test(userText);
+  const openDiscovery = openAction || Boolean(openVisit) || /\b(?:du kannst (?:gerne? )?eine Idee aussuchen|such(?:e)? (?:mir|uns) etwas aus|(?:die )?Tätigkeit kannst du (?:frei )?(?:auswählen|aussuchen)|überrasch (?:mich|uns)(?: mit einer Idee)?)\b/iu.test(userText);
   const hasScopedLogic = protectedMeaning.logic || protectedMeaning.bindings.length
     || protectedMeaning.extensions.length || protectedMeaning.weatherConditions.some(condition => condition.role === "CONDITIONAL");
   const requestedHall = /\b(?:such\w*|gibt es|lieber|nehmen wir)\b[^.!?]{0,45}\b(?:ein(?:em|en)?|ins) (?:winter)?hallenbad\b/iu.test(userText);
@@ -984,12 +1009,14 @@ function prepareNuknukSearch(value: unknown, input: { query: string; reference: 
     && mayNormalizeVenueScope && /\ballein[e]?\b/iu.test(openQualifiers) && !hasBindingWording
     && !protectedMeaning.facts.some(fact => fact.key === 'people.count');
   const normalizedFacts = openDiscovery && !hasScopedLogic ? protectedMeaning.facts.map(fact => {
-    if (!("text" in fact.value) || fact.modality !== "REQUIRED") return fact;
+    if (!("text" in fact.value) || !["REQUIRED", "CONTEXT"].includes(fact.modality)) return fact;
     const value = fact.value.text.trim();
     const openCityVisit = openVisit && /^stadterkundung$/iu.test(value)
       && !/\b(?:stadterkundung|stadtführung|stadtrundgang|rundgang|spaziergang|führung)\b/iu.test(userText);
-    if (fact.key === "experience.activity" && (/^(?:etwas entdecken|etwas unternehmen|eine idee finden)$/iu.test(value) || openCityVisit))
-      return {...fact, value:{text:"offene Entdeckung"}};
+    if (["experience.activity", "experience.purpose"].includes(fact.key)
+      && (/^(?:(?:irgendwas|irgendetwas|etwas|was)(?: drinnen| draussen| gemeinsam| zusammen)? (?:machen|entdecken|unternehmen|erleben)|eine idee finden)$/iu.test(value) || openCityVisit))
+      return {...fact, key:"experience.activity" as const, modality:"REQUIRED" as const, value:{text:"offene Entdeckung"}};
+    if (fact.modality !== "REQUIRED") return fact;
     if (soloVisit && ["people.participation","participation.accessibility"].includes(fact.key) && /^(?:allein[e]?|solo)$/iu.test(value))
       return {...fact,key:"people.count" as const,value:{amount:1,operator:"EQ" as const,unit:"PEOPLE" as const},
         modality:"CONTEXT" as const,subjectIds:[]};
@@ -1000,7 +1027,9 @@ function prepareNuknukSearch(value: unknown, input: { query: string; reference: 
     return fact;
   }) : protectedMeaning.facts;
   const hasActivity = normalizedFacts.some(fact => (fact.key === "experience.activity" || fact.key === "offer.kind")
-    && ["REQUIRED", "PREFERRED"].includes(fact.modality));
+    && ["REQUIRED", "PREFERRED"].includes(fact.modality)
+    && !(openAction && "text" in fact.value && ["children_activity", "meal", "lunch", "dinner", "breakfast",
+      "brunch", "snacks", "aperitif", "coffee", "drinks"].includes(librarianConcept(fact.value.text) ?? "")));
   const occupied = new Set([...normalizedFacts,...protectedMeaning.entities,...protectedMeaning.weatherConditions].map(row => row.id));
   const factsWithDiscovery = openDiscovery && !hasActivity && !hasScopedLogic && !occupied.has("sourceOpenDiscovery")
     ? [...normalizedFacts,{id:"sourceOpenDiscovery",key:"experience.activity",modality:"REQUIRED",basis:"INFERRED",

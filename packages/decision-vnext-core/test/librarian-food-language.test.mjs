@@ -115,7 +115,8 @@ test('active HTTP chain preserves family plus food-or-snacks and rejects unconfi
  const result=await exercise({text:'familienaktivität wo es auch was zum Essen oder Snacks gibt',meaning:foodAlternative(),catalog:[binding(1,familyVenue('snacks')),binding(2,familyVenue(null))]});
  assert.equal(result.status,200,JSON.stringify(result.diagnostics));
  assert.equal(result.body.primaryCandidateId,binding(1,familyVenue('snacks')).decisionProjection.spotId);
- assert.equal(result.body.candidates.find(c=>c.spotId===binding(2,familyVenue(null)).decisionProjection.spotId)?.rank,null);
+ assert.ok(!result.body.candidates.some(c=>c.spotId===binding(2,familyVenue(null)).decisionProjection.spotId),
+  'a venue without the requested food-or-snacks experience is not a fallback');
 });
 test('recorded malformed live meaning remains unchanged; matching never invents an OR or changes activity scope',()=>{
  const recorded=JSON.parse(readFileSync(new URL('./fixtures/family-food-live-failure.json',import.meta.url),'utf8'));

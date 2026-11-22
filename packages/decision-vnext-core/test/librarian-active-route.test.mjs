@@ -292,7 +292,8 @@ test('evidence for a river view belongs to the visit and cannot come from nearby
  const result=await exercise({text:'Wo sieht man den Rhein?',meaning:plan([fact('view','location.view','Rhein')]),catalog:[bad,good]});
  assert.equal(result.status,200,JSON.stringify(result.diagnostics));
  assert.equal(result.body.primaryCandidateId,good.decisionProjection.spotId);
- assert.equal(result.body.candidates.find(row=>row.spotId===bad.decisionProjection.spotId).rank,null);
+ assert.ok(!result.body.candidates.some(row=>row.spotId===bad.decisionProjection.spotId),
+  'a nearby river is not an unconfirmed substitute for the requested river view');
 });
 test('excluded venue types still exclude, without treating unknown excluded types as mandatory positive identities',async()=>{
  const zoo=binding(845,profile()),restaurant=binding(846,profile());

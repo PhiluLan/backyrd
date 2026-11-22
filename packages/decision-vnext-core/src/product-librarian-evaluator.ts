@@ -1,5 +1,5 @@
 import { baselSearchAnchor, librarianCityIdentifier, librarianDiscoveryLocalities } from "./product-librarian-geography.js";
-import { requiredRequestIssue } from "./product-librarian-plan.js";
+import { requiredRequestIssue, librarianSearchCriterion } from "./product-librarian-plan.js";
 import { decodeWorldQueryConstraint } from "./product-query-semantics.js";
 import { PRODUCT_LIBRARIAN_EVALUATOR_VERSION, PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION, librarianMandatoryEvidenceSatisfied } from "./product-librarian-language.js";
 import { projectDecisionEventOccurrences } from "./product-event-candidates.js";
@@ -312,11 +312,19 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
       reasonCode: "librarian-provisional-visit",
       domain: "LIMITATION",
       sourceHash: candidate.candidateHash,
-      statementDe: "Das Angebot passt zu deinem Vorhaben. Offene Bedingungen bitte vor dem Besuch direkt klären.",
+      statementDe: "Für einen Teil deines Wunsches gibt es passende Angaben. Ob alle Bedingungen erfüllt sind, ist noch offen.",
       confirmed: false,
     });
   }
   const tastes = event ? [] : userTasteMatches(world, context, projection);
+  if (candidate.decisionProof.semanticFit === "NOT_REQUESTED") reasons.push({
+    reasonCode: "librarian-search-direction-missing", domain: "LIMITATION", sourceHash: candidate.candidateHash,
+    statementDe: "Ort und Rahmenbedingungen allein belegen noch kein passendes Erlebnis.", confirmed: false,
+  });
+  if (!experienceProven && !candidate.conditionalPlans.length) reasons.push({
+    reasonCode: "librarian-experience-not-proven", domain: "LIMITATION", sourceHash: candidate.candidateHash,
+    statementDe: "Für das gewünschte Erlebnis fehlt uns ein belastbarer Beleg.", confirmed: false,
+  });
   return DecisionProductCandidateAssessmentSchema.parse(withContentHash({
     ...(event?.matchedSpotId ? {relatedSpotId:event.matchedSpotId}:{}),
     contractVersion: PRODUCT_DECISION_VERSIONS.assessment, candidateId: candidate.spotId, snapshotHash: candidate.snapshotHash,
@@ -428,6 +436,8 @@ export function evaluateLibrarianProduct(input: {
       && !candidate.failedFactIds.length
       && candidate.facts.some(f => walkInIds.has(f.factId) && f.state === "UNKNOWN"));
   const limitations = [...new Set([...cohort.limitations,
+    ...(!meaning.facts.some(fact => fact.modality === "REQUIRED" && librarianSearchCriterion(fact))
+      ? ["LIBRARIAN_SEARCH_DIRECTION_MISSING"] : []),
     ...(result.conditionUnknownIds.length ? ["LIBRARIAN_WEATHER_CONDITION_OPEN"] : []),
     ...(separateTakeawayRoute ? ["MULTI_PLACE_SEARCH_UNSUPPORTED"] : []),
     ...(walkInEvidenceMissing ? ["LIBRARIAN_WALK_IN_EVIDENCE_MISSING"] : []),
