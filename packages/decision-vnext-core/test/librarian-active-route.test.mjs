@@ -107,6 +107,22 @@ test('typed UI participant age cannot silently disappear in the provider respons
  assert.equal(r.status,503);assert.equal(r.calls,1);assert.equal(r.reads,0);
 });
 
+test('adult-accompanied child context survives the librarian summary without inventing an adult age',async()=>{
+ const meaning=plan([
+  fact('purpose','experience.purpose','etwas unternehmen','CONTEXT'),
+  fact('children','condition.children','children_activity'),
+  fact('age','people.age',{amount:4,operator:'EQ',unit:'YEARS'},'CONTEXT',[]),
+  fact('companion','people.relationship','adult_accompanied','CONTEXT',[]),
+  fact('inside','offer.area','indoor','PREFERRED'),
+ ]);
+ const r=await exercise({text:'Morgen Abend mit meiner 4 jährigen Tochter was unternehmen, am liebsten drinnen',meaning,catalog:[]});
+ assert.equal(r.status,200,JSON.stringify(r.diagnostics));
+ assert.equal(r.body.interpretation.group.minimumAge,4);
+ assert.equal(r.body.interpretation.group.adultPresent,true);
+ assert.equal(r.body.interpretation.group.companionType,'FAMILY');
+ assert.equal(r.body.interpretation.group.size,null);
+});
+
 test('a typed location filter does not apply today closure to tomorrow meaning',async()=>{
  const closed=worldFact('state.current',{kind:'CLOSED',scope:'VENUE'},{validityVerified:true,validFrom:'2026-10-14T07:00:00Z',validUntil:'2026-10-14T12:00:00Z'});
  const r=await exercise({text:'Morgen essen in Basel',meaning:plan([meal(),date()]),catalog:[binding(1,profile(),[closed])],explicit:{targetCity:'Basel',hardConstraints:['TARGET_LOCATION']}});

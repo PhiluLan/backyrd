@@ -302,6 +302,7 @@ export function wohinFollowUp(response: Pick<DecisionProductResponse, "limitatio
       message: "Für den gewünschten Ort sind noch keine Spots oder Veranstaltungen erfasst. Wenn du örtlich flexibel bist, kannst du einen anderen Ort suchen.",
       actionLabel: "Ort ändern",
       explainedLimitation: "NO_CATALOG_CANDIDATES",
+      isAlert: false,
     };
   }
   if (limitations.includes("MULTI_PLACE_SEARCH_UNSUPPORTED")) {
@@ -309,6 +310,7 @@ export function wohinFollowUp(response: Pick<DecisionProductResponse, "limitatio
       message: "Wir können diese Schritte noch nicht als gemeinsamen Ausflug suchen. Mit welchem möchtest du anfangen?",
       actionLabel: "Ersten Schritt eingeben",
       explainedLimitation: "MULTI_PLACE_SEARCH_UNSUPPORTED",
+      isAlert: false,
     };
   }
   if (limitations.includes("REQUEST_NEEDS_CLARIFICATION") || limitations.includes("CORE_INTENT_REQUIRES_CLARIFICATION")) {
@@ -319,22 +321,32 @@ export function wohinFollowUp(response: Pick<DecisionProductResponse, "limitatio
         : "Was möchtest du am liebsten machen? Ein kurzer Zusatz zu deinem Wunsch genügt.",
       actionLabel: "Wunsch ergänzen",
       explainedLimitation: needsBudget ? "REQUEST_NEEDS_CLARIFICATION" : "CORE_INTENT_REQUIRES_CLARIFICATION",
+      isAlert: false,
     };
   }
   const unsupported = limitations.includes("REQUEST_REQUIREMENT_UNSUPPORTED");
   const unverified = response.candidates.some((candidate) => !candidate.contextualReject
     && candidate.failedHardConstraints.length === 0 && candidate.unknownHardConstraints.length > 0);
   if (unsupported || unverified) {
+    const possible = response.candidates.filter(candidate => !candidate.contextualReject
+      && candidate.failedHardConstraints.length === 0);
+    const count = possible.length;
+    const subject = count === 1 ? "einen möglichen Ort" : `${count} mögliche Orte`;
+    const reference = count === 1 ? "ihn" : "sie";
     return {
-      message: "Ich bin bei deinem Wunsch noch unsicher. Beschreibe kurz, was du erleben möchtest – zum Beispiel gemütlich etwas trinken oder mit deinem Kind etwas unternehmen.",
+      message: count > 0
+        ? `Ich habe ${subject} geprüft. Bei ${count === 1 ? "diesem Ort sind" : "diesen Orten sind"} noch nicht alle wichtigen Angaben für deinen Plan bestätigt. Deshalb zeige ich ${reference} nicht als verlässliche Empfehlung.`
+        : "Einen Teil deines Wunsches können wir mit den vorhandenen Ortsangaben noch nicht zuverlässig prüfen. Das liegt an fehlenden Nachweisen, nicht an deiner Formulierung.",
       actionLabel: "Suchwunsch bearbeiten",
       explainedLimitation: unsupported ? "REQUEST_REQUIREMENT_UNSUPPORTED" : null,
+      isAlert: true,
     };
   }
   return {
     message: "Für deinen Plan haben wir gerade keinen passenden Ort gefunden. Ginge für dich auch ein anderer Ort oder eine andere Zeit?",
     actionLabel: "Suche anpassen",
     explainedLimitation: null,
+    isAlert: false,
   };
 }
 
