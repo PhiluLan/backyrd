@@ -1,5 +1,6 @@
 import { baselSearchAnchor, librarianCityIdentifier, librarianDiscoveryLocalities } from "./product-librarian-geography.js";
 import { requiredRequestIssue, librarianSearchCriterion } from "./product-librarian-plan.js";
+import { librarianCompanionContext } from "./product-librarian-eligibility.js";
 import { decodeWorldQueryConstraint } from "./product-query-semantics.js";
 import { PRODUCT_LIBRARIAN_EVALUATOR_VERSION, PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION, librarianMandatoryEvidenceSatisfied } from "./product-librarian-language.js";
 import { projectDecisionEventOccurrences } from "./product-event-candidates.js";
@@ -49,12 +50,11 @@ function contextFor(request: DecisionProductRequest, meaning: LibrarianRequest, 
   const phases = [...new Set(active.flatMap(f => f.value.kind === "DAY_PHASE" ? [f.value.phase] : []))];
   const counts = active.flatMap(f => f.key === "people.count" && f.value.kind === "COUNT" && f.value.operator === "EQ" ? [f.value.amount] : []);
   const ages = active.flatMap(f => f.key === "people.age" && f.value.kind === "AGE" && f.value.operator === "EQ" ? [f.value.amount] : []);
-  const relationships = active.flatMap(f => f.key === "people.relationship" && f.value.kind === "TEXT"
-    ? [librarianConcept(f.value.text) ?? f.value.text.trim().toLowerCase()] : []);
-  const adultAccompanied = relationships.includes("adult_accompanied");
+  const companions = librarianCompanionContext(meaning, active);
+  const adultAccompanied = companions.adultAccompaniment;
   const childActivity = active.some(f => f.key === "condition.children" && f.value.kind === "TEXT"
     && librarianConcept(f.value.text) === "children_activity");
-  const familyContext = adultAccompanied && (ages.some(age => age < 18) || childActivity);
+  const familyContext = companions.familyCompanionship && (companions.hasMinorChild || childActivity);
   const amounts = active.flatMap(f => ["budget.maximum", "budget.amount", "budget.target"].includes(f.key) && f.value.kind === "MONEY" && f.value.currency === "CHF" && Number.isInteger(f.value.amount) ? [f.value.amount] : []);
   const moods = meaning.facts.flatMap(f => f.key === "atmosphere.character" && f.value.kind === "TEXT" && f.modality !== "EXCLUDED" ? [librarianConcept(f.value.text)].filter((v): v is string => v !== null) : []);
   return deepFreeze(DecisionProductContextSchema.parse(withContentHash({
@@ -300,12 +300,14 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     && f.reason === "REQUIRED_FACTS_HAVE_NO_COMMON_SCOPED_WITNESS");
   const hasUnresolvedRequiredPlace = hard.some(f => f.family.startsWith("location.")
     && f.state !== "MET" && requiredInEveryAlternative(meaning.logic, meaning, fact => fact.id === f.factId));
+  const hasUnprovenRequiredArea = hard.some(f => ["offer.area", "offer.weather_suitability", "condition.weather_protection"].includes(f.family)
+    && f.state !== "MET" && requiredInEveryAlternative(meaning.logic, meaning, fact => fact.id === f.factId));
   const hasUnprovenRequiredCoreDetail = hard.some(f => ["experience.theme","food.cuisine"].includes(f.family) && f.modality === "REQUIRED"
     && f.state !== "MET" && requiredInEveryAlternative(meaning.logic, meaning, fact => fact.id === f.factId));
   // An evidenced experience can be shown as a provisional option when a
   // condition remains open. It cannot become a confirmed recommendation.
   if (candidate.status !== "INELIGIBLE" && !candidate.conditionalPlans.length
-      && experienceProven && !failed.length && !hasUnresolvedMandatoryScope && !hasUnresolvedRequiredPlace
+      && experienceProven && !failed.length && !hasUnresolvedMandatoryScope && !hasUnresolvedRequiredPlace && !hasUnprovenRequiredArea
       && !hasUnprovenRequiredCoreDetail
       && availability !== "closed" && (!hasVisitEvidence || unknown.length)) {
     reasons.push({
