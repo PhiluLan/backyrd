@@ -782,6 +782,46 @@
       },
       "note": "Published the exact certified Main artifact for the general search-purpose correction. Decision v289 and Admin diagnostic v85 are ACTIVE with JWT verification; independent live function listing matches the immutable deployment audit. No unrelated function was changed, added or removed. Both anonymous HTTP probes are denied. No SQL/Auth change or Mobile OTA was deployed; existing app clients receive the server correction. Source-aware Product tests and the synthetic App browser journey passed; a real authenticated model request and physical-iPhone acceptance are not claimed. Global shipped SQL baseline and four deferred Booking migrations remain unchanged."
     },
+    "decisionScopedFamilyBudgetRelease": {
+      "status": "LIVE_AND_VERIFIED",
+      "sourceSha": "78566cafb678654c59b256aa5efd88f3604e9f4e",
+      "certificationRunId": 45124380084,
+      "mainRiskGateRunId": 45124361243,
+      "deploymentRunId": 45125257076,
+      "manifestHash": "3ebdd94d1f7b79c55be20c36ab5496a6c93e145540ce7dfdd56f87ce9b8772d5",
+      "planHash": "f8f19dbcf177ba9faef9ba91737e1058ec19cd338de7d7529348538137fad3aa",
+      "auditHash": "38916f10cabf2fa39ffe0cda6c8089183539b2fd528cef3a88bc4d4b9d7f9124",
+      "verifiedAt": "2026-11-23T06:38:14.097Z",
+      "functions": [
+        {
+          "slug": "decision-admin-diagnostic",
+          "version": 86,
+          "verifyJwt": true,
+          "bundleHash": "01235bac73c1e942ccb5bcfa36d17e80514e8195021caf4e468854598f88f1bc",
+          "sourceSetHash": "53f91be72e92d992fd3890fe0f6d3d33ee3287afae08d2b2dc94593cb639e875"
+        },
+        {
+          "slug": "decision-v13",
+          "version": 290,
+          "verifyJwt": true,
+          "bundleHash": "cf3ccb1509484a40b7e77593b9906c2fbc81505b02c64780310b50d215cca52f",
+          "sourceSetHash": "0dfad735d39b3fec4ca3c0ba4d0e642b88f22090ed13312a9ea91c81cd5601f2"
+        }
+      ],
+      "verification": {
+        "deploymentAuditResult": "PASS",
+        "onlyBoundFunctionsChanged": true,
+        "bothFunctionsActive": true,
+        "anonymousDecisionHttpStatus": 401,
+        "anonymousDiagnosticHttpStatus": 401,
+        "appliedMigrationCount": 0,
+        "authDeployed": false,
+        "mobileOtaPublished": false,
+        "liveAuthenticatedModelRequestVerified": false,
+        "physicalIphoneAcceptanceVerified": false
+      },
+      "note": "Founder-authorized publication of PR 800: bind indoor conditions and family suitability to the actual activity; bind hard budgets to the requested food tariff, complete price range and included mandatory fees. Exact-Main Risk Gate and manual PRODUCT certification passed; published the same immutable artifact. Independent live function listing matches both deployment bundles and confirms only these two functions changed, with no additions or removals. Anonymous HTTP probes return 401. Three pre-release real NukNuk requests with fresh canonical catalog snapshots validated the corrected core without Production Decision or learning writes; an authenticated Production inference and physical-iPhone acceptance are not claimed. Family ranking and more precise explanation copy remain follow-up work. No SQL, Auth or mobile OTA was deployed; existing clients receive the server correction. Preserve the global SQL baseline, prior release receipts and four deferred Booking migrations."
+    },
     "adminFeedbackInboxRelease": {
       "status": "APPLIED_AND_VERIFIED",
       "migration": {
