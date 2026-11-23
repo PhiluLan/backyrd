@@ -5,8 +5,8 @@ import {validateProductTrainingRows} from './nuknuk-product-training.mjs';
 
 test('current Product targets pass the installed compact and atomic-dialogue boundaries',()=>{
  const inventory=validateProductTrainingRows(productTrainingCases());
- assert.deepEqual(inventory.counts,{TRAIN:112,VALIDATION:16,TEST:16});
- assert.equal(inventory.scenarioGroups.TRAIN,17);
+ assert.deepEqual(inventory.counts,{TRAIN:113,VALIDATION:15,TEST:16});
+ assert.equal(inventory.scenarioGroups.TRAIN,18);
 });
 test('related family cannot leak across train and evaluation',()=>{
  const rows=productTrainingCases();rows.find(r=>r.split==='TRAIN').split='VALIDATION';
@@ -30,4 +30,11 @@ test('an atomic dialogue edit needs a literal source quotation',()=>{
 test('unknown task cannot enter the current profile by omission',()=>{
  const rows=productTrainingCases();rows[0].task='RETIRED_TASK';
  assert.throws(()=>validateProductTrainingRows(rows),/task_invalid/);
+});
+
+test('founder case-14 paraphrase is retention and cannot become fresh evaluation',()=>{
+ const rows=productTrainingCases();
+ const row=rows.find(r=>r.scenarioGroup==='known-14-dish-alternative');
+ assert.equal(row.split,'TRAIN');row.split='VALIDATION';
+ assert.throws(()=>validateProductTrainingRows(rows),/known_case_in_evaluation/);
 });

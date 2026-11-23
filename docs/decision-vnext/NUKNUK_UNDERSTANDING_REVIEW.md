@@ -212,3 +212,37 @@ Single-Route, Release-Verträgen und App-Browsertest war grün. Nach der letzten
 lokalen Budgetänderung wurden die gezielten Quell-/Vertragstests wiederholt;
 die Pflicht-CI prüft den finalen PR-Stand. Veröffentlichung und Modelltraining
 sind separate Schritte, nicht Bestandteil dieses Entwicklungsnachweises.
+
+### Ausgangsvergleich vor dem gezielten Product-Training
+
+Auf dem unveränderten Live-Adapter wurden weitere 16 synthetische
+Entwicklungsanfragen über den Product-Provider und denselben eingefrorenen
+Katalog ausgeführt. Alle 16 beendeten die technische Kette; das ist keine
+semantische Erfolgsquote. Der Pizza-/Pasta-Fall gehört zur bekannten Founder-
+Familie 14 und wird nach Splitkontrolle ausdrücklich nur als Regression
+aufbewahrt. Die frische Validierung umfasst damit 15 Fälle. TEST bleibt vor
+Checkpoint-Auswahl unangetastet. Keine Production-/Learning-Writes.
+
+Die Assistenzsichtung findet unter anderem: Bei insgesamt höchstens 35 Minuten
+wurde eine unbelegte Enduhrzeit statt der verfügbaren Dauer ausgegeben;
+«zusammen höchstens CHF 65» verlor den GROUP_TOTAL-Bezug; Pizza oder Pasta wurde
+zu zwei Pflichten; ein Spielautomatenverbot erhielt den unbelegten Ausdruck
+SPELLOTER; englisch «uncle» wurde Vater und «tomorrow» ging verloren. In einem
+Dialog mit Pizza statt Pasta wurde zusätzlich ein ungenanntes Mittagessen
+eingeschränkt. Tante und Keramikkurs wurden nur teilweise strukturiert erhalten.
+Dagegen blieben unter anderem die alkoholfreie Teilgruppe, die optionale
+Reservation, das explizite Essensdatum, die Reihenfolge Museum vor Essen sowie
+die belegte Verkürzung einer Dauer und Aufhebung einer Gemütlichkeitspräferenz
+erhalten. Diese Beobachtungen sind Ausgangsevidenz, kein Trainingsergebnis und
+kein unabhängiger Goldstandard. Änderungen an Training oder Checkpoint-Auswahl
+dürfen VALIDATION nutzen, aber keine spätere unabhängige Erfolgsquote daraus
+behaupten. Neue Testziele werden nicht nach Modellantworten angepasst.
+
+Die bestehenden historischen Vokabular-Akzeptanztests melden bereits auf dem
+Main-Ausgangspunkt unterschiedliche Hashes: REVIEW_VOCABULARY_HASH
+`0cbeb88174184705819afe54b19f736f6156c198582ec0512ef8445528155199`
+gegen den aktuellen Vertrag
+`04227b2791985da6b6375ec74c263bda55aabdfc27752f862d55d6b126d372d3`.
+Diese eingefrorene alte Freigabe wird nicht neu etikettiert oder für den
+Product-Trainingsbestand verwendet. Die neuen Ziele werden separat gegen
+das aktuelle Vokabular geprüft und mit dessen Hash assistenzgesichtet.

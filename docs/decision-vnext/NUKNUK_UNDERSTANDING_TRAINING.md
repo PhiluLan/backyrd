@@ -21,14 +21,20 @@ Er verwendet die kanonischen Aufträge `COMPACT_SEARCH_V7` und
 Der 27B-V7-Vieraufgabenbestand und seine historischen Rezepte werden unverändert
 erhalten; sie sind kein Ersatz für den aktuellen Product-Auftrag.
 
-144 neue synthetische, beauftragte Assistenzziele: 112 TRAIN in 17 Familien,
-16 VALIDATION und 16 TEST in jeweils eigenen Szenariofamilien. 88 Trainingsfälle
-adressieren die elf bekannten Schwächen, 24 behalten einfache Suchzwecke bei.
+144 neue synthetische, beauftragte Assistenzziele: 113 TRAIN in 18 Familien,
+15 VALIDATION und 16 TEST in jeweils eigenen Szenariofamilien. 88 Trainingsfälle
+adressieren die elf bekannten Schwächen, 24 behalten einfache Suchzwecke bei, ein weiterer erhält die bekannte
+Pizza-/Pasta-Alternative aus Founder-Fall 14. Der erste 16er-Entwicklungsdurchlauf
+enthält diesen bereits bekannten Fall; er wird aus der frischen Validierung
+ausgeschlossen und nur als bekannte Regression aufbewahrt.
 Verwandte Varianten bleiben vollständig im selben Split. Neue Prüffälle enthalten
 auch unbekannte Kombinationen sowie explizite Dialogänderungen und Aufhebungen.
 Die bekannten 20 Beispiele und ihre Varianten sind kein Blindtest. Die neuen
 Prüfaufgaben sind ebenfalls kein unabhängiger menschlicher Goldstandard; Herkunft
 und Assistenzsichtung werden ausdrücklich als solche ausgewiesen.
+
+Die folgenden historischen Werkstattabschnitte bleiben als damaliger Stand
+erhalten; dieser Abschnitt beschreibt den aktiven Product-Trainingsauftrag.
 
 Der Live-Parent ist Qwen3.6-35B-A3B mit dem vorhandenen rank-16-Adapter `round-3`,
 nicht der historische 27B-/rank-8-Ansatz. Gepinnte Basisrevisionen:

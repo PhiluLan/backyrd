@@ -131,7 +131,7 @@ export async function exportProductGpuBundle(args){
  const data=resolve(dataArg),hf=resolve(hfArg),tokenizer=resolve(tokenizerArg),out=resolve(outArg);
  const manifestBytes=await readFile(resolve(data,'manifest.json')),manifest=JSON.parse(manifestBytes);
  const preflight=JSON.parse(await readFile(resolve(data,'preflight.json'))),parentProof=JSON.parse(await readFile(resolve(data,'parent-verification.json')));
- if(manifest.version!=='backyrd.nuknuk-product-training-manifest@1'||manifest.vocabularyHash!==NUKNUK_TRAINING_VOCABULARY_HASH||manifest.caseCount!==144||manifest.counts.TRAIN!==112
+ if(manifest.version!=='backyrd.nuknuk-product-training-manifest@1'||manifest.vocabularyHash!==NUKNUK_TRAINING_VOCABULARY_HASH||manifest.caseCount!==144||manifest.counts.TRAIN!==113
   ||preflight.datasetManifestFileSha256!==sha(manifestBytes)||preflight.caseCount!==144||preflight.maxTotalTokens>4608
   ||preflight.cases.some(r=>!r.grammarAccepted||!r.completionOnlyMaskVerified||!r.prefixTokenIdsSha256)
   ||parentProof.result!=='PASS'||parentProof.manifestSha256!==sha(manifestBytes)||!parentProof.exactTransposeEquality)throw Error('product_gpu_preflight_not_bound');
@@ -151,7 +151,7 @@ export async function exportProductGpuBundle(args){
  const inputs=JSON.parse(await readFile(resolve(data,'evaluation-inputs.json')));
  if(sha(await readFile(resolve(data,'evaluation-inputs.json')))!==manifest.files['evaluation-inputs.json'].sha256)throw Error('product_gpu_evaluation_changed');
  const dev=inputs.cases.filter(r=>r.split==='VALIDATION').map(({expected,...row})=>row);
- if(dev.length!==16)throw Error('product_gpu_development_count_changed');
+ if(dev.length!==15)throw Error('product_gpu_development_count_changed');
  payload.set('development-requests.json',Buffer.from(JSON.stringify({cases:dev},null,2)+'\n'));
  payload.set('native-prefixes.json',Buffer.from(JSON.stringify(preflight.cases.filter(r=>r.split!=='TEST').map(r=>({id:r.id,split:r.split,prefixTokenIdsSha256:r.prefixTokenIdsSha256})),null,2)+'\n'));
  // Continuation only. No fresh adapter, rank change, test upload or live service mutation.
@@ -209,8 +209,8 @@ activation_checkpointing:
     all: cpu
 attn_implementation: sdpa
 logging_steps: 1
-eval_steps: 28
-save_steps: 28
+eval_steps: 29
+save_steps: 29
 save_only_model: true
 save_safetensors: true
 use_wandb: false
@@ -220,7 +220,7 @@ dataset_processes: 4
  const gpuManifest={version:'backyrd.nuknuk-product-gpu-bundle@1',profile:'PRODUCT_SEARCH_V7_CONTINUATION_V1',
   datasetHash:manifest.datasetHash,sourceManifestSha256:sha(manifestBytes),parent:manifest.parent,
   image:'axolotlai/axolotl-cloud-uv@sha256:5a989be77ecfc9ef6f4e578d0addec4e6a6fb882b64abe0b84613666c58afe61',
-  recipe:{rank:16,alpha:32,epochs:2,learningRate:0.000006,seed:42,trainingRows:112,validationRows:16,maxTotalTokens:4608,maxTrainingSeconds:1800,
+  recipe:{rank:16,alpha:32,epochs:2,learningRate:0.000006,seed:42,trainingRows:113,validationRows:15,maxTotalTokens:4608,maxTrainingSeconds:1800,
    initialization:'EXACT_CURRENT_ADAPTER_CONTINUATION',testUploaded:false,activationAuthorized:false},
   files:Object.fromEntries([...payload].map(([name,bytes])=>[name,{sha256:sha(bytes),bytes:bytes.length}])),
   budgetCeilingUsd:4,hourlyUpperBoundUsd:3.7,closingReserveUsd:1,resourceCreationAuthorizedByBundle:false,providerStopRequired:true};

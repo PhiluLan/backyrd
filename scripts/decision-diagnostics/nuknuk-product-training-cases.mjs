@@ -138,7 +138,13 @@ export function productTrainingCases(){
    ['no-price-invention','Etwas essen, nicht zwingend günstig.',[R('food.meal','meal'),F('budget.qualitative','günstig','NOT_REQUIRED',['a1'])]],
    ['english-companion','Have a coffee tomorrow with my uncle.',[R('food.drink','coffee'),tomorrow,C('people.relationship','Onkel',['p1'])],{entities:[A,E('p1','PERSON','Onkel')]}],
   ];
-  for(const [group,query,facts,extra] of specs)add(`${prefix}-${group}`,query,facts,{...extra,split,review:'Neue zusammengesetzte Prüffamilie. Kein Spotwissen und keine Modellantwort als Soll-Ziel.'});
+  for(const [group,query,facts,extra] of specs){
+   // This wording is a known November-23 family (founder case 14). Preserve it
+   // as training retention, never as fresh development or holdout evidence.
+   const known=group==='two-dishes';
+   add(known?'known-14-dish-alternative':`${prefix}-${group}`,query,facts,{...extra,split:known?'TRAIN':split,
+    review:known?'Bekannte Familie 14: Pizza/Pasta-Alternative mit Kaffee. Nur Retention, kein neuer Prüfbeleg.':'Neue zusammengesetzte Prüffamilie. Kein Spotwissen und keine Modellantwort als Soll-Ziel.'});
+  }
   const dialogues=test?[
    ['two-offer-budget','Bowling und danach essen. Fürs Bowling höchstens 28 Franken pro Person.',[
     R('experience.activity','bowling'),R('food.meal','meal',['a2']),R('budget.maximum',{amount:28,operator:'LTE',currency:'CHF'}),C('budget.scope',{scope:'PER_PERSON'})],

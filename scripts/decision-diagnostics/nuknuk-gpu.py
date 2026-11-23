@@ -928,7 +928,7 @@ def prepare_product_native(folder):
     tokenizer=AutoTokenizer.from_pretrained(folder/'tokenizer',local_files_only=True,trust_remote_code=False)
     rows=json.loads((folder/'native-prefixes.json').read_text())
     report=[]
-    for split,name,count in [('TRAIN','train',112),('VALIDATION','valid',16)]:
+    for split,name,count in [('TRAIN','train',113),('VALIDATION','valid',15)]:
         source=[json.loads(line) for line in (folder/(name+'.jsonl')).read_text().splitlines()]
         bindings=[row for row in rows if row['split']==split]
         if len(source)!=count or len(bindings)!=count:
@@ -982,7 +982,7 @@ def product_evaluate(args):
     base=product_base(folder)
     tokenizer=AutoTokenizer.from_pretrained(folder/'tokenizer',local_files_only=True,trust_remote_code=False)
     requests=json.loads((folder/'development-requests.json').read_text())['cases']
-    if len(requests)!=16 or any(r['split']!='VALIDATION' or 'expected' in r or [m['role'] for m in r['messages']]!=['system','user'] for r in requests):
+    if len(requests)!=15 or any(r['split']!='VALIDATION' or 'expected' in r or [m['role'] for m in r['messages']]!=['system','user'] for r in requests):
         raise ValueError('product_eval_target_free_requests_required')
     torch.cuda.set_per_process_memory_fraction(.92,0)
     model=AutoModelForImageTextToText.from_pretrained(base,local_files_only=True,trust_remote_code=False,use_safetensors=True,
@@ -1012,7 +1012,7 @@ def product_train(args):
     if args.output.exists() or manifest['recipe']['maxTrainingSeconds']!=1800 or manifest['recipe']['epochs']!=2:
         raise ValueError('product_train_recipe_or_output_invalid')
     parent_evaluation=json.loads((folder.parent/'parent-development/result.json').read_text())
-    if (parent_evaluation.get('datasetHash')!=manifest['datasetHash'] or parent_evaluation.get('caseCount')!=16
+    if (parent_evaluation.get('datasetHash')!=manifest['datasetHash'] or parent_evaluation.get('caseCount')!=15
         or parent_evaluation.get('adapterSha256')!=manifest['parent']['hfAdapterSha256']):
         raise ValueError('product_train_parent_evaluation_required')
     cards=subprocess.check_output(['nvidia-smi','--query-gpu=memory.total','--format=csv,noheader,nounits'],text=True,timeout=10).strip().splitlines()
@@ -1033,7 +1033,7 @@ def product_train(args):
         raise ValueError('product_train_adapter_missing')
     write_json(args.output/'result.json',{'status':'TRAINED_REQUIRES_COMPARISON','datasetHash':manifest['datasetHash'],
         'parentAdapterSha256':manifest['parent']['hfAdapterSha256'],'adapterSha256':file_sha(adapter/'adapter_model.safetensors'),
-        'model':manifest['parent']['trainingBase'],'trainingRows':112,'epochs':2,'testCalled':False,'productionActivation':False,
+        'model':manifest['parent']['trainingBase'],'trainingRows':113,'epochs':2,'testCalled':False,'productionActivation':False,
         'providerBillingStopped':False})
 
 
