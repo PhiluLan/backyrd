@@ -1,5 +1,105 @@
 # Erste Lernbeispiele für NukNuk: fachliche Prüfung
 
+## Mac-Prüfung und einmaliger 16er-TEST vom 23. November 2026: keine Aktivierung
+
+Der Founder gab das lokale Wartungsfenster ausdrücklich frei. Der Kandidat wurde
+verlustfrei ins vorhandene MLX-Format übertragen: alle 40 Projektionen/80
+Tensoren, endliche F32-Werte, exakte Transposition und dieselbe Skalierung 2.
+Der kanonische Verifikator prüfte die separate Kandidatenbindung; die
+ursprünglichen Daten- und Parent-Manifeste wurden nicht verändert.
+
+Vor dem ersten TEST-Aufruf wurden der ausgewählte HF-/MLX-Kandidat,
+Vergleichsadapter, alle Eingaben, Soll-Ziele und Clientbytes gebunden. Genau
+16 TEST-Aufrufe je Adapter, ohne Wiederholungen und ohne spätere Anpassung des
+Kandidaten. Zusätzlich liefen dieselben 15 Entwicklungsfälle und sechs bekannte
+TRAIN-Retentionskontrollen. Die sechs Kontrollen verwenden die volle eingefrorene
+Anweisung und sind keine Abnahme des Fast-Route-Routings.
+
+Laufzeit: vorhandener M4 Pro, 48 GB, MLX 0.32.3, mlx-vlm 0.7.8,
+llguidance 1.9.1, tokenizers 0.23.3; kein mlx-lm installiert oder benötigt.
+Beide Adapter verwendeten dieselbe bereits gepinnte komprimierte Mac-Basis,
+Prompts, Schemas, Referenzzeit und den lokalen Katalog (438 Spots/26 Events).
+Die Antworten liefen durch kanonische Validierung, zitatgebundenen Dialog-Merge,
+Bibliothekar und Product-Ausführung, mit synthetischem Actor und ohne
+Produktionsdaten-Writes. Technisch ausführbar: je 37/37, darunter je 16/16 TEST.
+Das bedeutet weder vollständiges Verständnis noch belegte passende Angebote.
+
+Assistenzsichtung der eingefrorenen Aufgaben, keine unabhängige menschliche
+Gold-Abnahme:
+
+| Aufgaben | Bisheriger Mac-Adapter: vollständig / teilweise / Fehler | Kandidat: vollständig / teilweise / Fehler |
+| --- | --- | --- |
+| 15 Entwicklung | 7 / 4 / 4 | 10 / 2 / 3 |
+| 16 TEST | 14 / 1 / 1 | 14 / 1 / 1 |
+| 6 bekannte TRAIN-Kontrollen | 5 / 1 / 0 | 6 / 0 / 0 |
+
+**Keine Freigabe des Kandidaten:** Die gleiche TEST-Gesamtzahl verdeckt eine
+neue wesentliche Verschlechterung. „Zu viert essen, zwei von uns brauchen vegane
+Optionen“ behält beim Parent die Teilgruppe zwei. Der Kandidat verliert diese
+Zahl und hängt vegan an die gesamte Essensaktivität. Damit ist die vorab
+festgelegte Bedingung „keine neue wesentliche Regression“ verletzt.
+Gleichzeitig verbessert er den Ausstellungsbesuch mit Vater: Der falsche harte
+Fakt `people.participation=Vater` entfällt, die Beziehung bleibt. In diesem Fall
+wird im lokalen Katalog eine belegte Primärempfehlung möglich. Insgesamt haben
+9/16 Parent- und 10/16 Kandidatenfälle eine Primärempfehlung; das ist keine
+allgemeine Erfolgsquote und überstimmt die Regression nicht.
+
+Weitere Befunde:
+
+- Entwicklung: 35 verfügbare Minuten statt erfundener Uhrzeit, Erhalt der Tante,
+  Aufheben der Günstigkeitspräferenz und die Draussen-Retention verbessern sich.
+- `uncle` wird auf dem Mac weiterhin zu Vater, obwohl der HF-GPU-Kandidat hier
+  eine passende Beziehung lieferte. Die GPU-Ergebnisse sind keine Mac-Abnahme.
+- Gruppenbudget und verfügbare Gesamtdauer nach einer Dialogänderung bleiben
+  unvollständig. Keramik erhält nicht eindeutig den gefragten Kurscharakter.
+- Die 18-Minuten-Teepause erhält bei beiden `AVAILABLE_TOTAL`, aber nur
+  `includes: TRAVEL`; diese zusätzliche Beschränkung ist nicht eindeutig durch
+  die Teepause belegt. Deshalb bei beiden nur teilweise erfüllt.
+- Die separate Begriffsprobe ergibt für `movies`, `Kino`, `SPA`,
+  `Spielautomaten`, `Keramik` und `Keramikkurs` derzeit kein kanonisches Konzept;
+  `cinema` wird erkannt. Das sind zusätzliche Normalisierungs-/Matchinglücken.
+  Präzisierung zum früheren GPU-Bericht: `offer.kind` allein beweist keinen
+  falschen Ausschlussumfang. Der Kandidat erhält „Spielautomaten“ wörtlich;
+  das System kann diesen Ausschluss trotzdem nicht belastbar auswerten.
+- Beim Geschenk-Museumsfall ist die Geschenk-/Empfängerrolle bereits im
+  eingefrorenen Soll unterrepräsentiert. Dessen PASS belegt Museumswunsch,
+  Mutter und Alter, keine vollständige Empfängerrollen-Abnahme.
+- Die Dialogfälle verwenden identisches vorgegebenes Vorwissen. Vollständiges
+  Live-Dialogrouting und eine physische iPhone-Abnahme werden nicht behauptet.
+
+Die mediane reine lokale Generierungsdauer lag bei 6'036 ms für den Parent und
+6'520 ms für den Kandidaten; kleine sequenzielle Stichprobe mit nicht kontrolliertem
+Warm-/Kaltcache, kein belastbarer Leistungsbenchmark. Peak des eigenen
+Modell-Footprints: rund 21.92 GiB, stets normaler Speicherdruck, kein Swap-Zuwachs.
+Die Kandidatenbeendigung im Ressourcenbeleg ist der absichtliche Stopp nach den
+37 gesicherten Antworten für die Wiederherstellung, kein Speicherabbruch.
+
+Das Wartungsfenster dauerte rund viereinhalb Minuten. Der Testserver war nur
+auf 127.0.0.1:8089 erreichbar; der Live-Endpunkt erhielt keine Kandidatengewichte.
+Eine unabhängige Lifeline stellte den byte-identischen bisherigen LaunchAgent
+und Parent wieder her. Anschliessende authentifizierte synthetische Probe über
+den bestehenden öffentlichen NukNuk-Endpunkt: HTTP 200, bisheriger Modellalias,
+Kaffee korrekt verstanden. Eine erste Probe mit 512 statt der vom Gateway
+vorgeschriebenen 2'048 Ausgabetoken wurde mit HTTP 400 abgewiesen; die korrigierte
+Kontrollprobe ist keine TEST-Wiederholung. Keine Cloud-Ressource gestartet,
+keine neuen Cloud-Kosten, keine Gewichte veröffentlicht.
+
+Gebundene lokale Belege unter
+`.local/operations/nuknuk-product-training-20261123/mac-validation/`:
+
+- HF-Kandidat: `9fa4124fed1c2d3dea1b77a7514aba52e65711b7522f9f889036c07f951363a6`.
+- MLX-Kandidat: `8958cf6407e3933d7f150225efaabcd2ea80eb1aa406c793701510ee27968e12`.
+- Freeze: `85f252b5e6933670b2eabef5abdf826b33b41f5c92e6dfd84ba7b8bf80dfd272`.
+- Vollständige Assistenzsichtung: `27b65f7976688df44571c99a2eda7593c0608e09a084c6b0c2339ada1fe8330c`.
+- Artefaktmanifest: `1064c225c326aed411354b9d7e453b9d65df8ef28ffea1446f54deb810865efb`.
+
+Der GPU-Vorschlag ist durch diese native Prüfung als Aktivierungskandidat
+abgelehnt. Eine nächste Runde muss Teilgruppen und Beziehungserhalt gezielt
+verbessern und Modellfehler von Begriffs-/Wissenslücken trennen. Diese 16
+beobachteten TEST-Familien sind künftig bekannte Regressionen, kein erneuter
+Blindtest; für weitere Auswahl/Training ist ein neuer unberührter Holdout nötig.
+
+
 ## Product-Training vom 23. November 2026: gesicherter Entwicklungskandidat
 
 Der gezielte Lauf auf dem bestehenden 35B-/rank-16-Parent ist abgeschlossen:

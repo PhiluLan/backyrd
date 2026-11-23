@@ -7,9 +7,16 @@ gezielte Trainingsrunde und den anschliessenden Vergleich. Die Softwarekorrektur
 aus PR 802 ist bereits separat veröffentlicht; Modelltraining und eine spätere
 Aktivierung neuer Gewichte bleiben davon getrennt.
 
-Der Lauf ist abgeschlossen; der gesicherte Entwicklungskandidat und die noch offenen
-Abnahmebedingungen sind in `NUKNUK_UNDERSTANDING_REVIEW.md` unter „Product-Training
-vom 23. November 2026“ dokumentiert. Das bisherige Live-Modell bleibt aktiv.
+Der Lauf und die native Mac-Auswertung einschliesslich der 16 TEST-Fälle sind
+abgeschlossen. Der Kandidat wird wegen einer neuen Teilgruppen-Regression nicht
+aktiviert. Belege und verbleibende Mängel stehen in `NUKNUK_UNDERSTANDING_REVIEW.md`
+unter „Mac-Prüfung und einmaliger 16er-TEST“. Das bisherige Live-Modell ist wieder aktiv.
+
+Für später vorgemerkt (Founder, 23. November): Einen begrenzten lokalen
+Trainings-Probelauf auf dem M4 Pro mit 48 GB prüfen, bevor weitere Cloud-Runden
+geplant werden. Speicherbedarf, Laufzeit und die Verfügbarkeit des lokalen
+Live-Dienstes müssen gemessen werden. Der aktuelle Mac-Auftrag umfasst nur
+Kandidateninferenz und Testauswertung, kein lokales Training.
 
 Der aktuelle Export ist eine Erweiterung der bestehenden Trainingswerkzeuge:
 
