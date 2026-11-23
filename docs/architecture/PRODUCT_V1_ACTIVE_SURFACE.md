@@ -293,6 +293,8 @@ checked removal protocol from these records, including simultaneous area and
 party-size changes. Unchanged facts remain retained. Legacy recorded patches
 remain replayable; conflicting replacements fail before duplicate IDs can enter
 the merged handoff. No additional repair loop or model call is added for dialogue.
+Source hints from the first wish are not carried into the delta instructions:
+the checked previous meaning retains them, and a cited later answer may change them.
 For a single correction, an explicitly retained date or clock is protected in
 both the change-ID schema and merge validation. With several turns, the original
 date is not locked back over an earlier valid update. Plain, canonical activity

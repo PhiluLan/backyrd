@@ -146,6 +146,27 @@ test('plain activity refusals keep participation scope while explicit venue bans
  assert.doesNotMatch(buildNuknukCompactSearchRequest({query:foodQuery,reference}).instructions,/ORIGINALGEBUNDENE AKTIVITÄTSABLEHNUNGEN/);
 });
 
+test('a later budget or activity correction is not pinned by hints from the first wish',()=>{
+ const reference={now:'2026-11-23T09:00:00Z',timezone:'Europe/Zurich'};
+ const query='Essen für höchstens 30 Franken pro Person.';
+ const facts=[{id:'meal',key:'food.meal',value:{text:'meal'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+  {id:'money',key:'budget.maximum',value:{amount:30,operator:'LTE',currency:'CHF'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+  {id:'scope',key:'budget.scope',value:{scope:'PER_PERSON'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:[]}];
+ const original=validateNuknukCompactSearch({meaning:{facts}},{query,reference});
+ const answer='Doch höchstens 40 Franken pro Person.';
+ const turns=[{question:null,answer}];
+ const prompt=buildNuknukDialogueUpdate(buildNuknukCompactSearchRequest({query,reference}),original.searchMeaning,turns);
+ assert.doesNotMatch(prompt.instructions,/ORIGINALGEBUNDENE GELDGRENZE/);
+ assert.match(prompt.instructions,/NORMALIZATION_REFERENCE/);
+ const delta={changes:[{id:'money',quote:'höchstens 40 Franken pro Person',fact:{...facts[1],value:{...facts[1].value,amount:40}}}]};
+ const merged=mergeNuknukDialogueUpdate(original.searchMeaning,delta,turns);
+ const updated=validateCompactTurn(merged,{query:query+'\nErgänzung: '+answer,reference},answer);
+ assert.equal(updated.plan.facts.find(f=>f.key==='budget.maximum').value.amount,40);
+ const saunaPrompt=buildNuknukCompactSearchRequest({query:'Schwimmen gehen, keine Sauna.',reference});
+ const activityUpdate=buildNuknukDialogueUpdate(saunaPrompt,original.searchMeaning,[{question:null,answer:'Doch lieber Sauna.'}]);
+ assert.doesNotMatch(activityUpdate.instructions,/ORIGINALGEBUNDENE AKTIVITÄTSABLEHNUNGEN/);
+});
+
 const example = understandingDevelopmentCases[0].content;
 const modelPath = '/models/45797d2985a12c55e6473686e9ea91b95e959553';
 const copy = () => structuredClone(example.target);

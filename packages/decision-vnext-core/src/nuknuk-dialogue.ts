@@ -40,9 +40,12 @@ export function buildNuknukDialogueUpdate(prompt: Prompt, previous: LunaMeaningO
   const ids = [...previous.facts,...previous.extensions].map(fact=>fact.id);
   const protectedFactIds = retainedTimingIds(previous, turns);
   const editableIds = ids.filter(id => !protectedFactIds.has(id));
+  // Source hints describe the first wish. The checked previous meaning now
+  // carries those facts; later answers may explicitly replace them.
+  const instructions = prompt.instructions.replace(/\nORIGINALGEBUNDENE (?:GELDGRENZE|AKTIVITÄTSABLEHNUNGEN):[\s\S]*$/u, '');
   return {
     ...prompt,
-    instructions:prompt.instructions + `
+    instructions:instructions + `
 DIALOGAKTUALISIERUNG_V3. previousMeaning ist der bisherige Suchauftrag. Nur die Antworten in
 turns ändern den Wunsch. Ausgabe: changes und optional additions/clarification, kein meaning.
 changes enthält JEDE geänderte bisherige Angabe einmal: {id,quote,fact}.
