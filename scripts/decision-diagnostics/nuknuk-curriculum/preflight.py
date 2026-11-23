@@ -40,9 +40,10 @@ manifest = json.loads((folder / "manifest.json").read_text())
 # Historical profiles retain their frozen 4096-token limit. The active Product
 # profile declares its independently measured 4608-token recipe explicitly.
 product_profile = manifest.get("version") == "backyrd.nuknuk-product-training-manifest@1"
-max_total_tokens = 4608 if product_profile else 4096
+max_total_tokens = manifest.get('trainingLimits', {}).get('maxTotalTokens', 4608) if product_profile else 4096
 if product_profile:
-    assert manifest.get("trainingLimits") == {"maxTotalTokens": 4608, "maxAnswerTokens": 2048}
+    assert max_total_tokens in (4608, 5120)
+    assert manifest.get("trainingLimits") == {"maxTotalTokens": max_total_tokens, "maxAnswerTokens": 2048}
 schemas, schema_by_case, schemas_by_task = {}, {}, {}
 for row in requests:
     key = hashlib.sha256(json.dumps(row["outputSchema"], sort_keys=True).encode()).hexdigest()

@@ -808,8 +808,48 @@ function countPeople(facts: readonly LibrarianFact[], request: LibrarianRequest)
         const named = count.subjectIds.flatMap(id => request.entities.find(e => e.id === id)?.members ?? []);
         return named.length > counts[0]!.value.amount ? null : counts[0]!.value.amount;
     }
-    if (counts.length > 1)
-        return null;
+    if (counts.length > 1) {
+        // Only an explicit membership hierarchy identifies the whole party.
+        // Never add subgroup counts or guess the largest count is the total.
+        // A scoped component budget or several activities still needs a
+        // dedicated party assignment; a hierarchy alone cannot prove it.
+        if (request.entities.filter(e => e.kind === "ACTIVITY").length !== 1
+            || facts.some(f => ["budget.maximum", "budget.target", "budget.amount", "budget.scope"].includes(f.key)
+                && f.subjectIds.some(id => request.entities.some(e => e.id === id && ["PERSON", "GROUP"].includes(e.kind))))) return null;
+        const groups = counts.flatMap(f => f.subjectIds.length === 1 && f.value.kind === "COUNT"
+            && request.entities.some(e => e.id === f.subjectIds[0] && e.kind === "GROUP")
+            ? [{id:f.subjectIds[0]!, amount:f.value.amount}] : []);
+        if (groups.length !== counts.length || new Set(groups.map(g => g.id)).size !== groups.length) return null;
+        const namedPeople = (parent: string): number => {
+            const pending = [...(request.entities.find(e => e.id === parent)?.members ?? [])];
+            const visited = new Set<string>(), people = new Set<string>();
+            while (pending.length) {
+                const id = pending.pop()!;
+                if (visited.has(id)) continue;
+                visited.add(id);
+                const entity = request.entities.find(e => e.id === id);
+                if (entity?.kind === "PERSON") people.add(id);
+                pending.push(...(entity?.members ?? []));
+            }
+            return people.size;
+        };
+        if (groups.some(group => namedPeople(group.id) > group.amount)) return null;
+        const contains = (parent: string, child: string): boolean => {
+            const pending = [...(request.entities.find(e => e.id === parent)?.members ?? [])];
+            const visited = new Set<string>();
+            while (pending.length) {
+                const id = pending.pop()!;
+                if (id === child) return true;
+                if (visited.has(id)) continue;
+                visited.add(id);
+                pending.push(...(request.entities.find(e => e.id === id)?.members ?? []));
+            }
+            return false;
+        };
+        const roots = groups.filter(root => groups.every(group => group.id === root.id
+            || group.amount <= root.amount && contains(root.id, group.id)));
+        return roots.length === 1 ? roots[0]!.amount : null;
+    }
     // Named members need not enumerate the full party. Only a count fact is
     // authority for quantities, prices and capacity.
     return null;

@@ -1504,3 +1504,35 @@ test('an opt-in compact repair retries invalid meaning once and preserves the or
     }
   }
 });
+
+test('an explicit group budget keeps its amount and the scope of that same activity',()=>{
+ const reference={now:'2026-11-23T09:00:00Z',timezone:'Europe/Zurich'};
+ const money={id:'money',key:'budget.maximum',value:{amount:65,operator:'LTE',currency:'CHF'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]};
+ const raw=scope=>({meaning:{facts:[{id:'meal',key:'food.meal',value:{text:'brunch'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},money,
+  ...(scope?[{id:'scope',key:'budget.scope',value:{scope},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:[]}]:[])]}});
+ for(const query of ['Zu zweit brunchen, zusammen höchstens 65 Franken.','Brunch für höchstens CHF 65 insgesamt.','Brunch, in total at most CHF 65.']){
+  assert.equal(validateNuknukCompactSearch(raw('GROUP_TOTAL'),{query,reference}).requestState,'EXECUTABLE');
+  for(const scope of [null,'PER_PERSON'])assert.throws(()=>validateNuknukCompactSearch(raw(scope),{query,reference}),/source_budget_contradicted/);
+ }
+ const query='Insgesamt 35 Minuten Zeit zum Brunch, höchstens CHF 65.';
+ assert.doesNotThrow(()=>validateNuknukCompactSearch(raw(null),{query,reference}),'duration wording cannot invent group-budget scope');
+ const scoped=raw('GROUP_TOTAL');scoped.meaning.entities=[{id:'a1',kind:'ACTIVITY',label:'Brunch',members:[]},{id:'a2',kind:'ACTIVITY',label:'Museum',members:[]}];
+ scoped.meaning.facts[1].subjectIds=['a1'];scoped.meaning.facts[2].subjectIds=['a2'];
+ assert.throws(()=>validateNuknukCompactSearch(scoped,{query:'Zusammen höchstens CHF 65 brunchen, danach Museum.',reference}),/source_budget_contradicted/);
+});
+
+test('a dialogue amount replacement cannot erase known duration scope',()=>{
+ const reference={now:'2026-11-23T09:00:00Z',timezone:'Europe/Zurich'};
+ const initial=validateNuknukCompactSearch({meaning:{entities:[{id:'a1',kind:'ACTIVITY',label:'Besuch',members:[]}],facts:[
+  {id:'activity',key:'experience.activity',value:{text:'Ausstellung besuchen'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a1']},
+  {id:'duration',key:'time.duration',value:{amount:60,operator:'LTE',unit:'MINUTES',measurementScope:'AVAILABLE_TOTAL',includes:[]},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a1']},
+ ]}},{query:'Ausstellung besuchen, ich habe insgesamt höchstens 60 Minuten.',reference}).searchMeaning;
+ const answer='Ich habe nur noch höchstens 40 Minuten.';
+ const patch=scope=>({changes:[{id:'duration',quote:answer,fact:{...initial.facts.find(f=>f.id==='duration'),value:{amount:40,operator:'LTE',unit:'MINUTES',measurementScope:scope,includes:[]}}}]});
+ assert.throws(()=>mergeNuknukDialogueUpdate(initial,patch('UNSPECIFIED'),[{answer,question:null}]),/duration_scope_lost/);
+ const changed=mergeNuknukDialogueUpdate(initial,patch('AVAILABLE_TOTAL'),[{answer,question:null}]);
+ assert.equal(changed.meaning.facts.find(f=>f.id==='duration').value.amount,40);
+ assert(changed.meaning.facts.some(f=>f.id==='activity'));
+ assert.doesNotThrow(()=>mergeNuknukDialogueUpdate(initial,patch('ACTIVITY'),[{answer,question:null}]),'a stated new scope remains representable');
+ assert.doesNotThrow(()=>mergeNuknukDialogueUpdate(initial,{changes:[{id:'duration',quote:'Die Zeitgrenze entfällt.',fact:null}]},[{answer:'Die Zeitgrenze entfällt.',question:null}]));
+});

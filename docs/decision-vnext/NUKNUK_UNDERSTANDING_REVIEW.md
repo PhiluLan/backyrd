@@ -1,5 +1,71 @@
 # Erste Lernbeispiele für NukNuk: fachliche Prüfung
 
+## Software- und Datenkorrekturen vor der nächsten Beta-Runde
+
+Änderungsklasse: PRODUCT_RELEASE, Quellenprüfung ohne Veröffentlichung oder neue
+Gewichte. Der bisherige Live-Adapter bleibt unverändert. Diese Korrekturen
+bereiten die nächste Trainingsrunde vor; sie sind keine Beta-Freigabe.
+
+- Explizite gemeinsame Geldgrenzen erhalten GROUP_TOTAL. Die bestehende
+  Quellenprüfung lehnt fehlenden, widersprüchlichen oder einem anderen Angebot
+  zugeordneten Budgetumfang ab; sie überschreibt keine Modellantwort.
+- Teilgruppen werden durch bestehende GROUP.members-Referenzen mit ihrer
+  Gesamtgruppe verbunden. Bei einer einzigen klaren Aktivität kann die
+  Preisprüfung deren explizite Gesamtzahl verwenden, ohne die Teilgruppe zu
+  addieren. Unverbundene, widersprüchliche, personenbezogene Komponenten oder
+  mehrere Aktivitäten bleiben unaufgelöst; die grösste Zahl wird nie geraten.
+- Ein Dialogersatz darf einen bereits bekannten Zeitumfang nicht auf
+  UNSPECIFIED zurücksetzen. Vollständige Aufhebung und ausdrücklich anderer
+  bestimmter Umfang bleiben möglich. Die Anweisung und das Soll zur verfügbaren
+  40-Minuten-Zeit wurden korrigiert.
+- Die gemeinsame Sprachbasis kennt Kino/movies/cinéma, Billard, Keramik und
+  Keramikkurse sowie Spa und Spielautomaten. Ein Keramikkurs kann Keramik oder
+  einen Kurs erfüllen, generische Keramik oder ein beliebiger Workshop aber
+  keinen Keramikkurs. Spa ist keine Wellnessbehandlung; Spielautomaten werden
+  nicht mit dem gesamten Arcade-Angebot gleichgesetzt.
+- Dokumentierte Ausstattung wird bei Standortverboten gelesen. Unbekannte oder
+  andere Ausstattung beweist keine Abwesenheit. Positive Präsenz blockiert den
+  Ausschluss weiterhin.
+- Trainingsziele erhalten Geschenk-Anlass und Empfängerrolle, Teilgruppenzahlen
+  und ihre Zugehörigkeit. Acht bekannte Teilgruppenvarianten ergänzen TRAIN:
+  jetzt 121 TRAIN, 15 ursprüngliche VALIDATION und 16 ursprüngliche TEST.
+  evaluationFreshness=KNOWN_REGRESSION_ONLY markiert die bereits beobachteten
+  Prüfgruppen ausdrücklich. Neue Blindtests müssen separat entstehen.
+- Das neue Product-Trainingsprofil bindet 5'120 Token; die korrigierten Präfixe
+  und Antworten benötigen maximal 4'743. Kein Kürzen. Historische Profile
+  behalten ihre Grenzen; bereits eingefrorene Manifeste und Antworten bleiben
+  unverändert. Native Vorbereitung liest die gebundene Zeilenzahl statt einer
+  fest verdrahteten alten 113. Sprach- und Matchingversion sind @28 bzw. @68.
+
+Verifikation: aktuelle TypeScript-Grenze, 436 betroffene kanonische Domain- und
+Exportchecks, 377 World-Knowledge-Tests, 19 GPU-Vorbereitungstests ohne GPU,
+18 Prozess-/Exportwächtertests, Single-Route und Mobile/Web-Releaseverträge.
+Die bestehende synthetische Browserreise besteht auf dem real exportierten
+Expo-Webbundle mit sieben Decision-Anfragen und ohne Produktionsaktionen.
+Lokale Workspace-Verknüpfungen und Metro-Cache wurden für diesen isolierten
+Arbeitsstand korrigiert; keine Dependency- oder App-Konfigurationsänderung.
+Nach der zusätzlichen Preisumfang-Absicherung wurde der betroffene
+125-Fälle-Reproducer erneut geprüft. Die Daten-/Grammatikvorprüfung umfasst
+alle 152 Beispiele, sechs Schemas und reine Antwortlabels ohne Modellladen.
+
+Bekannte Mac-Replays sind keine neue Abnahme: zwölf bekannte Fälle wurden mit
+geänderten Anweisungen auf dem unveränderten Modell geprüft; danach drei
+Beziehungs-/Dialogfälle erneut mit den finalen Anweisungen. Quellengebundene
+Budgetausgabe und Geschenkrolle verbessern sich. Eine stabile korrekte
+Beziehung und die verfügbare Gesamtdauer im Dialog sind aber weiterhin nicht
+belegt: der finale Replay erzeugt erneut Vater statt uncle und UNSPECIFIED
+beim 40-Minuten-Update. Eine frühere Anweisungsvariante hatte uncle erhalten;
+dies wird nicht als dauerhafte Verbesserung gezählt. Teilgruppen erscheinen
+teils als einzelne Personen statt der gewünschten Mitgliedsstruktur. Diese
+Modellfehler bleiben für das nächste Training und neue unabhängige Prüffälle
+sichtbar. Es gibt keine Aussage „alle Fehler gelernt“.
+
+Die bekannten Replays und Rohantworten liegen ausserhalb von Git unter
+`.local/operations/nuknuk-beta-foundation-fixes-20261123/`. Es wurden keine
+Cloud-Ressourcen angelegt, keine Live-Anweisungen oder Gewichte aktiviert und
+keine Nutzerdaten für Training verwendet.
+
+
 ## Mac-Prüfung und einmaliger 16er-TEST vom 23. November 2026: keine Aktivierung
 
 Der Founder gab das lokale Wartungsfenster ausdrücklich frei. Der Kandidat wurde

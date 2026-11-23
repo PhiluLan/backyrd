@@ -528,11 +528,13 @@ def generate_structured_batch(state, batch, max_seconds=240, max_output_tokens=2
     prefixes = [tokenizer.apply_chat_template(r['messages'], tokenize=True, add_generation_prompt=True,
                 enable_thinking=False, return_dict=False) for r in batch]
     product = state['boundary'].get('profile') == 'PRODUCT_SEARCH_V7_CONTINUATION_V1'
-    maximum_prefix = 4608 if product else 4096
+    maximum_prefix = state['boundary'].get('maxTotalTokens', 4608) if product else 4096
+    if product and maximum_prefix not in (4608, 5120):
+        raise ValueError('nuknuk_gpu_evaluation_prefix_limit_invalid')
     if any(not isinstance(p, list) or not p or len(p) >= maximum_prefix for p in prefixes):
         raise ValueError('nuknuk_gpu_evaluation_prefix_invalid')
     length = max(map(len, prefixes))
-    budget = min(max_output_tokens, 6656 - length) if product else min(max_output_tokens, 4096 - length) if state['boundary'].get('nativeParity') else max_output_tokens
+    budget = min(max_output_tokens, maximum_prefix + 2048 - length) if product else min(max_output_tokens, 4096 - length) if state['boundary'].get('nativeParity') else max_output_tokens
     ids = torch.full((len(batch), length), tokenizer.eos_token_id, dtype=torch.long, device='cuda')
     attention = torch.zeros_like(ids)
     for index, prefix in enumerate(prefixes):
@@ -902,6 +904,7 @@ def verify_product_gpu_bundle(folder):
     if (manifest.get('version') != 'backyrd.nuknuk-product-gpu-bundle@1'
         or manifest.get('profile') != 'PRODUCT_SEARCH_V7_CONTINUATION_V1'
         or manifest.get('recipe',{}).get('testUploaded') is not False
+        or manifest['recipe'].get('maxTotalTokens') not in (4608, 5120)
         or manifest['parent']['trainingBase'] != {'repo':'Qwen/Qwen3.6-35B-A3B','revision':'995ad96eacd98c81ed38be0c5b274b04031597b0'}):
         raise ValueError('product_gpu_bundle_invalid')
     allowed={'train.jsonl','valid.jsonl','seed/adapter_config.json','seed/adapter_model.safetensors',
@@ -928,7 +931,7 @@ def prepare_product_native(folder):
     tokenizer=AutoTokenizer.from_pretrained(folder/'tokenizer',local_files_only=True,trust_remote_code=False)
     rows=json.loads((folder/'native-prefixes.json').read_text())
     report=[]
-    for split,name,count in [('TRAIN','train',113),('VALIDATION','valid',15)]:
+    for split,name,count in [('TRAIN','train',manifest['recipe']['trainingRows']),('VALIDATION','valid',manifest['recipe']['validationRows'])]:
         source=[json.loads(line) for line in (folder/(name+'.jsonl')).read_text().splitlines()]
         bindings=[row for row in rows if row['split']==split]
         if len(source)!=count or len(bindings)!=count:
@@ -944,7 +947,7 @@ def prepare_product_native(folder):
                 if prefix_hash!=binding['prefixTokenIdsSha256']:
                     raise ValueError('product_native_prefix_parity_failed')
                 answer=tokenizer.encode(messages[2]['content'],add_special_tokens=False)+[tokenizer.eos_token_id]
-                if len(prefix)+len(answer)>4608 or len(answer)>2048 or len(answer)<2:
+                if len(prefix)+len(answer)>manifest['recipe']['maxTotalTokens'] or len(answer)>2048 or len(answer)<2:
                     raise ValueError('product_native_would_truncate')
                 ids=prefix+answer;labels=[-100]*len(prefix)+answer
                 handle.write(json.dumps({'input_ids':ids,'attention_mask':[1]*len(ids),'labels':labels})+'\n')
@@ -990,7 +993,7 @@ def product_evaluate(args):
         quantization_config=BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_quant_type='nf4',bnb_4bit_use_double_quant=True,bnb_4bit_compute_dtype=torch.bfloat16))
     model=PeftModel.from_pretrained(model,args.adapter,is_trainable=False)
     model.requires_grad_(False);model.eval();model.config.use_cache=True
-    state={'model':model,'tokenizer':tokenizer,'ll_tokenizer':from_tokenizer(tokenizer),'boundary':{'profile':manifest['profile']}}
+    state={'model':model,'tokenizer':tokenizer,'ll_tokenizer':from_tokenizer(tokenizer),'boundary':{'profile':manifest['profile'],'maxTotalTokens':manifest['recipe']['maxTotalTokens']}}
     compiler=llguidance.JsonCompiler(separators=(', ',': '),whitespace_pattern='')
     started=time.monotonic();records=[]
     for row in requests:
@@ -1033,7 +1036,7 @@ def product_train(args):
         raise ValueError('product_train_adapter_missing')
     write_json(args.output/'result.json',{'status':'TRAINED_REQUIRES_COMPARISON','datasetHash':manifest['datasetHash'],
         'parentAdapterSha256':manifest['parent']['hfAdapterSha256'],'adapterSha256':file_sha(adapter/'adapter_model.safetensors'),
-        'model':manifest['parent']['trainingBase'],'trainingRows':113,'epochs':2,'testCalled':False,'productionActivation':False,
+        'model':manifest['parent']['trainingBase'],'trainingRows':manifest['recipe']['trainingRows'],'epochs':2,'testCalled':False,'productionActivation':False,
         'providerBillingStopped':False})
 
 

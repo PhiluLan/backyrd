@@ -7,6 +7,7 @@ const P=(k,v,s=['a1'])=>F(k,v,'PREFERRED',s);
 const X=(k,v,s=['a1'])=>F(k,v,'EXCLUDED',s);
 const E=(id,kind,label)=>({id,kind,label,members:[]});
 const A=E('a1','ACTIVITY','Besuch');
+const party=(label)=>({...E('g1','GROUP',label),members:['g2']});
 const fact=(id,f)=>({id,...f});
 const all=(...ids)=>({kind:'ALL',children:ids.map(factId=>({kind:'FACT',factId}))});
 const ref={now:'2026-11-23T09:00:00Z',timezone:'Europe/Zurich'};
@@ -44,6 +45,16 @@ export function productTrainingCases(){
    R('food.meal','meal'),R('food.diet',value,['p1']),C('people.relationship',companions,['g1'])],
    {entities:[A,E('p1','PERSON','Anfragende Person'),E('g1','GROUP',companions)],
     review:'Persönliche Ernährung und Begleitung erhalten; Fleisch ist nicht standortweit verboten.'});
+ }
+ // Observed subgroup weakness: explicit totals, counts and membership stay separate.
+ for(const [total,count] of [[5,2],[7,3]])for(const [key,value,label] of [
+  ['food.diet','vegan','vegane Optionen'],['food.drink','alkoholfreie Getränke','alkoholfreie Getränke'],
+ ])for(const wording of [0,1]){
+  const query=wording?`Wir sind ${total}; ${count} von uns brauchen ${label}. ${key==='food.diet'?'Wir möchten essen.':'Wir möchten etwas trinken.'}`
+   :`Wir gehen mit ${total} Personen ${key==='food.diet'?'essen':'etwas trinken'}; ${count} davon brauchen ${label}.`;
+  add('known-numeric-subgroups',query,[R(key==='food.diet'?'food.meal':'food.drink',key==='food.diet'?'meal':'drinks'),
+   C('people.count',{amount:total,operator:'EQ',unit:'PEOPLE'},['g1']),C('people.count',{amount:count,operator:'EQ',unit:'PEOPLE'},['g2']),R(key,value,['g2'])],
+   {entities:[A,party('Gesamtgruppe'),E('g2','GROUP','Teilgruppe')],review:'Bekannte Teilgruppen-Regression: Gesamtzahl und Teilgruppenzahl erhalten, Bedingung nur an Teilgruppe, keine Addition.'});
  }
  for(const [limit,operator] of [['unter','LT'],['höchstens','LTE'],['mindestens','GTE'],['mehr als','GT']])for(const soft of [false,true]){
   add('known-08-money-polarity',`Gemütlich essen, ${soft?'möglichst ':''}${limit} 30 Franken pro Person.`,[
@@ -106,17 +117,17 @@ export function productTrainingCases(){
   ['retention-games',['Billard spielen.','Ich will Billard spielen.','Wo kann ich Billard spielen?','Ich suche Billard.'],'experience.activity','Billard'],
   ['retention-sport',['Schwimmen gehen.','Ich möchte schwimmen.','Wo kann ich schwimmen gehen?','Ich suche eine Möglichkeit zum Schwimmen.'],'experience.activity','swimming'],
  ])for(const query of queries)add(theme,query,[R(key,value),...(theme==='retention-outdoor'?[R('offer.area','outdoor')]:[])],{review:'Einfachen Suchzweck erhalten; keine unnötige Rückfrage oder zusätzliche Tätigkeit.'});
- // Fresh joint scenario families; neither lexical copies nor known twenty cases.
- // They are authored synthetic evaluation, not independent human gold.
+ // These evaluation families were observed in the November-23 run. Original split
+ // labels remain reproducible, but this cohort is now regression evidence, not a fresh holdout.
  for(const split of ['VALIDATION','TEST']){
   const test=split==='TEST';
   const prefix=test?'holdout':'development';
   const specs=test?[
    ['accessible-exhibit','Mit meinem Vater eine Ausstellung ansehen, stufenlos erreichbar.',[R('experience.activity','Ausstellung besuchen'),R('participation.accessibility','stufenlos'),C('people.relationship','Vater',['p1'])],{entities:[A,E('p1','PERSON','Vater')]}],
    ['tea-before-train','Tee trinken und höchstens 18 Minuten bis zur Abfahrt nutzen.',[R('food.drink','tea'),R('time.duration',{amount:18,operator:'LTE',unit:'MINUTES',measurementScope:'AVAILABLE_TOTAL',includes:[]})]],
-   ['menu-subgroup','Zu viert essen, zwei von uns brauchen vegane Optionen.',[R('food.meal','meal'),C('people.count',{amount:4,operator:'EQ',unit:'PEOPLE'},['g1']),C('people.count',{amount:2,operator:'EQ',unit:'PEOPLE'},['g2']),R('food.diet','vegan',['g2'])],{entities:[A,E('g1','GROUP','Alle'),E('g2','GROUP','Vegane Teilgruppe')]}],
+   ['menu-subgroup','Zu viert essen, zwei von uns brauchen vegane Optionen.',[R('food.meal','meal'),C('people.count',{amount:4,operator:'EQ',unit:'PEOPLE'},['g1']),C('people.count',{amount:2,operator:'EQ',unit:'PEOPLE'},['g2']),R('food.diet','vegan',['g2'])],{entities:[A,party('Alle'),E('g2','GROUP','Vegane Teilgruppe')]}],
    ['not-quiet','Billard spielen, ruhig muss es nicht sein.',[R('experience.activity','Billard'),F('atmosphere.character','ruhig','NOT_REQUIRED',['a1'])]],
-   ['gift-museum','Ein Museumsbesuch als Geschenk für meine 70-jährige Mutter.',[R('offer.kind','MUSEUM'),C('people.relationship','Mutter',['p1']),C('people.age',age(70),['p1'])],{entities:[A,E('p1','PERSON','Mutter')]}],
+   ['gift-museum','Ein Museumsbesuch als Geschenk für meine 70-jährige Mutter.',[R('offer.kind','MUSEUM'),C('people.relationship','Mutter',['p1']),C('people.age',age(70),['p1']),C('people.role','recipient',['p1']),C('experience.occasion','Geschenk')],{entities:[A,E('p1','PERSON','Mutter')]}],
    ['only-monday','Am Montag, 30. November 2026, frühstücken.',[R('food.meal','breakfast'),R('time.date',day('2026-11-30'))]],
    ['prefer-small-bill','Ein Abendessen, bevorzugt unter 42 Euro pro Person.',[R('food.meal','dinner'),P('budget.maximum',{amount:42,operator:'LT',currency:'EUR'}),C('budget.scope',{scope:'PER_PERSON'})]],
    ['same-site-two','Erst Minigolf und danach dort Kaffee trinken.',[R('experience.activity','Minigolf'),R('food.drink','coffee',['a2'])],{entities:[A,E('a2','ACTIVITY','Kaffee')],bindings:[{kind:'SEQUENCE',factIds:['f1','f2']},{kind:'SAME_PLACE',factIds:['f1','f2']}]}],
@@ -127,9 +138,9 @@ export function productTrainingCases(){
   ]:[
    ['accessible-library','Mit meiner Tante eine Bibliothek besuchen, ohne Treppen erreichbar.',[R('offer.kind','LIBRARY'),R('participation.accessibility','stufenlos'),C('people.relationship','Tante',['p1'])],{entities:[A,E('p1','PERSON','Tante')]}],
    ['breakfast-timebox','Frühstücken, ich habe insgesamt höchstens 35 Minuten Zeit.',[R('food.meal','breakfast'),R('time.duration',{amount:35,operator:'LTE',unit:'MINUTES',measurementScope:'AVAILABLE_TOTAL',includes:[]})]],
-   ['alcohol-subgroup','Wir sind sechs und möchten etwas trinken; drei brauchen alkoholfreie Getränke.',[R('food.drink','drinks'),C('people.count',{amount:6,operator:'EQ',unit:'PEOPLE'},['g1']),C('people.count',{amount:3,operator:'EQ',unit:'PEOPLE'},['g2']),R('food.drink','alkoholfreie Getränke',['g2'])],{entities:[A,E('g1','GROUP','Alle'),E('g2','GROUP','Alkoholfreie Teilgruppe')]}],
+   ['alcohol-subgroup','Wir sind sechs und möchten etwas trinken; drei brauchen alkoholfreie Getränke.',[R('food.drink','drinks'),C('people.count',{amount:6,operator:'EQ',unit:'PEOPLE'},['g1']),C('people.count',{amount:3,operator:'EQ',unit:'PEOPLE'},['g2']),R('food.drink','alkoholfreie Getränke',['g2'])],{entities:[A,party('Alle'),E('g2','GROUP','Alkoholfreie Teilgruppe')]}],
    ['reservation-optional','Sushi essen, eine Reservation ist nicht nötig.',[R('food.dish','Sushi'),F('participation.booking','spontaneous','NOT_REQUIRED',['a1'])]],
-   ['adult-recipient','Für meinen 32-jährigen Bruder einen Keramikkurs als Geschenk finden.',[R('experience.activity','Keramikkurs'),C('people.relationship','Bruder',['p1']),C('people.age',age(32),['p1'])],{entities:[A,E('p1','PERSON','Bruder')]}],
+   ['adult-recipient','Für meinen 32-jährigen Bruder einen Keramikkurs als Geschenk finden.',[R('experience.activity','ceramics_course'),C('people.relationship','Bruder',['p1']),C('people.age',age(32),['p1']),C('people.role','recipient',['p1']),C('experience.occasion','Geschenk')],{entities:[A,E('p1','PERSON','Bruder')]}],
    ['explicit-evening','Am Freitag, 27. November 2026, zu Abend essen.',[R('food.meal','dinner'),R('time.date',day('2026-11-27'))]],
    ['group-budget','Zu zweit brunchen, zusammen höchstens 65 Franken.',[R('food.meal','brunch'),R('budget.maximum',{amount:65,operator:'LTE',currency:'CHF'}),C('budget.scope',{scope:'GROUP_TOTAL'}),C('people.count',{amount:2,operator:'EQ',unit:'PEOPLE'},['g1'])],{entities:[A,E('g1','GROUP','Wir beide')]}],
    ['separate-sites','Erst ins Museum, danach essen.',[R('offer.kind','MUSEUM'),R('food.meal','meal',['a2'])],{entities:[A,E('a2','ACTIVITY','Essen')],bindings:[{kind:'SEQUENCE',factIds:['f1','f2']}]}],
@@ -143,7 +154,7 @@ export function productTrainingCases(){
    // as training retention, never as fresh development or holdout evidence.
    const known=group==='two-dishes';
    add(known?'known-14-dish-alternative':`${prefix}-${group}`,query,facts,{...extra,split:known?'TRAIN':split,
-    review:known?'Bekannte Familie 14: Pizza/Pasta-Alternative mit Kaffee. Nur Retention, kein neuer Prüfbeleg.':'Neue zusammengesetzte Prüffamilie. Kein Spotwissen und keine Modellantwort als Soll-Ziel.'});
+    review:known?'Bekannte Familie 14: Pizza/Pasta-Alternative mit Kaffee. Nur Retention, kein neuer Prüfbeleg.':'Beobachtete Regressionsfamilie. Korrigiertes Soll, kein neuer Blindtest und kein Spotwissen.'});
   }
   const dialogues=test?[
    ['two-offer-budget','Bowling und danach essen. Fürs Bowling höchstens 28 Franken pro Person.',[
@@ -169,7 +180,7 @@ export function productTrainingCases(){
    const previous={entities:[A],facts:facts.map((f,i)=>fact('f'+(i+1),f)),logic:null,bindings:[],extensions:[],uncertainties:[],weatherConditions:[],...extra};
    rows.push({id:`product-v7-${prefix}-dialogue-${group}`,scenarioGroup:`${prefix}-dialogue-${group}`,split,task:'DIALOGAKTUALISIERUNG_V3',reference:ref,
     query,previousMeaning:previous,turns:[{question:null,answer}],expected:{changes:changes.map(([id,replacement,quote])=>({id:'f'+id,quote,fact:replacement?fact('f'+id,replacement):null}))},
-    review:'Neue Dialog-Prüffamilie: explizite Änderung oder Aufhebung, Rest erhalten. Kein Modelloutput als Ziel.'});
+    review:'Beobachtete Dialog-Regressionsfamilie: explizite Änderung oder Aufhebung, Rest erhalten. Kein Modelloutput als Ziel.'});
   }
  }
  return rows;

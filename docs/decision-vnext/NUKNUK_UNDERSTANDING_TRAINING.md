@@ -32,17 +32,16 @@ Er verwendet die kanonischen Aufträge `COMPACT_SEARCH_V7` und
 Der 27B-V7-Vieraufgabenbestand und seine historischen Rezepte werden unverändert
 erhalten; sie sind kein Ersatz für den aktuellen Product-Auftrag.
 
-144 neue synthetische, beauftragte Assistenzziele: 113 TRAIN in 18 Familien,
-15 VALIDATION und 16 TEST in jeweils eigenen Szenariofamilien. 88 Trainingsfälle
-adressieren die elf bekannten Schwächen, 24 behalten einfache Suchzwecke bei, ein weiterer erhält die bekannte
-Pizza-/Pasta-Alternative aus Founder-Fall 14. Der erste 16er-Entwicklungsdurchlauf
-enthält diesen bereits bekannten Fall; er wird aus der frischen Validierung
-ausgeschlossen und nur als bekannte Regression aufbewahrt.
-Verwandte Varianten bleiben vollständig im selben Split. Neue Prüffälle enthalten
-auch unbekannte Kombinationen sowie explizite Dialogänderungen und Aufhebungen.
-Die bekannten 20 Beispiele und ihre Varianten sind kein Blindtest. Die neuen
-Prüfaufgaben sind ebenfalls kein unabhängiger menschlicher Goldstandard; Herkunft
-und Assistenzsichtung werden ausdrücklich als solche ausgewiesen.
+Der korrigierte Vorbereitungsbestand enthält 152 synthetische Assistenzziele:
+121 TRAIN in 19 Familien, 15 ursprüngliche VALIDATION und 16 ursprüngliche TEST.
+96 Trainingsfälle adressieren bekannte Schwächen einschliesslich acht zusätzlicher
+Teilgruppenvarianten; 24 erhalten einfache Suchzwecke und einer die bekannte
+Pizza-/Pasta-Alternative. Die Evaluation dieses Bestands wurde bereits beobachtet
+und ist ausdrücklich KNOWN_REGRESSION_ONLY. Alte Splitnamen bleiben zur
+Reproduzierbarkeit erhalten; diese Beispiele sind kein neuer Blindtest.
+Die neue Beta-Runde benötigt einen separat erstellten unberührten Holdout.
+Die archivierten Trainings- und Mac-Belege des vorherigen 144er-Bestands bleiben
+unverändert. Die Vorbereitung führt noch kein neues Training aus.
 
 Die folgenden historischen Werkstattabschnitte bleiben als damaliger Stand
 erhalten; dieser Abschnitt beschreibt den aktiven Product-Trainingsauftrag.
@@ -63,8 +62,9 @@ Training wird derselbe HF-Parent zusätzlich auf VALIDATION aufgerufen.
 
 Offline-Prüfung: jede Zielantwort passiert den Product-Validator, jede Änderung
 den zitatgebundenen Merge; jeder Fall wird mit seinem eigenen Schema gegen die
-Server-Grammatik geprüft. Die aktive Runde verwendet ein ausdrücklich gebundenes
-4'608-Token-Limit. Historische Profile behalten 4'096. Es wird nicht gekürzt.
+Server-Grammatik geprüft. Die korrigierte Vorbereitung verwendet ein ausdrücklich gebundenes
+5'120-Token-Limit (gemessen höchstens 4'743). Der archivierte Product-Lauf
+behält 4'608; historische Profile behalten 4'096. Es wird nicht gekürzt.
 Native GPU-Tokenisierung muss dieselben vollständigen Präfix-Token-IDs erzeugen.
 Nur Antwort und EOS erhalten Trainingslabels; die System- und Nutzereingabe wird
 mit `-100` maskiert. Dafür wird Axolotls dokumentierter

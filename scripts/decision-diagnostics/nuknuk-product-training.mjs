@@ -93,7 +93,7 @@ export async function exportProductTraining(args){
  const sources=['scripts/decision-diagnostics/nuknuk-product-training.mjs','scripts/decision-diagnostics/nuknuk-product-training-cases.mjs',
   'scripts/decision-diagnostics/nuknuk-curriculum/preflight.py','scripts/decision-diagnostics/nuknuk-gpu.py',
   'packages/decision-vnext-core/src/nuknuk-understanding.ts','packages/decision-vnext-core/src/nuknuk-dialogue.ts','packages/decision-vnext-core/src/product-nuknuk-provider.ts','packages/decision-vnext-core/src/nuknuk-understanding-learning.ts',
-  'packages/decision-vnext-core/src/nuknuk-training-vocabulary.ts','packages/decision-vnext-core/src/product-librarian-language.ts','packages/decision-vnext-core/src/product-luna-librarian.ts'];
+  'packages/decision-vnext-core/src/nuknuk-training-vocabulary.ts','packages/world-knowledge-core/src/experience-language.ts','packages/decision-vnext-core/src/product-librarian-matching.ts','packages/decision-vnext-core/src/product-librarian-language.ts','packages/decision-vnext-core/src/product-luna-librarian.ts'];
  const sourceHashes=Object.fromEntries(await Promise.all(sources.map(async name=>[name,await fileSha(resolve(root,name))])));
  const modelFiles=Object.fromEntries(await Promise.all(['config.json','tokenizer.json','tokenizer_config.json','chat_template.jinja'].map(async name=>[name,await fileSha(resolve(model,name))])));
  const parent={mlxBase:{repo:'mlx-community/Qwen3.6-35B-A3B-4bit',revision:'38740b847e4cb78f352aba30aa41c76e08e6eb46'},
@@ -110,11 +110,11 @@ export async function exportProductTraining(args){
   sourceCommit:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),
   sourceWorktreeClean:execFileSync('git',['status','--porcelain'],{cwd:root,encoding:'utf8'}).trim()==='',
   files:Object.fromEntries(Object.entries(payload).map(([name,bytes])=>[name,{sha256:sha(bytes),bytes:Buffer.byteLength(bytes)}])),
-  independentHumanGold:false,knownTwentyAreBlindTest:false,trainingStarted:false,weightsActivated:false,paidResourcesAuthorizedByExport:false,
-  trainingLimits:{maxTotalTokens:4608,maxAnswerTokens:2048},
+  independentHumanGold:false,knownTwentyAreBlindTest:false,evaluationFreshness:'KNOWN_REGRESSION_ONLY',trainingStarted:false,weightsActivated:false,paidResourcesAuthorizedByExport:false,
+  trainingLimits:{maxTotalTokens:5120,maxAnswerTokens:2048},
   limitations:['Authored synthetic examples represent fewer scenario families; grouped variants are not independent users.',
    'Grammar and canonical validation do not prove semantic correctness. Targets received commissioned assistant review only.',
-   'Fresh holdout covers unseen joint scenarios, not unseen language dimensions or an independent human benchmark.',
+   'Evaluation families in this cohort were observed on November 23; TEST labels preserve historical grouping, not fresh blind-test eligibility.',
    'No spot facts, prices, hours or personal user data are learned. Catalog/matching problems remain separate.',
    'Current default full understanding and atomic dialogue are covered; simple-route and route-classifier retention must be checked before activation.'],
   comparison:{knownDevelopment:'REPLAY_ONLY_NOT_SELECTION',selection:'VALIDATION_ONLY_THEN_FREEZE_CHECKPOINT',test:'ONCE_AFTER_SELECTION',sameCatalogRequired:true,
@@ -131,8 +131,8 @@ export async function exportProductGpuBundle(args){
  const data=resolve(dataArg),hf=resolve(hfArg),tokenizer=resolve(tokenizerArg),out=resolve(outArg);
  const manifestBytes=await readFile(resolve(data,'manifest.json')),manifest=JSON.parse(manifestBytes);
  const preflight=JSON.parse(await readFile(resolve(data,'preflight.json'))),parentProof=JSON.parse(await readFile(resolve(data,'parent-verification.json')));
- if(manifest.version!=='backyrd.nuknuk-product-training-manifest@1'||manifest.vocabularyHash!==NUKNUK_TRAINING_VOCABULARY_HASH||manifest.caseCount!==144||manifest.counts.TRAIN!==113
-  ||preflight.datasetManifestFileSha256!==sha(manifestBytes)||preflight.caseCount!==144||preflight.maxTotalTokens>4608
+ if(manifest.version!=='backyrd.nuknuk-product-training-manifest@1'||manifest.vocabularyHash!==NUKNUK_TRAINING_VOCABULARY_HASH||manifest.caseCount!==152||manifest.counts.TRAIN!==121
+  ||preflight.datasetManifestFileSha256!==sha(manifestBytes)||preflight.caseCount!==152||preflight.maxTotalTokens>5120
   ||preflight.cases.some(r=>!r.grammarAccepted||!r.completionOnlyMaskVerified||!r.prefixTokenIdsSha256)
   ||parentProof.result!=='PASS'||parentProof.manifestSha256!==sha(manifestBytes)||!parentProof.exactTransposeEquality)throw Error('product_gpu_preflight_not_bound');
  const root=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
@@ -177,7 +177,7 @@ test_datasets:
     type:
 train_on_inputs: false
 val_set_size: 0
-sequence_len: 4608
+sequence_len: 5120
 sample_packing: false
 dataset_prepared_path: /workspace/backyrd-product-training/prepared
 output_dir: /workspace/backyrd-product-training/output
@@ -220,7 +220,7 @@ dataset_processes: 4
  const gpuManifest={version:'backyrd.nuknuk-product-gpu-bundle@1',profile:'PRODUCT_SEARCH_V7_CONTINUATION_V1',
   datasetHash:manifest.datasetHash,sourceManifestSha256:sha(manifestBytes),parent:manifest.parent,
   image:'axolotlai/axolotl-cloud-uv@sha256:5a989be77ecfc9ef6f4e578d0addec4e6a6fb882b64abe0b84613666c58afe61',
-  recipe:{rank:16,alpha:32,epochs:2,learningRate:0.000006,seed:42,trainingRows:113,validationRows:15,maxTotalTokens:4608,maxTrainingSeconds:1800,
+  recipe:{rank:16,alpha:32,epochs:2,learningRate:0.000006,seed:42,trainingRows:121,validationRows:15,maxTotalTokens:5120,maxTrainingSeconds:1800,
    initialization:'EXACT_CURRENT_ADAPTER_CONTINUATION',testUploaded:false,activationAuthorized:false},
   files:Object.fromEntries([...payload].map(([name,bytes])=>[name,{sha256:sha(bytes),bytes:bytes.length}])),
   budgetCeilingUsd:4,hourlyUpperBoundUsd:3.7,closingReserveUsd:1,resourceCreationAuthorizedByBundle:false,providerStopRequired:true};
