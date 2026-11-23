@@ -427,6 +427,8 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     // Overlapping words such as Café can denote an actual embedded offer.
     // Its real scoped witness takes precedence over whole-venue classification.
     const concept = fact.value.kind === "TEXT" ? librarianConcept(fact.value.text) : null;
+    if (profile && !world.eventOccurrence && ownActivityExclusion(request, fact))
+        return report("UNKNOWN", "DEFERRED_TO_SELECTED_ACTIVITY_EXCLUSION");
     const scopedKind = profile && concept && offerDuty(fact)
         && profile.offers.some(offer => concept === "zoo" && offer.kind === "VISIT" || (OFFER_CONCEPTS[offer.kind] ?? []).includes(concept));
     const placeType = !scopedKind && !librarianFacilityConcept(fact) ? assessLibrarianPlaceType(preferenceOnly ? { ...fact, modality: "PREFERRED" } : fact, world) : null;
@@ -994,6 +996,54 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
     return result(fact.modality === "EXCLUDED" ? (truth === "MET" ? "FAILED" : truth === "FAILED" ? "MET" : "UNKNOWN") : truth,
         truth === "MET" ? "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" : truth === "UNKNOWN" ? !feesComplete ? "MANDATORY_PRICE_FEES_UNCONFIRMED" : "PRICE_RANGE_DOES_NOT_PROVE_BUDGET" : "BUDGET_NOT_PROVEN_OR_EXCEEDED", hashes);
 }
+/** Activity refusal concerns participation in the selected visit. Venue/type,
+ * area, food, atmosphere and safety exclusions keep their existing semantics. */
+function ownActivityExclusion(request: LibrarianRequest, fact: LibrarianFact): boolean {
+    return fact.key === "experience.activity" && fact.modality === "EXCLUDED"
+        && librarianFacilityConcept(fact) === null
+        && !OFFER_CATALOG.some(o => o.concept === (fact.value.kind === "TEXT" ? librarianConcept(fact.value.text) : null) && hasOfferModule(o.kind,"food"))
+        && fact.value.kind === "TEXT" && librarianConcept(fact.value.text) !== null
+        && !fact.subjectIds.some(id => request.entities.some(e => e.id === id && ["AREA", "OFFER"].includes(e.kind)))
+        && request.facts.some(f => f.key === "experience.activity" && f.modality === "REQUIRED");
+}
+function selectedActivityExclusion(fact: LibrarianFact, request: LibrarianRequest, profile: ExperienceProfile,
+    state: State, atoms: readonly Atom[], visit: VisitWindow): LibrarianFactAssessment {
+    const concept = fact.value.kind === "TEXT" ? librarianConcept(fact.value.text) : null;
+    const activities = request.facts.filter(f => f.key === "experience.activity" && f.modality === "REQUIRED");
+    const scope = fact.subjectIds.filter(id => request.entities.some(e => e.id === id && e.kind === "ACTIVITY"));
+    const sameScope = activities.filter(f => f.subjectIds.some(id => scope.includes(id)));
+    const participants = (ids: readonly string[]) => ids.flatMap(id => {
+        const entity = request.entities.find(e => e.id === id);
+        return entity?.kind === "PERSON" ? [id] : entity?.kind === "GROUP" ? [id,...entity.members] : [];
+    });
+    const refusedParticipants = participants(fact.subjectIds);
+    const scoped = sameScope.length ? sameScope : activities;
+    const relevant = refusedParticipants.length ? scoped.filter(f => participants(f.subjectIds).some(id => refusedParticipants.includes(id))) : scoped;
+    const ids = sorted(atoms.filter(a => a.report.state === "MET" && relevant.some(f => f.id === a.report.factId))
+        .flatMap(a => a.witnesses.filter(w => w.offerIds.length && w.offerIds.every(id => state.offerIds.includes(id))
+            && join(state, w) !== null).flatMap(w => w.offerIds)));
+    const offers = profile.offers.filter(o => ids.includes(o.id));
+    let unknown = !offers.length || concept === null, prohibited = false;
+    for (const offer of offers) {
+        const kinds = OFFER_CONCEPTS[offer.kind] ?? [];
+        const declarations = offer.properties.filter(p => p.key === "experience.activity"
+            && librarianConditions(p.conditions, visit) !== "FAILED");
+        const terms = declarations.filter(p => p.state === "KNOWN" && typeof p.value === "string"
+            && librarianConditions(p.conditions, visit) === "MET").flatMap(p => {
+                const term = librarianConcept(String(p.value)); return term ? [term] : [];
+            });
+        const specific = [...kinds, ...terms].filter(term => !["visit", "guided", "open_discovery"].includes(term));
+        unknown ||= !specific.length || declarations.some(p => p.state !== "KNOWN"
+            || typeof p.value !== "string" || librarianConcept(p.value) === null
+            || librarianConditions(p.conditions, visit) !== "MET");
+        prohibited ||= concept !== null && [...kinds, ...terms].some(term => experienceActivitySupports(term, concept));
+    }
+    return { factId: fact.id, family: fact.key, modality: fact.modality,
+        state: prohibited ? "FAILED" : unknown ? "UNKNOWN" : "MET",
+        reason: prohibited ? "EXCLUDED_ACTIVITY_IN_SELECTED_OFFER" : unknown ? "SELECTED_ACTIVITY_EXCLUSION_UNPROVEN" : "EXCLUDED_ACTIVITY_NOT_SELECTED",
+        evidenceHashes: sorted(offers.map(o => contentHash({policy:"EXCLUSION_APPLIES_TO_SELECTED_ACTIVITY",concept,offer:o}))),
+        offerIds: ids, areaIds: sorted(offers.flatMap(o => o.areaIds).filter(id => state.areaIds.includes(id))) };
+}
 function prepareScenario(request: LibrarianRequest, scenario: Scenario, timezone: string | null, now: string) {
     const preferenceIds = new Set(scenario.preferredIds);
     const referenced = new Set(collectFacts(request.logic));
@@ -1058,6 +1108,8 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, prep
             const fact = selected.find(f => f.id === r.factId);
             if (!fact)
                 return r;
+            if (r.reason === "DEFERRED_TO_SELECTED_ACTIVITY_EXCLUSION" && profile)
+                return selectedActivityExclusion(fact, activeRequest, profile, state, allAtoms, visit);
             if (fact.key === "people.count" && !["CONTEXT", "NOT_REQUIRED"].includes(r.modality))
                 return { ...jointCapacity(fact, profile, state, visit), modality: r.modality };
             if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "PRICE")

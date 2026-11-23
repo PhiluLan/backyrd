@@ -234,7 +234,7 @@ window as an unrelated fallback. Conditional weather plans retain their own
 branch proofs. Provisional copy describes partial evidence without asserting
 that the whole offer fits.
 
-NukNuk compact search v6 retains open undertakings as the existing
+NukNuk compact search v7 retains open undertakings as the existing
 `open_discovery` activity, separately from companions, ages and other criteria.
 Its bounded source guard covers explicit open-action wording without choosing
 a concrete activity. Specific requests, alternatives, scope and exclusions
@@ -271,6 +271,41 @@ is UNKNOWN, not proof of an affordable matching option. Exact-price conditions
 need an exact tariff; mandatory fees must be documented as included before a
 total is confirmed. A known base already above a cap still contradicts it.
 Optional price preferences remain optional and do not exclude candidates.
+
+The compact Product boundary rejects missing or contradictory representations
+of a single unambiguous currency-bound source limit (amount, currency,
+comparison and preference), including loss of an adjacent explicit per-person
+unit. A numeric limit is not an unstructured qualitative-price duty.
+The same bounded source reading supplies an explicit instruction with the
+verbatim source fragment; it never replaces the model's offer/component scope.
+It does not silently rewrite the model output. The existing one-shot repair
+gets the specific defect; a repeated contradiction never reaches matching.
+Multiple components, unsupported phrasing and negated comparisons are not
+flattened into this narrow source check. Reported/historical amounts, quoted
+phrases and explicitly irrelevant bounds do not generate source facts.
+Historical full-meaning training
+snapshots retain their versioned review rules and are not rewritten by it.
+
+Dialogue update v3 asks for atomic `changes`, not a complete replacement. Each
+change carries the retained fact ID, replacement (or null for removal) and a
+verbatim answer citation together. The host mechanically derives the existing
+checked removal protocol from these records, including simultaneous area and
+party-size changes. Unchanged facts remain retained. Legacy recorded patches
+remain replayable; conflicting replacements fail before duplicate IDs can enter
+the merged handoff. No additional repair loop or model call is added for dialogue.
+For a single correction, an explicitly retained date or clock is protected in
+both the change-ID schema and merge validation. With several turns, the original
+date is not locked back over an earlier valid update. Plain, canonical activity
+refusals after an undertaking receive a bounded source-family check; conditions,
+alternatives, venue wording and consumption are outside that check.
+
+An excluded `experience.activity` with a proven required activity concerns
+participation in the selected offers. A separate optional sauna does not ban a
+selected swimming offer. An excluded activity declared in that selected offer
+still fails. Missing actual activity witnesses, generic visits and unknown
+activity declarations remain unknown. Excluded venue types (`offer.kind`),
+explicit offer/area scopes, food, atmosphere, safety and access rules keep
+their existing semantics. Event exclusions keep their event-specific proof.
 
 This is a PRODUCT_RELEASE change in Decision core and its existing regression
 tests. It changes no client contract, database schema, grants, consent or

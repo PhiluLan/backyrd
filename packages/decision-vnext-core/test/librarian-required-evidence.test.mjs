@@ -5,6 +5,41 @@ import {fact,request,profile,offer,area,prop,binding,search,meal,date,evening,wo
 import {exercise} from './librarian-active-route-fixtures.mjs';
 import {librarianCompanionContext} from '../dist/product-librarian-eligibility.js';
 
+test('own activity exclusion evaluates selected participation, while a venue ban remains global',()=>{
+ const pool=(n,offers)=>{const b=binding(n,profile(offers,[area(),area('sauna-room')],'SPORT'));
+  b.decisionProjection.facts=b.decisionProjection.facts.map(f=>f.key==='classification.place_types'?worldFact(f.key,['SWIMMING_POOL']):f);return b;};
+ const swimming=offer('pool','SWIMMING',['inside']);
+ const optionalSauna=offer('sauna','SAUNA',['sauna-room']);
+ const plain=pool(8011,[swimming]),mixed=pool(8012,[swimming,optionalSauna]);
+ for(const subjectIds of [[],['a1']]){
+  const q=request([fact('swim','experience.activity','swimming'),fact('noSauna','experience.activity','sauna','EXCLUDED',subjectIds)]);
+  const result=search(q,[plain,mixed]);
+  assert.equal(result.ranked.length,2);
+  assert.ok(result.ranked.every(c=>c.facts.find(f=>f.factId==='noSauna').reason==='EXCLUDED_ACTIVITY_NOT_SELECTED'));
+  assert.ok(result.ranked.every(c=>!c.offerIds.includes('sauna')));
+ }
+ const venueBan=request([fact('swim','experience.activity','swimming'),fact('noSauna','offer.kind','sauna','EXCLUDED')]);
+ assert.ok(search(venueBan,[mixed]).excluded.some(c=>c.failedFactIds.includes('noSauna')));
+ const combined=pool(8013,[{...swimming,properties:[prop('experience.activity','sauna')]}]);
+ assert.ok(search(request([fact('swim','experience.activity','swimming'),fact('noSauna','experience.activity','sauna','EXCLUDED')]),[combined]).excluded.length);
+ const contradictory=request([fact('sauna','experience.activity','sauna'),fact('noSauna','experience.activity','sauna','EXCLUDED')]);
+ assert.ok(search(contradictory,[mixed]).excluded.length);
+ const unknown=pool(8014,[{...swimming,properties:[prop('experience.activity',null,{state:'UNKNOWN'})]}]);
+ assert.equal(search(request([fact('swim','experience.activity','swimming'),fact('noSauna','experience.activity','sauna','EXCLUDED')]),[unknown]).ranked.length,0);
+ const unread=pool(8016,[{...swimming,properties:[prop('experience.activity','unbekanntes Kombiprogramm')]}]);
+ assert.equal(search(request([fact('swim','experience.activity','swimming'),fact('noSauna','experience.activity','sauna','EXCLUDED')]),[unread]).ranked.length,0);
+ // No actual activity witness must never be treated as proof of non-participation.
+ const generic=pool(8015,[offer('visit','VISIT',['inside'])]);
+ assert.equal(search(request([fact('visit','experience.activity','visit'),fact('noSauna','experience.activity','sauna','EXCLUDED')]),[generic]).ranked.length,0);
+ const separatePeople=request([fact('swim','experience.activity','swimming','REQUIRED',['a1','p1']),
+  fact('sauna','experience.activity','sauna','REQUIRED',['a2','p2']),fact('noSauna','experience.activity','sauna','EXCLUDED',['p1'])]);
+ const peopleResult=search(separatePeople,[mixed]);
+ assert.equal(peopleResult.ranked.length,1,'one person may swim while the other explicitly chooses sauna');
+ assert.deepEqual(peopleResult.ranked[0].facts.find(f=>f.factId==='noSauna').offerIds,['pool']);
+ const unboundPerson=request([fact('swim','experience.activity','swimming'),fact('noSauna','experience.activity','sauna','EXCLUDED',['p1'])]);
+ assert.equal(search(unboundPerson,[plain]).ranked.length,0,'unknown participant-to-offer ownership is not proof');
+});
+
 test('typed family context distinguishes recipients, adult children and explicitly minor or absent accompaniment',()=>{
  const age=(id,n)=>fact('age:'+id,'people.age',{amount:n,operator:'EQ',unit:'YEARS'},'CONTEXT',[id]);
  const child=age('p2',4),relation=fact('daughter','people.relationship','daughter','CONTEXT',['p2']);

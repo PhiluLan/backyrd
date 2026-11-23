@@ -2,13 +2,149 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { contentHash } from '../dist/canonical.js';
 import { buildNuknukCompactSearchRequest, validateNuknukCompactSearch, validateCompactTurn, buildNuknukUnderstandingRequest, understandWithNuknuk, validateNuknukUnderstanding } from '../dist/nuknuk-understanding.js';
-import { mergeNuknukDialogueUpdate } from '../dist/nuknuk-dialogue.js';
+import { buildNuknukDialogueUpdate, mergeNuknukDialogueUpdate } from '../dist/nuknuk-dialogue.js';
 import { auditUnderstandingDataset, exportUnderstandingDataset, understandingSplitHash, reviseUnderstandingCase, recordUnderstandingReview } from '../dist/nuknuk-understanding-learning.js';
 import { draftUnderstandingDataset, understandingDevelopmentCases } from '../../../scripts/decision-diagnostics/nuknuk-understanding-cases.mjs';
 import { evaluateNuknukAgainstCatalog } from '../../../scripts/decision-diagnostics/nuknuk-understanding.mjs';
 import { binding, offer, profile, prop, worldFact } from './librarian-matching-fixtures.mjs';
 import { buildNuknukAssessmentRequest, validateNuknukAssessment, assessWithNuknuk } from '../dist/nuknuk-grounded-assessment.js';
 import { buildPilotCohort, pilotReviewMarkdown, PILOT_PLAN_HASH } from '../../../scripts/decision-diagnostics/nuknuk-pilot-cohort.mjs';
+
+test('a source money bound rejects reversed polarity or changed preference without rewriting it',()=>{
+ const reference={now:'2026-11-23T09:00:00Z',timezone:'Europe/Zurich'};
+ const evaluate=(query,operator,modality='REQUIRED',amount=30)=>validateNuknukCompactSearch({meaning:{facts:[
+  {id:'meal',key:'food.meal',value:{text:'meal'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+  {id:'cost',key:'budget.maximum',value:{amount,operator,currency:'CHF'},modality,basis:'EXPLICIT',subjectIds:[]},
+  ...(/pro Person|per person|par personne/iu.test(query)?[{id:'scope',key:'budget.scope',value:{scope:'PER_PERSON'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:[]}]:[]),
+ ]}},{query,reference});
+ for(const [query,operator,modality] of [
+  ['Gemütlich essen, möglichst unter 30 Franken pro Person.','LT','PREFERRED'],
+  ['Essen für höchstens 30 Franken.','LTE','REQUIRED'],
+  ['Essen für mindestens CHF 30.','GTE','REQUIRED'],
+  ['A meal, preferably under CHF 30.','LT','PREFERRED'],
+  ['Un repas, si possible moins de 30 CHF.','LT','PREFERRED'],
+ ]){
+  assert.equal(evaluate(query,operator,modality).requestState,'EXECUTABLE',query);
+  assert.throws(()=>evaluate(query,operator==='GTE'?'LTE':'GTE',modality),/source_budget_contradicted/,query);
+  assert.throws(()=>evaluate(query,operator,modality==='PREFERRED'?'REQUIRED':'PREFERRED'),/source_budget_contradicted/,query);
+ }
+ assert.throws(()=>evaluate('Essen für unter 30 Franken.','LT','REQUIRED',35),/source_budget_contradicted/);
+ // Different components and negated comparisons are not flattened into one limit.
+ assert.doesNotThrow(()=>evaluate('Nicht unter 30 Franken essen.','GTE'));
+ assert.doesNotThrow(()=>evaluate('Unter 30 Franken essen, danach höchstens 10 Franken trinken.','LT'));
+ assert.doesNotThrow(()=>evaluate('Ideally a meal under CHF 30.','LT','PREFERRED'));
+ assert.doesNotThrow(()=>evaluate('Essen unter CHF 30.500.','LT'));
+ const hint=buildNuknukCompactSearchRequest({query:'Kaffee, möglichst unter 18 Franken.',reference}).instructions;
+ assert.match(hint, /ORIGINALGEBUNDENE GELDGRENZE/);
+ assert.match(hint, /"key":"budget.maximum","modality":"PREFERRED","value":\{"amount":18,"currency":"CHF","operator":"LT"/);
+ for(const query of ['Früher wollte ich unter 30 Franken essen. Heute nur Kaffee.',
+  'Meine Schwester findet unter 30 Franken zu billig. Ich möchte Kaffee.',
+  'Ein Preis unter 30 Franken ist mir egal.']) {
+  assert.doesNotMatch(buildNuknukCompactSearchRequest({query,reference}).instructions,/ORIGINALGEBUNDENE GELDGRENZE/);
+ }
+});
+
+test('the existing bounded model repair receives a source-budget defect and never forwards its inversion',async()=>{
+ const {createDecisionProductNuknukProvider}=await import('../dist/product-nuknuk-provider.js');
+ const {exercise}=await import('./librarian-active-route-fixtures.mjs');
+ const raw=(operator,modality)=>({meaning:{facts:[
+  {id:'food',key:'food.meal',value:{text:'meal'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+  {id:'money',key:'budget.maximum',value:{amount:30,operator,currency:'CHF'},modality,basis:'EXPLICIT',subjectIds:[]},
+  {id:'scope',key:'budget.scope',value:{scope:'PER_PERSON'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:[]},
+ ]}});
+ for(const repairSucceeds of [true,false]){
+  let calls=0;
+  const provider=createDecisionProductNuknukProvider({endpoint:'https://example.test/v1/chat/completions',apiKey:'test',model:'synthetic',repairCompactMeaning:true,
+   fetchImpl:async(_url,options)=>{const prompt=JSON.parse(options.body).messages[0].content;calls++;
+    if(calls===2)assert.match(prompt,/Geldgrenze widerspricht/);
+    return new Response(JSON.stringify({model:'synthetic',choices:[{finish_reason:'stop',message:{content:JSON.stringify(calls===2&&repairSucceeds?raw('LT','PREFERRED'):raw('GTE','REQUIRED'))}}]}));}});
+  const result=await exercise({text:'Gemütlich essen, möglichst unter 30 Franken pro Person.',catalog:[binding(8001,profile())],understandOverride:provider});
+  assert.equal(calls,2);
+  assert.equal(result.status,repairSucceeds?200:422);
+  if(!repairSucceeds)assert.equal(result.reads,0,'a reversed budget must never reach catalog matching');
+ }
+});
+
+test('a stated per-person unit cannot be substituted by an unsupported qualitative price duty',()=>{
+ const query='Vegetarisch essen in Basel, höchstens 30 Franken pro Person.';
+ const reference={now:'2026-11-23T09:00:00Z',timezone:'Europe/Zurich'};
+ const facts=[{id:'meal',key:'food.meal',value:{text:'meal'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+  {id:'money',key:'budget.maximum',value:{amount:30,operator:'LTE',currency:'CHF'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]}];
+ assert.throws(()=>validateNuknukCompactSearch({meaning:{facts:[...facts,
+  {id:'unit',key:'budget.qualitative',value:{text:'per_person'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]}]}},{query,reference}),/source_budget_contradicted/);
+ const valid=validateNuknukCompactSearch({meaning:{facts:[...facts,
+  {id:'unit',key:'budget.scope',value:{scope:'PER_PERSON'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:[]}]}},{query,reference});
+ assert.equal(valid.requestState,'EXECUTABLE');
+ assert.throws(()=>validateNuknukCompactSearch({meaning:{facts:[facts[0],
+  {id:'price',key:'budget.qualitative',value:{text:'höchstens 30 Franken'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+  {id:'unit',key:'budget.scope',value:{scope:'PER_PERSON'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:[]}]}},{query,reference}),/source_budget_contradicted/);
+});
+
+test('a multi-field dialogue patch must cite every replacement and retains the unchanged date',()=>{
+ const reference={now:'2026-11-23T09:00:00Z',timezone:'Europe/Zurich'};
+ const query='Morgen draussen essen, wir sind vier.';
+ const facts=[
+  {id:'food',key:'food.meal',value:{text:'meal'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a1']},
+  {id:'area',key:'offer.area',value:{text:'outdoor'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a1']},
+  {id:'count',key:'people.count',value:{amount:4,operator:'EQ',unit:'PEOPLE'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['g1']},
+  {id:'date',key:'time.date',value:{date:'2026-11-24',operator:'EQ',timezone:reference.timezone},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+ ];
+ const original=validateNuknukCompactSearch({meaning:{facts,entities:[{id:'a1',kind:'ACTIVITY',label:'Essen',members:[]},{id:'g1',kind:'GROUP',label:'Besucher',members:[]}]}},{query,reference});
+ const answer='Doch lieber drinnen, und wir sind fünf. Morgen bleibt.';
+ const turns=[{question:null,answer}];
+ const updates=[{...facts[1],value:{text:'indoor'}},{...facts[2],value:{...facts[2].value,amount:5}}];
+ const invalid={meaning:{facts:updates},removeFactIds:['area'],removalEvidence:[{id:'area',quote:'Doch lieber drinnen'}]};
+ assert.throws(()=>mergeNuknukDialogueUpdate(original.searchMeaning,invalid,turns),/replacement_without_removal/);
+ const valid={...invalid,removeFactIds:['area','count'],removalEvidence:[...invalid.removalEvidence,{id:'count',quote:'wir sind fünf'}]};
+ const merged=mergeNuknukDialogueUpdate(original.searchMeaning,valid,turns);
+ const result=validateCompactTurn(merged,{query:query+'\nErgänzung: '+answer,reference},answer);
+ assert.equal(result.requestState,'EXECUTABLE');
+ assert.deepEqual(result.plan.facts.filter(f=>f.key==='people.count').map(f=>f.value.amount),[5]);
+ assert.deepEqual(result.plan.facts.filter(f=>f.key==='offer.area').map(f=>f.value.text),['indoor']);
+ assert.equal(result.plan.facts.find(f=>f.key==='time.date').value.date,'2026-11-24');
+ const prompt=buildNuknukDialogueUpdate(buildNuknukCompactSearchRequest({query,reference}),original.searchMeaning,turns);
+ assert.match(prompt.instructions,/Mehrere Änderungen brauchen mehrere changes/);
+ assert.doesNotMatch(prompt.instructions,/Gib den vollständigen aktualisierten Suchauftrag zurück/);
+ const atomic={changes:updates.map((fact,i)=>({id:fact.id,quote:i?'wir sind fünf':'Doch lieber drinnen',fact}))};
+ assert.deepEqual(mergeNuknukDialogueUpdate(original.searchMeaning,atomic,turns),merged);
+ assert.throws(()=>mergeNuknukDialogueUpdate(original.searchMeaning,{changes:[{...atomic.changes[0],quote:'fremdes Zitat'}]},turns),/removal_without_answer/);
+ assert.throws(()=>mergeNuknukDialogueUpdate(original.searchMeaning,{changes:[atomic.changes[0],atomic.changes[0]]},turns),/change_invalid/);
+ assert.throws(()=>mergeNuknukDialogueUpdate(original.searchMeaning,{changes:[{...atomic.changes[0],fact:{...updates[0],id:'wrong'}}]},turns),/replacement_id_mismatch/);
+ const forbiddenDate={id:'date',quote:'Morgen',fact:{...facts[3],value:{...facts[3].value,date:'2026-11-25'}}};
+ assert.throws(()=>mergeNuknukDialogueUpdate(original.searchMeaning,{changes:[forbiddenDate]},turns),/retained_timing_changed/);
+ assert.ok(!prompt.outputSchema.properties.changes.items.properties.id.enum.includes('date'));
+ // A later retention statement must not reset an earlier, valid date change.
+ const multi=mergeNuknukDialogueUpdate(original.searchMeaning,{changes:[{...forbiddenDate,quote:'übermorgen'}]},
+  [{question:null,answer:'Doch lieber übermorgen.'},{question:null,answer:'Datum bleibt, aber drinnen.'}]);
+ assert.equal(multi.meaning.facts.find(f=>f.id==='date').value.date,'2026-11-25');
+ for(const answer of ['Morgen bleibt unklar, streiche den Tag.','Not the same day.']) {
+  const uncertain=buildNuknukDialogueUpdate(buildNuknukCompactSearchRequest({query,reference}),original.searchMeaning,[{question:null,answer}]);
+  assert.ok(uncertain.outputSchema.properties.changes.items.properties.id.enum.includes('date'),answer);
+ }
+ assert.throws(()=>mergeNuknukDialogueUpdate(original.searchMeaning,{...valid,removalEvidence:valid.removalEvidence.slice(0,1)},turns),/removal_without_answer/);
+});
+
+test('plain activity refusals keep participation scope while explicit venue bans stay authoritative',()=>{
+ const reference={now:'2026-11-23T09:00:00Z',timezone:'Europe/Zurich'};
+ const raw=key=>({meaning:{facts:[
+  {id:'swim',key:'experience.activity',value:{text:'swimming'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+  {id:'noSauna',key,value:{text:'sauna'},modality:'EXCLUDED',basis:'EXPLICIT',subjectIds:[]},
+ ]}});
+ const query='Morgen Nachmittag schwimmen gehen, keine Sauna.';
+ assert.throws(()=>validateNuknukCompactSearch(raw('offer.kind'),{query,reference}),/activity_exclusion_misscoped/);
+ assert.equal(validateNuknukCompactSearch(raw('experience.activity'),{query,reference}).requestState,'EXECUTABLE');
+ const venue='Schwimmen gehen, aber kein Betrieb mit Sauna.';
+ assert.doesNotThrow(()=>validateNuknukCompactSearch(raw('offer.kind'),{query:venue,reference}));
+ const prompt=buildNuknukCompactSearchRequest({query,reference});
+ assert.match(prompt.instructions,/ORIGINALGEBUNDENE AKTIVITÄTSABLEHNUNGEN/);
+ const food={meaning:{facts:[
+  {id:'meal',key:'food.meal',value:{text:'meal'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+  {id:'coffee',key:'food.drink',value:{text:'coffee'},modality:'EXCLUDED',basis:'EXPLICIT',subjectIds:[]},
+ ]}};
+ const foodQuery='Essen gehen, kein Kaffee.';
+ assert.doesNotThrow(()=>validateNuknukCompactSearch(food,{query:foodQuery,reference}));
+ assert.doesNotMatch(buildNuknukCompactSearchRequest({query:foodQuery,reference}).instructions,/ORIGINALGEBUNDENE AKTIVITÄTSABLEHNUNGEN/);
+});
 
 const example = understandingDevelopmentCases[0].content;
 const modelPath = '/models/45797d2985a12c55e6473686e9ea91b95e959553';

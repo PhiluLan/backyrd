@@ -584,7 +584,8 @@ test('NukNuk retains prior facts when an unreferenced new fact reuses their wire
  assert.deepEqual(merged.meaning.facts,[saturday,companion,{...proximity,id:'dialogueFact1'}]);
  const ambiguous = structuredClone(delta);
  ambiguous.meaning.logic = {kind:'FACT',factId:'f3'};
- assert.equal(mergeNuknukDialogueUpdate(previous,ambiguous,turns).meaning.facts.filter(row=>row.id==='f3').length,2);
+ assert.throws(()=>mergeNuknukDialogueUpdate(previous,ambiguous,turns),/replacement_without_removal/,
+  'an ambiguous referenced collision must fail before duplicate IDs enter the handoff');
 });
 
 test('accepting reservations updates the booking criterion without removing an independent preference', async () => {
