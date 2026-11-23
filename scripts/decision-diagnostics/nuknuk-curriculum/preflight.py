@@ -44,8 +44,13 @@ max_total_tokens = manifest.get('trainingLimits', {}).get('maxTotalTokens', 4608
 if product_profile:
     assert max_total_tokens in (4608, 5120)
     assert manifest.get("trainingLimits") == {"maxTotalTokens": max_total_tokens, "maxAnswerTokens": 2048}
+transfer_requests = []
+if manifest.get("cohort") == "BETA_V1" and "transfer-evaluation-inputs.json" in manifest["files"]:
+    for name in ["transfer-evaluation-inputs.json", "transfer.jsonl"]:
+        assert sha(folder / name) == manifest["files"][name]["sha256"], (name, "transfer_input_changed")
+    transfer_requests = json.loads((folder / "transfer-evaluation-inputs.json").read_text())["cases"]
 schemas, schema_by_case, schemas_by_task = {}, {}, {}
-for row in requests:
+for row in requests + transfer_requests:
     key = hashlib.sha256(json.dumps(row["outputSchema"], sort_keys=True).encode()).hexdigest()
     assert row["id"] not in schema_by_case
     schemas[key] = row["outputSchema"]
@@ -82,6 +87,13 @@ for split, name in [("TRAIN", "train"), ("VALIDATION", "valid"), ("TEST", "test"
     assert len(cases) == len(rows)
     for case, row in zip(cases, rows):
         tokens_report.append(inspect_messages(case["id"], split, case["content"]["task"], row["messages"]))
+transfer_report = []
+if transfer_requests:
+    pairs = [json.loads(line) for line in (folder / "transfer.jsonl").read_text().splitlines()]
+    assert len(pairs) == len(transfer_requests)
+    for case, pair in zip(transfer_requests, pairs):
+        assert case["split"] == "TRANSFER"
+        transfer_report.append(inspect_messages(case["id"], "TRANSFER", case["task"], pair["messages"]))
 derived_report = []
 controls_file = folder / "metamorphic-controls.json"
 if controls_file.exists():
@@ -102,8 +114,9 @@ assert "torch" not in sys.modules and "transformers" not in sys.modules
 report = {"version": "backyrd.nuknuk-offline-preflight@2", "datasetManifestFileSha256": sha(folder / "manifest.json"),
           "tokenizerFilesSha256": {name: sha(tokenizer_folder / name) for name in ["tokenizer.json", "tokenizer_config.json", "chat_template.jinja"]},
           "versions": {name: importlib.metadata.version(name) for name in ["tokenizers", "llguidance", "Jinja2"]},
-          "cases": tokens_report, "caseCount": len(tokens_report), "maxTotalTokens": max(r["totalTokens"] for r in tokens_report),
-          "maxAnswerTokens": max(r["answerTokens"] for r in tokens_report), "grammarCount": len(grammars),
+          "cases": tokens_report, "caseCount": len(tokens_report), "maxTotalTokens": max(r["totalTokens"] for r in tokens_report + transfer_report),
+          "transferCases": transfer_report, "transferCaseCount": len(transfer_report),
+          "maxAnswerTokens": max(r["answerTokens"] for r in tokens_report + transfer_report), "grammarCount": len(grammars),
           "derivedControls": derived_report, "derivedControlCount": len(derived_report), "taskMixture": mixture,
           "mixtureInterpretation": "Report examples, tokens and scenario groups separately. Grouped variants and derived controls are not independent user situations. Loss aggregation is a later recipe choice.",
           "peakRSSBytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss, "networkUsed": False, "modelLoaded": False, "trainingStarted": False,

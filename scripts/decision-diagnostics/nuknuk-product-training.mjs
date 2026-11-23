@@ -41,7 +41,7 @@ export function validateProductTrainingRows(rows){
  return {caseCount:rows.length,counts:Object.fromEntries(['TRAIN','VALIDATION','TEST'].map(s=>[s,rows.filter(r=>r.split===s).length])),
   scenarioGroups:Object.fromEntries(['TRAIN','VALIDATION','TEST'].map(s=>[s,new Set(rows.filter(r=>r.split===s).map(r=>r.scenarioGroup)).size]))};
 }
-async function currentPrompt(row){
+export async function currentPrompt(row){
  if(row.task==='DIALOGAKTUALISIERUNG_V3')return buildNuknukDialogueUpdate(buildNuknukCompactSearchRequest(row),row.previousMeaning,row.turns);
  // Capture the actual provider request with an in-memory stub; no network or key.
  // Includes the provider's purpose instructions without duplicating their text.
@@ -71,9 +71,11 @@ export async function exportProductTraining(args, options={}){
  const commission={version:'backyrd.nuknuk-training-commission@2',source:'FOUNDER_CHAT_20261123',instruction:beta?'Erstelle das Trainingsprogramm und lasse den Katalog durch einen neuen Astra-Agent prüfen.':'Perfekt, dann los gehts',
   scope:beta?['CREATE_BETA_CURRICULUM','REQUEST_INDEPENDENT_ASTRA_REVIEW']:['SYNTHETIC_TARGETED_TRAINING_PREPARATION','SEPARATE_CANDIDATE_TRAINING','BASELINE_COMPARISON'],
   independentHumanGold:false,independentAssistantReview:false,reviewedAt};
- const delegationHash=contentHash(commission),evaluation=[],reviewed=[];
+ const transferRows=beta?(await import('./nuknuk-beta-transfer-cases.mjs')).betaTransferCases():[];
+ if(beta)validateProductTrainingRows([...rows.filter(r=>r.split!=='TEST'),...transferRows.map(r=>({...r,split:'TEST'}))]);
+ const delegationHash=contentHash(commission),evaluation=[],reviewed=[],transferEvaluation=[],transferPairs=[];
  const files={train:[],valid:[],test:[]};
- for(const row of rows){
+ for(const row of [...rows,...transferRows]){
   const request=await currentPrompt(row),target=orderForSchema(row.expected,request.outputSchema,request.outputSchema);
   // Same spaced JSON convention as the canonical exporter/server grammar.
   const answer=JSON.stringify(target).replace(/"(?:[^"\\]|\\.)*"|[:,]/g,token=>token===':'?': ':token===','?', ':token);
@@ -82,19 +84,19 @@ export async function exportProductTraining(args, options={}){
    context:row.previousMeaning?{previousMeaning:row.previousMeaning,turns:row.turns}:null,
    provenance:{kind:'SYNTHETIC',reference:row.id},trainingPermission:'APPROVED'};
   const hash=contentHash(content);
-  reviewed.push({id:row.id,scenarioGroup:row.scenarioGroup,split:row.split,content,contentHash:hash,
+  if(row.split!=='TRANSFER')reviewed.push({id:row.id,scenarioGroup:row.scenarioGroup,split:row.split,content,contentHash:hash,
    reviews:beta?[]:['SEMANTICS','PRIVACY_AND_SOURCE_USE'].map(kind=>({kind,verdict:'ACCEPT',contentHash:hash,reviewer:'codex-commissioned-product-profile-review',reviewerKind:'DELEGATED_ASSISTANT',delegationHash,vocabularyHash:NUKNUK_TRAINING_VOCABULARY_HASH,reviewedAt,
     note:kind==='SEMANTICS'?row.review:'Authored synthetic case, no personal profiles or live sessions. No independent human gold.'}))});
-  evaluation.push({...(beta?{familyId:row.familyId,theme:row.theme,locale:row.locale,critical:row.critical,reviewStatus:row.reviewStatus}:{}),id:row.id,scenarioGroup:row.scenarioGroup,split:row.split,task:row.task,query:row.query,reference:row.reference,
+  (row.split==='TRANSFER'?transferEvaluation:evaluation).push({...(beta?{familyId:row.familyId,theme:row.theme,locale:row.locale,critical:row.critical,reviewStatus:row.reviewStatus}:{}),id:row.id,scenarioGroup:row.scenarioGroup,split:row.split,task:row.task,query:row.query,reference:row.reference,
    messages:pair.messages.slice(0,2),outputSchema:request.outputSchema,expected:row.expected,
    promptHash:sha(request.instructions),inputHash:sha(request.input),schemaHash:contentHash(request.outputSchema)});
-  files[{TRAIN:'train',VALIDATION:'valid',TEST:'test'}[row.split]].push(pair);
+  if(row.split==='TRANSFER')transferPairs.push(pair);else files[{TRAIN:'train',VALIDATION:'valid',TEST:'test'}[row.split]].push(pair);
  }
  const root=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
  const sources=['scripts/decision-diagnostics/nuknuk-product-training.mjs','scripts/decision-diagnostics/nuknuk-product-training-cases.mjs',
   'scripts/decision-diagnostics/nuknuk-curriculum/preflight.py','scripts/decision-diagnostics/nuknuk-gpu.py',
   'packages/decision-vnext-core/src/nuknuk-understanding.ts','packages/decision-vnext-core/src/nuknuk-dialogue.ts','packages/decision-vnext-core/src/product-nuknuk-provider.ts','packages/decision-vnext-core/src/nuknuk-understanding-learning.ts',
-  ...(beta?['scripts/decision-diagnostics/nuknuk-beta-training-cases.mjs','scripts/decision-diagnostics/nuknuk-beta-training-program.mjs']:[]),
+  ...(beta?['scripts/decision-diagnostics/nuknuk-beta-training-cases.mjs','scripts/decision-diagnostics/nuknuk-beta-training-program.mjs','scripts/decision-diagnostics/nuknuk-beta-evaluation.mjs','scripts/decision-diagnostics/nuknuk-beta-transfer-cases.mjs','scripts/decision-diagnostics/nuknuk-beta-review.mjs','scripts/decision-diagnostics/nuknuk-beta-semantics.mjs','scripts/decision-diagnostics/test_nuknuk_beta_evaluation.mjs','packages/decision-vnext-core/test/librarian-required-evidence.test.mjs','packages/decision-vnext-core/test/librarian-active-route-fixtures.mjs']:[]),
   'packages/decision-vnext-core/src/nuknuk-training-vocabulary.ts','packages/world-knowledge-core/src/experience-language.ts','packages/decision-vnext-core/src/product-librarian-matching.ts','packages/decision-vnext-core/src/product-librarian-language.ts','packages/decision-vnext-core/src/product-luna-librarian.ts'];
  const sourceHashes=Object.fromEntries(await Promise.all(sources.map(async name=>[name,await fileSha(resolve(root,name))])));
  const modelFiles=Object.fromEntries(await Promise.all(['config.json','tokenizer.json','tokenizer_config.json','chat_template.jinja'].map(async name=>[name,await fileSha(resolve(model,name))])));
@@ -110,10 +112,16 @@ export async function exportProductTraining(args, options={}){
  if(beta){
   const {betaTrainingProgram,betaSupplementalChecks}=await import('./nuknuk-beta-training-program.mjs');
   payload['training-program.json']=JSON.stringify(betaTrainingProgram(),null,2)+'\n';
+  const {auditBetaTransfer,betaNativeReviewPacket}=await import('./nuknuk-beta-review.mjs');
+  payload['transfer-evaluation-inputs.json']=JSON.stringify({cases:transferEvaluation},null,2)+'\n';
+  payload['transfer.jsonl']=transferPairs.map(JSON.stringify).join('\n')+'\n';
+  payload['transfer-cases.json']=JSON.stringify({cases:transferRows},null,2)+'\n';
+  payload['transfer-audit.json']=JSON.stringify(auditBetaTransfer(rows,transferRows),null,2)+'\n';
+  payload['native-review-packet.json']=JSON.stringify(betaNativeReviewPacket(rows,transferRows),null,2)+'\n';
   payload['supplemental-checks.json']=JSON.stringify(betaSupplementalChecks(),null,2)+'\n';
   const compactFact=f=>f?[f.id,f.key,f.value,f.modality,f.subjectIds,f.basis]:null;
   const compactMeaning=m=>({entities:m.entities?.map(e=>[e.id,e.kind,e.members]),facts:m.facts?.map(compactFact),logic:m.logic??null,bindings:m.bindings??[],weatherConditions:m.weatherConditions??[]});
-  const compactTarget=t=>t.meaning?{meaning:compactMeaning(t.meaning),...(t.clarification?{clarification:t.clarification}:{})}:{changes:t.changes.map(c=>[c.id,c.quote,compactFact(c.fact)])};
+  const compactTarget=t=>t.meaning?{meaning:compactMeaning(t.meaning),...(t.clarification?{clarification:t.clarification}:{})}:{changes:t.changes.map(c=>[c.id,c.quote,compactFact(c.fact)]),...(t.additions?{additions:compactMeaning(t.additions)}:{})};
   const cards=[];
   for(const familyId of [...new Set(rows.map(r=>r.familyId))]){
    const variants=rows.filter(r=>r.familyId===familyId),first=variants[0],base=compactTarget(first.expected);

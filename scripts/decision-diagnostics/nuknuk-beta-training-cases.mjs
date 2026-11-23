@@ -1,7 +1,7 @@
 // Authored synthetic curriculum. No model calls, real users or inferred spot facts.
 import {createHash} from 'node:crypto';
 import {contentHash} from '../../packages/decision-vnext-core/dist/canonical.js';
-import {librarianConcept} from '@backyrd/world-knowledge-core';
+import {betaGraphHash} from './nuknuk-beta-semantics.mjs';
 import {productTrainingCases} from './nuknuk-product-training-cases.mjs';
 const locales=['de','de-CH','en','fr'];
 const REF={now:'2027-02-03T09:00:00Z',timezone:'Europe/Zurich'};
@@ -158,7 +158,7 @@ export function betaTrainingFamilies(){
   const bPhrase=isFamily?text('draussen spazieren gehen','dusse go spaziere','go for an outdoor walk','faire une promenade en plein air'):b.phrases;
   const q=Object.fromEntries(locales.map(l=>[l,intro[l]+({de:mode==='choice'?`Entweder ${aPhrase[l]} oder ${bPhrase[l]}.`:mode==='sequence'?`Erst ${aPhrase[l]}, danach ${bPhrase[l]}.`:mode==='same-place'?`Erst ${aPhrase[l]}, danach am selben Ort ${bPhrase[l]}.`:mode==='weather'?`Wenn es regnet, ${aPhrase[l]}; sonst ${bPhrase[l]}.`:`Am liebsten ${aPhrase[l]}; nur wenn das nicht möglich ist, ${bPhrase[l]}.`,'de-CH':mode==='choice'?`Entweder ${aPhrase[l]} oder ${bPhrase[l]}.`:mode==='sequence'?`Zerscht ${aPhrase[l]}, dänn ${bPhrase[l]}.`:mode==='same-place'?`Zerscht ${aPhrase[l]}, dänn am gliiche Ort ${bPhrase[l]}.`:mode==='weather'?`Wänn es rägnet, ${aPhrase[l]}; suscht ${bPhrase[l]}.`:`Am liebschte ${aPhrase[l]}; nur wänn das nöd gaht, ${bPhrase[l]}.`,en:mode==='choice'?`Either ${aPhrase[l]} or ${bPhrase[l]}.`:mode==='sequence'?`First ${aPhrase[l]}, then ${bPhrase[l]}.`:mode==='same-place'?`First ${aPhrase[l]}, then ${bPhrase[l]} at the same place.`:mode==='weather'?`If it rains, ${aPhrase[l]}; otherwise ${bPhrase[l]}.`:`I would prefer to ${aPhrase[l]}; only if that is unavailable, ${bPhrase[l]}.`,fr:mode==='choice'?`Soit ${aPhrase[l]}, soit ${bPhrase[l]}.`:mode==='sequence'?`D’abord ${aPhrase[l]}, puis ${bPhrase[l]}.`:mode==='same-place'?`D’abord ${aPhrase[l]}, puis ${bPhrase[l]} au même endroit.`:mode==='weather'?`S’il pleut, ${aPhrase[l]} ; sinon ${bPhrase[l]}.`:`De préférence ${aPhrase[l]} ; seulement si ce n’est pas possible, ${bPhrase[l]}.`})[l]]));
   const facts=[fs(a),R(b.key,b.value,['a2'])];let aIds=['f1'],bIds=['f2'];
-  if(isFamily){facts.push(R('offer.area','indoor'));aIds.push('f3');facts.push(R('offer.area','outdoor',['a2']));bIds.push('f4');facts.push({...R('condition.children','children_activity'),basis:'INFERRED'});aIds.push('f5');facts.push({...R('condition.children','children_activity',['a2']),basis:'INFERRED'});bIds.push('f6');facts.push(...familyFacts.filter(f=>f.modality==='CONTEXT'));}
+  if(isFamily){facts.push(R('offer.area','indoor'));aIds.push('f3');facts.push(R('offer.area','outdoor',['a2']));bIds.push('f4');facts.push({...R('condition.children','children_activity'),basis:'INFERRED'});aIds.push('f5');facts.push(...familyFacts.filter(f=>f.modality==='CONTEXT'));}
   const branch=ids=>ids.length===1?{kind:'FACT',factId:ids[0]}:and(...ids);
   const logic=mode==='choice'?{kind:'ANY',strength:'REQUIRED',children:[branch(aIds),branch(bIds)]}:mode==='weather'?{kind:'IF',conditionFactId:'w1',then:branch(aIds),else:branch(bIds)}:mode==='fallback'?{kind:'FALLBACK',options:[branch(aIds),branch(bIds)]}:and(...aIds,...bIds);
   const bindings=['sequence','same-place'].includes(mode)?[{kind:'SEQUENCE',factIds:['f1','f2']},...(mode==='same-place'?[{kind:'SAME_PLACE',factIds:['f1','f2']}]:[])]:[];
@@ -251,16 +251,75 @@ export function betaTrainingFamilies(){
  }
  for(const [i,a]of [activities[0],activities[2],activities[3]].entries())for(const venue of [false,true]){
   const old=`beta1-modality-${['indoor','outdoor','quiet','cozy','vegan','music'][i*2+Number(venue)]}-PREFERRED_TOMORROW`;
-  const kind=['CINEMA','SWIMMING_POOL','BOWLING_ALLEY'][i];
+  const kind=['cinema','swimming','bowling'][i];
   const facility=[text('ein Kino','es Kino','a cinema','un cinéma'),text('ein Schwimmbad','es Schwümmbad','a swimming pool','une piscine'),text('eine Bowlingbahn','e Bowlingbahn','a bowling alley','une piste de bowling')][i];
   const q=Object.fromEntries(locales.map(l=>[l,ask(foods[6])[l]+' '+(venue?text(`Im gesamten Betrieb darf es keine solche Einrichtung geben: ${facility.de}.`,`Im ganze Betrieb dörf es kei söttigi Iirichtig gäh: ${facility['de-CH']}.`,`This facility must be absent from the entire venue: ${facility.en}.`,`Cet équipement doit être absent de tout l’établissement : ${facility.fr}.`):text(`Ich selbst möchte nicht ${a.phrases.de}. Ob andere das dort tun können, ist mir egal.`,`Ich selber möcht nöd ${a.phrases['de-CH']}. Ob anderi das det chönd mache, isch mer egal.`,`I do not want to ${a.phrases.en} myself. I do not mind whether other people can do that there.`,`Je ne souhaite pas personnellement cette activité : ${a.phrases.fr}. Peu importe que d’autres puissent le faire sur place.`))[l]]));
-  replaceFamily(old,'exclusion-scope',a.id+'-'+(venue?'venue':'self'),q,{meaning:meaning([fs(foods[6]),{...R(venue?'offer.kind':a.key,venue?kind:a.value,venue?['a1']:['self']),modality:'EXCLUDED'}],{entities:[E('a1'),...(venue?[]:[E('self','PERSON')])]})},'Persönliche Ablehnung betrifft nur self; betriebsweiter Ausschluss gehört an den Angebotsbezug. Keine Umdeutung von persönlicher Ablehnung zum gesamten Betrieb.');
+  replaceFamily(old,'exclusion-scope',a.id+'-'+(venue?'venue':'self'),q,{meaning:meaning([{...fs(foods[6]),subjectIds:venue?['a1']:['a1','self']},...(!venue?[C('people.role','self',['self'])]:[]),{...R(venue?'offer.kind':a.key,venue?kind:a.value,venue?['a1']:['self']),modality:'EXCLUDED'}],{entities:[E('a1'),...(venue?[]:[E('self','PERSON')])]})},'Persönliche Ablehnung betrifft nur self; betriebsweiter Ausschluss gehört an den Angebotsbezug. Keine Umdeutung von persönlicher Ablehnung zum gesamten Betrieb.');
  }
  for(const a of [activities[1],activities[9]])replaceFamily(`beta1-activity-retention-${a.id}-basel`,'temporal',a.id+'-travel-only',Object.fromEntries(locales.map(l=>[l,ask(a)[l]+text(' Die Anreise allein darf höchstens 35 Minuten dauern.',' D Aareis allei dörf höchstens 35 Minute duure.','Outbound travel alone must take at most 35 minutes.','Le trajet aller seul doit durer au maximum 35 minutes.')[l]])),{meaning:meaning([fs(a),R('time.duration',duration(35,'TRAVEL'))])},'Nur die Anreise ist begrenzt; keine verfügbare Gesamtzeit oder Aktivitätsdauer erfinden.');
+ for(const [id,amount,queries]of [
+  ['billiards',18,text('Ich will Billard spielen. Für die Anfahrt plane ich höchstens 18 Minuten ein.','Ich will Billard spiele. D Aafahrt dörf höchstens 18 Minute duure.','I want to play billiards; reaching the venue must take 18 minutes or less.','Je veux jouer au billard ; le trajet pour rejoindre le lieu doit durer au maximum 18 minutes.')],
+  ['workshop',46,text('Einen Workshop besuchen, mit einer Anreise von maximal 46 Minuten.','En Workshop bsueche, aber höchstens 46 Minute det ane fahre.','Find a workshop within a journey of no more than 46 minutes.','Un atelier, à condition de ne pas mettre plus de 46 minutes pour y aller.')],
+  ['family-discovery',29,text('Mit meiner 6-jährigen Tochter etwas unternehmen. Schon die Hinfahrt soll nicht länger als 29 Minuten dauern.','Mit minere 6-jährige Tochter öppis undernäh. Für d Hifahrt wänd mir höchstens 29 Minute bruuche.','Something to do with my 6-year-old daughter, with the outward journey capped at 29 minutes.','Une activité avec ma fille de 6 ans ; nous voulons limiter le trajet aller à 29 minutes.')],
+ ]){
+  const row=families.find(f=>f.id===`beta1-temporal-${id}-travel-only`);row.queries=queries;
+  row.target.meaning.facts.find(f=>f.key==='time.duration').value.amount=amount;
+ }
+ // Grounded additions use the existing atomic protocol, including mixed edits.
+ const replacedAdditionIds=[
+  'beta1-food-retention-drinks-cozy','beta1-food-retention-breakfast-cozy',
+  'beta1-food-retention-lunch-cozy','beta1-food-retention-dinner-cozy',
+  'beta1-food-retention-meal-cozy','beta1-food-retention-pizza-cozy',
+  'beta1-food-retention-pasta-cozy','beta1-food-retention-sushi-cozy',
+  'beta1-activity-retention-cinema-basel','beta1-activity-retention-swimming-basel',
+  'beta1-activity-retention-bowling-basel','beta1-activity-retention-mini-golf-basel',
+  'beta1-activity-retention-ceramics-basel','beta1-activity-retention-walking-basel',
+ ];
+ for(const [index,type]of [...['budget','duration','companion','second-part','mixed','subgroup'].flatMap(type=>[type,type]),'companion-budget','duration-second'].entries()){
+  const oldIndex=families.findIndex(f=>f.id===replacedAdditionIds[index]);if(oldIndex<0)throw Error('beta_addition_replacement');families.splice(oldIndex,1);
+  const a=index%2?activities[6]:foods[4];let previous=meaning([fs(a)]),first=ask(a),answer,addition;
+  if(type==='budget'){
+   const amount=index%2?51:64;
+   answer=text(`Dafür gilt zusätzlich eine Obergrenze von ${amount} Franken pro Person.`,`Dezue gilt e Obergränze vo ${amount} Franke pro Person.`,`Also set a spending limit of CHF ${amount} per person for this visit.`,`Ajoute une limite de ${amount} CHF par personne pour cette sortie.`);
+   addition={facts:[{id:'n1',...R('budget.maximum',money(amount))},{id:'n2',...C('budget.scope',{scope:'PER_PERSON'})}]};
+  }
+  if(type==='duration'){
+   const amount=index%2?52:68;
+   answer=text(`Ich habe für den ganzen Besuch jetzt höchstens ${amount} Minuten zur Verfügung.`,`Für de ganz Bsuech han ich jetzt höchstens ${amount} Minute Ziit.`,`I now have no more than ${amount} minutes for the whole visit.`,`Je dispose maintenant de ${amount} minutes au maximum pour toute la sortie.`);
+   addition={facts:[{id:'n1',...R('time.duration',duration(amount))}]};
+  }
+  if(type==='companion'){
+   answer=text('Mein 57-jähriger Onkel kommt mit mir mit.','Min 57-jährige Onkel chunnt mit mir mit.','My 57-year-old uncle is joining me.','Mon oncle de 57 ans m’accompagne.');
+   addition={entities:[E('p2','PERSON'),E('self','PERSON')],facts:[{id:'n1',...C('people.relationship','uncle',['p2'])},{id:'n2',...C('people.age',{amount:57,operator:'EQ',unit:'YEARS'},['p2'])},{id:'n3',...C('people.role','self',['self'])}]};
+  }
+  if(type==='second-part'){
+   answer=text('Danach möchte ich am selben Ort noch Tee trinken.','Dänn möcht ich am gliiche Ort no Tee trinke.','Afterwards I would also like tea at the same place.','Ensuite, je voudrais aussi boire un thé au même endroit.');
+   addition={entities:[E('a2')],facts:[{id:'n1',...R('food.drink','tea',['a2'])}],bindings:[{kind:'SEQUENCE',factIds:['f1','n1']},{kind:'SAME_PLACE',factIds:['f1','n1']}]};
+  }
+  if(type==='mixed'){
+   previous=meaning([fs(a),P('atmosphere.character','cozy')]);first=ask(a,text(', gerne gemütlich',', gern gmüetlich',', preferably cozy',', de préférence dans une ambiance chaleureuse'));
+   answer=text('Gemütlichkeit ist egal. Neu habe ich insgesamt höchstens 43 Minuten Zeit.','Gmüetlich isch egal. Neu han ich insgesamt höchstens 43 Minute Ziit.','Coziness no longer matters. I now have at most 43 minutes in total.','L’ambiance chaleureuse ne compte plus. Je dispose maintenant de 43 minutes au maximum au total.');
+   addition={facts:[{id:'n1',...R('time.duration',duration(43))}]};
+  }
+  if(type==='subgroup'){
+   answer=text('Wir kommen zu siebt; drei von uns brauchen vegane Optionen.','Mir chömed z sibt; drü vo üs bruuched vegani Optione.','Seven of us are coming; three need vegan options.','Nous serons sept ; trois personnes du groupe ont besoin d’options véganes.');
+   addition={entities:[E('party','GROUP',['subset']),E('subset','GROUP')],facts:[{id:'n1',...C('people.count',count(7),['party'])},{id:'n2',...C('people.count',count(3),['subset'])},{id:'n3',...R('food.diet','vegan',['subset'])}]};
+  }
+  if(type==='companion-budget'){
+   answer=text('Meine 58-jährige Tante kommt mit mir. Pro Person höchstens 72 Franken.','Mini 58-jährigi Tante chunnt mit mir. Pro Person höchstens 72 Franke.','My 58-year-old aunt is joining me. At most CHF 72 per person.','Ma tante de 58 ans m’accompagne. Au maximum 72 CHF par personne.');
+   addition={entities:[E('p2','PERSON'),E('self','PERSON')],facts:[{id:'n1',...C('people.relationship','aunt',['p2'])},{id:'n2',...C('people.age',{amount:58,operator:'EQ',unit:'YEARS'},['p2'])},{id:'n3',...C('people.role','self',['self'])},{id:'n4',...R('budget.maximum',money(72))},{id:'n5',...C('budget.scope',{scope:'PER_PERSON'})}]};
+  }
+  if(type==='duration-second'){
+   answer=text('Danach am selben Ort Tee trinken. Für alles zusammen habe ich höchstens 77 Minuten Zeit.','Dänn am gliiche Ort Tee trinke. Für alles zäme han ich höchstens 77 Minute Ziit.','Tea afterwards at the same place. I have at most 77 minutes for the whole plan.','Ensuite, boire un thé au même endroit. Je dispose de 77 minutes au maximum pour l’ensemble du programme.');
+   addition={entities:[E('a2')],facts:[{id:'n1',...R('food.drink','tea',['a2'])},{id:'n2',...R('time.duration',duration(77),[])}],bindings:[{kind:'SEQUENCE',factIds:['f1','n1']},{kind:'SAME_PLACE',factIds:['f1','n1']}]};
+  }
+  dialogue('dialogue-additions',type+'-'+index,first,previous,answer,l=>({changes:type==='mixed'?[{id:'f2',quote:answer[l],fact:null}]:[],additions:{entities:[],facts:[],bindings:[],extensions:[],uncertainties:[],weatherConditions:[],logic:null,...addition}}),'Neue Angaben mit neuen IDs ergänzen; alte Tätigkeit, Fakten und Verknüpfungen bleiben erhalten. Gemischte Änderung mit wörtlichem Aufhebungsbeleg.');
+  families.at(-1).curriculumRole=index>=12?'COMPOSED_HOLDOUT':'TEACHING';
+ }
  // Several reference days, including month rollover. Relative dates are regenerated.
  for(const [i,f]of families.entries()){
   const now=['2027-01-31T09:00:00Z','2027-02-01T09:00:00Z','2027-02-03T09:00:00Z','2027-02-05T09:00:00Z'][i%4];
-  f.reference={...REF,now:f.id.endsWith('-weekend')?'2027-02-03T09:00:00Z':now};
+  f.reference={...REF,now:f.id.endsWith('-weekend')?'2027-02-03T09:00:00Z':f.id==='beta1-activity-retention-cinema-tomorrow'?'2027-01-31T09:00:00Z':now};
   const tomorrow=new Date(new Date(f.reference.now).getTime()+86400000).toISOString().slice(0,10);
   for(const target of [f.target,...Object.values(f.localeTargets??{})])for(const item of target.meaning?.facts??[])if(item.value?.date==='2027-02-04')item.value.date=tomorrow;
  }
@@ -268,25 +327,19 @@ export function betaTrainingFamilies(){
  return families;
 }
 
-const roleAliases={Onkel:'uncle',oncle:'uncle',Tante:'aunt',tante:'aunt',Vater:'father','père':'father',Mutter:'mother',Mueter:'mother','mère':'mother',Schwester:'sister','Schwöster':'sister','sœur':'sister',Bruder:'brother','Brüeder':'brother','frère':'brother',Tochter:'daughter',fille:'daughter',Sohn:'son',fils:'son',Freund:'male friend','Fründ':'male friend',ami:'male friend',Freundin:'female friend','Fründin':'female friend',amie:'female friend'};
+export {roleAliases} from './nuknuk-beta-semantics.mjs';
 export function semanticPattern(row){
- const visit=value=>{
-  if(Array.isArray(value))return value.map(visit);
-  if(!value||typeof value!=='object')return value;
-  return Object.fromEntries(Object.entries(value).filter(([k])=>!['label','quote'].includes(k)).map(([k,v])=>[k,k==='amount'?'<NUMBER>':k==='date'?'<DATE>':k==='time'?'<CLOCK>':k==='text'&&typeof v==='string'?(roleAliases[v]??librarianConcept(v)??v):visit(v)]));
- };
- const target=structuredClone(row.target??row.expected);
- if(row.task==='DIALOGAKTUALISIERUNG_V3'){
-  const previous=row.previousMeaning;
-  const cleanFact=f=>f?{key:f.key,value:f.value,modality:f.modality,basis:f.basis,subjects:(f.subjectIds??[]).map(id=>previous.entities.find(e=>e.id===id)?.kind??'NEW').sort()}:null;
-  const edits=(target.changes??[]).map(c=>({slot:c.fact?null:cleanFact(previous.facts.find(f=>f.id===c.id)),after:cleanFact(c.fact)}));
-  // Conservative patch closure: a changed old value must not move the identical answer into another split.
-  // For removals retain the removed slot; replacement gold is grouped irrespective of untouched or replaced context.
-  const normalized=edits.map(e=>visit(e)).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
-  return contentHash({task:row.task,edits:normalized,additions:visit(target.additions??null)});
- }
- if(target.meaning)target.meaning={entities:[],logic:null,bindings:[],extensions:[],uncertainties:[],weatherConditions:[],...target.meaning};
- return contentHash(visit({task:row.task,expected:target}));
+ const target=row.target??row.expected;
+ if(row.task!=='DIALOGAKTUALISIERUNG_V3')return contentHash({task:row.task,graph:betaGraphHash({entities:[],facts:[],logic:null,bindings:[],extensions:[],uncertainties:[],weatherConditions:[],...target.meaning},{maskNumbers:true}),question:target.clarification?.dimension??null});
+ const previous=row.previousMeaning,addition=target.additions??{};
+ const facts=(target.changes??[]).map(change=>({...structuredClone(change.fact??previous.facts.find(f=>f.id===change.id)),operation:change.fact?'REPLACE':'REMOVE'}));
+ facts.push(...(addition.facts??[]).map(f=>({...structuredClone(f),operation:'ADD'})));
+ const referenced=(value,result=new Set())=>{if(Array.isArray(value))value.forEach(v=>referenced(v,result));else if(value&&typeof value==='object')for(const [k,v]of Object.entries(value)){if(k==='factId')result.add(v);else if(k==='factIds')v.forEach(id=>result.add(id));else referenced(v,result);}return result;};
+ for(const id of referenced({logic:addition.logic,bindings:addition.bindings}))if(!facts.some(f=>f.id===id)){const prior=previous.facts.find(f=>f.id===id);if(prior)facts.push({...structuredClone(prior),key:'BOUND_PREVIOUS_FACT',value:{text:'existing fact'},operation:'ANCHOR'});}
+ const entities=[...previous.entities,...(addition.entities??[])];const used=new Set([...facts,...(addition.extensions??[])].flatMap(f=>f.subjectIds));for(const f of facts)if(f.value?.referenceEntityId)used.add(f.value.referenceEntityId);
+ let changed=true;while(changed){changed=false;for(const e of entities.filter(e=>used.has(e.id)))for(const id of e.members)if(!used.has(id)){used.add(id);changed=true;}}
+ const graph={entities:entities.filter(e=>used.has(e.id)),facts,extensions:addition.extensions??[],logic:addition.logic??null,bindings:addition.bindings??[],uncertainties:[],weatherConditions:addition.weatherConditions??[]};
+ return contentHash({task:row.task,graph:betaGraphHash(graph,{maskNumbers:true})});
 }
 
 export function betaTrainingCases(){
@@ -296,6 +349,7 @@ export function betaTrainingCases(){
  for(const f of families){const signature=semanticPattern(f);const g=groups.get(signature)??{signature,families:[],known:known.has(signature)};g.families.push(f);groups.set(signature,g);}
  const all=[...groups.values()].sort((a,b)=>sha('backyrd-beta-v1:'+a.signature).localeCompare(sha('backyrd-beta-v1:'+b.signature)));
  const assigned=new Map();
+ for(const g of all)if(g.families.some(f=>f.curriculumRole))assigned.set(g.signature,g.families.some(f=>f.curriculumRole==='TEACHING')?'TRAIN':'TEST');
  // Reserve both teaching and transfer coverage before balancing row totals.
  const protocols=[
   f=>f.theme==='weather-evidence',f=>f.theme==='booking',
