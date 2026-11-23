@@ -233,3 +233,49 @@ test('a programme with matching access is admitted when both facts are actually 
   const http=await exercise({text:'Live-Jazz, stufenlos zugänglich',meaning,catalog:[b]});assert.equal(http.status,200);assert.equal(http.body.primaryCandidateId,b.decisionProjection.spotId);assert.equal(http.body.candidates[0].tier,'ELIGIBLE_CONFIRMED');
  }
 });
+
+test('new facility aliases block known presence without treating missing or unrelated data as absence',()=>{
+ for(const text of ['Spa','Spielautomaten']){
+  const q=request([meal(),fact('ban','offer.kind',text,'EXCLUDED')]);
+  const present=profile();present.properties=[prop('offer.feature',text)];
+  const other=profile();other.properties=[prop('offer.feature','WLAN')];
+  const absent=profile();
+  const rows=[binding(8201,present),binding(8202,other),binding(8203,absent)];
+  const result=search(q,rows);
+  assert(result.excluded.some(c=>c.spotId===rows[0].decisionProjection.spotId&&c.failedFactIds.includes('ban')),text);
+  assert.equal(result.ranked.length,0,'no facility data or a different feature is not proof of absence');
+  for(const id of [rows[1].decisionProjection.spotId,rows[2].decisionProjection.spotId])assert(result.unresolved.some(c=>c.spotId===id));
+ }
+});
+
+test('an explicit ceramics course can satisfy a course request while generic ceramics cannot',()=>{
+ const q=request([fact('course','experience.activity','ceramics_course')]);
+ const make=(id,name)=>binding(id,profile([{...offer('work','WORKSHOP'),name}]));
+ const good=make(8211,'Keramikkurs'),generic=make(8212,'Workshop'),material=make(8213,'Keramik');
+ const result=search(q,[good,generic,material]);
+ assert(result.ranked.some(c=>c.spotId===good.decisionProjection.spotId));
+ assert(!result.ranked.some(c=>c.spotId===generic.decisionProjection.spotId));
+ assert(!result.ranked.some(c=>c.spotId===material.decisionProjection.spotId));
+});
+
+test('group-total pricing uses an explicit whole-party hierarchy without adding the subgroup twice',()=>{
+ const whole={id:'gTotal',kind:'GROUP',label:'Gesamtgruppe',members:['gPart']};
+ const part={id:'gPart',kind:'GROUP',label:'Teilgruppe',members:[]};
+ const entities=[{id:'a1',kind:'ACTIVITY',label:'Essen',members:[]},whole,part];
+ const facts=[meal(),fact('total','people.count',{amount:4,operator:'EQ',unit:'PEOPLE'},'CONTEXT',['gTotal']),
+  fact('part','people.count',{amount:2,operator:'EQ',unit:'PEOPLE'},'CONTEXT',['gPart']),
+  fact('price','budget.maximum',{amount:80,operator:'LTE',currency:'CHF'}),fact('scope','budget.scope',{scope:'GROUP_TOTAL'},'CONTEXT')];
+ const b=binding(8221,profile([offer('meal','FULL_MEAL',['inside'],[],[{...offer().prices[0],min:20,max:20}])]));
+ assert.equal(search(request(facts,{entities}),[b]).ranked.length,1,'four times CHF 20, not six');
+ const lower=structuredClone(facts);lower.find(f=>f.id==='price').value.amount=65;
+ assert(search(request(lower,{entities}),[b]).excluded.some(c=>c.failedFactIds.includes('price')));
+ const unrelated=structuredClone(entities);unrelated.find(e=>e.id==='gTotal').members=[];
+ assert.equal(search(request(facts,{entities:unrelated}),[b]).ranked.length,0,'no guessing that the largest count is the total');
+ const impossible=structuredClone(facts);impossible.find(f=>f.id==='part').value.amount=5;
+ assert.equal(search(request(impossible,{entities}),[b]).ranked.length,0,'subgroup cannot exceed the stated whole party');
+ const scoped=structuredClone(facts);scoped.find(f=>f.id==='price').subjectIds=['a1','gPart'];
+ assert.equal(search(request(scoped,{entities}),[b]).ranked.length,0,'whole-party count cannot price a subgroup-only component');
+ assert.equal(search(request(facts,{entities:[...entities,{id:'a2',kind:'ACTIVITY',label:'Zweiter Besuch',members:[]}]}),[b]).ranked.length,0,'a hierarchy cannot assign people across several activities');
+ const contradictory=structuredClone(entities);contradictory.find(e=>e.id==='gPart').members=['p1','p2','p3'];contradictory.push(...['p1','p2','p3'].map(id=>({id,kind:'PERSON',label:id,members:[]})));
+ assert.equal(search(request(facts,{entities:contradictory}),[b]).ranked.length,0,'named members cannot exceed a subgroup count');
+});

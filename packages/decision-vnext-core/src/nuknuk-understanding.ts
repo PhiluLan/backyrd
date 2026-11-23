@@ -299,9 +299,21 @@ Zeitgrenze: «vor zehn losgeht» beim eindeutig abendlichen Tanzen = time.clock_
 kein 10:00 und kein EQ. Der Termin am nächsten Morgen ist Kontext. «Um halb sieben muss ich weiter»
 grenzt das Ende des Besuchs ein: time.clock_end LTE 18:30, wenn nachher am Nachmittag gemeint ist.
 Weder eine Besuchsdauer erfinden noch bei unklarem Vormittag/Abend eine Tageshälfte raten.
-Bei «zwei trinken keinen Alkohol» in einer Gruppe: gesamte Gruppengrösse erhalten, separate GROUP
-mit people.count EQ 2 und food.drink «alkoholfreie Getränke» an diese Teilgruppe binden.
-Kein Alkoholverbot für die ganze Gruppe, keine fiktiven Personen.
+TEILGRUPPEN: Gesamtzahl und jede ausdrücklich genannte Teilgruppenzahl getrennt als GROUP mit
+people.count CONTEXT erhalten. Ernährung, Getränke und andere persönliche Bedingungen nur an die
+betroffene Teilgruppe binden. Deren GROUP-ID in members der Gesamtgruppe aufnehmen; Mitglieder
+müssen nicht alle Personen aufzählen. Keine doppelte Gesamtzahl oder fiktiven Personen.
+BEZIEHUNGEN: Beziehungswörter wörtlich als people.relationship CONTEXT erhalten, keine andere Verwandtschaft.
+Eine einzelne Person bleibt PERSON, mehrere Personen GROUP. adult_accompanied nur bei belegter
+gemeinsamer Teilnahme mit Kindern, nicht allein wegen einer erwachsenen Begleitperson ergänzen.
+Begleitung verlangt keine Anbieterleistung unter people.participation. Geschenkempfänger zusätzlich
+als people.role recipient CONTEXT und Geschenk als experience.occasion CONTEXT erhalten.
+ZEITUMFANG: Verfügbare Minuten sind time.duration LTE AVAILABLE_TOTAL, keine berechnete Enduhrzeit.
+includes nur für ausdrücklich genannte Bestandteile setzen; ein Zug als Zeitbezug belegt keine Anreise.
+GELDUMFANG: Zusammen/insgesamt fürs Vorhaben ist budget.scope GROUP_TOTAL, pro Person PER_PERSON;
+jeweils CONTEXT am selben Angebotsbezug wie die Geldgrenze. Keine ungenannte Bezugsbasis raten.
+VERBINDLICHKEIT: «nicht unbedingt günstig» hebt die Preispräferenz auf: budget.qualitative NOT_REQUIRED.
+ANGEBOT: Keramikkurs als ceramics_course erhalten; ceramics allein verliert den Kurscharakter.
 «Nicht den ganzen Nachmittag drinnen» enthält einen Wunsch nach Zeit draussen. Bewegung und
 passende Regenoption erhalten, mindestens einen Teil draussen suchen. Kein pauschales
 Indoor-Verbot und keine reine Indoor-Option als vollständige Erfüllung ausgeben.
@@ -368,9 +380,15 @@ function sourceMoneyBound(text: string) {
   const code = groups.prefix ?? groups.suffix!;
   const expectedCurrency = /^(?:CHF|Franken)$/iu.test(code) ? 'CHF' : /^(?:EUR|Euro)$/iu.test(code) ? 'EUR' : 'USD';
   const perPerson = /^\s*(?:pro (?:Person|Kopf|Gast)|je Person|per person|par personne)\b/iu.exec(after);
+  // Adjacent explicit scope only. "Insgesamt 35 Minuten ... unter CHF 30"
+  // must not become a group budget merely because it contains "insgesamt".
+  const groupBefore = /\b(?:zusammen|insgesamt|in total|au total)\s*$/iu.test(prefix);
+  const groupAfter = /^\s*(?:zusammen|insgesamt|in total|au total|für (?:uns (?:beide|alle)|alle))\b/iu.exec(after);
+  if (perPerson && groupBefore) return null; // Conflicting source scope needs interpretation.
+  const scope = perPerson ? 'PER_PERSON' : groupBefore || groupAfter ? 'GROUP_TOTAL' : null;
   return {quote:source[0]+(perPerson?.[0]??''),amount:Number(groups.amount!.replace(',', '.')),currency:expectedCurrency,operator,
     modality:preferred ? 'PREFERRED' as const : 'REQUIRED' as const,
-    scopeFact:perPerson ? {key:'budget.scope',modality:'CONTEXT',value:{scope:'PER_PERSON'}} : undefined};
+    scopeFact:scope ? {key:'budget.scope',modality:'CONTEXT',value:{scope}} : undefined};
 }
 function assertSourceMoneyBound(text: string, meaning: LunaMeaningOutput): void {
   const source = sourceMoneyBound(text);
@@ -378,11 +396,16 @@ function assertSourceMoneyBound(text: string, meaning: LunaMeaningOutput): void 
   if (!source || money.length > 1) return;
   if (!money.length) throw Error('nuknuk_source_budget_contradicted');
   const fact = money[0]!, value = fact.value;
+  const scopeFacts = meaning.facts.filter(f => f.key === 'budget.scope'
+    && ['CONTEXT','REQUIRED'].includes(f.modality)
+    && (f.subjectIds.length === fact.subjectIds.length && f.subjectIds.every(id => fact.subjectIds.includes(id))
+      || (!f.subjectIds.length || !fact.subjectIds.length)
+        && meaning.entities.filter(e => e.kind === 'ACTIVITY').length <= 1));
   if (!('amount' in value) || !('currency' in value) || !('operator' in value)
     || value.amount !== source.amount || value.currency !== source.currency
     || value.operator !== source.operator || fact.modality !== source.modality
-    || source.scopeFact && !meaning.facts.some(f => f.key === 'budget.scope' && 'scope' in f.value
-      && f.value.scope === 'PER_PERSON' && ['CONTEXT','REQUIRED'].includes(f.modality))) {
+    || source.scopeFact && (!scopeFacts.some(f => 'scope' in f.value && f.value.scope === source.scopeFact!.value.scope)
+      || scopeFacts.some(f => 'scope' in f.value && f.value.scope !== source.scopeFact!.value.scope))) {
     throw Error('nuknuk_source_budget_contradicted');
   }
 }

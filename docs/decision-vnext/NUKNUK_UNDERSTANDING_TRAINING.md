@@ -1,5 +1,97 @@
 # NukNuk als Backyrd-Verständnis-KI
 
+## Aktiver Product-Trainingsauftrag vom 23. November 2026
+
+Der Founder beauftragte nach der Sichtung von 20 Entwicklungsbeispielen eine
+gezielte Trainingsrunde und den anschliessenden Vergleich. Die Softwarekorrektur
+aus PR 802 ist bereits separat veröffentlicht; Modelltraining und eine spätere
+Aktivierung neuer Gewichte bleiben davon getrennt.
+
+Der Lauf und die native Mac-Auswertung einschliesslich der 16 TEST-Fälle sind
+abgeschlossen. Der Kandidat wird wegen einer neuen Teilgruppen-Regression nicht
+aktiviert. Belege und verbleibende Mängel stehen in `NUKNUK_UNDERSTANDING_REVIEW.md`
+unter „Mac-Prüfung und einmaliger 16er-TEST“. Das bisherige Live-Modell ist wieder aktiv.
+
+Für später vorgemerkt (Founder, 23. November): Einen begrenzten lokalen
+Trainings-Probelauf auf dem M4 Pro mit 48 GB prüfen, bevor weitere Cloud-Runden
+geplant werden. Speicherbedarf, Laufzeit und die Verfügbarkeit des lokalen
+Live-Dienstes müssen gemessen werden. Der aktuelle Mac-Auftrag umfasst nur
+Kandidateninferenz und Testauswertung, kein lokales Training.
+
+Der aktuelle Export ist eine Erweiterung der bestehenden Trainingswerkzeuge:
+
+```sh
+node scripts/decision-diagnostics/nuknuk-training-bundle.mjs --product-search-v7 OUTPUT MODEL_DIR CURRENT_MLX_ADAPTER CURRENT_HF_ADAPTER
+python scripts/decision-diagnostics/nuknuk-curriculum/preflight.py OUTPUT MODEL_DIR OUTPUT/preflight.json
+python scripts/decision-diagnostics/nuknuk-gpu.py verify-product-parent --bundle OUTPUT --source CURRENT_MLX_ADAPTER --adapter CURRENT_HF_ADAPTER --output OUTPUT/parent-verification.json
+node scripts/decision-diagnostics/nuknuk-gpu-bundle.mjs --product-search-v7 OUTPUT CURRENT_HF_ADAPTER MODEL_DIR GPU_OUTPUT
+```
+
+Er verwendet die kanonischen Aufträge `COMPACT_SEARCH_V7` und
+`DIALOGAKTUALISIERUNG_V3`, einschliesslich der Provider-Anweisungen zur Absicht.
+Der 27B-V7-Vieraufgabenbestand und seine historischen Rezepte werden unverändert
+erhalten; sie sind kein Ersatz für den aktuellen Product-Auftrag.
+
+Der korrigierte Vorbereitungsbestand enthält 152 synthetische Assistenzziele:
+121 TRAIN in 19 Familien, 15 ursprüngliche VALIDATION und 16 ursprüngliche TEST.
+96 Trainingsfälle adressieren bekannte Schwächen einschliesslich acht zusätzlicher
+Teilgruppenvarianten; 24 erhalten einfache Suchzwecke und einer die bekannte
+Pizza-/Pasta-Alternative. Die Evaluation dieses Bestands wurde bereits beobachtet
+und ist ausdrücklich KNOWN_REGRESSION_ONLY. Alte Splitnamen bleiben zur
+Reproduzierbarkeit erhalten; diese Beispiele sind kein neuer Blindtest.
+Die neue Beta-Runde benötigt einen separat erstellten unberührten Holdout.
+Die archivierten Trainings- und Mac-Belege des vorherigen 144er-Bestands bleiben
+unverändert. Die Vorbereitung führt noch kein neues Training aus.
+
+Die folgenden historischen Werkstattabschnitte bleiben als damaliger Stand
+erhalten; dieser Abschnitt beschreibt den aktiven Product-Trainingsauftrag.
+
+Der Live-Parent ist Qwen3.6-35B-A3B mit dem vorhandenen rank-16-Adapter `round-3`,
+nicht der historische 27B-/rank-8-Ansatz. Gepinnte Basisrevisionen:
+
+- MLX: `mlx-community/Qwen3.6-35B-A3B-4bit`,
+  `38740b847e4cb78f352aba30aa41c76e08e6eb46`.
+- HF: `Qwen/Qwen3.6-35B-A3B`,
+  `995ad96eacd98c81ed38be0c5b274b04031597b0`.
+
+Der Export bindet Parent-Dateien, Tokenizer, Prompt, Schema und Quellcode durch
+Hashes. `verify-product-parent` prüft alle 40 Projektionen/80 Tensoren auf exakte
+Transpositionsgleichheit und dieselbe Adapter-Skalierung. Das ist keine Behauptung
+numerischer Gleichheit unterschiedlich quantisierter Basismodelle: vor dem
+Training wird derselbe HF-Parent zusätzlich auf VALIDATION aufgerufen.
+
+Offline-Prüfung: jede Zielantwort passiert den Product-Validator, jede Änderung
+den zitatgebundenen Merge; jeder Fall wird mit seinem eigenen Schema gegen die
+Server-Grammatik geprüft. Die korrigierte Vorbereitung verwendet ein ausdrücklich gebundenes
+5'120-Token-Limit (gemessen höchstens 4'743). Der archivierte Product-Lauf
+behält 4'608; historische Profile behalten 4'096. Es wird nicht gekürzt.
+Native GPU-Tokenisierung muss dieselben vollständigen Präfix-Token-IDs erzeugen.
+Nur Antwort und EOS erhalten Trainingslabels; die System- und Nutzereingabe wird
+mit `-100` maskiert. Dafür wird Axolotls dokumentierter
+[vorab tokenisierter Datensatz](https://docs.axolotl.ai/docs/dataset-formats/tokenized.html)
+verwendet. Die bisherige Chat-Template-Verarbeitung wird nicht still umgedeutet.
+
+Das GPU-Paket enthält TRAIN, VALIDATION und zieldatenfreie VALIDATION-Anfragen.
+TEST-Texte und -Ziele werden nicht hochgeladen. Der temporäre Kandidat setzt den
+vorhandenen Adapter fort (rank 16/alpha 32, zwei Epochen, LR 0.000006). Das
+Container-Image ist per AMD64-Digest gepinnt. Technischer Kostenrahmen: maximal
+4 USD, davon 1 USD Schlussreserve, maximal 3.70 USD/Stunde einschliesslich
+konservativer Nebenkosten. Ein Paket ist keine Ressourcen- oder
+Aktivierungsberechtigung. Jeder konkrete Lauf braucht einen lokalen und einen
+unabhängigen serverseitigen Provider-Stopp; ein Prozess-Timeout beendet keine
+GPU-Abrechnung. Nach Sicherung der Ergebnisse wird die eigene temporäre Ressource
+gestoppt und überprüft. Der laufende Mac-Inferenzdienst wird nicht unterbrochen.
+
+Auswahl nur auf VALIDATION; danach Checkpoint samt Vergleich einfrieren und
+TEST einmal auswerten. Gleicher Prompt, Schema, Referenzzeit und Katalog für
+Parent/Kandidat. Bedeutung, ausführbare Bedingungen, tatsächliche Angebote,
+Ranking, sichtbare Gründe, Reparaturen und Laufzeit getrennt beurteilen. Ein
+HTTP-200-Ergebnis oder gültiges JSON ist keine semantische Freigabe. Fehlende
+Preise, Öffnungszeiten und Angebote bleiben Daten-/Matchingprobleme; sie werden
+nicht als Spotwissen in Gewichte geschrieben. Simple-Route und Dialog-Routing
+benötigen vor Aktivierung eigene Retentionskontrollen. Neue Gewichte werden
+nicht durch Export oder Training automatisch produktiv.
+
 Stand: 7. November 2026. Entwicklungsauftrag, kein Produktrelease.
 Die erste Implementierung ist eine lokale Lern- und Evaluationswerkstatt,
 kein Ersatz der veröffentlichten Decision und kein neues Foundation Model.

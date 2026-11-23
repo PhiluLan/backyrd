@@ -176,7 +176,9 @@ function serverTargetJson(value: unknown): string {
 
 /** llguidance's strict grammar uses schema property order. Reorder V6 wire
  * objects only; never alter the reviewed meaning or historical serialization. */
-function orderForSchema(value: unknown, rawSchema: unknown, root: unknown): unknown {
+// Training-only wire ordering, also used by current Product-profile exports.
+// This does not accept or normalize a target: canonical validation is required first.
+export function orderForSchema(value: unknown, rawSchema: unknown, root: unknown): unknown {
   const object = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
   if (!object(rawSchema)) return value;
   const resolve = (node: Record<string, unknown>): Record<string, unknown> => {

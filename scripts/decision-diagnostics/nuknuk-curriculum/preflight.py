@@ -36,9 +36,21 @@ template = env.from_string((tokenizer_folder / "chat_template.jinja").read_text(
 ll_tokenizer = llguidance.LLTokenizer(tokenizer.to_str(), eos_token=eos)
 compiler = llguidance.JsonCompiler(separators=(", ", ": "), whitespace_pattern="")
 requests = json.loads((folder / "evaluation-inputs.json").read_text())["cases"]
-schemas = {}
+manifest = json.loads((folder / "manifest.json").read_text())
+# Historical profiles retain their frozen 4096-token limit. The active Product
+# profile declares its independently measured 4608-token recipe explicitly.
+product_profile = manifest.get("version") == "backyrd.nuknuk-product-training-manifest@1"
+max_total_tokens = manifest.get('trainingLimits', {}).get('maxTotalTokens', 4608) if product_profile else 4096
+if product_profile:
+    assert max_total_tokens in (4608, 5120)
+    assert manifest.get("trainingLimits") == {"maxTotalTokens": max_total_tokens, "maxAnswerTokens": 2048}
+schemas, schema_by_case, schemas_by_task = {}, {}, {}
 for row in requests:
-    schemas[row["task"]] = row["outputSchema"]
+    key = hashlib.sha256(json.dumps(row["outputSchema"], sort_keys=True).encode()).hexdigest()
+    assert row["id"] not in schema_by_case
+    schemas[key] = row["outputSchema"]
+    schema_by_case[row["id"]] = key
+    schemas_by_task.setdefault(row["task"], set()).add(key)
 grammars = {key: compiler.compile(json.dumps(schema)) for key, schema in schemas.items()}
 dataset = json.loads((folder / "reviewed-backyrd.json").read_text())
 tokens_report = []
@@ -47,16 +59,22 @@ def inspect_messages(case_id, split, task, messages):
     prefix_text = template.render(messages=messages[:2], add_generation_prompt=True, enable_thinking=False, tools=None)
     prefix = tokenizer.encode(prefix_text, add_special_tokens=False).ids
     answer = tokenizer.encode(messages[2]["content"], add_special_tokens=False).ids
-    assert prefix and answer and len(prefix) + len(answer) + 1 <= 4096, (case_id, "would_truncate")
+    assert prefix and answer and len(prefix) + len(answer) + 1 <= max_total_tokens, (case_id, "would_truncate")
     assert len(answer) + 1 <= 2048, (case_id, "completion_limit")
     ids = prefix + answer + [eos]
     labels = [-100] * len(prefix) + answer + [eos]
     assert len(ids) == len(labels) and labels[:len(prefix)] == [-100] * len(prefix)
-    matcher = llguidance.LLMatcher(ll_tokenizer, grammars[task])
+    grammar_key = schema_by_case.get(case_id)
+    if grammar_key is None:
+        assert len(schemas_by_task[task]) == 1, (case_id, "derived_schema_ambiguous")
+        grammar_key = next(iter(schemas_by_task[task]))
+    matcher = llguidance.LLMatcher(ll_tokenizer, grammars[grammar_key])
     for token in answer + [eos]:
         assert matcher.consume_token(token), (case_id, "grammar_token_rejected")
     assert not matcher.get_error() and matcher.is_accepting(), (case_id, "grammar_incomplete")
-    return {"id": case_id, "split": split, "task": task, "prefixTokens": len(prefix), "answerTokens": len(answer), "totalTokens": len(ids), "grammarAccepted": True, "completionOnlyMaskVerified": True}
+    return {"id": case_id, "split": split, "task": task, "prefixTokens": len(prefix), "answerTokens": len(answer), "totalTokens": len(ids),
+            "prefixTokenIdsSha256": hashlib.sha256(json.dumps(prefix,separators=(',',':')).encode()).hexdigest(),
+            "grammarAccepted": True, "completionOnlyMaskVerified": True}
 
 for split, name in [("TRAIN", "train"), ("VALIDATION", "valid"), ("TEST", "test")]:
     cases = [r for r in dataset["cases"] if r["split"] == split]

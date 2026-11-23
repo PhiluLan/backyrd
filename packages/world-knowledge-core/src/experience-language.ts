@@ -22,7 +22,14 @@ const concepts: readonly LibrarianConcept[] = [
     { id: "table_tennis", labels: ["Tischtennis", "Tischtennis spielen", "Pingpong", "Ping Pong", "Ping-Pong", "Pingpong spielen", "Ping Pong spielen", "Ping-Pong spielen", "Table tennis", "play table tennis", "playing table tennis", "pingpöngle", "pingpoengle"] },
     { id: "self_barbecue", labels: ["grillieren", "selber grillieren", "grillen", "selbst grillen", "Grillstellen nutzen", "Grillplatz nutzen", "Öffentliche Grillstellen nutzen", "use a barbecue grill"] },
     { id: "trampoline", labels: ["Trampolin", "Trampolinspringen", "auf dem Trampolin springen"] },
-    { id: "cinema", labels: ["Film schauen", "Film anschauen", "Kino besuchen"] },
+    { id: "cinema", labels: ["Film schauen", "Film anschauen", "Kino besuchen", "Kino", "ins Kino", "cinéma", "movie", "movies", "movie theater"] },
+    { id: "billiards", labels: ["Billard", "Billard spielen", "Billiards", "play billiards", "Poolbillard"] },
+    { id: "ceramics", labels: ["Keramik", "ceramics", "Töpfern", "pottery"] },
+    { id: "ceramics_course", labels: ["Keramikkurs", "Töpferkurs", "ceramics course", "pottery course"] },
+    // A spa facility is neither a treatment nor a sauna. Slot machines are
+    // not synonymous with the broader arcade offer catalogue.
+    { id: "spa", labels: ["Spa", "Spa-Bereich", "spa facility"] },
+    { id: "slot_machines", labels: ["Spielautomat", "Spielautomaten", "slot machine", "slot machines"] },
     { id: "skating", labels: ["Eislaufen", "Schlittschuh laufen", "Schlittschuhlaufen", "Schlittschuh fahren"] },
     { id: "excursion_ride", labels: ["Ausflugsfahrt"] },
     { id: "boat_cruise", labels: ["Schifffahrt", "Schiffsrundfahrt", "Rundfahrt mit dem Schiff", "Rundfahrt auf dem Rhein", "Rundfahrten auf dem Rhein"] },
@@ -156,6 +163,8 @@ export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
     Object.freeze({ offered: "boat_cruise", requested: "excursion_ride" }),
     Object.freeze({ offered: "ferry_crossing", requested: "excursion_ride" }),
     Object.freeze({ offered: "children_course", requested: "children_activity" }),
+    Object.freeze({ offered: "ceramics_course", requested: "ceramics" }),
+    Object.freeze({ offered: "ceramics_course", requested: "course" }),
     Object.freeze({ offered: "movement_play", requested: "children_activity" }),
     Object.freeze({ offered: "bouldering", requested: "climbing" }),
     Object.freeze({ offered: "bouldering", requested: "movement" }),
@@ -164,7 +173,7 @@ export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
 ]);
 export const experienceActivitySupports = (offered: string, requested: string): boolean => offered === requested
     || EXPERIENCE_ACTIVITY_RELATIONS.some(relation => relation.offered === offered && relation.requested === requested);
-export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@27" as const;
+export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@28" as const;
 export const EXPERIENCE_LANGUAGE_CONCEPTS = concepts;
 const legacyOfferConcepts: Readonly<Record<string, readonly string[]>> = {
     ...Object.fromEntries(OFFER_CATALOG.map(o=>[o.kind,[o.concept]])),
