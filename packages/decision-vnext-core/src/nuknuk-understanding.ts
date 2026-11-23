@@ -9,7 +9,7 @@ import { LUNA_LIBRARIAN_FACT_KEYS } from './product-luna-librarian-assets.js';
 import { BASEL_DISCOVERY_LOCALITIES, baselNeighborhoodNames, baselSearchAnchor, localityKey } from './product-librarian-geography.js';
 import { librarianLocalDate, visitWeekday } from './product-librarian-time.js';
 import { documentedExhibitionTheme, exhibitionThemeLabels } from './product-librarian-matching.js';
-import { experienceBookingMode, librarianConcept } from '@backyrd/world-knowledge-core';
+import { experienceBookingMode, librarianConcept, OFFER_CATALOG, hasOfferModule } from '@backyrd/world-knowledge-core';
 
 export const NUKNUK_UNDERSTANDING_VERSION = 'backyrd.nuknuk-understanding@1' as const;
 export const NUKNUK_UNDERSTANDING_POLICY = `Du bist NukNuk, Backyrds Verständnis-KI.
@@ -255,8 +255,10 @@ export function buildNuknukCompactSearchRequest(input: { query: string; referenc
       entity: optionalModelFields(($defs as Record<string, unknown>).entity, 'members'),
     },
   });
+  const sourceBudget = sourceMoneyBound(input.query);
+  const sourceRefusals = sourceActivityRefusals(input.query);
   const instructions = base.instructions
-    .replace('SPOT_GROUNDED_V6', 'COMPACT_SEARCH_V6')
+    .replace('SPOT_GROUNDED_V6', 'COMPACT_SEARCH_V7')
     .replace('Schema-JSON {meaning,moment}', 'Schema-JSON {meaning,clarification?,singleActivity?}')
     .replace(/^moment:.*\nQuotes.*\nFehlende Auswahlhilfe:.*\nDimension .*\n/mu, '')
     + `
@@ -305,9 +307,15 @@ passende Regenoption erhalten, mindestens einen Teil draussen suchen. Kein pausc
 Indoor-Verbot und keine reine Indoor-Option als vollständige Erfüllung ausgeben.
 Eine Rückfrage ist optional. Wenn nötig, einen vollständigen Satz mit genau einem Fragezeichen
 und unterschiedlichen Optionen schreiben. Wenn keine sinnvolle Frage vorliegt, Feld weglassen.
-ANSCHLUSS: Bei «Rückfrage: … Antwort: …» lies den ursprünglichen Wunsch und die neue Antwort
-zusammen. Gib den vollständigen aktualisierten Suchauftrag zurück. Ort, Datum, Tageszeit,
-Mahlzeit und Personenzahl bleiben erhalten, ausser die Antwort ändert sie ausdrücklich.
+GELDGRENZEN: unter/weniger als = LT; höchstens/maximal/bis zu = LTE;
+mindestens = GTE; mehr als = GT. Möglichst, bevorzugt und ideally bleiben PREFERRED,
+auch bei einem konkreten Betrag. Niemals eine Obergrenze zur Untergrenze umkehren.
+Eine eigene ausgeschlossene Tätigkeit gehört unter experience.activity EXCLUDED;
+ein Verbot der Einrichtung am gesamten Ort unter offer.kind EXCLUDED. Ein zusätzliches
+Angebot am selben Ort bedeutet nicht, dass die Person daran teilnehmen will.
+ANSCHLUSS: Der gesonderte Dialogauftrag legt fest, ob Änderungen oder ein Erstauftrag
+auszugeben sind. Ort, Datum, Tageszeit, Mahlzeit und Personenzahl bleiben erhalten,
+ausser die Antwort ändert sie ausdrücklich. Unveränderte Fakten nicht als Änderungen wiederholen.
 Die Rückfrage ist Gesprächskontext, keine Nutzeranforderung. Eine beantwortete Frage nicht
 wiederholen. Ein Geburtstag ist experience.occasion CONTEXT, nie eine Pflicht unter
 experience.outcome. «Für uns zwei» ist people.count EQ 2 als CONTEXT, sofern keine
@@ -320,13 +328,82 @@ Ein Restaurantwunsch allein verlangt keinen Innenbereich.
 Bei einem besonderen Anlass mit offenem Wunsch («etwas Besonderes») und sonst
 ausführbarer Suche: die bekannten Kriterien übergeben und einmal gezielt fragen,
 was den Abend persönlich ausmachen soll. Bei einem bereits konkreten Wunsch direkt suchen.
-`;
+` + (sourceBudget ? '\nORIGINALGEBUNDENE GELDGRENZE: ' + JSON.stringify({quote:sourceBudget.quote,facts:[
+      {key:'budget.maximum',modality:sourceBudget.modality,value:{amount:sourceBudget.amount,currency:sourceBudget.currency,operator:sourceBudget.operator}},
+      ...(sourceBudget.scopeFact ? [sourceBudget.scopeFact] : []),
+    ]})
+    + '\nÜbernimm diese eindeutigen Fakten beim zugehörigen Angebot exakt. modality PREFERRED bleibt auch mit konkretem Betrag PREFERRED. quote ist nur Quellenkontext, kein zusätzliches Ausgabe-Feld. Bezug und Kostenbestandteil weiter aus dem Wunsch erhalten.'
+    + (sourceBudget.scopeFact ? '\nDer budget.scope-Eintrag ist ein eigener Fakt mit value.scope und CONTEXT, niemals budget.qualitative und kein Geldwert-Feld. Keine qualitative Preis-Pflicht aus pro Person machen.' : '') : '')
+    + (sourceRefusals.length ? '\nORIGINALGEBUNDENE AKTIVITÄTSABLEHNUNGEN: '+JSON.stringify(sourceRefusals)
+      + '\nDiese einfachen Ablehnungen betreffen die eigene Tätigkeit: experience.activity EXCLUDED, nicht offer.kind. quote ist nur Quellenkontext. Daraus kein Verbot zusätzlicher Angebote am Standort machen.' : '');
   return deepFreeze({ ...base, instructions, outputSchema, identity: {
     version: base.identity.version, promptHash: contentHash(instructions), schemaHash: contentHash(outputSchema),
   } });
 }
 
 function object(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === 'object' && !Array.isArray(value); }
+
+/** Reject a contradiction of one unambiguous, currency-bound source limit.
+ * This never rewrites the model's amount, scope, operator or modality. Complex
+ * budgets stay with the full interpreter; its existing bounded repair may
+ * retry a rejected handoff, otherwise the request fails honestly. */
+function sourceMoneyBound(text: string) {
+  if (/["„“«»]|\b(?:früher|damals|bisher|kostete?|gezahlt|bezahlt|sagte?|meint|findet|wollte|wanted|said|costs)\b/iu.test(text)) return null;
+  const soft = String.raw`(?:möglichst|bevorzugt|idealerweise|am liebsten|wenn möglich|preferably|ideally|si possible|de préférence)`;
+  const bound = String.raw`(?:weniger als|nicht mehr als|höchstens|maximal|bis zu|mindestens|mehr als|wenigstens|less than|at most|at least|more than|up to|moins de|au plus|au moins|plus de|unter|über|under)`;
+  const currency = String.raw`(?:CHF|Franken|EUR|Euro|USD|US-Dollar)`;
+  const pattern = new RegExp(String.raw`\b(?:(?<soft>${soft})\s+)?(?<bound>${bound})\s+(?:(?<prefix>${currency})\s*)?(?<amount>\d{1,6}(?:[.,]\d{1,2})?)(?!\d|[.,]\d)(?:\s*(?<suffix>${currency})\b)?`, 'giu');
+  const limits = [...text.matchAll(pattern)].filter(match => (match.groups?.prefix || match.groups?.suffix)
+    && !/\b(?:nicht|not|pas|statt|anstatt|früher|bisher)\s*$/iu.test(text.slice(0, match.index)));
+  if (limits.length !== 1) return null;
+  const source = limits[0]!, groups = source.groups!;
+  const prefix = text.slice(0, source.index).split(/[.!?;,]/u).at(-1) ?? '';
+  if (!groups.soft && new RegExp(String.raw`\b${soft}\b`, 'iu').test(prefix)) return null;
+  const operator = /^(?:unter|weniger als|less than|under|moins de)$/iu.test(groups.bound!) ? 'LT'
+    : /^(?:mindestens|wenigstens|at least|au moins)$/iu.test(groups.bound!) ? 'GTE'
+    : /^(?:über|mehr als|more than|plus de)$/iu.test(groups.bound!) ? 'GT' : 'LTE';
+  const after = text.slice(source.index! + source[0].length);
+  if (/^\s*(?:pro (?:Person|Kopf)|je Person)?\s*(?:ist\s+(?:mir\s+)?(?:egal|nicht nötig|keine Pflicht)|muss nicht|nicht nötig)\b/iu.test(after)) return null;
+  const preferred = Boolean(groups.soft) || /^\s*(?:pro (?:Person|Kopf)|je Person)?\s*(?:wäre schön|wenn möglich|if possible)\b/iu.test(after);
+  const code = groups.prefix ?? groups.suffix!;
+  const expectedCurrency = /^(?:CHF|Franken)$/iu.test(code) ? 'CHF' : /^(?:EUR|Euro)$/iu.test(code) ? 'EUR' : 'USD';
+  const perPerson = /^\s*(?:pro (?:Person|Kopf|Gast)|je Person|per person|par personne)\b/iu.exec(after);
+  return {quote:source[0]+(perPerson?.[0]??''),amount:Number(groups.amount!.replace(',', '.')),currency:expectedCurrency,operator,
+    modality:preferred ? 'PREFERRED' as const : 'REQUIRED' as const,
+    scopeFact:perPerson ? {key:'budget.scope',modality:'CONTEXT',value:{scope:'PER_PERSON'}} : undefined};
+}
+function assertSourceMoneyBound(text: string, meaning: LunaMeaningOutput): void {
+  const source = sourceMoneyBound(text);
+  const money = meaning.facts.filter(f => ['budget.maximum','budget.amount','budget.target'].includes(f.key) && 'amount' in f.value && 'currency' in f.value);
+  if (!source || money.length > 1) return;
+  if (!money.length) throw Error('nuknuk_source_budget_contradicted');
+  const fact = money[0]!, value = fact.value;
+  if (!('amount' in value) || !('currency' in value) || !('operator' in value)
+    || value.amount !== source.amount || value.currency !== source.currency
+    || value.operator !== source.operator || fact.modality !== source.modality
+    || source.scopeFact && !meaning.facts.some(f => f.key === 'budget.scope' && 'scope' in f.value
+      && f.value.scope === 'PER_PERSON' && ['CONTEXT','REQUIRED'].includes(f.modality))) {
+    throw Error('nuknuk_source_budget_contradicted');
+  }
+}
+/** Only a plain negated canonical activity after an explicit undertaking.
+ * Venue prohibitions, conditions and alternatives are deliberately outside
+ * this narrow loss/family check and remain the model's full scoped task. */
+function sourceActivityRefusals(text: string) {
+  if (!/\b(?:gehen|spielen|machen|unternehmen|besuchen)\b/iu.test(text)
+      || /\b(?:betrieb|ort|lokal|einrichtung|gebäude|gelände|wenn|falls|oder|statt|früher|damals|bisher)\b/iu.test(text)) return [];
+  return [...text.matchAll(/(?:^|[,;.!?])\s*(?:aber\s+)?(?:keine?|nicht)\s+([\p{L} -]+)(?=[,;.!?]|$)/giu)].flatMap(match => {
+    const concept = librarianConcept(match[1]!.trim());
+    const activity = concept && OFFER_CATALOG.some(offer => offer.concept === concept && !hasOfferModule(offer.kind,'food'));
+    return activity ? [{quote:match[0].replace(/^[,;.!?]\s*/u,''),concept,key:'experience.activity',modality:'EXCLUDED'}] : [];
+  });
+}
+function assertSourceActivityRefusals(text: string, meaning: LunaMeaningOutput): void {
+  for (const refusal of sourceActivityRefusals(text)) {
+    const facts = meaning.facts.filter(f => 'text' in f.value && librarianConcept(f.value.text) === refusal.concept && f.modality === 'EXCLUDED');
+    if (!facts.length || facts.some(f => f.key !== 'experience.activity')) throw Error('nuknuk_source_activity_exclusion_misscoped');
+  }
+}
 const foodTraceTerm = String.raw`(?:[\p{L}-]*spuren|kreuzkontamination|kreuzkontakt)(?:\s+(?:von|mit)\s+[\p{L}-]+)?`;
 const foodTraceProhibition = String.raw`(?:(?:darf|dürfen)\s+(?:keinesfalls|nicht|auf keinen fall)\s+(?:vorkommen|enthalten sein)|(?:sind|ist|müssen|muss)\s+(?:(?:auch\s+)?in\s+kleinster\s+menge\s+)?(?:ausgeschlossen|tabu|nicht\s+erlaubt)\b(?!\s+werden\s+müssen))`;
 const hardFoodTrace = new RegExp(String.raw`\b${foodTraceTerm}\s+${foodTraceProhibition}\b`, 'iu');
@@ -1264,6 +1341,10 @@ export function validateCompactTurn(raw: unknown, input: { query: string; refere
   let search;
   try {
     search = prepareNuknukSearch({ ...meaning, entities, facts }, input, Boolean(suppliedQuestion) || invalidModelQuestion, guardOutdoor, userText, true);
+    // This check belongs to the installed compact Product handoff. Historical
+    // full-meaning training snapshots retain their own versioned review rules.
+    assertSourceMoneyBound(userText, search.output);
+    assertSourceActivityRefusals(userText, search.output);
   } catch (error) {
     if (!(guardOutdoor && error instanceof LibrarianContractError && error.code === 'condition_unbound')) throw error;
     // An incomplete weather branch cannot establish which outdoor criteria

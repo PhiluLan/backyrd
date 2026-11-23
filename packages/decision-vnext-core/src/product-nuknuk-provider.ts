@@ -141,7 +141,7 @@ export function createDecisionProductNuknukProvider(input: {
       const baseInstructions = hasExplicitContext && !routing
         ? prompt.instructions + '\nBehalte explizit gesetzte Suchangaben aus explicitContext. request bleibt der Nutzertext.'
         : prompt.instructions;
-      const instructions = input.includePurposeInstructions && mode === 'full' && !prompt.instructions.includes("removeFactIds")
+      const instructions = input.includePurposeInstructions && mode === 'full' && !prompt.instructions.includes("DIALOGAKTUALISIERUNG_")
         ? baseInstructions + "\n" + purposeInstructions : baseInstructions;
       const requestSignal = mode === 'simple' ? AbortSignal.any([signal,AbortSignal.timeout(SIMPLE_SEARCH_TIMEOUT_MS)]) : signal;
       input.onModelCall?.(mode);
@@ -217,6 +217,10 @@ export function createDecisionProductNuknukProvider(input: {
         if (!input.repairCompactMeaning) throw error;
         const defect = error instanceof Error && error.message === 'nuknuk_source_age_not_retained'
           ? 'Ein ausdrücklich genanntes Alter fehlt oder wurde verändert. Erhalte jedes genannte Personenalter als people.age CONTEXT mit EQ und YEARS an der zugehörigen Person.'
+          : error instanceof Error && error.message === 'nuknuk_source_budget_contradicted'
+          ? 'Eine Geldgrenze widerspricht dem Nutzertext oder fehlt. Numerische Grenzen gehören unter budget.maximum mit value {amount,operator,currency}, niemals als Text unter budget.qualitative. Erhalte Betrag, Währung, Richtung und Pflicht/Präferenz: unter LT, höchstens LTE, mindestens GTE, mehr als GT; möglichst/bevorzugt bleibt PREFERRED. Pro Person ist budget.scope mit value.scope PER_PERSON als CONTEXT, nicht budget.qualitative. Behalte den Bezug zum betroffenen Angebot.'
+          : error instanceof Error && error.message === 'nuknuk_source_activity_exclusion_misscoped'
+          ? 'Eine einfache Ablehnung der eigenen Tätigkeit fehlt oder wurde zum Standortverbot. Erhalte sie als experience.activity EXCLUDED. Zusätzliche Angebote am Ort allein sind kein Ausschluss; ein ausdrücklich genanntes Einrichtungsverbot bleibt offer.kind EXCLUDED.'
           : error instanceof Error && error.message === 'nuknuk_source_companion_not_retained'
           ? 'Eine ausdrücklich mitgebrachte Person fehlt in der Begleitung. Erhalte die gemeinsame Besuchsgruppe unter people.relationship CONTEXT; nicht als Geschenkempfänger oder vom Anbieter zu stellenden Partner umdeuten.'
           : error instanceof LibrarianContractError && error.code === 'condition_unbound'
