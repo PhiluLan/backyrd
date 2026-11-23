@@ -274,7 +274,7 @@
       "deferredMigrationCount": 4,
       "authChanged": false,
       "adminDiagnosticQuotaApplied": false,
-      "note": "Audited code-only release of Decision v218 and Admin diagnostic v13. Global shipped SQL baseline stays unchanged because four Booking migrations remain deferred. Real authenticated diagnostic confirms Volta Bräu and Alchemist with no unknown or failed mandatory facts. No learning or Spot writes. Admin test quota and calendar expiry removed; JWT/Admin/runtime controls remain. Presentation follow-up: selected-offer reason labels Volta offer as Führung, which is not a suitable bar recommendation explanation."
+      "note": "Audited code-only release of Decision v218 and Admin diagnostic v13. Global shipped SQL baseline stays unchanged because four Booking migrations remain deferred. Real authenticated diagnostic confirms Volta Br\u00e4u and Alchemist with no unknown or failed mandatory facts. No learning or Spot writes. Admin test quota and calendar expiry removed; JWT/Admin/runtime controls remain. Presentation follow-up: selected-offer reason labels Volta offer as F\u00fchrung, which is not a suitable bar recommendation explanation."
     },
     "regionalDecisionRelease": {
       "status": "APPLIED_AND_VERIFIED",
@@ -882,6 +882,46 @@
       "deploymentRunId": 44906157455,
       "certificationRunId": 44905488529,
       "manifestHash": "1f37346dbd797d4058e2129f1a82e7a4ca21bbd3b8001fb73241a28eef285474"
+    },
+    "decisionBudgetDialogueExclusionRelease": {
+      "status": "LIVE_AND_VERIFIED",
+      "sourceSha": "ce01fe1b41b7a633a86d93ad862bcca63988827b",
+      "certificationRunId": 45163154497,
+      "mainRiskGateRunId": 45162944818,
+      "deploymentRunId": 45164278493,
+      "manifestHash": "3c804be35caee53e8acba72ce9e99e41636387814b063679ea4ea0cda2a43597",
+      "planHash": "a0f696d52b72d48c59f50a31264d5c9def7898e1f3a12c3ceebb418e71a84d23",
+      "auditHash": "1a472115c0520c5050bb44dbd5fc75d24276a00a985941f2b93e0d36ffa56a26",
+      "verifiedAt": "2026-11-23T11:23:16.764368+00:00",
+      "functions": [
+        {
+          "slug": "decision-admin-diagnostic",
+          "version": 87,
+          "verifyJwt": true,
+          "bundleHash": "831414cf73170a514f9e943c185585573e67bb9c5212e5a7cc19ca4a3440849a",
+          "sourceSetHash": "eadaba1beac2965bda44dc8f3a9bb7831a0f956f4fce50e49b18ef6ae73b599b"
+        },
+        {
+          "slug": "decision-v13",
+          "version": 291,
+          "verifyJwt": true,
+          "bundleHash": "fe71f9f31ee8e95f099f88d2988e08c4da695dce41239a348d075061936e886f",
+          "sourceSetHash": "9da2e1dafa661a960682ca19c4a98f9e13a10b208aeca29fc8a059943b986634"
+        }
+      ],
+      "verification": {
+        "deploymentAuditResult": "PASS",
+        "onlyBoundFunctionsChanged": true,
+        "bothFunctionsActive": true,
+        "anonymousDecisionHttpStatus": 401,
+        "anonymousDiagnosticHttpStatus": 401,
+        "appliedMigrationCount": 0,
+        "authDeployed": false,
+        "mobileOtaPublished": false,
+        "liveAuthenticatedModelRequestVerified": false,
+        "physicalIphoneAcceptanceVerified": false
+      },
+      "note": "Founder-authorized PR 802 publication: source-bound typed monetary limits, atomic cited dialogue updates, expressly retained dates and activity exclusions evaluated against the selected offer. Main Risk Gate and manual PRODUCT certification passed. Published the same immutable artifact; recomputed deployment audit hash matches, independent live listing matches both bundles and confirms ACTIVE with JWT verification. Only the two bound functions changed; anonymous probes return 401. Twenty known development cases were input-bound and replayed with the final provider; final affected budget cases and a changed-budget dialogue used real inference. This is not authenticated Production inference, physical-iPhone acceptance, independent blind evaluation or model training. Existing model weights are unchanged. Preserve previous receipts, SQL baseline and four deferred Booking migrations."
     }
   },
   "mobile": {
