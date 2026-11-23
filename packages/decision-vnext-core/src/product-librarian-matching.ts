@@ -1044,12 +1044,12 @@ function ownActivityExclusion(request: LibrarianRequest, fact: LibrarianFact): b
         && !OFFER_CATALOG.some(o => o.concept === (fact.value.kind === "TEXT" ? librarianConcept(fact.value.text) : null) && hasOfferModule(o.kind,"food"))
         && fact.value.kind === "TEXT" && librarianConcept(fact.value.text) !== null
         && !fact.subjectIds.some(id => request.entities.some(e => e.id === id && ["AREA", "OFFER"].includes(e.kind)))
-        && request.facts.some(f => f.key === "experience.activity" && f.modality === "REQUIRED");
+        && request.facts.some(f => offerDuty(f) && f.modality === "REQUIRED");
 }
 function selectedActivityExclusion(fact: LibrarianFact, request: LibrarianRequest, profile: ExperienceProfile,
     state: State, atoms: readonly Atom[], visit: VisitWindow): LibrarianFactAssessment {
     const concept = fact.value.kind === "TEXT" ? librarianConcept(fact.value.text) : null;
-    const activities = request.facts.filter(f => f.key === "experience.activity" && f.modality === "REQUIRED");
+    const activities = request.facts.filter(f => offerDuty(f) && f.modality === "REQUIRED");
     const scope = fact.subjectIds.filter(id => request.entities.some(e => e.id === id && e.kind === "ACTIVITY"));
     const sameScope = activities.filter(f => f.subjectIds.some(id => scope.includes(id)));
     const participants = (ids: readonly string[]) => ids.flatMap(id => {

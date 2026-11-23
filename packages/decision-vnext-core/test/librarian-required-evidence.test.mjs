@@ -279,3 +279,20 @@ test('group-total pricing uses an explicit whole-party hierarchy without adding 
  const contradictory=structuredClone(entities);contradictory.find(e=>e.id==='gPart').members=['p1','p2','p3'];contradictory.push(...['p1','p2','p3'].map(id=>({id,kind:'PERSON',label:id,members:[]})));
  assert.equal(search(request(facts,{entities:contradictory}),[b]).ranked.length,0,'named members cannot exceed a subgroup count');
 });
+
+test('a person-bound meal excludes only their selected activity; venue bans stay global',()=>{
+ const mixed=binding(8090,profile([offer('meal','LUNCH'),offer('swim','SWIMMING')],[area()]));
+ mixed.decisionProjection.facts=mixed.decisionProjection.facts.map(f=>f.key==='classification.place_types'?worldFact(f.key,['RESTAURANT','SWIMMING_POOL']):f);
+ const own=request([fact('meal','food.meal','meal','REQUIRED',['a1','p1']),fact('ban','experience.activity','swimming','EXCLUDED',['p1'])]);
+ const result=search(own,[mixed]);assert.equal(result.ranked.length,1);
+ assert.deepEqual(result.ranked[0].facts.find(f=>f.factId==='ban').offerIds,['meal']);
+ const venue=request([fact('meal','food.meal','meal','REQUIRED',['a1','p1']),fact('ban','offer.kind','swimming','EXCLUDED')]);
+ assert.equal(search(venue,[mixed]).ranked.length,0);
+ assert(search(venue,[mixed]).excluded[0].failedFactIds.includes('ban'));
+ const conflict=request([fact('swim','experience.activity','swimming','REQUIRED',['a1','p1']),fact('ban','experience.activity','swimming','EXCLUDED',['p1'])]);
+ assert.equal(search(conflict,[mixed]).ranked.length,0);
+ const unbound=request([fact('meal','food.meal','meal'),fact('ban','experience.activity','swimming','EXCLUDED',['p1'])]);
+ assert.equal(search(unbound,[mixed]).ranked.length,0,'unbound participant ownership remains unknown');
+ const combined=structuredClone(mixed);combined.decisionProjection.facts.find(f=>f.key==='experience.profile').value.offers[0].properties.push(prop('experience.activity','swimming'));
+ assert.equal(search(own,[combined]).ranked.length,0,'a meal that actually includes the refused activity stays ineligible');
+});

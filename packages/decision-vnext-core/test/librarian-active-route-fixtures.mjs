@@ -7,7 +7,7 @@ import { contentHash } from "../dist/canonical.js";
 import { reference, authority } from "./librarian-matching-fixtures.mjs";
 const baseActor = {userId:'11111111-1111-4111-a111-111111111111',subjectBindingHash:contentHash('subject'),authenticationContextHash:contentHash('auth'),sessionBindingHash:contentHash('session'),sessionId:'22222222-2222-4222-a222-222222222222'};
 const identity = {releaseHash:contentHash('release'),artifactHash:contentHash('artifact'),sourceSetHash:contentHash('source'),controlGeneration:1};
-export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel',targetCityRole:'SEARCH_CONTEXT'},fetchImpl,auth=true,understandOverride,requestOverride,prefetch=false,eventOccurrences=[],userId=baseActor.userId,onSearch,conditionEvidence,runtimeReference=reference,runtimeAuthority=authority,useResolvedTargetCity=false}) {
+export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel',targetCityRole:'SEARCH_CONTEXT'},fetchImpl,auth=true,understandOverride,requestOverride,prefetch=false,eventOccurrences=[],userId=baseActor.userId,onSearch,conditionEvidence,runtimeReference=reference,runtimeAuthority=authority,useResolvedTargetCity=false,onLearning,onCommit,onRpc}) {
   const actor={...baseActor,userId};
   let calls=0,reads=0,stored,diagnostics=[];
   const provider=createDecisionProductLunaProvider({apiKey:'synthetic-key',now:()=>new Date(runtimeReference.now),fetchImpl:fetchImpl??(async(_url,options)=>{
@@ -16,7 +16,7 @@ export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel
     return new Response(JSON.stringify({status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify(meaning.raw)}]}]}));
   })});
   const rpc={async rpc(name,parameters){
-    reads++;
+    reads++;onRpc?.(name);
     const city = useResolvedTargetCity ? parameters.p_target_city : runtimeAuthority.city;
     const regional = request.explicit.targetCityRole === 'SEARCH_CONTEXT'
       && (!useResolvedTargetCity || localityKey(city) === 'basel');
@@ -39,9 +39,9 @@ export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel
       const [meaning]=await Promise.all([provider(request,actor,signal),evaluation.prefetch({request,actor,identity,signal})]);return meaning;
     }:provider),
     evaluate(request,actor,signal,meaning){return evaluation.evaluate({request,actor,signal,meaning,identity});},
-    idempotency:{async commit(input){stored=input.execution;return {status:'CREATED'};}},
+    idempotency:{async commit(input){onCommit?.(input);stored=input.execution;return {status:'CREATED'};}},
     interaction:{async resolve(){throw Error('unexpected interaction');}},
-    learning:{contractVersion:'backyrd.user-intelligence.product-decision-learning-port@1.0',async record(){throw Error('no consent: must not learn');}},
+    learning:{contractVersion:'backyrd.user-intelligence.product-decision-learning-port@1.0',async record(input){onLearning?.(input);throw Error('no consent: must not learn');}},
     diagnostics:{reportFailure(stage,code){diagnostics.push({stage,code});}},
   });
   const request=requestOverride??{contractVersion:'backyrd.decision-vnext.product-request@1.0',requestId:'case-request',idempotencyKey:'case-idempotency',naturalLanguage:text,explicit,alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
