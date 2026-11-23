@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-if(process.argv[2]==='--product-search-v7'){
-  await (await import('./nuknuk-product-training.mjs')).exportProductTraining(process.argv.slice(3));
+if(['--product-search-v7','--product-search-v7-beta'].includes(process.argv[2])){
+  await (await import('./nuknuk-product-training.mjs')).exportProductTraining(process.argv.slice(3),process.argv[2]==='--product-search-v7-beta'?{cohort:'BETA_V1'}:{});
   process.exit(0);
 }
 // Explicitly commissioned assisted review, not fabricated founder/gold approval.

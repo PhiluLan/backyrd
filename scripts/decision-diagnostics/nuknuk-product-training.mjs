@@ -57,18 +57,19 @@ async function currentPrompt(row){
  if(!captured||captured.messages.length!==2)throw Error('offline_capture_missing');
  return {instructions:captured.messages[0].content,input:captured.messages[1].content,outputSchema:captured.response_format.json_schema.schema};
 }
-export async function exportProductTraining(args){
+export async function exportProductTraining(args, options={}){
  const [outArg,modelArg,mlxArg,hfArg]=args;
  if(args.length!==4)throw Error('usage: --product-search-v7 OUTPUT MODEL_DIR CURRENT_MLX_ADAPTER CURRENT_HF_ADAPTER');
  const out=resolve(outArg),model=resolve(modelArg),mlx=resolve(mlxArg),hf=resolve(hfArg);
- const rows=productTrainingCases(),inventory=validateProductTrainingRows(rows);
+ const beta=options.cohort==='BETA_V1';
+ const rows=beta?(await import('./nuknuk-beta-training-cases.mjs')).betaTrainingCases():productTrainingCases(),inventory=validateProductTrainingRows(rows);
  const mlxConfig=JSON.parse(await readFile(resolve(mlx,'adapter_config.json'))),hfConfig=JSON.parse(await readFile(resolve(hf,'adapter_config.json')));
  if(mlxConfig.fine_tune_type!=='lora'||mlxConfig.lora_parameters.rank!==16||hfConfig.r!==16||hfConfig.lora_alpha!==32)throw Error('product_training_parent_architecture_changed');
  const modelConfig=JSON.parse(await readFile(resolve(model,'config.json')));
  if(modelConfig.model_type!=='qwen3_5_moe'||modelConfig.text_config.num_hidden_layers!==40)throw Error('product_training_base_architecture_changed');
  const reviewedAt=new Date().toISOString();
- const commission={version:'backyrd.nuknuk-training-commission@2',source:'FOUNDER_CHAT_20261123',instruction:'Perfekt, dann los gehts',
-  scope:['SYNTHETIC_TARGETED_TRAINING_PREPARATION','SEPARATE_CANDIDATE_TRAINING','BASELINE_COMPARISON'],
+ const commission={version:'backyrd.nuknuk-training-commission@2',source:'FOUNDER_CHAT_20261123',instruction:beta?'Erstelle das Trainingsprogramm und lasse den Katalog durch einen neuen Astra-Agent prüfen.':'Perfekt, dann los gehts',
+  scope:beta?['CREATE_BETA_CURRICULUM','REQUEST_INDEPENDENT_ASTRA_REVIEW']:['SYNTHETIC_TARGETED_TRAINING_PREPARATION','SEPARATE_CANDIDATE_TRAINING','BASELINE_COMPARISON'],
   independentHumanGold:false,independentAssistantReview:false,reviewedAt};
  const delegationHash=contentHash(commission),evaluation=[],reviewed=[];
  const files={train:[],valid:[],test:[]};
@@ -82,9 +83,9 @@ export async function exportProductTraining(args){
    provenance:{kind:'SYNTHETIC',reference:row.id},trainingPermission:'APPROVED'};
   const hash=contentHash(content);
   reviewed.push({id:row.id,scenarioGroup:row.scenarioGroup,split:row.split,content,contentHash:hash,
-   reviews:['SEMANTICS','PRIVACY_AND_SOURCE_USE'].map(kind=>({kind,verdict:'ACCEPT',contentHash:hash,reviewer:'codex-commissioned-product-profile-review',reviewerKind:'DELEGATED_ASSISTANT',delegationHash,vocabularyHash:NUKNUK_TRAINING_VOCABULARY_HASH,reviewedAt,
+   reviews:beta?[]:['SEMANTICS','PRIVACY_AND_SOURCE_USE'].map(kind=>({kind,verdict:'ACCEPT',contentHash:hash,reviewer:'codex-commissioned-product-profile-review',reviewerKind:'DELEGATED_ASSISTANT',delegationHash,vocabularyHash:NUKNUK_TRAINING_VOCABULARY_HASH,reviewedAt,
     note:kind==='SEMANTICS'?row.review:'Authored synthetic case, no personal profiles or live sessions. No independent human gold.'}))});
-  evaluation.push({id:row.id,scenarioGroup:row.scenarioGroup,split:row.split,task:row.task,query:row.query,reference:row.reference,
+  evaluation.push({...(beta?{familyId:row.familyId,theme:row.theme,locale:row.locale,critical:row.critical,reviewStatus:row.reviewStatus}:{}),id:row.id,scenarioGroup:row.scenarioGroup,split:row.split,task:row.task,query:row.query,reference:row.reference,
    messages:pair.messages.slice(0,2),outputSchema:request.outputSchema,expected:row.expected,
    promptHash:sha(request.instructions),inputHash:sha(request.input),schemaHash:contentHash(request.outputSchema)});
   files[{TRAIN:'train',VALIDATION:'valid',TEST:'test'}[row.split]].push(pair);
@@ -93,6 +94,7 @@ export async function exportProductTraining(args){
  const sources=['scripts/decision-diagnostics/nuknuk-product-training.mjs','scripts/decision-diagnostics/nuknuk-product-training-cases.mjs',
   'scripts/decision-diagnostics/nuknuk-curriculum/preflight.py','scripts/decision-diagnostics/nuknuk-gpu.py',
   'packages/decision-vnext-core/src/nuknuk-understanding.ts','packages/decision-vnext-core/src/nuknuk-dialogue.ts','packages/decision-vnext-core/src/product-nuknuk-provider.ts','packages/decision-vnext-core/src/nuknuk-understanding-learning.ts',
+  ...(beta?['scripts/decision-diagnostics/nuknuk-beta-training-cases.mjs','scripts/decision-diagnostics/nuknuk-beta-training-program.mjs']:[]),
   'packages/decision-vnext-core/src/nuknuk-training-vocabulary.ts','packages/world-knowledge-core/src/experience-language.ts','packages/decision-vnext-core/src/product-librarian-matching.ts','packages/decision-vnext-core/src/product-librarian-language.ts','packages/decision-vnext-core/src/product-luna-librarian.ts'];
  const sourceHashes=Object.fromEntries(await Promise.all(sources.map(async name=>[name,await fileSha(resolve(root,name))])));
  const modelFiles=Object.fromEntries(await Promise.all(['config.json','tokenizer.json','tokenizer_config.json','chat_template.jinja'].map(async name=>[name,await fileSha(resolve(model,name))])));
@@ -105,16 +107,35 @@ export async function exportProductTraining(args){
   'commission.json':JSON.stringify(commission,null,2)+'\n','evaluation-inputs.json':JSON.stringify({version:'backyrd.nuknuk-product-evaluation@1',cases:evaluation},null,2)+'\n',
   'parent-identity.json':JSON.stringify(parent,null,2)+'\n'};
  for(const [name,pairs] of Object.entries(files))payload[name+'.jsonl']=pairs.map(JSON.stringify).join('\n')+'\n';
+ if(beta){
+  const {betaTrainingProgram,betaSupplementalChecks}=await import('./nuknuk-beta-training-program.mjs');
+  payload['training-program.json']=JSON.stringify(betaTrainingProgram(),null,2)+'\n';
+  payload['supplemental-checks.json']=JSON.stringify(betaSupplementalChecks(),null,2)+'\n';
+  const compactFact=f=>f?[f.id,f.key,f.value,f.modality,f.subjectIds,f.basis]:null;
+  const compactMeaning=m=>({entities:m.entities?.map(e=>[e.id,e.kind,e.members]),facts:m.facts?.map(compactFact),logic:m.logic??null,bindings:m.bindings??[],weatherConditions:m.weatherConditions??[]});
+  const compactTarget=t=>t.meaning?{meaning:compactMeaning(t.meaning),...(t.clarification?{clarification:t.clarification}:{})}:{changes:t.changes.map(c=>[c.id,c.quote,compactFact(c.fact)])};
+  const cards=[];
+  for(const familyId of [...new Set(rows.map(r=>r.familyId))]){
+   const variants=rows.filter(r=>r.familyId===familyId),first=variants[0],base=compactTarget(first.expected);
+   cards.push({familyId,scenarioGroup:first.scenarioGroup,split:first.split,theme:first.theme,critical:first.critical,knownHistoricalPattern:first.knownFamily,
+    reference:first.reference,queries:Object.fromEntries(variants.map(r=>[r.locale,r.query])),expected:base,
+    localeTargetDifferences:Object.fromEntries(variants.filter(r=>JSON.stringify(compactTarget(r.expected))!==JSON.stringify(base)).map(r=>[r.locale,compactTarget(r.expected)])),
+    ...(first.previousMeaning?{previousMeaning:compactMeaning(first.previousMeaning),answers:Object.fromEntries(variants.map(r=>[r.locale,r.turns.map(t=>t.answer)]))}:{}),
+    reviewNotes:first.review,rowIds:variants.map(r=>r.id)});
+  }
+  payload['catalog-family-review.jsonl']=cards.map(JSON.stringify).join('\n')+'\n';
+
+ }
  const manifest={version:'backyrd.nuknuk-product-training-manifest@1',purpose:'SUPERVISED_DATA_EXPORT_ONLY',instructionProfiles:['COMPACT_SEARCH_V7','DIALOGAKTUALISIERUNG_V3'],
-  ...inventory,datasetHash:contentHash(reviewed),splitHash:contentHash(rows.map(r=>[r.id,r.scenarioGroup,r.split])),delegationHash,sourceHashes,parent,vocabularyHash:NUKNUK_TRAINING_VOCABULARY_HASH,
+  ...inventory,...(beta?{cohort:'BETA_V1',readiness:'DRAFT_PENDING_ASTRA_REVIEW',modelResponsesUsedForTargets:false}:{}),datasetHash:contentHash(reviewed),splitHash:contentHash(rows.map(r=>[r.id,r.scenarioGroup,r.split])),delegationHash,sourceHashes,parent,vocabularyHash:NUKNUK_TRAINING_VOCABULARY_HASH,
   sourceCommit:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),
   sourceWorktreeClean:execFileSync('git',['status','--porcelain'],{cwd:root,encoding:'utf8'}).trim()==='',
   files:Object.fromEntries(Object.entries(payload).map(([name,bytes])=>[name,{sha256:sha(bytes),bytes:Buffer.byteLength(bytes)}])),
-  independentHumanGold:false,knownTwentyAreBlindTest:false,evaluationFreshness:'KNOWN_REGRESSION_ONLY',trainingStarted:false,weightsActivated:false,paidResourcesAuthorizedByExport:false,
+  independentHumanGold:false,knownTwentyAreBlindTest:false,evaluationFreshness:beta?'CANDIDATE_UNSEEN_PENDING_LEAKAGE_REVIEW':'KNOWN_REGRESSION_ONLY',trainingStarted:false,weightsActivated:false,paidResourcesAuthorizedByExport:false,
   trainingLimits:{maxTotalTokens:5120,maxAnswerTokens:2048},
   limitations:['Authored synthetic examples represent fewer scenario families; grouped variants are not independent users.',
-   'Grammar and canonical validation do not prove semantic correctness. Targets received commissioned assistant review only.',
-   'Evaluation families in this cohort were observed on November 23; TEST labels preserve historical grouping, not fresh blind-test eligibility.',
+   beta?'Draft authored targets await independent Astra semantic/translation review; no ACCEPT receipt is fabricated.':'Grammar and canonical validation do not prove semantic correctness. Targets received commissioned assistant review only.',
+   beta?`Four language variants per authored family are correlated; TEST has ${inventory.scenarioGroups.TEST} semantic groups, not 200 independent situations.`:'Evaluation families in this cohort were observed on November 23; TEST labels preserve historical grouping, not fresh blind-test eligibility.',
    'No spot facts, prices, hours or personal user data are learned. Catalog/matching problems remain separate.',
    'Current default full understanding and atomic dialogue are covered; simple-route and route-classifier retention must be checked before activation.'],
   comparison:{knownDevelopment:'REPLAY_ONLY_NOT_SELECTION',selection:'VALIDATION_ONLY_THEN_FREEZE_CHECKPOINT',test:'ONCE_AFTER_SELECTION',sameCatalogRequired:true,
@@ -130,6 +151,7 @@ export async function exportProductGpuBundle(args){
  if(args.length!==4)throw Error('usage: --product-search-v7 DATA CURRENT_HF_ADAPTER TOKENIZER OUTPUT');
  const data=resolve(dataArg),hf=resolve(hfArg),tokenizer=resolve(tokenizerArg),out=resolve(outArg);
  const manifestBytes=await readFile(resolve(data,'manifest.json')),manifest=JSON.parse(manifestBytes);
+ if(manifest.cohort==='BETA_V1')throw Error('beta_gpu_export_requires_review_and_separate_training_plan');
  const preflight=JSON.parse(await readFile(resolve(data,'preflight.json'))),parentProof=JSON.parse(await readFile(resolve(data,'parent-verification.json')));
  if(manifest.version!=='backyrd.nuknuk-product-training-manifest@1'||manifest.vocabularyHash!==NUKNUK_TRAINING_VOCABULARY_HASH||manifest.caseCount!==152||manifest.counts.TRAIN!==121
   ||preflight.datasetManifestFileSha256!==sha(manifestBytes)||preflight.caseCount!==152||preflight.maxTotalTokens>5120
