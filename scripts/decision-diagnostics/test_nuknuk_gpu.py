@@ -13,6 +13,40 @@ spec.loader.exec_module(gpu)
 
 
 class GpuPreparationTests(unittest.TestCase):
+    def test_current_product_parent_requires_exact_adapters_not_just_matching_names(self):
+        import struct
+        def save(path, arrays):
+            header,parts,offset = {},[],0
+            for key,array in arrays.items():
+                raw=np.asarray(array,dtype='<f4').tobytes()
+                header[key]={'dtype':'F32','shape':list(array.shape),'data_offsets':[offset,offset+len(raw)]}
+                parts.append(raw);offset+=len(raw)
+            encoded=json.dumps(header).encode()
+            path.write_bytes(struct.pack('<Q',len(encoded))+encoded+b''.join(parts))
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mlx=root/'mlx';hf=root/'hf';mlx.mkdir();hf.mkdir()
+            keys=[f'language_model.model.layers.{i}.self_attn.{p}_proj' for i in range(3,40,4) for p in ('k','o','q','v')]
+            arrays={k+'.lora_'+suffix:np.ones((2,16) if suffix=='a' else (16,2),dtype=np.float32) for k in keys for suffix in ('a','b')}
+            converted={k.replace('language_model.model.layers.','base_model.model.model.language_model.layers.').replace('.lora_a','.lora_A.weight').replace('.lora_b','.lora_B.weight'):v.T for k,v in arrays.items()}
+            save(mlx/'adapters.safetensors',arrays);save(hf/'adapter_model.safetensors',converted)
+            (mlx/'adapter_config.json').write_text(json.dumps({'fine_tune_type':'lora','lora_parameters':{'rank':16,'scale':2,'keys':keys}}))
+            (hf/'adapter_config.json').write_text(json.dumps({'r':16,'lora_alpha':32,'target_modules':['q_proj','k_proj','v_proj','o_proj']}))
+            parent={'mlxBase':{'repo':'mlx-community/Qwen3.6-35B-A3B-4bit','revision':'38740b847e4cb78f352aba30aa41c76e08e6eb46'},'trainingBase':{'repo':'Qwen/Qwen3.6-35B-A3B','revision':'995ad96eacd98c81ed38be0c5b274b04031597b0'}}
+            def bind():
+                for folder,name,field in [(mlx,'adapters.safetensors','mlxAdapterSha256'),(hf,'adapter_model.safetensors','hfAdapterSha256'),(mlx,'adapter_config.json','mlxAdapterConfigSha256'),(hf,'adapter_config.json','hfAdapterConfigSha256')]:
+                    parent[field]=gpu.file_sha(folder/name)
+                (root/'manifest.json').write_text(json.dumps({'version':'backyrd.nuknuk-product-training-manifest@1','parent':parent}))
+            bind()
+            result=gpu.verify_product_parent(root,mlx,hf,root/'valid.json')
+            self.assertEqual(result['tensors'],80)
+            self.assertFalse(result['nativeBaseNumericalParityVerified'])
+            first=next(iter(converted));converted[first]=converted[first].copy();converted[first][0,0]=2
+            save(hf/'adapter_model.safetensors',converted)
+            with self.assertRaisesRegex(ValueError,'file_changed'):gpu.verify_product_parent(root,mlx,hf,root/'invalid.json')
+            bind() # Even a newly hashed but mathematically different adapter is rejected.
+            with self.assertRaisesRegex(ValueError,'projection_mismatch'):gpu.verify_product_parent(root,mlx,hf,root/'invalid.json')
+            self.assertFalse((root/'invalid.json').exists())
+
     def test_full_recipe_covers_every_training_row_each_epoch_with_explicit_task_objective(self):
         from collections import Counter
         cases=[]

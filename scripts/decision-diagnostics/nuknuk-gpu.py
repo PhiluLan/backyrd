@@ -527,10 +527,12 @@ def generate_structured_batch(state, batch, max_seconds=240, max_output_tokens=2
             return scores.masked_fill(~allowed,float('-inf'))
     prefixes = [tokenizer.apply_chat_template(r['messages'], tokenize=True, add_generation_prompt=True,
                 enable_thinking=False, return_dict=False) for r in batch]
-    if any(not isinstance(p, list) or not p or len(p) >= 4096 for p in prefixes):
+    product = state['boundary'].get('profile') == 'PRODUCT_SEARCH_V7_CONTINUATION_V1'
+    maximum_prefix = 4608 if product else 4096
+    if any(not isinstance(p, list) or not p or len(p) >= maximum_prefix for p in prefixes):
         raise ValueError('nuknuk_gpu_evaluation_prefix_invalid')
     length = max(map(len, prefixes))
-    budget = min(max_output_tokens, 4096 - length) if state['boundary'].get('nativeParity') else max_output_tokens
+    budget = min(max_output_tokens, 6656 - length) if product else min(max_output_tokens, 4096 - length) if state['boundary'].get('nativeParity') else max_output_tokens
     ids = torch.full((len(batch), length), tokenizer.eos_token_id, dtype=torch.long, device='cuda')
     attention = torch.zeros_like(ids)
     for index, prefix in enumerate(prefixes):
@@ -895,12 +897,233 @@ def prefer(args):
         'referenceAdapterUnchanged':file_sha(args.adapter/'adapter_model.safetensors')==args.adapter_sha256,'productionActivation':False,'providerBillingStopped':False})
 
 
+def verify_product_gpu_bundle(folder):
+    manifest = json.loads((folder/'product-gpu-manifest.json').read_text())
+    if (manifest.get('version') != 'backyrd.nuknuk-product-gpu-bundle@1'
+        or manifest.get('profile') != 'PRODUCT_SEARCH_V7_CONTINUATION_V1'
+        or manifest.get('recipe',{}).get('testUploaded') is not False
+        or manifest['parent']['trainingBase'] != {'repo':'Qwen/Qwen3.6-35B-A3B','revision':'995ad96eacd98c81ed38be0c5b274b04031597b0'}):
+        raise ValueError('product_gpu_bundle_invalid')
+    allowed={'train.jsonl','valid.jsonl','seed/adapter_config.json','seed/adapter_model.safetensors',
+        'tokenizer/tokenizer.json','tokenizer/tokenizer_config.json','tokenizer/chat_template.jinja',
+        'nuknuk-gpu.py','nuknuk-runpod-watch.py','development-requests.json','native-prefixes.json','train.yaml'}
+    if set(manifest['files']) != allowed:
+        raise ValueError('product_gpu_payload_not_allowlisted')
+    for name,binding in manifest['files'].items():
+        if file_sha(folder/name) != binding['sha256'] or (folder/name).stat().st_size != binding['bytes']:
+            raise ValueError('product_gpu_payload_changed')
+    if file_sha(folder/'seed/adapter_model.safetensors') != manifest['parent']['hfAdapterSha256']:
+        raise ValueError('product_gpu_seed_changed')
+    return manifest
+
+
+def prepare_product_native(folder):
+    """Exact token IDs and answer-only labels, before loading any model weights.
+
+    Axolotl's documented pre-tokenized input avoids a second chat-template or
+    label-mask interpretation. Historical chat-template training is unchanged.
+    """
+    from transformers import AutoTokenizer
+    manifest=verify_product_gpu_bundle(folder)
+    tokenizer=AutoTokenizer.from_pretrained(folder/'tokenizer',local_files_only=True,trust_remote_code=False)
+    rows=json.loads((folder/'native-prefixes.json').read_text())
+    report=[]
+    for split,name,count in [('TRAIN','train',112),('VALIDATION','valid',16)]:
+        source=[json.loads(line) for line in (folder/(name+'.jsonl')).read_text().splitlines()]
+        bindings=[row for row in rows if row['split']==split]
+        if len(source)!=count or len(bindings)!=count:
+            raise ValueError('product_native_inventory_changed')
+        target=folder/(name+'-tokenized.jsonl')
+        with target.open('x') as handle:
+            for pair,binding in zip(source,bindings):
+                messages=pair['messages']
+                if [m['role'] for m in messages] != ['system','user','assistant']:
+                    raise ValueError('product_native_roles_invalid')
+                prefix=tokenizer.apply_chat_template(messages[:2],tokenize=True,add_generation_prompt=True,enable_thinking=False,return_dict=False)
+                prefix_hash=hashlib.sha256(json.dumps(prefix,separators=(',',':')).encode()).hexdigest()
+                if prefix_hash!=binding['prefixTokenIdsSha256']:
+                    raise ValueError('product_native_prefix_parity_failed')
+                answer=tokenizer.encode(messages[2]['content'],add_special_tokens=False)+[tokenizer.eos_token_id]
+                if len(prefix)+len(answer)>4608 or len(answer)>2048 or len(answer)<2:
+                    raise ValueError('product_native_would_truncate')
+                ids=prefix+answer;labels=[-100]*len(prefix)+answer
+                handle.write(json.dumps({'input_ids':ids,'attention_mask':[1]*len(ids),'labels':labels})+'\n')
+                report.append({'id':binding['id'],'split':split,'prefixTokenIdsSha256':prefix_hash,'inputTokens':len(ids),'answerTokens':len(answer),'promptLabelsMasked':True})
+    result={'result':'PASS','datasetHash':manifest['datasetHash'],'rows':report,'testLabelsRead':False,'baseModelLoaded':False,
+        'tokenizedFiles':{name:file_sha(folder/name) for name in ['train-tokenized.jsonl','valid-tokenized.jsonl']}}
+    write_json(folder/'native-tokenization.json',result)
+    return tokenizer
+
+
+def product_base(folder):
+    from huggingface_hub import snapshot_download
+    manifest=verify_product_gpu_bundle(folder)
+    base=folder.parent/'base'
+    snapshot_download(repo_id=manifest['parent']['trainingBase']['repo'],revision=manifest['parent']['trainingBase']['revision'],
+        local_dir=base,allow_patterns=['*.safetensors','*.json','*.jinja','*.txt'],max_workers=8)
+    config=json.loads((base/'config.json').read_text())
+    if config.get('model_type')!='qwen3_5_moe' or config['text_config']['num_hidden_layers']!=40:
+        raise ValueError('product_base_architecture_changed')
+    return base
+
+
+def product_evaluate(args):
+    import torch
+    import llguidance
+    from llguidance.hf import from_tokenizer
+    from transformers import AutoModelForImageTextToText,AutoTokenizer,BitsAndBytesConfig
+    from peft import PeftModel
+    folder=args.bundle.resolve(strict=True);manifest=verify_product_gpu_bundle(folder)
+    if args.output.exists() or file_sha(args.adapter/'adapter_model.safetensors')!=args.adapter_sha256:
+        raise ValueError('product_eval_output_or_adapter_invalid')
+    if importlib.metadata.version('llguidance')!='1.9.1':
+        raise ValueError('product_eval_grammar_version_invalid')
+    args.output.mkdir(mode=0o700)
+    base=product_base(folder)
+    tokenizer=AutoTokenizer.from_pretrained(folder/'tokenizer',local_files_only=True,trust_remote_code=False)
+    requests=json.loads((folder/'development-requests.json').read_text())['cases']
+    if len(requests)!=16 or any(r['split']!='VALIDATION' or 'expected' in r or [m['role'] for m in r['messages']]!=['system','user'] for r in requests):
+        raise ValueError('product_eval_target_free_requests_required')
+    torch.cuda.set_per_process_memory_fraction(.92,0)
+    model=AutoModelForImageTextToText.from_pretrained(base,local_files_only=True,trust_remote_code=False,use_safetensors=True,
+        dtype=torch.bfloat16,device_map={'':0},attn_implementation='sdpa',
+        quantization_config=BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_quant_type='nf4',bnb_4bit_use_double_quant=True,bnb_4bit_compute_dtype=torch.bfloat16))
+    model=PeftModel.from_pretrained(model,args.adapter,is_trainable=False)
+    model.requires_grad_(False);model.eval();model.config.use_cache=True
+    state={'model':model,'tokenizer':tokenizer,'ll_tokenizer':from_tokenizer(tokenizer),'boundary':{'profile':manifest['profile']}}
+    compiler=llguidance.JsonCompiler(separators=(', ',': '),whitespace_pattern='')
+    started=time.monotonic();records=[]
+    for row in requests:
+        if time.monotonic()-started>600:raise ValueError('product_eval_deadline')
+        generated=generate_structured(state,row['messages'],compiler.compile(json.dumps(row['outputSchema'])),max_seconds=90)
+        record={key:row[key] for key in ['id','task','promptHash','inputHash','schemaHash']};record.update(generated)
+        write_json(args.output/(row['id']+'.json'),record);records.append(record)
+        print(json.dumps({'id':row['id'],'status':generated['status'],'durationMs':generated.get('durationMs')}),flush=True)
+    if file_sha(args.adapter/'adapter_model.safetensors')!=args.adapter_sha256:
+        raise ValueError('product_eval_adapter_mutated')
+    write_json(args.output/'result.json',{'status':'COMPLETED_REQUIRES_SEMANTIC_REVIEW','datasetHash':manifest['datasetHash'],
+        'adapterSha256':args.adapter_sha256,'caseCount':len(records),'generatedCount':sum(r.get('raw') is not None for r in records),
+        'testCalled':False,'trainingExecuted':False,'productionActivation':False})
+
+
+def product_train(args):
+    import signal
+    folder=args.bundle.resolve(strict=True);manifest=verify_product_gpu_bundle(folder)
+    if args.output.exists() or manifest['recipe']['maxTrainingSeconds']!=1800 or manifest['recipe']['epochs']!=2:
+        raise ValueError('product_train_recipe_or_output_invalid')
+    parent_evaluation=json.loads((folder.parent/'parent-development/result.json').read_text())
+    if (parent_evaluation.get('datasetHash')!=manifest['datasetHash'] or parent_evaluation.get('caseCount')!=16
+        or parent_evaluation.get('adapterSha256')!=manifest['parent']['hfAdapterSha256']):
+        raise ValueError('product_train_parent_evaluation_required')
+    cards=subprocess.check_output(['nvidia-smi','--query-gpu=memory.total','--format=csv,noheader,nounits'],text=True,timeout=10).strip().splitlines()
+    if len(cards)!=1 or int(cards[0])<90000:raise ValueError('product_train_single_96gb_gpu_required')
+    prepare_product_native(folder);product_base(folder)
+    args.output.mkdir(mode=0o700)
+    process=None
+    try:
+        with (args.output/'train.log').open('x') as log:
+            process=subprocess.Popen(['axolotl','train',str(folder/'train.yaml')],stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            status=process.wait(timeout=1800)
+        if status!=0:raise ValueError('product_train_subprocess_failed')
+    finally:
+        if process is not None and process.poll() is None:
+            os.killpg(process.pid,signal.SIGKILL);process.wait(timeout=15)
+    adapter=folder.parent/'output'
+    if not (adapter/'adapter_model.safetensors').is_file() or not (adapter/'adapter_config.json').is_file():
+        raise ValueError('product_train_adapter_missing')
+    write_json(args.output/'result.json',{'status':'TRAINED_REQUIRES_COMPARISON','datasetHash':manifest['datasetHash'],
+        'parentAdapterSha256':manifest['parent']['hfAdapterSha256'],'adapterSha256':file_sha(adapter/'adapter_model.safetensors'),
+        'model':manifest['parent']['trainingBase'],'trainingRows':112,'epochs':2,'testCalled':False,'productionActivation':False,
+        'providerBillingStopped':False})
+
+
+def verify_product_parent(bundle, mlx_folder, hf_folder, output):
+    """Read adapter tensors only. No model, CUDA, Torch or service changes.
+
+    Exact projection equality binds the HF continuation seed to the live MLX
+    adapter. This is not numerical parity of differently quantized base models.
+    """
+    import struct
+    import numpy as np
+    manifest = json.loads((bundle / 'manifest.json').read_text())
+    if manifest.get('version') != 'backyrd.nuknuk-product-training-manifest@1':
+        raise ValueError('product_parent_manifest_invalid')
+    parent = manifest['parent']
+    if parent['mlxBase'] != {'repo':'mlx-community/Qwen3.6-35B-A3B-4bit','revision':'38740b847e4cb78f352aba30aa41c76e08e6eb46'} or parent['trainingBase'] != {'repo':'Qwen/Qwen3.6-35B-A3B','revision':'995ad96eacd98c81ed38be0c5b274b04031597b0'}:
+        raise ValueError('product_parent_base_pin_invalid')
+    for folder, filename, field in [(mlx_folder,'adapters.safetensors','mlxAdapterSha256'),(hf_folder,'adapter_model.safetensors','hfAdapterSha256'),
+                                    (mlx_folder,'adapter_config.json','mlxAdapterConfigSha256'),(hf_folder,'adapter_config.json','hfAdapterConfigSha256')]:
+        if file_sha(folder / filename) != parent[field]:
+            raise ValueError('product_parent_file_changed')
+    mlx_config = json.loads((mlx_folder / 'adapter_config.json').read_text())
+    hf_config = json.loads((hf_folder / 'adapter_config.json').read_text())
+    keys = [f'language_model.model.layers.{layer}.self_attn.{projection}_proj'
+            for layer in range(3,40,4) for projection in ('k','o','q','v')]
+    if (mlx_config.get('fine_tune_type') != 'lora' or mlx_config['lora_parameters']['rank'] != 16
+        or mlx_config['lora_parameters']['scale'] != 2 or sorted(mlx_config['lora_parameters']['keys']) != sorted(keys)
+        or hf_config.get('r') != 16 or hf_config.get('lora_alpha') != 32 or hf_config.get('fan_in_fan_out')
+        or set(hf_config.get('target_modules',[])) != {'q_proj','k_proj','v_proj','o_proj'}):
+        raise ValueError('product_parent_lora_architecture_changed')
+    def tensors(path):
+        if path.stat().st_size > 128 * 1024 * 1024:
+            raise ValueError('product_parent_tensor_file_unbounded')
+        data = path.read_bytes()
+        size = struct.unpack('<Q',data[:8])[0]
+        if size > 1024 * 1024 or len(data) > 128 * 1024 * 1024:
+            raise ValueError('product_parent_tensor_file_unbounded')
+        header = json.loads(data[8:8+size])
+        result = {}
+        for key, value in header.items():
+            if key == '__metadata__':
+                continue
+            if value['dtype'] != 'F32' or len(value['shape']) != 2:
+                raise ValueError('product_parent_tensor_format_invalid')
+            start,end = value['data_offsets']
+            if not 0 <= start < end <= len(data)-8-size or end-start != int(np.prod(value['shape']))*4:
+                raise ValueError('product_parent_tensor_bounds_invalid')
+            result[key] = np.frombuffer(data, dtype='<f4', count=(end-start)//4, offset=8+size+start).reshape(value['shape'])
+        return result
+    mlx_arrays = tensors(mlx_folder / 'adapters.safetensors')
+    hf_arrays = tensors(hf_folder / 'adapter_model.safetensors')
+    expected_mlx, expected_hf = set(), set()
+    for key in keys:
+        hf_key = key.replace('language_model.model.layers.','base_model.model.model.language_model.layers.')
+        for lower, upper in [('a','A'),('b','B')]:
+            mk, hk = key+'.lora_'+lower, hf_key+'.lora_'+upper+'.weight'
+            expected_mlx.add(mk);expected_hf.add(hk)
+            if (mk not in mlx_arrays or hk not in hf_arrays or not np.isfinite(mlx_arrays[mk]).all()
+                or not np.isfinite(hf_arrays[hk]).all() or not np.array_equal(mlx_arrays[mk],hf_arrays[hk].T)):
+                raise ValueError('product_parent_projection_mismatch')
+    if set(mlx_arrays) != expected_mlx or set(hf_arrays) != expected_hf:
+        raise ValueError('product_parent_unexpected_tensors')
+    result = {'version':'backyrd.nuknuk-product-parent-verification@1','result':'PASS',
+        'manifestSha256':file_sha(bundle/'manifest.json'),'parent':parent,'projections':len(keys),
+        'tensors':len(expected_mlx),'exactTransposeEquality':True,'adapterScaleEquality':True,
+        'baseModelLoaded':False,'nativeBaseNumericalParityVerified':False,'productionActivation':False}
+    with output.open('x') as handle:
+        json.dump(result,handle,indent=2)
+    print(json.dumps({key:result[key] for key in ['result','projections','tensors','exactTransposeEquality','baseModelLoaded']}))
+    return result
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     convert = sub.add_parser("convert")
     convert.add_argument("--source", type=Path, required=True)
     convert.add_argument("--output", type=Path, required=True)
+    parent_check = sub.add_parser('verify-product-parent')
+    parent_check.add_argument('--bundle',type=Path,required=True)
+    parent_check.add_argument('--source',type=Path,required=True)
+    parent_check.add_argument('--adapter',type=Path,required=True)
+    parent_check.add_argument('--output',type=Path,required=True)
+    for product_command in ['product-evaluate','product-train']:
+        product_parser=sub.add_parser(product_command)
+        product_parser.add_argument('--bundle',type=Path,required=True)
+        product_parser.add_argument('--output',type=Path,required=True)
+        if product_command=='product-evaluate':
+            product_parser.add_argument('--adapter',type=Path,required=True)
+            product_parser.add_argument('--adapter-sha256',required=True)
     for command in ("check", "train", "evaluate", "prefer"):
         cmd = sub.add_parser(command); cmd.add_argument("--bundle", type=Path, required=True)
         if command in ("train", "evaluate", "prefer"):
@@ -939,7 +1162,13 @@ if __name__ == "__main__":
             cmd.add_argument("--completion-head", action="store_true")
             cmd.add_argument("--batch-size", type=int, choices=[1,2,4], default=1)
     args = parser.parse_args()
-    if args.command == "convert":
+    if args.command == 'product-evaluate':
+        product_evaluate(args)
+    elif args.command == 'product-train':
+        product_train(args)
+    elif args.command == 'verify-product-parent':
+        verify_product_parent(args.bundle,args.source,args.adapter,args.output)
+    elif args.command == "convert":
         convert_seed(args.source, args.output)
     elif args.command == "prefer":
         prefer(args)

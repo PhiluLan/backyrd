@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+if(process.argv[2]==='--product-search-v7'){
+  await (await import('./nuknuk-product-training.mjs')).exportProductGpuBundle(process.argv.slice(3));
+  process.exit(0);
+}
 // Explicit allowlist export, no project checkout, .env, credentials or private key.
 import {readFile,writeFile,mkdir,copyFile,readdir} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';

@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+if(process.argv[2]==='--product-search-v7'){
+  await (await import('./nuknuk-product-training.mjs')).exportProductTraining(process.argv.slice(3));
+  process.exit(0);
+}
 // Explicitly commissioned assisted review, not fabricated founder/gold approval.
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
