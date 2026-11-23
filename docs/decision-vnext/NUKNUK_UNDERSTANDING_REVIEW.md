@@ -1,5 +1,76 @@
 # Erste Lernbeispiele für NukNuk: fachliche Prüfung
 
+## Product-Training vom 23. November 2026: gesicherter Entwicklungskandidat
+
+Der gezielte Lauf auf dem bestehenden 35B-/rank-16-Parent ist abgeschlossen:
+113 TRAIN-Zeilen, zwei Epochen (57 Optimizer-Schritte), LR 0.000006,
+4'608 Token ohne Kürzung. Die native Präfix-Tokenisierung aller 128
+TRAIN-/VALIDATION-Zeilen stimmte mit dem Mac-Export überein. Die
+VALIDATION-Loss sank von 0.08232 auf 0.06521; das ist kein semantischer
+Qualitätsnachweis.
+
+Parent und Kandidat wurden mit denselben 15 zieldatenfreien
+Entwicklungsanfragen auf derselben HF-/CUDA-Laufzeit verglichen. Anschliessend
+wurden beide Antworten durch Validator, Dialog-Merge, kanonischen Bibliothekar
+und Product-Ausführung gegen denselben eingefrorenen lokalen Katalog geführt.
+Je 15/15 waren technisch ausführbar. Der Katalog enthielt 438 Spot-Profile und
+26 Events; synthetischer Actor, keine Produktions-HTTP-Abnahme und keine Writes.
+Die Dialogprüfung verwendet identisches vorgegebenes Vorwissen pro Arm; sie
+ist kein vollständiger Live-Dialogtest.
+
+Die vor Sichtung des Kandidaten eingefrorene Assistenzrubrik ergab:
+
+| Bewertung | HF-Parent | Kandidat |
+| --- | ---: | ---: |
+| vollständig erfüllt | 10 | 12 |
+| teilweise erfüllt | 3 | 1 |
+| nicht erfüllt | 2 | 2 |
+
+Das sind 15 von Assistenz verfasste Entwicklungsfälle, keine unabhängige
+menschliche Gold-Abnahme und keine allgemeine Erfolgsquote. Zwei verschiedene
+Verbesserungen: Die alkoholfreie Teilgruppe behält jetzt ihre Grösse drei bei
+insgesamt sechs Personen; „nicht unbedingt günstig“ wird korrekt als
+`NOT_REQUIRED` statt als Preispräferenz abgebildet. Keine neue wesentliche
+semantische oder technische Verschlechterung in dieser Stichprobe.
+
+Offen bleiben:
+
+- Beim Brunch zu zweit für zusammen CHF 65 fehlt weiterhin `budget.scope: GROUP_TOTAL`.
+- Spielautomaten werden noch als ausgeschlossene Angebotskategorie statt als
+  standortweites Ausstattungsverbot abgebildet.
+- Der Dialogwechsel von 60 auf 40 verfügbare Minuten bleibt bei
+  `measurementScope: UNSPECIFIED` statt `AVAILABLE_TOTAL`.
+
+Die mediane reine Generierungszeit betrug 8'327 ms beim HF-Parent und 9'521 ms
+beim Kandidaten. Das ist eine kleine ungebatchte GPU-Stichprobe ohne
+Live-Netzwerkzeit. Das bisherige MLX-Modell wurde separat gemessen und zeigte
+teils andere Antworten; HF-/MLX-Quantisierung darf nicht als Trainingseffekt
+verwechselt werden. Native Kandidatenkonvertierung, Simple-Route-Retention,
+vollständige Dialogketten und einmalige TEST-Auswertung stehen noch aus.
+TEST wurde weder hochgeladen noch aufgerufen. Keine neuen Gewichte aktiviert.
+
+Gebundene Belege:
+
+- Datenmanifest: `99251f432903f44a02fe08ed6399417c89c2ee114a52ca0421092e9700f93f9b`.
+- GPU-Paket: `8f76865b1528ca0f2874fe1b326bb5bc131114714d422be115b12a71e0e0e14b`.
+- HF-Parent-Adapter: `9d9eef4a46c8441082002635dc74917a3cf5f29be9c0cbed372d44f7e320a311`.
+- Gesicherter Kandidat: `9fa4124fed1c2d3dea1b77a7514aba52e65711b7522f9f889036c07f951363a6`.
+- Ergebnisarchiv: `ac28222a32206b77b85a8f5450fc4046d77031f17f510b9f4551477f5f3ce980`.
+- Vorab-Rubrik: `244105747a083cc5bfc8f18493f977dbc2ac5952ce18616143a3015958e23430`.
+- Gebundene Assistenzsichtung: `3b235dfd3245b902a3f929de92949949895d6b1c59c2eae4996fd1bb77b56cfa`.
+
+Gewichte, Antworten, Laufzeitbelege und Finanzkontrolle bleiben ausserhalb von
+Git unter `.local/operations/nuknuk-product-training-20261123/`.
+Nach Sicherung wurde der eigene temporäre Pod vollständig gelöscht. Drei
+vorherige angelegte Fehlstarts wurden ebenfalls gelöscht; zwei weitere
+Anfragen erzeugten keine Ressource. Der Kostenrahmen blieb kumulativ bei
+4 USD inklusive 1 USD Schlussreserve, gerechnet mit 3.70 USD/h Oberrate.
+Die zusätzliche Finanz-Lease zählt belegte Laufzeiten statt unbezahlter Lücken;
+sie erhöht das Geldlimit nicht. Konservative Kostenobergrenze aller Anläufe:
+2.43 USD, keine Abrechnungszusage. Abschliessende Anbieterabfrage: 0 USD/h,
+keine Netzwerkvolumes, neun zuvor vorhandene gestoppte Pods ohne Volume.
+
+
 Diese sechs Soll-Antworten hat der Founder am 7. November 2026 im Chat
 fachlich bestätigt. Das bestätigt ihre Bedeutung; eine separate Datenschutz- /
 Quellennutzungsprüfung und die Trainingsfreigabe sind damit nicht dokumentiert.

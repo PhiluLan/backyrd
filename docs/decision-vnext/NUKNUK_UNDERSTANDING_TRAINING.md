@@ -7,6 +7,10 @@ gezielte Trainingsrunde und den anschliessenden Vergleich. Die Softwarekorrektur
 aus PR 802 ist bereits separat veröffentlicht; Modelltraining und eine spätere
 Aktivierung neuer Gewichte bleiben davon getrennt.
 
+Der Lauf ist abgeschlossen; der gesicherte Entwicklungskandidat und die noch offenen
+Abnahmebedingungen sind in `NUKNUK_UNDERSTANDING_REVIEW.md` unter „Product-Training
+vom 23. November 2026“ dokumentiert. Das bisherige Live-Modell bleibt aktiv.
+
 Der aktuelle Export ist eine Erweiterung der bestehenden Trainingswerkzeuge:
 
 ```sh
