@@ -30,9 +30,10 @@ export function admitBetaQuote(quote,nowEpochSeconds){
  const lifetime=finite(quote.maximumBillingSeconds??9000,'billing_seconds');
  if(lifetime<=600||lifetime>9000)throw Error('beta_quote_billing_seconds');
  const upper=Math.ceil((inclusive*lifetime/3600+fixed+prior+1)*100)/100;
- if(upper>10)throw Error('beta_quote_total_limit');
+ const ceiling=finite(quote.maximumAggregateUsd??10,'aggregate_ceiling');
+ if(ceiling>10||upper>ceiling)throw Error('beta_quote_total_limit');
  if(finite(quote.availableCreditUsd,'credit')<upper)throw Error('beta_quote_insufficient_credit');
- return {status:'WITHIN_PLANNED_ENVELOPE_NOT_RESOURCE_AUTHORIZATION',quoteHash:contentHash(quote),allInHourlyUsd:inclusive,plannedMaximumIncludingReserveUsd:upper,maximumBillingSeconds:lifetime,watchdog:{budgetProfile:'beta-10',hourlyUsd:Math.ceil(inclusive*100)/100,maxComputeHourlyUsd:computeCeiling,ceilingUsd:Math.min(10,Math.floor(quote.availableCreditUsd*100)/100),reserveUsd:1,priorUsd:fixed+prior},resourcesStarted:false};
+ return {status:'WITHIN_PLANNED_ENVELOPE_NOT_RESOURCE_AUTHORIZATION',quoteHash:contentHash(quote),allInHourlyUsd:inclusive,plannedMaximumIncludingReserveUsd:upper,maximumBillingSeconds:lifetime,watchdog:{budgetProfile:'beta-10',hourlyUsd:Math.ceil(inclusive*100)/100,maxComputeHourlyUsd:computeCeiling,ceilingUsd:Math.min(ceiling,Math.floor(quote.availableCreditUsd*100)/100),reserveUsd:1,priorUsd:fixed+prior},resourcesStarted:false};
 }
 export function remainingTrainingFits({stepSeconds,minimumProbeTokens,maximumRemainingTokens,remainingUpdates,remainingSeconds}){
  if(!Array.isArray(stepSeconds)||stepSeconds.length!==10||stepSeconds.some(s=>typeof s!=='number'||!Number.isFinite(s)||s<=0))throw Error('beta_probe_measurement_required');

@@ -24,3 +24,9 @@ test('a separately authorized shorter attempt accounts for prior consumption and
  const receipt=admitBetaQuote(q,1100);assert.equal(receipt.maximumBillingSeconds,7200);assert.equal(receipt.plannedMaximumIncludingReserveUsd,6.50);assert.equal(receipt.watchdog.priorUsd,1);
  for(const duration of [0,600,9001,NaN])assert.throws(()=>admitBetaQuote({...q,maximumBillingSeconds:duration},1100),/billing_seconds/);
 });
+
+test('additional account funding cannot raise the authorized aggregate ceiling',()=>{
+ const q={...quote(),gpu:'NVIDIA A100-SXM4-80GB',computeHourlyUsd:2.19,computeHourlyCeilingUsd:2.22,availableCreditUsd:16,priorAttemptCostUsd:1.60,maximumBillingSeconds:5400,maximumAggregateUsd:5.98};
+ const r=admitBetaQuote(q,1100);assert.equal(r.plannedMaximumIncludingReserveUsd,5.98);assert.equal(r.watchdog.ceilingUsd,5.98);
+ assert.throws(()=>admitBetaQuote({...q,maximumAggregateUsd:5.97},1100),/total_limit/);assert.throws(()=>admitBetaQuote({...q,maximumAggregateUsd:11},1100),/total_limit/);
+});

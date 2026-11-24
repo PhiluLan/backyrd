@@ -212,3 +212,11 @@ protection stay active. Remote command errors and invalid results fail without
 retry; allocation, uploads and training launch are never retried by this change.
 Exhaustion retains normal artifact recovery and deletion. This correction is
 covered by local fault-injection tests; it has not run on a paid GPU.
+
+## Per-attempt aggregate ceiling
+
+A quote may lower `maximumAggregateUsd` below the original USD 10 envelope. The
+validator binds that explicit ceiling into the independent financial watcher,
+including already spent attempts and closing reserve. An account top-up must
+never raise this authorized ceiling. The third authorized attempt retains the
+USD 5.98 aggregate envelope and 5,400-second billing limit despite extra credit.
