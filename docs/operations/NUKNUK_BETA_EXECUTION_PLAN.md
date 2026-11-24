@@ -1,8 +1,8 @@
 # NukNuk Beta: bounded execution plan, 24 November 2026
 
-Status: **Two controlled attempts aborted; both owned Pods deleted.**
-The reviewed Beta exporter and single-Pod controller are implemented. No complete
-candidate or model activation resulted. Before another allocation, require a new
+Status: **Third controlled attempt completed; all three owned Pods deleted. Candidate not Beta-qualified.**
+The reviewed Beta exporter and single-Pod controller are implemented. A complete third-attempt
+candidate is secured; no model activation occurred. Before another allocation, require a new
 explicit attempt authorization and fresh account/quote admission including prior
 costs. The original frozen bundle and receipts remain historical evidence.
 
@@ -220,3 +220,33 @@ validator binds that explicit ceiling into the independent financial watcher,
 including already spent attempts and closing reserve. An account top-up must
 never raise this authorized ceiling. The third authorized attempt retains the
 USD 5.98 aggregate envelope and 5,400-second billing limit despite extra credit.
+
+## Third attempt: complete training, insufficient DEV quality
+
+The founder explicitly authorized a third attempt and reported manually funding
+the account. Funding did not raise the authorized ceiling: the financial watcher
+was pinned to USD 5.98 aggregate, including USD 1.60 prior-attempt allowance and
+USD 1 closing reserve. Resource lifetime was capped at 5,400 seconds.
+
+The source-bound bundle and A100 80 GB run completed in approximately 62.5 minutes.
+All 1,000 native prefix/mask checks passed; 800 TRAIN rows, one complete epoch and
+200 optimizer updates are proven by the trainer state and completion receipt.
+Probe version 2 admitted the measured remainder while charging initialization
+once. The final adapter has all 80 expected finite tensors and is checksummed
+locally. There were no observed status retries in this run. The owned Pod was
+deleted; account inventory confirms zero active spend and no network volumes.
+Seventy-two exported result files passed local integrity verification.
+
+The same 15 French DEV requests scored 3/15 for the retained parent and 5/15 for
+the candidate, with two improvements and no previously passing case lost. This
+is a small French smoke sample, not full multilingual accuracy. Ten cases still
+fail, including person/recipient roles, subgroup membership and accessibility,
+and clarification of ambiguous group budgets. The candidate is held and not
+Beta-qualified. TEST and TRANSFER remain unconsumed; no activation or live model
+interruption occurred. Review DEV failure causes before further training.
+
+Initial account debit for this attempt was USD 2.1932; aggregate debit for all
+three attempts was USD 3.7102, subject to provider settlement. The local operation
+contains source/input admissions, the fixed candidate receipt, exact outputs,
+semantic comparisons and provider cleanup evidence. No account key or model
+artifact is committed to Git.
