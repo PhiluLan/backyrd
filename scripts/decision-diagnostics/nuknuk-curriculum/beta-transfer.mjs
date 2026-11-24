@@ -774,7 +774,7 @@ everyday("family-not-weekend-repeat", "Familie",
   "Mit minere vierjährige Tochter wieder öppis entdecke, aber bitte öppis anders als de Spielplatz vom letschte Wuchenänd. En andere Spielplatz isch nöd usgschlosse.",
   [openActivity(), ...daughter4()],
   "Ausschluss betrifft einen früheren Ort, nicht die ganze Kategorie. Fehlende Besuchshistorie nicht erfinden.",
-  {extensions:[ext("Der konkrete Spielplatz vom letzten Wochenende soll nicht wieder vorgeschlagen werden.", "EXCLUDED")], uncertainties:[{description:"Welcher konkrete Spielplatz zuletzt besucht wurde, ist ohne Verlauf unbekannt.", relatedIds:[]}], clarification:{dimension:"OTHER",question:"Welchen Spielplatz habt ihr letztes Wochenende besucht?",options:[]}});
+  {extensions:[ext("Der konkrete Spielplatz vom letzten Wochenende soll nicht wieder vorgeschlagen werden.", "EXCLUDED")], uncertainties:[{description:"Welcher konkrete Spielplatz zuletzt besucht wurde, ist ohne Verlauf unbekannt.", relatedIds:[]}], clarification:{dimension:"OTHER",question:"Welchen Spielplatz habt ihr letztes Wochenende besucht?",options:["Name nennen","Lage beschreiben"]}});
 everyday("family-covered-break", "Familie",
   "Hast du eine Idee für draussen mit meiner vierjährigen Tochter, wo wir bei einem Schauer kurz unter ein Dach können?",
   "Hesch e Idee für dusse mit minere vierjährige Tochter, wo mir bi eme Schauer churz under es Dach chönd?",
@@ -904,7 +904,7 @@ everyday("spontaneous-saved", "Entdecken",
   "Zeig mir öppis Ähnlichs wie mini gspeicherete Ort, aber bitte keis, wo scho i minere Liste stoht.",
   [openActivity()],
   "Referenz auf gespeicherte Orte erhalten, ohne Listeninhalte zu erfinden. Ohne Zugriff ist eine Rückfrage oder ehrliche Grenze nötig.",
-  {extensions:[ext("Die gespeicherten Orte sollen als Ähnlichkeitsreferenz dienen.", "PREFERRED"), ext("Bereits gespeicherte Orte dürfen nicht erneut empfohlen werden.", "EXCLUDED")], uncertainties:[{description:"Die gespeicherten Orte sind im Anfragekontext nicht enthalten.", relatedIds:[]}], clarification:{dimension:"OTHER",question:"Welche gespeicherten Orte meinst du? Nenne mir ein oder zwei als Beispiel.",options:[]}});
+  {extensions:[ext("Die gespeicherten Orte sollen als Ähnlichkeitsreferenz dienen.", "PREFERRED"), ext("Bereits gespeicherte Orte dürfen nicht erneut empfohlen werden.", "EXCLUDED")], uncertainties:[{description:"Die gespeicherten Orte sind im Anfragekontext nicht enthalten.", relatedIds:[]}], clarification:{dimension:"OTHER",question:"Welche gespeicherten Orte meinst du? Nenne mir ein oder zwei als Beispiel.",options:["Beispielort nennen","Beispiellink nennen"]}});
 everyday("weather-change", "Entdecken",
   "Eigentlich wollten wir draussen etwas machen, aber jetzt regnet es. Hast du spontan etwas drinnen in Basel, ohne Voranmeldung?",
   "Eigentlich wänd mir dusse öppis mache, aber jetzt rägnet s. Hesch spontan öppis drinne z Basel, ohni Voraamäldig?",

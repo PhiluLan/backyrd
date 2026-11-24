@@ -240,6 +240,9 @@ export function structuralSignature(row) {
 
 export function checkSourceInvariants(row) {
   const m = row.finalMeaning ?? row.expected.meaning;
+  const clarification = row.expected.clarification;
+  if (clarification && (!Array.isArray(clarification.options) || clarification.options.length < 2 || clarification.options.length > 3))
+    throw Error("beta_clarification_options_contract");
   if (!m) throw Error("beta_expected_meaning_missing");
   if (!/^[a-z0-9][a-z0-9_.-]{0,200}$/.test(row.id))
     throw Error("beta_case_id_invalid");
