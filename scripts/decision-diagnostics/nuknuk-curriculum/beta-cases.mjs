@@ -55,6 +55,7 @@ const kids = (s) => [
   accompany,
 ];
 const companion = (s) => [adult, C("people.relationship", s.relation, ["p1"])];
+const cap = (text) => text[0].toLocaleUpperCase("de") + text.slice(1);
 const q = (de, ch) => ({ de, "de-CH": ch });
 const bundle = (facts, extra = {}) => ({ facts, ...extra });
 const meal = R("food.meal", "meal");
@@ -119,12 +120,26 @@ const relations = [
   ["brother", "meinem Bruder", "mim Brüeder"],
   ["aunt", "meiner Tante", "minere Tante"],
   ["uncle", "meinem Onkel", "mim Onkel"],
-  ["female friend", "meiner Freundin", "minere Fründin"],
-  ["male friend", "meinem Freund", "mim Fründ"],
+  ["female friend", "einer guten Freundin", "ere guete Kollegin"],
+  ["male friend", "einem guten Freund", "eme guete Kolleg"],
   ["partner", "meiner Partnerin", "minere Partnerin"],
   ["partner", "meinem Partner", "mim Partner"],
   ["grandmother", "meiner Grossmutter", "minere Grossmueter"],
   ["grandfather", "meinem Grossvater", "mim Grossvater"],
+];
+const accusativeRelations = [
+  ["meine Mutter", "mini Mueter"],
+  ["meinen Vater", "min Vater"],
+  ["meine Schwester", "mini Schwöster"],
+  ["meinen Bruder", "min Brüeder"],
+  ["meine Tante", "mini Tante"],
+  ["meinen Onkel", "min Onkel"],
+  ["eine gute Freundin", "e gueti Kollegin"],
+  ["einen guten Freund", "e guete Kolleg"],
+  ["meine Partnerin", "mini Partnerin"],
+  ["meinen Partner", "min Partner"],
+  ["meine Grossmutter", "mini Grossmueter"],
+  ["meinen Grossvater", "min Grossvater"],
 ];
 export const profiles = values.map(([id, key, value, de, ch], i) => {
   const reference = { now: refs[i], timezone: tz };
@@ -153,6 +168,10 @@ export const profiles = values.map(([id, key, value, de, ch], i) => {
     relation: relations[i][0],
     relationDe: relations[i][1],
     relationCh: relations[i][2],
+    relationAccDe: accusativeRelations[i][0],
+    relationAccCh: accusativeRelations[i][1],
+    pronounDe: i % 2 ? "ihm" : "ihr",
+    possessiveDe: i % 2 ? "Seine" : "Ihre",
     amount: 24 + i * 7,
     n: 2 + (i % 5),
     minutes: 30 + i * 10,
@@ -251,8 +270,8 @@ theme("roles", "Personen und Bezug", [
     "recipient",
     (s) =>
       q(
-        `Für ${s.relationDe} suche ich ein Erlebnis zum ${s.nounDe}. Ich selbst nehme nicht teil.`,
-        `Für ${s.relationCh} suech ich es Erlebnis zum ${s.nounCh}. Ich bi selber nöd debii.`,
+        `Ich suche etwas zum ${s.nounDe} für ${s.relationAccDe}. Ich bin selbst nicht dabei.`,
+        `Ich suech öppis zum ${s.nounCh} für ${s.relationAccCh}. Ich bi selber nöd debii.`,
       ),
     (s) =>
       bundle([
@@ -288,8 +307,8 @@ theme("children", "Familienerlebnisse", [
     "open-inside",
     (s) =>
       q(
-        `Ich möchte mit meinem ${s.age}-jährigen Kind drinnen etwas unternehmen. ${s.de} ist nicht unser Ziel.`,
-        `Ich möcht mit mim ${s.age}-jährige Chind drinne öppis unterneh. ${s.ch} isch nöd s Ziel.`,
+        `Ich möchte mit meinem ${s.age}-jährigen Kind drinnen etwas unternehmen. ${cap(s.de)} ist nicht unser Ziel.`,
+        `Ich möcht mit mim ${s.age}-jährige Chind drinne öppis unterneh. ${cap(s.ch)} isch nöd s Ziel.`,
       ),
     (s) =>
       bundle([
@@ -363,16 +382,23 @@ theme("children", "Familienerlebnisse", [
         C("people.relationship", "child", ["p1"]),
         C("people.age", age(s.age), ["p1"]),
         C("people.relationship", "unaccompanied", ["p1"]),
-      ]),
-    "Keine Erwachsenenbegleitung ableiten; Alter beweist keine Zulässigkeit.",
+      ], {
+        uncertainties: [{description: "Verantwortliche Aufsicht und altersgerechte Anbieterzulassung sind ungeklärt.", relatedIds: ["p1"]}],
+        clarification: {
+          dimension: "OTHER",
+          question: "Wer übernimmt vor Ort die Aufsicht, und erlaubt der Anbieter die Teilnahme in diesem Alter ohne dich?",
+          options: ["Betreuung durch den Anbieter klären", "Erwachsene Begleitung kommt mit"],
+        },
+      }),
+    "Alter und Nichtteilnahme erhalten. Ohne geklärte Aufsicht und Anbieterzulassung erst nachfragen; keine pauschale Altersfreigabe oder Begleitung erfinden. Die Extraktions-Disposition ist keine Sicherheitsfreigabe.",
     ["unaccompanied"],
   ],
   [
     "family-direction",
     (s) =>
       q(
-        `Ein Familienausflug: etwas entdecken, am liebsten draussen. ${s.de} brauchen wir nicht.`,
-        `En Familieusflug: öppis entdecke, am liebschte dusse. ${s.ch} bruuched mir nöd.`,
+        `Ein Familienausflug: etwas entdecken, am liebsten draussen. ${cap(s.de)} müssen wir dabei nicht.`,
+        `En Familieusflug: öppis entdecke, am liebschte dusse. ${cap(s.ch)} müemer debii nöd.`,
       ),
     (s) =>
       bundle([
@@ -572,8 +598,8 @@ theme("budget", "Beträge und Preisbasis", [
     "unspecified-currency",
     (s) =>
       q(
-        `Zum ${s.nounDe} habe ich maximal ${s.amount}, die Währung habe ich noch nicht angegeben.`,
-        `Zum ${s.nounCh} hani maximal ${s.amount}, d Währig hani no nöd agäh.`,
+        `Zum ${s.nounDe} habe ich maximal ${s.amount}.`,
+        `Zum ${s.nounCh} hani maximal ${s.amount}.`,
       ),
     (s) =>
       bundle([
@@ -915,8 +941,8 @@ theme("travel", "Mobilität und Entfernung", [
     "foot",
     (s) =>
       q(
-        `Ich möchte zu Fuss zum ${s.nounDe} gehen.`,
-        `Ich möcht z Fuess zum ${s.nounCh} go.`,
+        s.id === "walking" ? "Ich möchte zu Fuss zu einem Ort gelangen, an dem ich spazieren kann." : `Ich möchte zu Fuss zum ${s.nounDe} gehen.`,
+        s.id === "walking" ? "Ich möcht z Fuess a nen Ort go, wo ich cha spaziere." : `Ich möcht z Fuess zum ${s.nounCh} go.`,
       ),
     (s) => bundle([s.a(), R("travel.mode", "on_foot")]),
     "Zu Fuss beschreibt den Anreiseweg, nicht automatisch Spaziergang als Aktivität.",
@@ -1101,8 +1127,8 @@ theme("areas", "Bereich und Atmosphäre", [
     "inside-not-needed",
     (s) =>
       q(
-        `Ich möchte ${s.de}; ein Innenbereich ist nicht erforderlich.`,
-        `Ich möcht ${s.ch}; en Innenbereich isch nöd nötig.`,
+        `Ich möchte ${s.de}. Muss nicht drinnen sein.`,
+        `Ich möcht ${s.ch}. Muess nöd drinne sii.`,
       ),
     (s) => bundle([s.a(), O("offer.area", "indoor")]),
     "Innen nicht erforderlich bedeutet kein Innenverbot und keine Outdoor-Pflicht.",
@@ -1142,8 +1168,8 @@ theme("atmosphere", "Stimmung und Gespräch", [
     "conversation",
     (s) =>
       q(
-        `Beim ${s.de} müssen wir uns gut unterhalten können.`,
-        `Bim ${s.ch} müend mir eus guet chönne underhalte.`,
+        `Beim ${s.nounDe} müssen wir uns gut unterhalten können.`,
+        `Bim ${s.nounCh} müend mir eus guet chönne underhalte.`,
       ),
     (s) =>
       bundle([s.a(), R("atmosphere.conversation", "conversation_possible")]),
@@ -1246,8 +1272,8 @@ theme("intent", "Absicht und Kategorien", [
     "specific-venue",
     (s) =>
       q(
-        `Ich suche eine Weinbar. ${s.de} möchte ich dort nicht.`,
-        `Ich suech e Wiibar. ${s.ch} möcht ich det nöd.`,
+        `Ich suche eine Weinbar. ${cap(s.de)} möchte ich dort nicht.`,
+        `Ich suech e Wiibar. ${cap(s.ch)} möcht ich det nöd.`,
       ),
     (s) => bundle([R("offer.kind", "WINE_BAR"), X(s.key, s.value)]),
     "Weinbar als spezifischen Ortstyp erhalten, ohne Weinkonsum zu erfinden.",
@@ -1505,8 +1531,8 @@ theme("occasions", "Anlässe ohne Stereotype", [
     "farewell",
     (s) =>
       q(
-        `Zum Abschied von ${s.relationDe} möchte ich mit ihr oder ihm ${s.de}.`,
-        `Zum Abschied vo ${s.relationCh} möcht ich mit dere Person ${s.ch}.`,
+        `Zum Abschied von ${s.relationDe} möchte ich mit ${s.pronounDe} ${s.de}.`,
+        `Zum Abschied vo ${s.relationCh} möcht ich mit ${s.pronounDe === "ihm" ? "ihm" : "ire"} ${s.ch}.`,
       ),
     (s) =>
       bundle([s.a(), ...companion(s), C("experience.occasion", "Abschied")]),
@@ -1875,7 +1901,7 @@ theme("uncertainty", "Unbekanntes und Grenzen", [
     "unknown-taste",
     (s) =>
       q(
-        `Ich möchte mit ${s.relationDe} ${s.de}. Ihre oder seine Vorlieben kenne ich nicht.`,
+        `Ich möchte mit ${s.relationDe} ${s.de}. ${s.possessiveDe} Vorlieben kenne ich nicht.`,
         `Ich möcht mit ${s.relationCh} ${s.ch}. Die Vorliebe vo dere Person kenn ich nöd.`,
       ),
     (s) =>
@@ -1914,8 +1940,8 @@ theme("uncertainty", "Unbekanntes und Grenzen", [
     "no-exact-age",
     (s) =>
       q(
-        `Mit meinem Kind ${s.de}; das genaue Alter habe ich nicht genannt.`,
-        `Mit mim Chind ${s.ch}; s genau Alter hani nöd gnennt.`,
+        `Mit meinem Kind ${s.de}.`,
+        `Mit mim Chind ${s.ch}.`,
       ),
     (s) =>
       bundle(
@@ -2294,8 +2320,8 @@ theme("clarification", "Gezielt nachfragen", [
     "missing-name",
     (s) =>
       q(
-        `Ich möchte in dem Café von neulich ${s.de}, den Namen habe ich noch nicht genannt.`,
-        `Ich möcht i dem Café vo letschthin ${s.ch}, de Name hani no nöd gnennt.`,
+        `Ich möchte in dem Café von neulich ${s.de}.`,
+        `Ich möcht i dem Café vo letschthin ${s.ch}.`,
       ),
     (s) =>
       bundle([s.a(), R("offer.kind", "CAFE")], {
@@ -2360,8 +2386,8 @@ theme("clarification", "Gezielt nachfragen", [
     "recipient-direction",
     (s) =>
       q(
-        `Für ${s.relationDe} suche ich etwas Besonderes. Ob ${s.de} passt, weiss ich nicht.`,
-        `Für ${s.relationCh} suech ich öppis Bsunders. Ob ${s.ch} passt, weiss ich nöd.`,
+        `Ich suche etwas Besonderes für ${s.relationAccDe}. Ob ${s.de} passt, weiss ich nicht.`,
+        `Ich suech öppis Bsunders für ${s.relationAccCh}. Ob ${s.ch} passt, weiss ich nöd.`,
       ),
     (s) =>
       bundle(
@@ -2396,8 +2422,8 @@ theme("clarification", "Gezielt nachfragen", [
     "missing-visit-date",
     (s) =>
       q(
-        `An einem Feiertag möchte ich ${s.de}, aber welchen Feiertag habe ich noch nicht angegeben.`,
-        `A mene Fiirtag möcht ich ${s.ch}, aber wele Fiirtag hani no nöd agäh.`,
+        `An einem Feiertag möchte ich ${s.de}.`,
+        `A mene Fiirtag möcht ich ${s.ch}.`,
       ),
     (s) =>
       bundle([s.a(), C("time.special", "Feiertag", [])], {
@@ -2491,12 +2517,12 @@ theme("places", "Zielort und Ortsbezug", [
           },
           clarification: {
             dimension: "OTHER",
-            question: "Welche der beiden Städte soll ich zuerst durchsuchen?",
+            question: "Beide Städte passen für dich. Ich kann gerade nur eine Stadt auf einmal durchsuchen. Mit welcher soll ich anfangen?",
             options: ["Basel", "Zürich"],
           },
         },
       ),
-    "Zwei alternative Suchziele nicht zu einer gemeinsamen Reise oder nur der ersten Stadt verkürzen; aktuelle Suchgrenze durch Rückfrage klären.",
+    "Die Absicht ist klar: beide Städte sind erlaubt. Der aktuelle Host unterstützt nur eine Suchstadt; technische Grenze ehrlich benennen und priorisieren lassen, keine Nutzerunklarheit behaupten.",
     ["alternatives", "destination"],
   ],
 ]);

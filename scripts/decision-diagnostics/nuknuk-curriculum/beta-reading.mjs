@@ -254,8 +254,13 @@ export function wholeReading(rows) {
     ordered
       .map(
         (r, i) =>
-          `## ${i + 1}. ${r.themeLabel}\n\n**Kennung:** ${r.id} · **Bestand:** ${labels[r.split]} · **Sprache:** ${r.locale}\n\n**Situation:** ${r.query}${r.turns ? "\n\n**Ergänzung:** " + r.turns[0].answer : ""}\n\n**Prüffokus:** ${r.rubric}\n\n**Erwartetes Verständnis${r.turns ? " nach der Ergänzung" : ""}:**\n\n${meaningReading(r.finalMeaning)}${r.expected.clarification ? "\n\n**Sinnvolle Rückfrage:** " + r.expected.clarification.question : ""}\n\n**Feste Zeitreferenz:** ${r.reference.now} (${r.reference.timezone})\n`,
+          `## ${i + 1}. ${r.themeLabel}\n\n**Kennung:** ${r.id} · **Bestand:** ${labels[r.split]} · **Sprache:** ${r.locale}\n\n**Situation:** ${r.query}${dialogueReading(r.turns)}\n\n**Prüffokus:** ${r.rubric}\n\n**Erwartetes Verständnis${r.turns ? " nach der Ergänzung" : ""}:**\n\n${meaningReading(r.finalMeaning)}${r.expected.clarification ? "\n\n**Sinnvolle Rückfrage:** " + r.expected.clarification.question : ""}\n\n**Feste Zeitreferenz:** ${r.reference.now} (${r.reference.timezone})\n`,
       )
       .join("\n")
   );
+}
+
+/** Complete recorded synthetic conversation; never hide later corrections. */
+export function dialogueReading(turns) {
+  return (turns ?? []).map((turn, i) => `\n\n${turn.question ? "**Rückfrage " + (i + 1) + ":** " + turn.question + "\n\n" : ""}**Antwort/Ergänzung ${i + 1}:** ${turn.answer}`).join("");
 }

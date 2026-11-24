@@ -16,6 +16,8 @@ import {
   mergeNuknukDialogueUpdate,
 } from "../../../packages/decision-vnext-core/dist/nuknuk-dialogue.js";
 import { inspectNuknukTrainingVocabulary } from "../../../packages/decision-vnext-core/dist/nuknuk-training-vocabulary.js";
+import { SPOT_TYPE_CATALOG } from "../../../packages/world-knowledge-core/dist/index.js";
+const venueKinds = new Set(SPOT_TYPE_CATALOG.map(item => item.kind));
 import {
   CATALOG_VERSION,
   blueprintFamilies as generatedFamilies,
@@ -29,7 +31,7 @@ const blueprintFamilies = [
   ...everydayCompositions,
   ...lexiconFamilies,
 ];
-import { wholeReading } from "./beta-reading.mjs";
+import { wholeReading, dialogueReading } from "./beta-reading.mjs";
 import { betaTrainingPlan, betaStartHere } from "./beta-plan.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -252,7 +254,7 @@ export function checkSourceInvariants(row) {
     0: ["null", "gratis", "kostenlos", "nüt"],
     1: ["eins", "ein", "eine"],
     2: ["zwei", "zweit"],
-    3: ["drei"],
+    3: ["drei", "dritt"],
     4: ["vier"],
     5: ["fünf", "füf"],
     6: ["sechs", "sechst"],
@@ -291,6 +293,8 @@ export function checkSourceInvariants(row) {
 
   const ids = new Set(m.entities.map((e) => e.id));
   for (const f of m.facts) {
+    if (f.key === "offer.kind" && !venueKinds.has(f.value.text))
+      throw Error("beta_unauthored_venue_kind:" + f.value.text);
     if (!f.subjectIds.every((id) => ids.has(id)))
       throw Error("beta_dangling_subject");
     if (
@@ -356,6 +360,13 @@ export function materializeBetaCases() {
         "coherence-separate-budget": ["meal"],
         "conditional-rain-choice": ["walking"],
         "conditional-fallback": ["museum"],
+        "atmosphere-conversation": ["cinema"],
+        "other-time-later-appointment": ["breakfast"],
+        "visit-time-today-evening": ["breakfast"],
+        "coherence-drink-optional": ["coffee", "tea"],
+        "coherence-drink-optional": ["coffee", "tea"],
+        "visit-time-evening": ["breakfast"],
+        "other-time-later-appointment": ["breakfast"],
       };
       if (forbidden[family.id]?.includes(profile.id)) {
         excluded.push({
@@ -367,6 +378,20 @@ export function materializeBetaCases() {
         continue;
       }
       const suited = {
+        "atmosphere-privacy": ["coffee", "tea", "breakfast", "meal", "pizza"],
+        "booking-no-membership": ["bowling", "climbing", "swimming", "ceramics"],
+        "children-alone-child": ["cinema", "bowling", "museum", "climbing", "swimming", "ceramics"],
+        "prices-activity-only": ["cinema", "bowling", "museum", "climbing", "swimming", "ceramics"],
+        "intent-cafe-no-drink": ["coffee", "tea", "breakfast", "meal", "pizza"],
+        "clarification-missing-name": ["coffee", "tea", "breakfast", "meal", "pizza"],
+        "areas-terrace-required": ["coffee", "tea", "breakfast", "meal", "pizza"],
+        "weather-shade": ["coffee", "tea", "breakfast", "meal", "pizza", "swimming", "walking"],
+        "weather-covered": ["coffee", "tea", "breakfast", "meal", "pizza", "walking"],
+        "weather-rain-indoor": ["coffee", "tea", "breakfast", "meal", "pizza", "cinema", "bowling", "museum", "climbing", "swimming", "ceramics"],
+        "areas-indoor-hard": ["coffee", "tea", "breakfast", "meal", "pizza", "cinema", "bowling", "museum", "climbing", "swimming", "ceramics"],
+        "booking-own-food": ["cinema", "bowling", "museum", "climbing", "swimming", "ceramics", "walking"],
+        "coherence-simultaneous": ["coffee", "tea", "breakfast", "meal", "pizza"],
+        "conditional-snow-choice": ["walking", "swimming", "coffee", "tea", "meal"],
         "diet-one-vegan": ["breakfast", "meal", "pizza"],
         "diet-preference": ["breakfast", "meal", "pizza"],
         "diet-allergy": ["breakfast", "meal", "pizza"],
@@ -379,7 +404,7 @@ export function materializeBetaCases() {
           "walking",
         ],
         "equipment-hire-required": ["bowling", "swimming", "ceramics"],
-        "access-beginner": ["bowling", "swimming", "ceramics"],
+        "access-beginner": ["bowling", "swimming", "climbing"],
         "booking-without-stay": [
           "coffee",
           "tea",
@@ -388,14 +413,7 @@ export function materializeBetaCases() {
           "pizza",
           "swimming",
         ],
-        "intent-specific-venue": [
-          "coffee",
-          "tea",
-          "breakfast",
-          "meal",
-          "pizza",
-          "bowling",
-        ],
+        "intent-specific-venue": ["coffee", "tea", "meal"],
       };
       if (suited[family.id] && !suited[family.id].includes(profile.id)) {
         excluded.push({
@@ -420,7 +438,9 @@ export function materializeBetaCases() {
             validation;
           if (target.previous) {
             previousMeaning = authorMeaning(target.previous);
-            turns = [{ question: null, answer: target.answers[locale] }];
+            turns = target.turns
+              ? target.turns(locale)
+              : [{ question: null, answer: target.answers[locale] }];
             const changes = target.change(locale);
             expected = Array.isArray(changes) ? { changes } : changes;
             request = buildNuknukDialogueUpdate(
@@ -435,8 +455,8 @@ export function materializeBetaCases() {
             );
             validation = validateCompactTurn(
               merged,
-              { query: query + " Ergänzung: " + turns[0].answer, reference },
-              turns[0].answer,
+              { query: query + " Ergänzung: " + turns.map((turn) => turn.answer).join(" "), reference },
+              turns.map((turn) => turn.answer).join(" "),
             );
             finalMeaning = merged.meaning;
           } else {
@@ -634,6 +654,7 @@ export async function buildBetaCatalog(out) {
   if (counts.TRAIN < 1000 || counts.DEV < 100 || counts.TEST < 100)
     throw Error("beta_inadequate_split_coverage");
   const sources = [
+    "packages/world-knowledge-core/src/spot-catalog.ts",
     "scripts/decision-diagnostics/nuknuk-curriculum/beta-cases.mjs",
     "scripts/decision-diagnostics/nuknuk-curriculum/beta-transfer.mjs",
     "scripts/decision-diagnostics/nuknuk-curriculum/beta-lexicon.mjs",
@@ -801,7 +822,7 @@ export async function buildBetaCatalog(out) {
       sample
         .map(
           (r) =>
-            `## ${r.themeLabel} · ${r.family}\n\n**${r.query}**${r.turns ? "\n\nErgänzung: " + r.turns[0].answer : ""}\n\nPrüffokus: ${r.rubric}\n\nBestand: ${r.split} · ${r.locale}\n`,
+            `## ${r.themeLabel} · ${r.family}\n\n**${r.query}**${dialogueReading(r.turns)}\n\nPrüffokus: ${r.rubric}\n\nBestand: ${r.split} · ${r.locale}\n`,
         )
         .join("\n"),
   );
@@ -813,7 +834,7 @@ export async function buildBetaCatalog(out) {
       rows
         .map(
           (r, i) =>
-            `## ${i + 1}. ${r.id} · ${r.split}\n\n${r.query}${r.turns ? "\n\nErgänzung: " + r.turns[0].answer : ""}\n`,
+            `## ${i + 1}. ${r.id} · ${r.split}\n\n${r.query}${dialogueReading(r.turns)}\n`,
         )
         .join("\n"),
   );
@@ -934,8 +955,8 @@ export async function verifyBetaCatalog(folder) {
       );
       validateCompactTurn(
         final,
-        { ...source, query: r.query + " Ergänzung: " + r.turns[0].answer },
-        r.turns[0].answer,
+        { ...source, query: r.query + " Ergänzung: " + r.turns.map((turn) => turn.answer).join(" ") },
+        r.turns.map((turn) => turn.answer).join(" "),
       );
       if (contentHash(final.meaning) !== contentHash(r.finalMeaning))
         throw Error("beta_dialogue_changed");
