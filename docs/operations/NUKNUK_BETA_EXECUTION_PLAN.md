@@ -305,3 +305,79 @@ Detailed input/output-bound assistant review is retained locally as
 `nuknuk-german-diagnostics-20261124/german-review.json`. The next candidate-quality
 step is a separately isolated German evaluation of the trained adapter; do not
 infer its German quality from this live-parent diagnostic or its French smoke.
+
+The completed 200-update candidate has now been prepared for that comparison.
+`nuknuk-gpu.py convert-product-candidate` verifies the frozen reviewed manifest,
+completed training receipt, adapter hash, parent and LoRA architecture before
+transposing all 80 FP32 adapter tensors into native MLX orientation. Every value
+is checked on transpose and again after saving; this is adapter conversion, not
+base-model numerical parity or a quality result. No base weights are loaded.
+
+`nuknuk-german-diagnostics.mjs prepare-candidate` freezes the exact 20 repeat
+requests and five fresh probes, with their existing parent outputs, for a matched
+comparison. Candidate inference is restricted to loopback port 8089 and the
+converted adapter identity; the live-parent runner continues to use 8088.
+The same canonical controlled-world replay supports either arm. The 25 inputs
+remain development diagnostics, not the untouched TEST/TRANSFER evaluation.
+Preparation passed 20 CPU adapter tests and nine diagnostic/controlled-world
+tests. Candidate inference and semantic review are still pending a short live
+maintenance window because the unchanged memory guard permits one model process.
+The original parent must be restored and its identity verified after testing,
+including on inference failure. No candidate activation or cloud allocation is
+authorized by this preparation.
+
+### Completed matched German candidate evaluation, 24 November 2026
+
+The founder authorized the maintenance window. The frozen final 200-update HF
+candidate (`2b620aa7fbec48946c3e8ce25182452f0e4e366bab8e9ea20f1ebb47d02ce271`)
+was evaluated as the exact-transpose MLX adapter
+`357bb0012040f891fec45a803072259d5421c3fcb81ebf27d1528bc4bb5f1e66`.
+All 25 frozen German inputs were run once, serially, on guarded loopback 8089.
+Both arms were replayed through the same canonical Product code and 19 synthetic
+spots. No repair generation, paid resource, production data write or iPhone test
+occurred. Untouched TEST/TRANSFER remain unconsumed.
+
+| Diagnostic observation | Retained parent | Trained candidate |
+| --- | ---: | ---: |
+| Model responses / inference failures | 25 / 0 | 25 / 0 |
+| Structurally valid handoffs | 23 | 25 |
+| Median inference time | 8.611 s | 9.383 s |
+| Maximum inference time | 13.806 s | 12.841 s |
+| HTTP 200 in controlled Product chain | 22 | 25 |
+| Primary candidate selected | 11 | 14 |
+
+HTTP 200 and primary-selection counts are not semantic accuracy. The input-bound
+assistant review found eight complete, nine partial and eight failed candidate
+interpretations. These are authored diagnostic judgments, not independent human
+gold or a Beta success rate. Both arms used the same experimental local prompt;
+this does not certify the unchanged deployed prompt or production inventory.
+
+Improvements include the brother's explicit gift-recipient role, removal of the
+lactose-subgroup ID collision, and usable pizza results where group count or
+activity/budget binding previously blocked retrieval. Subgroup membership remains
+unlinked even when the resulting restaurant is suitable. Confirmed regressions:
+
+- The personal sauna exclusion disappears entirely; the venue-specific sauna
+  ban loses its qualifier and instead excludes a generic bathing facility.
+- Four visitors become required capacity in the explicit 80 CHF total-budget
+  request, where the parent used context.
+- The vegetarian 30 CHF-per-person request binds `budget.scope` to the group
+  instead of the budgeted activity. The display summary retains per-person,
+  while the matching/clarification path asks an unnecessary budget-basis question
+  and loses the parent's confirmed restaurant choice.
+
+Other gaps persist: the four-year-old daughter is incorrectly assigned `self`,
+the accompanying adult is absent, visit-time facts can become context or vanish,
+and the explicitly stated group-total basis in the six-person vegan request is
+lost. Separate controlled backend limitations remain price-purpose support and
+multi-visit sequences. The decision is **HOLD_NOT_BETA_QUALIFIED_DO_NOT_ACTIVATE**.
+Review development targets and the semantic binding/validation contract before
+another paid training run; preserve TEST/TRANSFER for later qualification.
+
+The original parent was restored after 250.36 seconds. Its model/adapter identity,
+local health and gateway were verified; the existing public gateway returned the
+expected unauthenticated 401 and candidate port 8089 was stopped. The resource
+guard was unchanged: peak candidate physical footprint was 21.67 GiB with no swap
+growth during the test. Provider cost for this evaluation was USD 0. Full local
+evidence is `nuknuk-candidate-german-20261124/german-comparison-review.json`, binding
+all 25 input/output pairs and both chain replays to their file hashes.

@@ -20,7 +20,7 @@ await writeFile(resolve(out,'chain/world.json'),worldBytes,{flag:'wx',mode:0o600
 await writeFile(resolve(out,'chain/freeze.json'),JSON.stringify({scope:'CANONICAL_PRODUCT_WITH_SYNTHETIC_PORTS_NOT_DEPLOYED_API',worldSha256:sha(worldBytes),caseFileSha256:sha(casesBytes),requestFileSha256:sha(requestsBytes),codeHashes:Object.fromEntries(await Promise.all(['nuknuk-german-chain.mjs','nuknuk-german-test-world.mjs'].map(async n=>[n,sha(await readFile(new URL(n,import.meta.url)))]))),productionReads:0,productionWrites:0},null,2)+'\n',{flag:'wx',mode:0o600});
 const results=[];
 for(const row of rows){
- const actual=JSON.parse(await readFile(resolve(out,'baseline',row.id+'.json'))),frozen=requests.find(r=>r.id===row.id);
+ const actual=JSON.parse(await readFile(resolve(out,manifest.scope==='ISOLATED_TRAINING_CANDIDATE_ONLY'?'candidate':'baseline',row.id+'.json'))),frozen=requests.find(r=>r.id===row.id);
  if(actual.adapterSha256!==manifest.adapterSha256||actual.query!==row.query)throw Error('output_not_bound');
  if(!actual.raw){results.push({id:row.id,status:'NOT_EXECUTED_NO_MODEL_OUTPUT'});continue;}
  let capturedSearch=null,replays=0,learning=0,commits=0;

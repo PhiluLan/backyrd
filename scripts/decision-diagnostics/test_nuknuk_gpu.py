@@ -13,6 +13,22 @@ spec.loader.exec_module(gpu)
 
 
 class GpuPreparationTests(unittest.TestCase):
+    def test_completed_candidate_conversion_preserves_projection_and_rejects_bad_tensors(self):
+        keys=[f'language_model.model.layers.{i}.self_attn.{p}_proj' for i in range(3,40,4) for p in ('k','o','q','v')]
+        rng=np.random.default_rng(42)
+        parent={k+'.lora_'+s:np.zeros((3,16) if s=='a' else (16,5),dtype=np.float32) for k in keys for s in ('a','b')}
+        arrays={k.replace('language_model.model.layers.','base_model.model.model.language_model.layers.').replace('.lora_a','.lora_A.weight').replace('.lora_b','.lora_B.weight'):rng.normal(size=v.T.shape).astype(np.float32) for k,v in parent.items()}
+        result=gpu.transpose_product_candidate(arrays,parent,keys)
+        for key in keys:
+            hk=key.replace('language_model.model.layers.','base_model.model.model.language_model.layers.')
+            np.testing.assert_array_equal(result[key+'.lora_a'].T,arrays[hk+'.lora_A.weight'])
+            np.testing.assert_allclose(result[key+'.lora_a']@result[key+'.lora_b'],(arrays[hk+'.lora_B.weight']@arrays[hk+'.lora_A.weight']).T,atol=1e-5)
+        first=next(iter(arrays))
+        for replacement in [np.full(arrays[first].shape,np.nan,dtype=np.float32),arrays[first].astype(np.float16),np.ones((1,1),dtype=np.float32)]:
+            with self.assertRaisesRegex(ValueError,'projection_invalid'):gpu.transpose_product_candidate(dict(arrays,**{first:replacement}),parent,keys)
+        with self.assertRaisesRegex(ValueError,'projection_invalid'):gpu.transpose_product_candidate({k:v for k,v in arrays.items() if k!=first},parent,keys)
+        with self.assertRaisesRegex(ValueError,'unexpected_tensors'):gpu.transpose_product_candidate(dict(arrays,unexpected=np.ones((1,1),dtype=np.float32)),parent,keys)
+
     def test_current_product_parent_requires_exact_adapters_not_just_matching_names(self):
         import struct
         def save(path, arrays):

@@ -1059,6 +1059,77 @@ def product_train(args):
         'providerBillingStopped':False})
 
 
+def transpose_product_candidate(arrays, parent_arrays, keys):
+    """HF -> MLX LoRA orientation only; no model, quantization or scaling change."""
+    import numpy as np
+    result = {}
+    expected_hf = set()
+    for key in keys:
+        hf_key = key.replace('language_model.model.layers.', 'base_model.model.model.language_model.layers.')
+        for lower, upper in [('a', 'A'), ('b', 'B')]:
+            mk, hk = key+'.lora_'+lower, hf_key+'.lora_'+upper+'.weight'
+            expected_hf.add(hk)
+            if (hk not in arrays or mk not in parent_arrays or arrays[hk].dtype != np.float32
+                or arrays[hk].ndim != 2 or not np.isfinite(arrays[hk]).all()
+                or arrays[hk].T.shape != parent_arrays[mk].shape):
+                raise ValueError('product_candidate_projection_invalid')
+            result[mk] = np.ascontiguousarray(arrays[hk].T)
+            if not np.array_equal(result[mk].T, arrays[hk]):
+                raise ValueError('product_candidate_transpose_not_exact')
+    if set(arrays) != expected_hf or set(parent_arrays) != set(result) or len(result) != 80:
+        raise ValueError('product_candidate_unexpected_tensors')
+    return result
+
+
+def convert_product_candidate(manifest_file, result_file, hf_folder, mlx_parent, output, expected_sha):
+    """Prepare the completed Beta adapter for isolated native evaluation only."""
+    from safetensors.numpy import load_file, save_file
+    import shutil
+    manifest = json.loads(manifest_file.read_text())
+    result = json.loads(result_file.read_text())
+    if (file_sha(manifest_file) != '58caa68751ff2a779eaaebee519e14db3bf022cdd912302b629856fd65c464ee'
+        or manifest.get('cohort') != 'BETA_V1' or result.get('status') != 'TRAINED_REQUIRES_COMPARISON'
+        or result.get('model') != manifest['parent']['trainingBase']
+        or result.get('completedOptimizerUpdates') != 200
+        or result.get('epochs') != 1 or result.get('trainingRows') != 800
+        or result.get('datasetHash') != manifest.get('datasetHash')
+        or result.get('parentAdapterSha256') != manifest['parent']['hfAdapterSha256']
+        or result.get('adapterSha256') != expected_sha
+        or file_sha(hf_folder/'adapter_model.safetensors') != expected_sha):
+        raise ValueError('product_candidate_complete_lineage_required')
+    parent = manifest['parent']
+    if (file_sha(mlx_parent/'adapters.safetensors') != parent['mlxAdapterSha256']
+        or file_sha(mlx_parent/'adapter_config.json') != parent['mlxAdapterConfigSha256']):
+        raise ValueError('product_candidate_mlx_parent_changed')
+    cfg = json.loads((mlx_parent/'adapter_config.json').read_text())
+    hf_cfg = json.loads((hf_folder/'adapter_config.json').read_text())
+    keys = [f'language_model.model.layers.{i}.self_attn.{p}_proj' for i in range(3,40,4) for p in ('k','o','q','v')]
+    if (cfg.get('fine_tune_type') != 'lora' or cfg['lora_parameters']['rank'] != 16
+        or cfg['lora_parameters']['scale'] != 2 or sorted(cfg['lora_parameters']['keys']) != sorted(keys)
+        or hf_cfg.get('r') != 16 or hf_cfg.get('lora_alpha') != 32 or hf_cfg.get('lora_dropout') != 0
+        or hf_cfg.get('fan_in_fan_out') or hf_cfg.get('use_dora') or hf_cfg.get('use_rslora')
+        or hf_cfg.get('bias') != 'none' or set(hf_cfg.get('target_modules',[])) != {'k_proj','o_proj','q_proj','v_proj'}):
+        raise ValueError('product_candidate_lora_architecture_changed')
+    for p in [hf_folder/'adapter_model.safetensors', mlx_parent/'adapters.safetensors']:
+        if p.stat().st_size > 128*1024*1024:raise ValueError('product_candidate_tensor_size')
+    arrays = load_file(str(hf_folder/'adapter_model.safetensors'))
+    converted = transpose_product_candidate(arrays,load_file(str(mlx_parent/'adapters.safetensors')),keys)
+    output.mkdir(mode=0o700)
+    save_file(converted,str(output/'adapters.safetensors'))
+    shutil.copyfile(mlx_parent/'adapter_config.json',output/'adapter_config.json')
+    reloaded = load_file(str(output/'adapters.safetensors'))
+    import numpy as np
+    if set(reloaded) != set(converted) or any(not np.array_equal(reloaded[k],converted[k]) for k in converted):
+        raise ValueError('product_candidate_saved_tensor_mismatch')
+    receipt = {'status':'EXACT_ADAPTER_TRANSPOSE_VERIFIED_NOT_BASE_NUMERICAL_PARITY',
+        'hfAdapterSha256':expected_sha,'mlxAdapterSha256':file_sha(output/'adapters.safetensors'),
+        'mlxConfigSha256':file_sha(output/'adapter_config.json'),'parentMlxSha256':parent['mlxAdapterSha256'],
+        'datasetHash':manifest['datasetHash'],'model':parent['mlxBase'],'tensors':80,'rank':16,'scale':2,
+        'exactRoundTrip':True,'modelLoaded':False,'activated':False}
+    write_json(output/'conversion.json',receipt)
+    print(json.dumps(receipt))
+
+
 def verify_product_parent(bundle, mlx_folder, hf_folder, output):
     """Read adapter tensors only. No model, CUDA, Torch or service changes.
 
@@ -1134,6 +1205,10 @@ if __name__ == "__main__":
     convert = sub.add_parser("convert")
     convert.add_argument("--source", type=Path, required=True)
     convert.add_argument("--output", type=Path, required=True)
+    candidate_convert = sub.add_parser('convert-product-candidate')
+    for name in ['manifest','result','source','mlx-parent','output']:
+        candidate_convert.add_argument('--'+name,type=Path,required=True)
+    candidate_convert.add_argument('--expected-sha256',required=True)
     parent_check = sub.add_parser('verify-product-parent')
     parent_check.add_argument('--bundle',type=Path,required=True)
     parent_check.add_argument('--source',type=Path,required=True)
@@ -1184,7 +1259,9 @@ if __name__ == "__main__":
             cmd.add_argument("--completion-head", action="store_true")
             cmd.add_argument("--batch-size", type=int, choices=[1,2,4], default=1)
     args = parser.parse_args()
-    if args.command == 'product-evaluate':
+    if args.command == 'convert-product-candidate':
+        convert_product_candidate(args.manifest,args.result,args.source,args.mlx_parent,args.output,args.expected_sha256)
+    elif args.command == 'product-evaluate':
         product_evaluate(args)
     elif args.command == 'product-train':
         product_train(args)
