@@ -106,14 +106,17 @@ audit or scorer defect within its preparation scope. This is not a candidate
 quality or Beta approval.
 
 The native review packet contains all 1,264 source/target pairs with exact hashes,
-locale, context and empty review fields. A proficient human must adjudicate the
-wording, modality, subject scope and inferred facts. No human has approved these
-rows so far. Astra must review semantic equivalence with the historical bank;
-unseen candidate behavior must subsequently be tested on the sealed transfer
-bank. Neither an empty pending packet nor assistant review is human gold.
+locale and context. On November 24 the founder completed the agreed ten-case
+German meaning-summary sample, generally accepting it with a wording reservation.
+The agreed preparation policy is risk-based sampling plus complete assistant and
+automated review, not a blanket human review of 800 rows. Full raw-target and
+multilingual human approval remain unclaimed; expand targeted review if candidate
+evaluation finds problems. The original review-6 packet stays unchanged evidence.
+The separate founder feedback and policy receipts bind this sampling decision.
+Candidate behavior must still be tested on the sealed transfer bank.
 
 BETA GPU export remains hard-blocked. Training requires the reviewed source
-identity, native adjudication, a separate executable/resource plan and explicit
+identity, the agreed human sample, a separate executable/resource plan and explicit
 allocation authorization. No status-string change can authorize resources.
 
 ## Proposed training, acceptance and cost
@@ -156,13 +159,14 @@ prompt with an offline stub; no provider call is made. Run the existing
 hashes, grammar, token limits and completion-only masks. Exports/model files stay
 in ignored local operations, never Git. Do not overwrite a reviewed export.
 
-## Separate existing release blocker
+## SPA regression resolved on November 24
 
-The full Decision core suite currently reports 787/788. `SPA: Spa` taxonomy
-matching fails equally with the unchanged `571998b6` matcher, reproduced in an
-isolated transpiled diagnostic. It is a pre-existing release blocker, not a new
-catalog result. Do not weaken evidence authorization or alter a test expectation
-to hide it. It must be resolved separately before merging/releasing the matcher.
+The previous `SPA: Spa` taxonomy failure was reproduced against unchanged
+`571998b6`. The localized correction now distinguishes positive verified venue
+identity from facility/area/offer requirements and global exclusion. A verified
+embedded Spa still works at a hotel. Stale source data is rejected; missing Spa
+classification never proves absence. The full Decision core now passes 789/789.
+See `NUKNUK_BETA_EXECUTION_PLAN.md` for the separate cost and execution plan.
 
 ## Final reviewed identity (November 23)
 
@@ -183,5 +187,5 @@ tokenizer/template/grammar preflight passes for 1,200 SFT plus 64 transfer rows:
 maximum 4,984 total / 713 answer tokens, eight grammars, approximately 1.21 GB
 peak RSS, no model loaded. The native packet still has zero human approvals.
 The BETA GPU exporter remains blocked. No paid resource, training or live-model
-change occurred. The existing full-core SPA regression above still blocks a
-Product merge/release and is not hidden by these focused results.
+change occurred. The SPA regression was subsequently resolved on November 24 as documented
+above. New runtime source hashes must be bound without mutating review 6.

@@ -36,6 +36,23 @@ class WatchTests(unittest.TestCase):
                 stop.assert_called_once_with(None, 'approvedpod123')
                 self.assertIn('STATUS_FAILURE_STOP_REQUIRED', args.log.read_text())
                 self.assertIn('STOP_CONFIRMED', args.log.read_text())
+    def test_beta_ten_dollar_profile_has_its_own_ceiling(self):
+        self.assertAlmostEqual(watch.budget_deadline(1000, 0, 3.5, 10, 1, 'beta-10'), 1000 + 9/3.5*3600)
+        for ceiling, reserve in [(10.01, 1), (20, 1), (10, .99)]:
+            with self.assertRaises(ValueError):
+                watch.budget_deadline(1000, 0, 3.5, ceiling, reserve, 'beta-10')
+    def test_beta_requires_separate_observed_compute_rate_limit(self):
+        args=SimpleNamespace(pod='approvedpod123',deadline=10000,budget_profile='beta-10',hourly_usd=3.5,max_compute_hourly_usd=None)
+        with self.assertRaisesRegex(ValueError,'beta_rate_limits_required'):
+            watch.watch(args)
+    def test_beta_stops_on_compute_increase_even_below_all_in_guard(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            args=SimpleNamespace(pod='approvedpod123',started=1000,deadline=10000,prior_usd=0,hourly_usd=3.5,max_compute_hourly_usd=2.89,ceiling_usd=10,reserve_usd=1,budget_profile='beta-10',log=Path(tmp)/'watch.jsonl',stop_file=Path(tmp)/'stop',key_file=None)
+            running={**self.snapshot(),'costPerHr':3.0}
+            stopped={**running,'desiredStatus':'EXITED','runtime':None}
+            with patch.object(watch,'status',side_effect=[[running],[stopped]]),patch.object(watch,'stop') as stop,patch.object(watch.time,'time',return_value=1100),patch.object(watch.time,'sleep'):
+                watch.watch(args)
+            stop.assert_called_once_with(None,'approvedpod123')
     def test_budget_includes_prior_use_and_shutdown_reserve(self):
         self.assertEqual(watch.budget_deadline(1000,2,4,20,2),15400)
     def test_full_budget_requires_explicit_profile_and_twenty_dollar_reserve(self):

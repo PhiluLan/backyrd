@@ -1,0 +1,12 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {BETA_PLAN,admitBetaQuote,remainingTrainingFits} from './nuknuk-beta-training-plan.mjs';
+const quote=()=>({atEpochSeconds:1000,gpu:'NVIDIA H100 PCIe',gpuCount:1,memoryGb:80,containerDiskGb:200,volumeDiskGb:0,networkVolumes:0,allocationAttempts:1,otherRunningPods:0,otherBillableResources:0,allChargesKnown:true,autoRechargeDisabled:true,postpaidDisabled:true,availableCreditUsd:10,computeHourlyUsd:2.89,storageHourlyUsd:200*.1/720,otherHourlyUsd:0,taxFraction:0,fixedChargesUsd:0,priorAttemptCostUsd:0});
+test('one bounded run includes storage, taxes, prior attempts and closing reserve',()=>{const q=quote();q.taxFraction=.10;const r=admitBetaQuote(q,1100);assert.equal(r.plannedMaximumIncludingReserveUsd,9.03);assert.equal(r.resourcesStarted,false);assert.equal(r.watchdog.maxComputeHourlyUsd,2.89);assert.equal(Object.values(BETA_PLAN.phasesMinutes).reduce((a,b)=>a+b,0),150);});
+test('unknown, stale, excess or repeated resources cannot be admitted',()=>{
+ for(const patch of [{memoryGb:undefined},{memoryGb:NaN},{postpaidDisabled:false},{availableCreditUsd:1},{otherBillableResources:1},{atEpochSeconds:100},{computeHourlyUsd:2.90},{taxFraction:NaN},{storageHourlyUsd:undefined},{allChargesKnown:false},{autoRechargeDisabled:false},{networkVolumes:1},{volumeDiskGb:20},{allocationAttempts:2},{otherRunningPods:1},{fixedChargesUsd:3},{priorAttemptCostUsd:3}])assert.throws(()=>admitBetaQuote({...quote(),...patch},1100),/beta_quote/);
+});
+test('a measured slow probe aborts rather than increasing cost or claiming an incomplete epoch',()=>{
+ assert.equal(remainingTrainingFits({stepSeconds:Array(10).fill(5),minimumProbeTokens:4000,maximumRemainingTokens:4984,remainingUpdates:190,remainingSeconds:4800}).status,'FITS_ESTIMATED_REMAINDER');
+ assert.match(remainingTrainingFits({stepSeconds:Array(10).fill(30),minimumProbeTokens:2000,maximumRemainingTokens:4984,remainingUpdates:190,remainingSeconds:4800}).status,/ABORT/);
+ assert.throws(()=>remainingTrainingFits({stepSeconds:[],minimumProbeTokens:4000,maximumRemainingTokens:4984,remainingUpdates:190,remainingSeconds:4800}),/measurement/);
+});

@@ -63,7 +63,7 @@ def stop(key_file, pod_id):
     return query(key_file, 'mutation($id: String!) { podStop(input: { podId: $id }) { id desiredStatus } }', {'id':pod_id})
 
 def budget_deadline(started, prior_usd, hourly_usd, ceiling_usd, reserve_usd, budget_profile='legacy-20'):
-    profiles = {'legacy-20': (20, 1), 'v7-full-200': (200, 20)}
+    profiles = {'legacy-20': (20, 1), 'beta-10': (10, 1), 'v7-full-200': (200, 20)}
     if budget_profile not in profiles:
         raise ValueError('runpod_budget_profile_invalid')
     maximum, minimum_reserve = profiles[budget_profile]
@@ -108,7 +108,13 @@ def watch(args):
     if not math.isfinite(args.deadline):
         raise ValueError('runpod_deadline_invalid')
     profile = getattr(args, 'budget_profile', 'legacy-20')
+    if profile == 'beta-10':
+        compute = getattr(args, 'max_compute_hourly_usd', None)
+        if not isinstance(compute, (float, int)) or isinstance(compute, bool) or not math.isfinite(compute) or not 0 < compute <= min(2.89, args.hourly_usd) or args.hourly_usd > 3.5:
+            raise ValueError('runpod_beta_rate_limits_required')
     deadline = min(args.deadline, budget_deadline(args.started, args.prior_usd, args.hourly_usd, args.ceiling_usd, args.reserve_usd, profile))
+    if profile == 'beta-10':
+        deadline = min(deadline, args.started + 9000)
     if args.log.exists():
         raise ValueError('runpod_watch_log_exists')
     # An exclusive log and pinned Pod prevent accidentally attaching to a new run.
@@ -135,7 +141,7 @@ def watch(args):
                 for other in pods:
                     if other['id'] != args.pod and validate_pod_snapshot(other)[0]:
                         other_running.append(other['id'])
-                if other_running or rate > args.hourly_usd or time.time() >= deadline or args.stop_file.exists():
+                if other_running or rate > (getattr(args, 'max_compute_hourly_usd', None) or args.hourly_usd) or time.time() >= deadline or args.stop_file.exists():
                     stopping=True
                 if stopping:
                     stop(args.key_file,args.pod);record('STOP_REQUESTED',otherRunningPods=other_running,quotedHourlyUsd=rate)
@@ -159,8 +165,9 @@ if __name__=='__main__':
     credentials.add_argument('--container-key',action='store_true')
     p.add_argument('--pod');p.add_argument('--started',type=float);p.add_argument('--deadline',type=float)
     p.add_argument('--prior-usd',type=float,default=1.75);p.add_argument('--hourly-usd',type=float,default=4.1)
+    p.add_argument('--max-compute-hourly-usd',type=float)
     p.add_argument('--ceiling-usd',type=float,default=20);p.add_argument('--reserve-usd',type=float,default=1.5)
-    p.add_argument('--budget-profile',choices=['legacy-20','v7-full-200'],default='legacy-20')
+    p.add_argument('--budget-profile',choices=['legacy-20','v7-full-200','beta-10'],default='legacy-20')
     p.add_argument('--log',type=Path);p.add_argument('--stop-file',type=Path)
     a=p.parse_args()
     if a.command=='status':print(json.dumps(status(a.key_file)))
