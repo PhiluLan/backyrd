@@ -13,7 +13,7 @@ class Tests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as tmp:
    root=Path(tmp);bundle=root/'bundle';bundle.mkdir();op=root/'op';op.mkdir();(op/'guard.ready').write_text('123')
    (bundle/'product-gpu-manifest.json').write_text(json.dumps({'profile':'PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1','recipe':{'trainingRows':800},'image':'pinned-image','parent':{'hfAdapterSha256':'a'*64}}))
-   quote=root/'quote.json';quote.write_text(json.dumps({'gpu':'NVIDIA A100-SXM4-80GB'}));receipt={'plannedMaximumIncludingReserveUsd':6.55,'watchdog':{'maxComputeHourlyUsd':2.19}};rp=root/'receipt.json';rp.write_text(json.dumps(receipt));pub=root/'pub';pub.write_text('ssh-ed25519 SYNTHETIC')
+   quote=root/'quote.json';quote.write_text(json.dumps({'gpu':'NVIDIA A100-SXM4-80GB'}));receipt={'maximumBillingSeconds':7200,'plannedMaximumIncludingReserveUsd':6.55,'watchdog':{'maxComputeHourlyUsd':2.19}};rp=root/'receipt.json';rp.write_text(json.dumps(receipt));pub=root/'pub';pub.write_text('ssh-ed25519 SYNTHETIC')
    args=SimpleNamespace(operation=op,bundle=bundle,quote=quote,quote_admission=rp,key_file=root/'key',public_key=pub,private_key=root/'private')
    def rest(key,method,path,payload=None):
     if method=='GET':return {'billingMode':'PREPAID','balanceAmount':7.65}
@@ -28,7 +28,7 @@ class Tests(unittest.TestCase):
    root=Path(tmp);bundle=root/'bundle';bundle.mkdir();op=root/'op';op.mkdir();(op/'guard.ready').write_text('123')
    manifest={'profile':'PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1','recipe':{'trainingRows':800},'image':'pinned-image','parent':{'hfAdapterSha256':'a'*64},'datasetHash':'dataset'}
    (bundle/'product-gpu-manifest.json').write_text(json.dumps(manifest))
-   quote=root/'quote.json';quote.write_text(json.dumps({'gpu':'NVIDIA A100-SXM4-80GB'}));receipt={'plannedMaximumIncludingReserveUsd':6.62,'watchdog':{'maxComputeHourlyUsd':2.22,'priorUsd':0,'hourlyUsd':2.25,'ceilingUsd':7.65}};rp=root/'receipt.json';rp.write_text(json.dumps(receipt));pub=root/'pub';pub.write_text('ssh-ed25519 SYNTHETIC')
+   quote=root/'quote.json';quote.write_text(json.dumps({'gpu':'NVIDIA A100-SXM4-80GB'}));receipt={'maximumBillingSeconds':7200,'plannedMaximumIncludingReserveUsd':6.62,'watchdog':{'maxComputeHourlyUsd':2.22,'priorUsd':0,'hourlyUsd':2.25,'ceilingUsd':7.65}};rp=root/'receipt.json';rp.write_text(json.dumps(receipt));pub=root/'pub';pub.write_text('ssh-ed25519 SYNTHETIC')
    args=SimpleNamespace(operation=op,bundle=bundle,quote=quote,quote_admission=rp,key_file=root/'key',public_key=pub,private_key=root/'private')
    result=root/'result';(result/'output').mkdir(parents=True);(result/'training-receipts').mkdir();(result/'output/adapter_model.safetensors').write_bytes(b'candidate')
    (result/'training-receipts/result.json').write_text(json.dumps({'datasetHash':'dataset','trainingRows':800,'epochs':1,'completedOptimizerUpdates':200,'adapterSha256':m.digest(b'candidate')}))
@@ -52,7 +52,7 @@ class Tests(unittest.TestCase):
    def cleanup(folder,key):events.append('delete');self.assertIn('financial_watch',events)
    with patch.object(m,'rest',side_effect=rest),patch.object(m.watch,'query',side_effect=query),patch.object(m.watch,'validate_pod_snapshot',return_value=(True,2.19)),patch.object(m,'package',return_value=b'archive'),patch.object(m.subprocess,'check_output',return_value=json.dumps(receipt)),patch.object(m.subprocess,'Popen',side_effect=popen),patch.object(m,'ssh_call',side_effect=ssh),patch.object(m,'sync',return_value=result),patch.object(m.time,'sleep'),patch.object(m,'owned',side_effect=[{'costPerHr':2.19},{'costPerHr':2.19},None]),patch.object(m,'cleanup',side_effect=cleanup):
     m.run(args)
-   state=json.loads((op/'state.json').read_text());self.assertTrue(state['resourcesRemoved']);self.assertEqual(state['candidateSha256'],m.digest(b'candidate'));self.assertEqual(events,['allocate','native_guard_verified','financial_watch','delete'])
+   state=json.loads((op/'state.json').read_text());self.assertEqual(state['deadline']-state['started'],7200);self.assertTrue(state['resourcesRemoved']);self.assertEqual(state['candidateSha256'],m.digest(b'candidate'));self.assertEqual(events,['allocate','native_guard_verified','financial_watch','delete'])
  def test_existing_operation_cannot_reenter_allocation(self):
   with tempfile.TemporaryDirectory() as tmp:
    op=Path(tmp);(op/'state.json').write_text('{}')

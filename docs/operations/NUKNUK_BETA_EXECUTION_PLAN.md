@@ -185,3 +185,9 @@ was performed. Probe version 2 separates the one-time update from steady work
 without resetting elapsed time, provider deadline, cost guards or full-epoch
 requirements. Tests replay this exact observation and still reject recurring
 slowdown and exhausted time budgets. Version 2 has not run on a GPU.
+
+A proposed second attempt may use a shorter 7,200-second billing lifetime.
+Quote admission includes prior consumption and reserve; the controller binds
+the provider/local/financial deadline to that shorter value and caps remote
+work at deadline minus 600 seconds. The maximum remains 9,000 seconds. This is
+preparation only: no second allocation is authorized by the first run receipt.

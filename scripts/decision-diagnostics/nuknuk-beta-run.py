@@ -171,7 +171,7 @@ def run_locked(args,folder):
     account=watch.query(args.key_file,'{myself{currentSpendPerHr pods{id name desiredStatus runtime{uptimeInSeconds}}}}')['myself']
     if account['currentSpendPerHr']!=0 or any(p['desiredStatus']!='EXITED'or p['runtime']is not None for p in account['pods']):raise ValueError('unexpected_billable_resource')
     payload_bytes=package(args.bundle,manifest)
-    started=time.time();deadline=started+9000;name='backyrd-beta-'+uuid.uuid4().hex[:16]
+    started=time.time();deadline=started+receipt['maximumBillingSeconds'];name='backyrd-beta-'+uuid.uuid4().hex[:16]
     save(folder,'PREPARED',runName=name,started=started,deadline=deadline,preexistingPodIds=[p['id']for p in account['pods']],computeRateCap=receipt['watchdog']['maxComputeHourlyUsd'],podId=None,bundleHash=digest((args.bundle/'product-gpu-manifest.json').read_bytes()))
     with (folder/'guard.log').open('x')as log:
         child=subprocess.Popen([sys.executable,'-B',str(Path(__file__).resolve()),'guard','--operation',str(folder),'--key-file',str(args.key_file)],stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
@@ -246,7 +246,7 @@ CANDIDATE=$("$PY" -c "import json;print(json.load(open('training-receipts/result
 touch COMPLETE
 '''.replace('PARENT',manifest['parent']['hfAdapterSha256'])
         ssh_call(ssh,'cat > '+REMOTE+'/run.sh',20,script.encode())
-        launch="import subprocess,pathlib;root=pathlib.Path('"+REMOTE+"');log=(root/'workflow.log').open('xb');p=subprocess.Popen(['timeout','--signal=TERM','--kill-after=20s',"+repr(str(max(1,int(started+8400-time.time())))+'s')+",'bash','-c','bash run.sh; echo $? > EXIT'],cwd=root,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True);print(p.pid)"
+        launch="import subprocess,pathlib;root=pathlib.Path('"+REMOTE+"');log=(root/'workflow.log').open('xb');p=subprocess.Popen(['timeout','--signal=TERM','--kill-after=20s',"+repr(str(max(1,int(min(started+8400,deadline-600)-time.time())))+'s')+",'bash','-c','bash run.sh; echo $? > EXIT'],cwd=root,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True);print(p.pid)"
         ssh_call(ssh,PY+' -c '+shlex.quote(launch),25)
         counter=0
         while time.time()<deadline-300:

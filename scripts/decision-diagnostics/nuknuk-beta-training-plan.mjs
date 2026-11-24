@@ -27,10 +27,12 @@ export function admitBetaQuote(quote,nowEpochSeconds){
  const inclusive=(computeCeiling+storage+fees)*(1+tax);
  if(compute<=0||compute>2.89||inclusive>3.5)throw Error('beta_quote_rate_limit');
  // Round upward to cents; use an all-in accrual guard, not the GPU-only rate.
- const upper=Math.ceil((inclusive*2.5+fixed+prior+1)*100)/100;
+ const lifetime=finite(quote.maximumBillingSeconds??9000,'billing_seconds');
+ if(lifetime<=600||lifetime>9000)throw Error('beta_quote_billing_seconds');
+ const upper=Math.ceil((inclusive*lifetime/3600+fixed+prior+1)*100)/100;
  if(upper>10)throw Error('beta_quote_total_limit');
  if(finite(quote.availableCreditUsd,'credit')<upper)throw Error('beta_quote_insufficient_credit');
- return {status:'WITHIN_PLANNED_ENVELOPE_NOT_RESOURCE_AUTHORIZATION',quoteHash:contentHash(quote),allInHourlyUsd:inclusive,plannedMaximumIncludingReserveUsd:upper,maximumBillingSeconds:9000,watchdog:{budgetProfile:'beta-10',hourlyUsd:Math.ceil(inclusive*100)/100,maxComputeHourlyUsd:computeCeiling,ceilingUsd:Math.min(10,Math.floor(quote.availableCreditUsd*100)/100),reserveUsd:1,priorUsd:fixed+prior},resourcesStarted:false};
+ return {status:'WITHIN_PLANNED_ENVELOPE_NOT_RESOURCE_AUTHORIZATION',quoteHash:contentHash(quote),allInHourlyUsd:inclusive,plannedMaximumIncludingReserveUsd:upper,maximumBillingSeconds:lifetime,watchdog:{budgetProfile:'beta-10',hourlyUsd:Math.ceil(inclusive*100)/100,maxComputeHourlyUsd:computeCeiling,ceilingUsd:Math.min(10,Math.floor(quote.availableCreditUsd*100)/100),reserveUsd:1,priorUsd:fixed+prior},resourcesStarted:false};
 }
 export function remainingTrainingFits({stepSeconds,minimumProbeTokens,maximumRemainingTokens,remainingUpdates,remainingSeconds}){
  if(!Array.isArray(stepSeconds)||stepSeconds.length!==10||stepSeconds.some(s=>typeof s!=='number'||!Number.isFinite(s)||s<=0))throw Error('beta_probe_measurement_required');

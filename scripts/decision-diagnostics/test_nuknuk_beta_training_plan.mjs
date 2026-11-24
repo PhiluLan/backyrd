@@ -18,3 +18,9 @@ test('one-time initialization is charged once; recurring slowdown and elapsed bu
  assert.match(remainingTrainingFits({...measured,remainingSeconds:1000}).status,/ABORT/);
  assert.match(remainingTrainingFits({...measured,stepSeconds:[127.604,...Array(9).fill(30)]}).status,/ABORT/);
 });
+
+test('a separately authorized shorter attempt accounts for prior consumption and never extends the cap',()=>{
+ const q={...quote(),gpu:'NVIDIA A100-SXM4-80GB',computeHourlyUsd:2.19,computeHourlyCeilingUsd:2.22,availableCreditUsd:6.81,priorAttemptCostUsd:1,maximumBillingSeconds:7200};
+ const receipt=admitBetaQuote(q,1100);assert.equal(receipt.maximumBillingSeconds,7200);assert.equal(receipt.plannedMaximumIncludingReserveUsd,6.50);assert.equal(receipt.watchdog.priorUsd,1);
+ for(const duration of [0,600,9001,NaN])assert.throws(()=>admitBetaQuote({...q,maximumBillingSeconds:duration},1100),/billing_seconds/);
+});
