@@ -723,3 +723,21 @@ test("documented ancient artefacts match a broad historic theme without treating
   assert.equal(result.body.primaryCandidateId,ancient.decisionProjection.spotId);
   assert.equal(result.body.candidates.find(c=>c.spotId===modern.decisionProjection.spotId)?.rank ?? null,null);
 });
+
+test('exact dinner start checks arrival, without inventing a midnight stay',async()=>{
+ const q=plan([meal(),date(),fact('start','time.clock_start',{time:'19:00',operator:'EQ',timezone:'Europe/Zurich'})]);
+ const open=binding(8801,profile());
+ const closed=binding(8802,profile([{...offer(),schedule:[{weekday:4,start:'11:00',end:'18:00'}]}]));
+ const r=await exercise({text:'Morgen um 19 Uhr essen gehen.',meaning:q,catalog:[open,closed]});
+ assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.primaryCandidateId,open.decisionProjection.spotId);
+ assert.equal(r.body.candidates.find(c=>c.spotId===closed.decisionProjection.spotId)?.rank??null,null);
+});
+
+test('an explicit dinner interval still needs coverage through its requested end',async()=>{
+ const q=plan([meal(),date(),fact('start','time.clock_start',{time:'19:00',operator:'EQ',timezone:'Europe/Zurich'}),fact('end','time.clock_end',{time:'21:00',operator:'EQ',timezone:'Europe/Zurich'})]);
+ const open=binding(8803,profile());
+ const early=binding(8804,profile([{...offer(),schedule:[{weekday:4,start:'11:00',end:'20:00'}]}]));
+ const r=await exercise({text:'Morgen von 19 bis 21 Uhr essen gehen.',meaning:q,catalog:[open,early]});
+ assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.primaryCandidateId,open.decisionProjection.spotId);
+ assert.equal(r.body.candidates.find(c=>c.spotId===early.decisionProjection.spotId)?.rank??null,null);
+});
