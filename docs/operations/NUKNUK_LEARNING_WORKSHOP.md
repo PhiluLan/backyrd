@@ -177,3 +177,22 @@ PostgreSQL 16 focused bootstrap is only a supplemental reproducer, not a substit
 for canonical Supabase 17 clean boot. Resource-guard regression tests need access
 to their own process groups. Browser acceptance uses synthetic, intercepted
 services and must never be described as a production-auth or live-model test.
+
+## Prepared publication scope
+
+The source-aware release planner binds this workshop's exact migration and
+`nuknuk-learning` function source set. It reuses the existing isolated migration
+workspace and archive restore verification. Its scope keeps `executionAuthorized`
+false; only a later manually confirmed exact-Main workflow may execute it. The
+four deferred Booking migrations, Auth configuration, consumer Decision bundles
+and research worker remain outside the publication scope. The previous release
+receipts are retained. The referenced backup must still pass the workflow's
+24-hour freshness check at publication; refresh the backup and its bound run ID
+before certification when necessary. Never substitute a fabricated backup or
+restore claim. After publication, record the migration's actual applied receipt
+as `supabase.nuknukLearningRelease` before reusing the planner for later work.
+
+Local acceptance covers the Admin production build and synthetic browser journeys;
+canonical CI supplied the passing Supabase 17 execution snapshot used by
+`delivery/database-releases/nuknuk-learning-workshop-v1.json`. Generating that
+fingerprint evidence does not constitute a production migration or a trained model.

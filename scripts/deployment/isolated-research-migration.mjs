@@ -147,6 +147,11 @@ export const DECISION_CONTEXT_TIMEOUT_MIGRATION = Object.freeze({"path": "supaba
 export function decisionContextTimeoutAppliedReceipt(state, read, isAncestor) {
   return exactResearchReceipt(state, read, isAncestor, DECISION_CONTEXT_TIMEOUT_MIGRATION, "decisionContextTimeoutRelease");
 }
+export const NUKNUK_LEARNING_SCOPE = "backyrd.nuknuk-learning-workshop-delivery-scope@1.0";
+export const NUKNUK_LEARNING_MIGRATION = Object.freeze({path:"supabase/migrations/20261124163610_nuknuk_learning_workshop_v1.sql",sha256:"f2e01ac5e88091b8feef6c05afc94071105fe88e531e1a332808d86b3104c800"});
+export function nuknukLearningAppliedReceipt(state, read, isAncestor) {
+  return exactResearchReceipt(state, read, isAncestor, NUKNUK_LEARNING_MIGRATION, "nuknukLearningRelease");
+}
 export const ADMIN_FEEDBACK_INBOX_SCOPE = "backyrd.admin-product-feedback-inbox-delivery-scope@1.0";
 export const ADMIN_FEEDBACK_INBOX_MIGRATION = Object.freeze({"path":"supabase/migrations/20261122102945_admin_product_feedback_inbox.sql","sha256":"4d16241c886a3bb1d0d6ca97c3409f4cd4b0ee18cb645e17c6999def07b810c3"});
 export function adminFeedbackInboxAppliedReceipt(state, read, isAncestor) {
@@ -219,8 +224,9 @@ export function spotSearchFreshnessAppliedReceipt(state, read, isAncestor) {
 export function analyticsPageviewsAppliedReceipt(state, read, isAncestor) {
   return exactResearchReceipt(state, read, isAncestor, ANALYTICS_PAGEVIEWS_MIGRATION, "analyticsPageviewsRelease");
 }
-export function scopeAnalyticsPageviewsMigrations({ pending, scope, baseSha, deployFunctions, authDeploy, retiredFunctions, appliedAnalyticsPageviews, appliedSpotSearchFreshness, appliedBaselPlaceSources, appliedBaselOverture, appliedWorldResearchBatches, appliedBaselPlaceImportCreate, appliedSpotCategoryApproval, appliedSpotCrawler, appliedCrawlerApproval, appliedCrawlerBasics, appliedCrawlerShortlist, appliedCrawlerVisit, appliedDecisionContextTimeout, appliedDecisionProductFeedback, appliedDecisionFeedbackIdentity, appliedAdminFeedbackInbox }) {
+export function scopeAnalyticsPageviewsMigrations({ pending, scope, baseSha, deployFunctions, authDeploy, retiredFunctions, appliedAnalyticsPageviews, appliedSpotSearchFreshness, appliedBaselPlaceSources, appliedBaselOverture, appliedWorldResearchBatches, appliedBaselPlaceImportCreate, appliedSpotCategoryApproval, appliedSpotCrawler, appliedCrawlerApproval, appliedCrawlerBasics, appliedCrawlerShortlist, appliedCrawlerVisit, appliedDecisionContextTimeout, appliedDecisionProductFeedback, appliedDecisionFeedbackIdentity, appliedAdminFeedbackInbox, appliedNuknukLearning }) {
   const targets = {
+    [NUKNUK_LEARNING_SCOPE]: [NUKNUK_LEARNING_MIGRATION, appliedNuknukLearning, appliedAdminFeedbackInbox, ["nuknuk-learning"]],
     [ANALYTICS_PAGEVIEWS_SCOPE]: [ANALYTICS_PAGEVIEWS_MIGRATION, appliedAnalyticsPageviews, true],
     [SPOT_SEARCH_FRESHNESS_SCOPE]: [SPOT_SEARCH_FRESHNESS_MIGRATION, appliedSpotSearchFreshness, appliedAnalyticsPageviews],
     [BASEL_PLACE_SOURCES_SCOPE]: [BASEL_PLACE_SOURCES_MIGRATION, appliedBaselPlaceSources, appliedAnalyticsPageviews && appliedSpotSearchFreshness],
@@ -239,11 +245,11 @@ export function scopeAnalyticsPageviewsMigrations({ pending, scope, baseSha, dep
     [SPOT_CATEGORY_APPROVAL_SCOPE]: [SPOT_CATEGORY_APPROVAL_MIGRATION, appliedSpotCategoryApproval, appliedAnalyticsPageviews && appliedSpotSearchFreshness && appliedBaselPlaceSources && appliedBaselOverture && appliedWorldResearchBatches && appliedBaselPlaceImportCreate],
   };
   const entry = Object.hasOwn(targets, scope?.contractVersion) ? targets[scope.contractVersion] : null;
-  const [target, applied, prerequisite] = entry ?? [];
+  const [target, applied, prerequisite, allowedFunctions = []] = entry ?? [];
   if (!prerequisite || scope.executionAuthorized !== false
     || scope.baseSha !== baseSha || !equal(scope.migrations, [target])
     || !equal(scope.deferredMigrations, DEFERRED_BOOKING_MIGRATIONS)
-    || !equal(scope.functions, []) || deployFunctions.length || authDeploy || retiredFunctions.length
+    || !equal(scope.functions, allowedFunctions) || !equal(deployFunctions, allowedFunctions) || authDeploy || retiredFunctions.length
     || !Number.isSafeInteger(scope.backupRunId) || scope.backupRunId < 1
     || !hasNuknukActivityRestoreIdentity(scope.restoreDrill)) throw new Error("analytics_pageviews_delivery_scope_invalid");
   const selected = applied ? [] : [target];
@@ -385,11 +391,11 @@ export function prepareResearchMigrationWorkspace(plan,root,output) {
     ? scopeNuknukActivityMigrations({ pending: [...plan.pendingMigrations, ...(plan.deferredMigrations ?? [])],
       scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,
       authDeploy: plan.authConfig?.deploy === true, appliedNuknukActivity: plan.appliedNuknukActivity })
-    : [ANALYTICS_PAGEVIEWS_SCOPE, SPOT_SEARCH_FRESHNESS_SCOPE, BASEL_PLACE_SOURCES_SCOPE, BASEL_OVERTURE_SCOPE, WORLD_RESEARCH_BATCHES_SCOPE, BASEL_PLACE_IMPORT_CREATE_SCOPE, SPOT_CATEGORY_APPROVAL_SCOPE, SPOT_CRAWLER_SCOPE, CRAWLER_APPROVAL_SCOPE, CRAWLER_BASICS_SCOPE, CRAWLER_SHORTLIST_SCOPE, CRAWLER_VISIT_SCOPE, DECISION_CONTEXT_TIMEOUT_SCOPE, DECISION_PRODUCT_FEEDBACK_SCOPE, DECISION_FEEDBACK_IDENTITY_SCOPE, ADMIN_FEEDBACK_INBOX_SCOPE].includes(plan.isolatedResearchScope?.contractVersion)
+    : [ANALYTICS_PAGEVIEWS_SCOPE, SPOT_SEARCH_FRESHNESS_SCOPE, BASEL_PLACE_SOURCES_SCOPE, BASEL_OVERTURE_SCOPE, WORLD_RESEARCH_BATCHES_SCOPE, BASEL_PLACE_IMPORT_CREATE_SCOPE, SPOT_CATEGORY_APPROVAL_SCOPE, SPOT_CRAWLER_SCOPE, CRAWLER_APPROVAL_SCOPE, CRAWLER_BASICS_SCOPE, CRAWLER_SHORTLIST_SCOPE, CRAWLER_VISIT_SCOPE, DECISION_CONTEXT_TIMEOUT_SCOPE, DECISION_PRODUCT_FEEDBACK_SCOPE, DECISION_FEEDBACK_IDENTITY_SCOPE, ADMIN_FEEDBACK_INBOX_SCOPE, NUKNUK_LEARNING_SCOPE].includes(plan.isolatedResearchScope?.contractVersion)
     ? scopeAnalyticsPageviewsMigrations({ pending: [...plan.pendingMigrations, ...plan.deferredMigrations],
       scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,
       authDeploy: plan.authConfig?.deploy === true, retiredFunctions: plan.retiredFunctions,
-      appliedAnalyticsPageviews: plan.appliedAnalyticsPageviews, appliedSpotSearchFreshness: plan.appliedSpotSearchFreshness, appliedBaselPlaceSources: plan.appliedBaselPlaceSources, appliedBaselOverture: plan.appliedBaselOverture, appliedWorldResearchBatches: plan.appliedWorldResearchBatches, appliedBaselPlaceImportCreate: plan.appliedBaselPlaceImportCreate, appliedSpotCategoryApproval: plan.appliedSpotCategoryApproval, appliedSpotCrawler: plan.appliedSpotCrawler, appliedCrawlerApproval: plan.appliedCrawlerApproval, appliedCrawlerBasics: plan.appliedCrawlerBasics, appliedCrawlerShortlist: plan.appliedCrawlerShortlist, appliedCrawlerVisit: plan.appliedCrawlerVisit, appliedDecisionContextTimeout: plan.appliedDecisionContextTimeout, appliedDecisionProductFeedback: plan.appliedDecisionProductFeedback, appliedDecisionFeedbackIdentity: plan.appliedDecisionFeedbackIdentity, appliedAdminFeedbackInbox: plan.appliedAdminFeedbackInbox })
+      appliedAnalyticsPageviews: plan.appliedAnalyticsPageviews, appliedSpotSearchFreshness: plan.appliedSpotSearchFreshness, appliedBaselPlaceSources: plan.appliedBaselPlaceSources, appliedBaselOverture: plan.appliedBaselOverture, appliedWorldResearchBatches: plan.appliedWorldResearchBatches, appliedBaselPlaceImportCreate: plan.appliedBaselPlaceImportCreate, appliedSpotCategoryApproval: plan.appliedSpotCategoryApproval, appliedSpotCrawler: plan.appliedSpotCrawler, appliedCrawlerApproval: plan.appliedCrawlerApproval, appliedCrawlerBasics: plan.appliedCrawlerBasics, appliedCrawlerShortlist: plan.appliedCrawlerShortlist, appliedCrawlerVisit: plan.appliedCrawlerVisit, appliedDecisionContextTimeout: plan.appliedDecisionContextTimeout, appliedDecisionProductFeedback: plan.appliedDecisionProductFeedback, appliedDecisionFeedbackIdentity: plan.appliedDecisionFeedbackIdentity, appliedAdminFeedbackInbox: plan.appliedAdminFeedbackInbox, appliedNuknukLearning: plan.appliedNuknukLearning })
     : plan.isolatedVoltaScope
     ? scopeVoltaMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedVoltaScope,
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,

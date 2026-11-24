@@ -456,3 +456,23 @@ test("the imported November 14 ledger requires all four exact remote statement h
   changed[0] = { ...changed[0], statement_sha256: "0".repeat(64) };
   assert.throws(() => verifyNov14AdminLedger(changed), /remote_ledger_identity_mismatch/);
 });
+
+test('current workshop release plan binds one migration/function and leaves consumer bundles and Booking untouched', async()=>{
+ const repo=new URL('../..',import.meta.url).pathname;
+ const head=git(repo,['rev-parse','HEAD']);
+ const authority=JSON.parse(git(repo,['show',`${head}:delivery/product-authority-v1.json`]));
+ if(!authority.nuknukLearningDeliveryScope)return;
+ const scope=authority.nuknukLearningDeliveryScope;
+ const result=buildProductionPlan({repo,baseSha:scope.baseSha,headSha:head});
+ assert.deepEqual(result.deployFunctions,['nuknuk-learning']);
+ assert.deepEqual(result.pendingMigrations,scope.migrations);
+ assert.deepEqual(result.deferredMigrations,scope.deferredMigrations);
+ assert.equal(result.authConfig?.deploy??false,false);
+ assert.deepEqual(result.retiredFunctions,[]);
+ assert.equal(result.functions.find(item=>item.slug==='nuknuk-learning').sourceSetHash,scope.functionSourceSetHash);
+ for(const slug of ['decision-v13','decision-admin-diagnostic','decision-engine-worker'])assert.equal(result.functions.find(item=>item.slug===slug).deploy,false);
+ const {prepareResearchMigrationWorkspace}=await import('./isolated-research-migration.mjs');
+ const output=mkdtempSync(join(tmpdir(),'backyrd-learning-plan-'));
+ prepareResearchMigrationWorkspace(result,repo,output);
+ assert.equal(readFileSync(join(output,scope.migrations[0].path),'utf8'),readFileSync(join(repo,scope.migrations[0].path),'utf8'));
+});

@@ -379,3 +379,16 @@ test('Decision product feedback release permits exactly the bounded SQL after th
  assert.deepEqual(scopeAnalyticsPageviewsMigrations(request).pendingMigrations,[migration]);
  for(const patch of [{appliedDecisionContextTimeout:null},{authDeploy:true},{deployFunctions:['decision-v13']},{pending:[...request.pending,target]},{scope:{...request.scope,migrations:[{...migration,sha256:'f'.repeat(64)}]}}])assert.throws(()=>scopeAnalyticsPageviewsMigrations({...request,...patch}));
 });
+
+test('learning workshop isolates exact SQL and its Admin function, retaining Booking and recovery controls', async () => {
+ const {NUKNUK_LEARNING_SCOPE:contractVersion,NUKNUK_LEARNING_MIGRATION:migration,scopeAnalyticsPageviewsMigrations}=await import('./isolated-research-migration.mjs');
+ const request={pending:[...deferred,migration],scope:{contractVersion,executionAuthorized:false,baseSha:base,migrations:[migration],deferredMigrations:deferred,functions:['nuknuk-learning'],backupRunId:1,restoreDrill:{runId:1,artifactId:2,artifactDigest:'sha256:'+'a'.repeat(64)}},baseSha:base,deployFunctions:['nuknuk-learning'],authDeploy:false,retiredFunctions:[],appliedAdminFeedbackInbox:{status:'APPLIED_AND_VERIFIED'}};
+ assert.deepEqual(scopeAnalyticsPageviewsMigrations(request).pendingMigrations,[migration]);
+ for(const patch of [{appliedAdminFeedbackInbox:null},{authDeploy:true},{deployFunctions:[]},{deployFunctions:['nuknuk-learning','decision-v13']},{retiredFunctions:['old']},{pending:[...request.pending,target]},{scope:{...request.scope,migrations:[{...migration,sha256:'f'.repeat(64)}]}},{scope:{...request.scope,restoreDrill:null}},{scope:{...request.scope,executionAuthorized:true}}]) assert.throws(()=>scopeAnalyticsPageviewsMigrations({...request,...patch}));
+ const root=new URL('../..',import.meta.url).pathname;
+ const plan={...request,pendingMigrations:[migration],deferredMigrations:deferred,isolatedResearchScope:request.scope,authConfig:{deploy:false}};
+ const output=mkdtempSync(join(tmpdir(),'backyrd-learning-workspace-'));
+ prepareResearchMigrationWorkspace(plan,root,output);
+ assert.ok(existsSync(join(output,migration.path)));
+ for(const row of deferred)assert.equal(existsSync(join(output,row.path)),false);
+});

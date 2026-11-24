@@ -7,7 +7,7 @@ import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
 import { NOV14_ADMIN_MIGRATIONS, NOV16_EAT_MIGRATIONS } from "./preapplied-admin-ledger.mjs";
-import { adminFeedbackInboxAppliedReceipt, DECISION_FEEDBACK_IDENTITY_SCOPE, DECISION_FEEDBACK_IDENTITY_MIGRATION, decisionFeedbackIdentityAppliedReceipt, nuknukActivityAppliedReceipt, scopeNuknukActivityMigrations, analyticsPageviewsAppliedReceipt, scopeAnalyticsPageviewsMigrations, ANALYTICS_PAGEVIEWS_MIGRATION, spotSearchFreshnessAppliedReceipt, baselPlaceSourcesAppliedReceipt, baselOvertureAppliedReceipt, worldResearchBatchesAppliedReceipt, baselPlaceImportCreateAppliedReceipt, spotCategoryApprovalAppliedReceipt, spotCrawlerAppliedReceipt, crawlerApprovalAppliedReceipt, crawlerBasicsAppliedReceipt, crawlerShortlistAppliedReceipt, crawlerVisitAppliedReceipt, decisionContextTimeoutAppliedReceipt, decisionProductFeedbackAppliedReceipt } from "./isolated-research-migration.mjs";
+import { NUKNUK_LEARNING_SCOPE, nuknukLearningAppliedReceipt, adminFeedbackInboxAppliedReceipt, DECISION_FEEDBACK_IDENTITY_SCOPE, DECISION_FEEDBACK_IDENTITY_MIGRATION, decisionFeedbackIdentityAppliedReceipt, nuknukActivityAppliedReceipt, scopeNuknukActivityMigrations, analyticsPageviewsAppliedReceipt, scopeAnalyticsPageviewsMigrations, ANALYTICS_PAGEVIEWS_MIGRATION, spotSearchFreshnessAppliedReceipt, baselPlaceSourcesAppliedReceipt, baselOvertureAppliedReceipt, worldResearchBatchesAppliedReceipt, baselPlaceImportCreateAppliedReceipt, spotCategoryApprovalAppliedReceipt, spotCrawlerAppliedReceipt, crawlerApprovalAppliedReceipt, crawlerBasicsAppliedReceipt, crawlerShortlistAppliedReceipt, crawlerVisitAppliedReceipt, decisionContextTimeoutAppliedReceipt, decisionProductFeedbackAppliedReceipt } from "./isolated-research-migration.mjs";
 import { betaSocialAppliedReceipt, scopeBetaSocialMigrations, BETA_SOCIAL_FUNCTIONS, ANALYTICS_PRIVACY_REPAIR_MIGRATION, analyticsPrivacyAppliedReceipt, betaSecurityAppliedReceipt, scopeBetaSecurityMigrations, seasonalEventAppliedReceipt, scopeSeasonalEventMigrations, regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -619,11 +619,15 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     try { git(repo, ["merge-base", "--is-ancestor", source, headSha]); return true; } catch { return false; }
   });
   if (appliedAdminFeedbackInbox) preappliedPaths.add(appliedAdminFeedbackInbox.migration.path);
+  const appliedNuknukLearning = nuknukLearningAppliedReceipt(state, head.read, source => {
+    try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
+  });
+  if (appliedNuknukLearning) preappliedPaths.add(appliedNuknukLearning.migration.path);
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
   const codeOnlyScope = authority?.codeOnlyDeliveryScope ?? null;
   const nuknukActivityScope = authority?.nuknukActivityDeliveryScope ?? null;
-  const analyticsPageviewsScope = authority?.analyticsPageviewsDeliveryScope ?? null;
+  const analyticsPageviewsScope = authority?.nuknukLearningDeliveryScope ?? authority?.analyticsPageviewsDeliveryScope ?? null;
   const boundedFunctionScope = analyticsPageviewsScope ?? nuknukActivityScope ?? codeOnlyScope;
   const functionReceipts = [boundedFunctionScope?.existingFunctionReceipt, boundedFunctionScope?.researchWorkerReceipt];
   if (boundedFunctionScope?.decisionFunctionReceipt) functionReceipts.push(boundedFunctionScope.decisionFunctionReceipt);
@@ -647,6 +651,13 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
       item.deploy = false;
       item.reason = "EXACT_EXISTING_LIVE_BUNDLE_BOUND_BY_CODE_ONLY_SCOPE";
     }
+  }
+  if (analyticsPageviewsScope?.contractVersion === NUKNUK_LEARNING_SCOPE) {
+    const selected = functions.filter(item => item.deploy);
+    if (codeOnlyScope || authority?.analyticsPageviewsDeliveryScope || nuknukActivityScope
+      || selected.length !== 1 || selected[0].slug !== "nuknuk-learning" || selected[0].verifyJwt !== true
+      || selected[0].sourceSetHash !== analyticsPageviewsScope.functionSourceSetHash)
+      throw new Error("nuknuk_learning_function_scope_invalid");
   }
   const functionChanges = functions.filter(item=>item.deploy).map(({slug,previousSourceSetHash,sourceSetHash})=>({slug,previousSourceSetHash,sourceSetHash}));
   // Code delivery is independent from historical, already applied SQL releases.
@@ -747,7 +758,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
   const scoped = analyticsPageviewsScope
     ? scopeAnalyticsPageviewsMigrations({ pending: allPending, scope: analyticsPageviewsScope, baseSha, deployFunctions,
-      authDeploy: authConfig?.deploy === true, retiredFunctions, appliedAnalyticsPageviews, appliedSpotSearchFreshness, appliedBaselPlaceSources, appliedBaselOverture, appliedWorldResearchBatches, appliedBaselPlaceImportCreate, appliedSpotCategoryApproval, appliedSpotCrawler, appliedCrawlerApproval, appliedCrawlerBasics, appliedCrawlerShortlist, appliedCrawlerVisit, appliedDecisionContextTimeout, appliedDecisionProductFeedback, appliedDecisionFeedbackIdentity, appliedAdminFeedbackInbox })
+      authDeploy: authConfig?.deploy === true, retiredFunctions, appliedAnalyticsPageviews, appliedSpotSearchFreshness, appliedBaselPlaceSources, appliedBaselOverture, appliedWorldResearchBatches, appliedBaselPlaceImportCreate, appliedSpotCategoryApproval, appliedSpotCrawler, appliedCrawlerApproval, appliedCrawlerBasics, appliedCrawlerShortlist, appliedCrawlerVisit, appliedDecisionContextTimeout, appliedDecisionProductFeedback, appliedDecisionFeedbackIdentity, appliedAdminFeedbackInbox, appliedNuknukLearning })
     : nuknukActivityScope
     ? scopeNuknukActivityMigrations({ pending: allPending, scope: nuknukActivityScope, baseSha, deployFunctions,
       authDeploy: authConfig?.deploy === true, appliedNuknukActivity })
@@ -808,6 +819,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     appliedAreaReservation,
     isolatedResearchScope: isolatedResearchScope ?? null,
     isolatedVoltaScope: isolatedVoltaScope ?? null,
+    appliedNuknukLearning,
     appliedResearch,
     appliedResearchSafety,
     appliedResearchRhassoul,
