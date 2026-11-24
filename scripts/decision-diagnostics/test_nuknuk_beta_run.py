@@ -53,6 +53,41 @@ class Tests(unittest.TestCase):
    with patch.object(m,'rest',side_effect=rest),patch.object(m.watch,'query',side_effect=query),patch.object(m.watch,'validate_pod_snapshot',return_value=(True,2.19)),patch.object(m,'package',return_value=b'archive'),patch.object(m.subprocess,'check_output',return_value=json.dumps(receipt)),patch.object(m.subprocess,'Popen',side_effect=popen),patch.object(m,'ssh_call',side_effect=ssh),patch.object(m,'sync',return_value=result),patch.object(m.time,'sleep'),patch.object(m,'owned',side_effect=[{'costPerHr':2.19},{'costPerHr':2.19},None]),patch.object(m,'cleanup',side_effect=cleanup):
     m.run(args)
    state=json.loads((op/'state.json').read_text());self.assertEqual(state['deadline']-state['started'],7200);self.assertTrue(state['resourcesRemoved']);self.assertEqual(state['candidateSha256'],m.digest(b'candidate'));self.assertEqual(events,['allocate','native_guard_verified','financial_watch','delete'])
+ def test_status_timeout_recovers_with_same_pod_and_no_allocation(self):
+  with tempfile.TemporaryDirectory()as tmp:
+   folder=Path(tmp);(folder/'state.json').write_text(json.dumps({'computeRateCap':2.22}));financial=Mock(poll=lambda:None)
+   failure=m.subprocess.TimeoutExpired(['synthetic-ssh'],20)
+   with patch.object(m,'ssh_call',side_effect=[failure,m.SSHTransportError('synthetic'),b'{"exit":null,"complete":false}'])as ssh,patch.object(m,'owned',return_value={'id':'samepod'}),patch.object(m.watch,'validate_pod_snapshot',return_value=(True,2.19)),patch.object(m,'rest')as rest,patch.object(m.time,'sleep'):
+    self.assertEqual(m.workflow_status([],folder,Path('key'),financial,m.time.time()+7200),{'exit':None,'complete':False});self.assertEqual(ssh.call_count,3);rest.assert_not_called()
+ def test_status_failure_still_aborts_when_financial_signal_or_provider_is_unsafe(self):
+  with tempfile.TemporaryDirectory()as tmp:
+   folder=Path(tmp);(folder/'state.json').write_text(json.dumps({'computeRateCap':2.22}))
+   with patch.object(m,'ssh_call')as ssh,self.assertRaisesRegex(ValueError,'financial_watch_exited'):
+    m.workflow_status([],folder,Path('key'),Mock(poll=lambda:1),m.time.time()+7200)
+   ssh.assert_not_called()
+   with patch.object(m,'ssh_call',side_effect=m.subprocess.TimeoutExpired(['synthetic'],20))as ssh,patch.object(m,'owned',return_value={'id':'samepod'}),patch.object(m.watch,'validate_pod_snapshot',return_value=(True,3)),self.assertRaisesRegex(ValueError,'provider_state_not_safe'):
+    m.workflow_status([],folder,Path('key'),Mock(poll=lambda:None),m.time.time()+7200)
+   self.assertEqual(ssh.call_count,1)
+ def test_status_read_retry_is_bounded_and_does_not_retry_remote_failures(self):
+  with tempfile.TemporaryDirectory()as tmp:
+   folder=Path(tmp);(folder/'state.json').write_text(json.dumps({'computeRateCap':2.22}));financial=Mock(poll=lambda:None)
+   with patch.object(m,'ssh_call',side_effect=m.subprocess.TimeoutExpired(['synthetic'],20))as ssh,patch.object(m,'owned',return_value={'id':'samepod'}),patch.object(m.watch,'validate_pod_snapshot',return_value=(True,2.19)),patch.object(m.time,'sleep'),self.assertRaises(m.subprocess.TimeoutExpired):
+    m.workflow_status([],folder,Path('key'),financial,m.time.time()+7200)
+   self.assertEqual(ssh.call_count,3)
+   for failure in [RuntimeError('remote logic failed'),ValueError('invalid result')]:
+    with patch.object(m,'ssh_call',side_effect=failure)as ssh,self.assertRaises(type(failure)):
+     m.workflow_status([],folder,Path('key'),financial,m.time.time()+7200)
+    self.assertEqual(ssh.call_count,1)
+ def test_invalid_status_and_expired_deadline_never_retry(self):
+  with tempfile.TemporaryDirectory()as tmp:
+   folder=Path(tmp);(folder/'state.json').write_text(json.dumps({'computeRateCap':2.22}));financial=Mock(poll=lambda:None)
+   for raw in [b'not-json',b'{"exit":null,"complete":"yes"}',b'{"exit":true,"complete":false}']:
+    with patch.object(m,'ssh_call',return_value=raw)as ssh,self.assertRaises(ValueError):
+     m.workflow_status([],folder,Path('key'),financial,m.time.time()+7200)
+    self.assertEqual(ssh.call_count,1)
+   with patch.object(m,'ssh_call')as ssh,self.assertRaisesRegex(TimeoutError,'billing_window_closing'):
+    m.workflow_status([],folder,Path('key'),financial,m.time.time()+299)
+   ssh.assert_not_called()
  def test_existing_operation_cannot_reenter_allocation(self):
   with tempfile.TemporaryDirectory() as tmp:
    op=Path(tmp);(op/'state.json').write_text('{}')

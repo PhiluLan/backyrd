@@ -1,6 +1,6 @@
 # NukNuk Beta: bounded execution plan, 24 November 2026
 
-Status: **First controlled attempt aborted at 10/200 updates; owned Pod deleted.**
+Status: **Two controlled attempts aborted; both owned Pods deleted.**
 The reviewed Beta exporter and single-Pod controller are implemented. No complete
 candidate or model activation resulted. Before another allocation, require a new
 explicit attempt authorization and fresh account/quote admission including prior
@@ -191,3 +191,24 @@ Quote admission includes prior consumption and reserve; the controller binds
 the provider/local/financial deadline to that shorter value and caps remote
 work at deadline minus 600 seconds. The maximum remains 9,000 seconds. This is
 preparation only: no second allocation is authorized by the first run receipt.
+
+## Second attempt: status transport interruption
+
+A second explicitly authorized, two-hour attempt used the corrected probe bundle
+`16b51acb532e54b7dae8b67cfa2006fc501062e8a5108095b7df3b5f02e5a5c6`.
+All native checks and the 15 reference generations completed; the same parent
+scored 3/15. One SSH status read timed out after 20 seconds during initial trainer
+validation; the controller secured 28 files, deleted the Pod and verified zero
+running spend. No optimizer update was confirmed in the last secured receipt.
+The transport timeout is proven; its underlying network/host cause is unknown.
+Aggregate initial account debit for both attempts was USD 1.5170, subject to
+settlement. No third attempt or activation was performed.
+
+Status polling now permits at most three attempts for the same idempotent read
+on the same owned Pod. A transport timeout/SSH exit 255 can retry only while the
+independent financial watcher is alive, provider status is explicitly running
+and the assigned rate remains within the cap. Absolute deadline and heartbeat
+protection stay active. Remote command errors and invalid results fail without
+retry; allocation, uploads and training launch are never retried by this change.
+Exhaustion retains normal artifact recovery and deletion. This correction is
+covered by local fault-injection tests; it has not run on a paid GPU.

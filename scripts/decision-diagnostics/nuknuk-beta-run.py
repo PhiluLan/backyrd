@@ -86,10 +86,37 @@ def guard(args):
         time.sleep(10)
 
 
+class SSHTransportError(RuntimeError):
+    pass
+
+
 def ssh_call(ssh,command,timeout=25,data=None):
     result=subprocess.run([*ssh,command],input=data,capture_output=True,timeout=timeout)
-    if result.returncode:raise RuntimeError('owned_gpu_ssh_failed')
+    if result.returncode==255:raise SSHTransportError('owned_gpu_ssh_transport_failed')
+    if result.returncode:raise RuntimeError('owned_gpu_remote_command_failed')
     return result.stdout
+
+
+def workflow_status(ssh,folder,key,financial,deadline):
+    # Retry only this idempotent read. Never repeat allocation, upload or launch.
+    command=PY+' -c '+shlex.quote("import pathlib,json;root=pathlib.Path('"+REMOTE+"');print(json.dumps({'exit':(root/'EXIT').read_text()if(root/'EXIT').exists()else None,'complete':(root/'COMPLETE').exists()}))")
+    for attempt in range(3):
+        if financial.poll()is not None:raise ValueError('canonical_financial_watch_exited')
+        if time.time()>=deadline-300:raise TimeoutError('billing_window_closing')
+        save(folder,'WORKFLOW_STATUS_CHECK',statusAttempt=attempt+1)
+        try:
+            value=json.loads(ssh_call(ssh,command,20))
+            if not isinstance(value,dict) or set(value)!={'exit','complete'} or type(value['complete'])is not bool or not(value['exit']is None or isinstance(value['exit'],str)and re.fullmatch(r'[0-9]+\s*',value['exit'])):
+                raise ValueError('workflow_status_invalid')
+            return value
+        except (subprocess.TimeoutExpired,SSHTransportError)as error:
+            if attempt==2:raise
+            pod=owned(folder,key)
+            running,rate=watch.validate_pod_snapshot(pod)
+            cap=json.loads((folder/'state.json').read_text())['computeRateCap']
+            if not running or rate>cap:raise ValueError('retry_provider_state_not_safe')
+            save(folder,'WORKFLOW_STATUS_RETRY',statusAttempt=attempt+1,failureType=type(error).__name__)
+            time.sleep(5)
 
 
 def package(bundle,manifest):
@@ -252,7 +279,7 @@ touch COMPLETE
         while time.time()<deadline-300:
             if financial.poll()is not None:raise ValueError('canonical_financial_watch_exited')
             save(folder,'WORKFLOW_RUNNING');counter+=1
-            state=json.loads(ssh_call(ssh,PY+' -c '+shlex.quote("import pathlib,json;root=pathlib.Path('"+REMOTE+"');print(json.dumps({'exit':(root/'EXIT').read_text()if(root/'EXIT').exists()else None,'complete':(root/'COMPLETE').exists()}))"),20))
+            state=workflow_status(ssh,folder,args.key_file,financial,deadline)
             if counter%4==1 or state['exit']is not None:
                 target=sync(ssh,folder,str(counter).zfill(4));save(folder,'WORKFLOW_RUNNING',latestResults=str(target))
             if state['exit']is not None:
