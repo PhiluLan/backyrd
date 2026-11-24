@@ -145,7 +145,7 @@ test("weather context, conditional branches, optional food and no-invention rema
     conditional.finalMeaning.weatherConditions[0].role,
     "CONDITIONAL",
   );
-  const optional = row("coherence-drink-optional");
+  const optional = row("coherence-drink-optional", "museum");
   assert.equal(
     facts(optional).find(
       (f) => f.key === "food.drink" && f.subjectIds.includes("a2"),
@@ -294,5 +294,51 @@ test("sealed export is reproducible, has no TEST training file and rejects modif
     await assert.rejects(() => verifyBetaCatalog(dir), /artifact_changed/);
   } finally {
     await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("persona review blocks unclarified child participation and preserves restaurant intent", () => {
+  for (const r of rows.filter(r => r.family === "children-alone-child" || r.family === "everyday-supervision-unknown")) {
+    assert.equal(r.expectedInteraction, "CLARIFY");
+    assert(r.finalMeaning.uncertainties.length > 0);
+    assert(r.expected.clarification.question.includes("Aufsicht") || r.expected.clarification.question.includes("Betreuung"));
+    assert(!facts(r).some(f => f.value.text === "adult_accompanied"));
+  }
+  for (const r of rows.filter(r => r.family === "everyday-hotel-restaurant-external")) {
+    assert(facts(r).some(f => f.key === "offer.kind" && f.value.text === "RESTAURANT"));
+    assert(!facts(r).some(f => f.key === "offer.kind" && f.value.text === "HOTEL"));
+    assert(r.finalMeaning.extensions.some(e => /Hotel/.test(e.description)));
+  }
+  const invalidVenue = structuredClone(row("everyday-rain-not-playpark"));
+  facts(invalidVenue).find(f => f.key === "offer.kind").value.text = "INDOOR_PLAYGROUND";
+  assert.throws(() => checkSourceInvariants(invalidVenue), /unauthored_venue_kind/);
+  assert.equal(row("everyday-spa-tired").split, "DEV");
+  assert.equal(row("everyday-both-participate").split, "TEST");
+  const removed = [
+    ["intent-cafe-no-drink", "bowling"], ["areas-terrace-required", "cinema"],
+    ["weather-shade", "bowling"], ["booking-own-food", "pizza"],
+    ["visit-time-today-evening", "breakfast"], ["access-beginner", "ceramics"],
+    ["coherence-drink-optional", "coffee"], ["coherence-simultaneous", "cinema"],
+  ];
+  for (const [family, profile] of removed)
+    assert(!rows.some(r => r.family === family && r.profile === profile), family + ":" + profile);
+});
+
+test("recorded questions and successive date corrections survive export and semantic merge", async () => {
+  const {dialogueReading} = await import("./beta-reading.mjs");
+  const dialogues = rows.filter(r => r.family.startsWith("everyday-conversation-"));
+  assert.equal(new Set(dialogues.map(r => r.family)).size, 12);
+  assert(dialogues.every(r => r.turns.every(t => t.question?.endsWith("?"))));
+  for (const locale of ["de", "de-CH"]) {
+    const r = row("everyday-conversation-two-date-corrections", "coffee", locale);
+    assert.equal(r.turns.length, 2);
+    assert.equal(facts(r).find(f => f.key === "time.date").value.date, "2026-11-27");
+    assert.equal(facts(r).find(f => f.key === "time.clock").value.time, "18:00");
+    assert.equal(facts(r).find(f => f.key === "budget.maximum").value.amount, 40);
+    const reading = dialogueReading(r.turns);
+    assert(reading.includes(r.turns[0].answer));
+    assert(reading.includes(r.turns[1].question));
+    assert(reading.includes(r.turns[1].answer));
+    assert(JSON.parse(r.request.messages[1].content).turns[1].answer.includes("18 Uhr"));
   }
 });

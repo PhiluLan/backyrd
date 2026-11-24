@@ -75,7 +75,7 @@ def assemble(folder, repo, preflight_path, test_log, history_path, archive):
         raise ValueError("preflight_failed_or_changed")
     log = test_log.read_text()
     passed = re.search(r"(?m)^# pass (\d+)$", log)
-    if not re.search(r"(?m)^# fail 0$", log) or not passed or int(passed.group(1)) < 9 or "not ok " in log:
+    if not re.search(r"(?m)^# fail 0$", log) or not passed or int(passed.group(1)) < 11 or "not ok " in log:
         raise ValueError("catalog_tests_failed")
     history = load(history_path)
     if history["heldoutExactSourceMatches"]:
@@ -88,6 +88,18 @@ def assemble(folder, repo, preflight_path, test_log, history_path, archive):
             shutil.copyfile(source, destination)
             destination.chmod(0o600)
     catalog = load(folder / "catalog.json")
+    review = None
+    if (folder / "persona-review.json").exists():
+        review = load(folder / "persona-review.json")
+        if (review["sourceSha"] != manifest["sourceSha"]
+                or review["catalogByteSha256"] != digest(folder / "catalog.json")
+                or review["reviewerThreads"] != ["01a20ec2-6d54-76f2-9a06-90dc8797f819", "01a20ec1-0b5c-7560-89a9-59776a89587a"]
+                or review["rounds"] < 2 or review["humanBetaStudy"] is not False):
+            raise ValueError("persona_review_not_bound")
+        for name, expected in review["evidenceByteHashes"].items():
+            relative = Path(name)
+            if relative.is_absolute() or ".." in relative.parts or digest(folder / relative) != expected:
+                raise ValueError("persona_review_evidence_changed")
     task_counts = {}
     disposition_counts = {}
     for row in catalog["cases"]:
@@ -105,6 +117,9 @@ def assemble(folder, repo, preflight_path, test_log, history_path, archive):
         "maximumAnswerTokens": preflight["maxAnswerTokens"], "trainTokenCount": preflight["trainingTokenCount"],
         "historicalExactTextMatches": len(history["exactSourceMatches"]), "historicalHeldoutExactTextMatches": 0,
         "review": "ASSISTANT_AUTHORED_TARGETS_AND_TECHNICAL_MUTATION_TESTS", "independentHumanGold": False,
+        "personaAiReviewPerformed": review is not None,
+        "personaReviewRounds": review["rounds"] if review else 0,
+        "personaReviewManifest": "persona-review.json" if review else None,
         "independentModelAdjudication": False, "modelPerformanceMeasured": False, "modelTrainingExecuted": False,
         "newCloudResourcesStarted": 0, "newCloudTrainingCostUsd": 0,
         "limitations": ["Synthetic and controlled wording, not a measured production request distribution.",

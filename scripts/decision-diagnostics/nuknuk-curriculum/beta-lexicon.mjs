@@ -105,8 +105,8 @@ for (const [id, de, ch] of [
 for (const [id, de, ch] of [
   ["breakfast", "frühstücken", "zmörgele"],
   ["brunch", "brunchen", "brunche"],
-  ["lunch", "Mittagessen gehen", "go zmittag ässe"],
-  ["dinner", "Abendessen gehen", "go znacht ässe"],
+  ["lunch", "zum Mittagessen gehen", "go zmittag ässe"],
+  ["dinner", "zum Abendessen gehen", "go znacht ässe"],
   ["snacks", "einen Snack essen", "en Snack ässe"],
 ])
   add(

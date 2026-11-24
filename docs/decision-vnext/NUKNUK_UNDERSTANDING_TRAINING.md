@@ -3381,3 +3381,47 @@ muss eine konservative Prognose aus dem gemessenen Pilot verwerfen, wenn sie
 nicht in das Restbudget und die vorgesehene Laufzeit passt. Das Paket kann keine
 Ressourcen anlegen und autorisiert weder einen Trainingsstart noch eine
 Produktivaktivierung. Aus einem synthetischen Katalog folgt kein Beta-Qualitätssiegel.
+
+### Alltagsreview mit zwei Rollen (24. November 2026)
+
+Der eigenständige Beta-Katalog wird durch die vom Nutzer benannten Chats mit den
+Rollen Philipp (Familie, gemeinsame Eltern-Kind-Erlebnisse, ruhige Solo-Zeit) und
+Tobi (Entdecken, Ausgehen, Food und Wellness) iterativ gegengelesen. Das sind
+KI-Rollenreviews, keine menschlichen Testpersonen und keine Modellmessungen.
+Originalberichte, Quellenbezug und angenommene beziehungsweise abgewogene
+Vorschläge gehören in das versiegelte Paket unter `reviews/`,
+`persona-review.json` und `REVIEW_UND_AENDERUNGEN.md`.
+
+Die Revision repariert grammatische Vorlagen und kanonische Ortstypen, begrenzt
+unplausible Profilkreuzungen und ergänzt 50 einzeln autorierte Situationen,
+darunter zwölf Dialogfamilien mit tatsächlichen Rückfragen, Vorschlagsreaktionen
+und aufeinanderfolgenden Korrekturen. Ganze neue Familien werden vor dem
+Modellvergleich für DEV/TEST reserviert; Sprache und formale Szenariogruppen
+werden weiterhin nicht über Bestände verteilt. Die vollständigen Lesefassungen
+zeigen alle Dialogturns, während das Training den bestehenden kompakten
+Such-/Dialogvertrag verwendet. Es entsteht kein neuer Laufzeitparser.
+
+Unbegleitete Kinder werden nicht allein wegen eines technisch verarbeitbaren
+Graphen freigegeben: Ungeklärte Aufsicht und Anbieterzulassung bleiben erhalten
+und verlangen eine Rückfrage. `EXECUTABLE` ist nur der technische
+Extraktionszustand, keine Sicherheits-, Alters-, Öffnungs- oder
+Verfügbarkeitsfreigabe. Deterministische Anbieterprüfung und die tatsächliche
+Empfehlungskette bleiben gesonderte Produktabnahmen; diese Datenrevision ändert
+keinen Live-Dienst und implementiert keine solche Freigabe im Backend.
+
+Mehrere Suchstädte, Betreuungsregeln, gemeinsame Eltern-Kind-Teilnahme,
+Küchenverfügbarkeit, Bekleidungsregeln und weitere nicht belegbare Merkmale
+werden als ehrliche Rückfrage beziehungsweise Hostgrenze erhalten. Ein klares
+Nutzerziel darf nicht zur scheinbar ausführbaren Anfrage werden, indem eine
+unbequeme Bedingung entfernt wird. Zusammengesetzte Ausschlüsse wie ein
+luxuriöses Dinner werden nicht zu einem Verbot aller Mahlzeiten verallgemeinert.
+
+Die elf fokussierten Katalogtests prüfen zusätzlich die Rückfrage bei
+ungeklärter Kinderaufsicht, Restaurant statt Hotel, kanonische Ortstypen,
+entfernte Kreuzproduktfehler, neue zurückgehaltene Familien und die vollständige
+Verarbeitung mehrerer Dialogturns. Abschliessend werden Quellen, Artefakte,
+Token-/Grammatikprüfung und Reviewnachweise auf dieselbe Datenfassung gebunden.
+Sichtbare synthetische TEST-Fälle bleiben Regressionsevidenz; nach Einsicht in
+Kandidatenergebnisse dürfen sie nicht zur unangesehenen Endabnahme umetikettiert
+werden. Eine Gesamtquote allein genügt nicht: Szenariogruppen, Sprachen und
+individuell autorierte Alltagsfälle müssen getrennt ausgewiesen werden.
