@@ -309,6 +309,9 @@ test("persona review blocks unclarified child participation and preserves restau
     assert(!facts(r).some(f => f.key === "offer.kind" && f.value.text === "HOTEL"));
     assert(r.finalMeaning.extensions.some(e => /Hotel/.test(e.description)));
   }
+  const invalidClarification = structuredClone(row("everyday-spontaneous-saved"));
+  invalidClarification.expected.clarification.options = [];
+  assert.throws(() => checkSourceInvariants(invalidClarification), /clarification_options_contract/);
   const invalidVenue = structuredClone(row("everyday-rain-not-playpark"));
   facts(invalidVenue).find(f => f.key === "offer.kind").value.text = "INDOOR_PLAYGROUND";
   assert.throws(() => checkSourceInvariants(invalidVenue), /unauthored_venue_kind/);

@@ -3425,3 +3425,12 @@ Sichtbare synthetische TEST-Fälle bleiben Regressionsevidenz; nach Einsicht in
 Kandidatenergebnisse dürfen sie nicht zur unangesehenen Endabnahme umetikettiert
 werden. Eine Gesamtquote allein genügt nicht: Szenariogruppen, Sprachen und
 individuell autorierte Alltagsfälle müssen getrennt ausgewiesen werden.
+
+Die abschliessende Token-Grammatikprüfung fand zusätzlich zwei neue Rückfragen
+mit leeren Optionslisten. Der tatsächlich verwendete Ausgabevertrag verlangt
+zwei bis drei Optionen. Die beiden Listen nennen nun Eingabemöglichkeiten für
+Name/Lage beziehungsweise Beispielort/Link, ohne Ortsdaten zu erfinden. Ein
+negativer Katalogtest und die Quellenprüfung weisen leere Listen bereits vor
+der Tokenprüfung zurück. Die geänderten vier Sprachzeilen werden gezielt erneut
+von beiden Rollen geprüft; Bedeutungsgraph, Rückfragebedarf und Splits bleiben
+unverändert.
