@@ -101,6 +101,8 @@ export function orderForSchema(value, schema, rootSchema = schema) {
     }
     if (Array.isArray(v)) return v.map((x) => visit(x, s?.items ?? {}));
     if (v && typeof v === "object") {
+      if ((s?.required ?? []).some(key => !(key in v)))
+        throw Error("beta_missing_required_output_field");
       const props = s?.properties ?? {},
         keys = [
           ...Object.keys(props).filter((k) => k in v),

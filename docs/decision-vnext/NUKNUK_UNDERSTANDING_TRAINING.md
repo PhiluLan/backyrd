@@ -3434,3 +3434,12 @@ negativer Katalogtest und die Quellenprüfung weisen leere Listen bereits vor
 der Tokenprüfung zurück. Die geänderten vier Sprachzeilen werden gezielt erneut
 von beiden Rollen geprüft; Bedeutungsgraph, Rückfragebedarf und Splits bleiben
 unverändert.
+
+Die Dialog-Lehrziele müssen ausserdem die striktere Modell-Ausgabegrammatik
+erfüllen: partielle `additions` sind für die Mergefunktion zulässig, im
+Modelvertrag sind aber alle Meaning-Felder erforderlich. Der Autorensource
+füllt fehlende leere Arrays und `logic: null` ausdrücklich auf. Die vorhandenen
+Angaben und gemergten Bedeutungen ändern sich dadurch nicht. Der Serializer
+weist fehlende Pflichtfelder nun früh zurück; ein negativer Test deckt diese
+Abweichung zwischen Merge- und Ausgabevertrag ab. Beide Rollen prüfen diese
+reine Formatkorrektur gezielt nach.

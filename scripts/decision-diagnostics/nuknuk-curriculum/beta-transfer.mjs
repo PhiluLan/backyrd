@@ -946,7 +946,14 @@ function conversation(id, de, ch, previous, deTurns, chTurns, update, rubric) {
   add("conversation-" + id, "Alltagsdialog", de, ch, {
     previous: bundle(previous),
     turns: locale => structuredClone(locale === "de" ? deTurns : chTurns),
-    change: update,
+    change: locale => {
+      const result = update(locale);
+      if (result.additions) result.additions = {
+        entities: [], facts: [], logic: null, bindings: [], extensions: [],
+        uncertainties: [], weatherConditions: [], ...result.additions,
+      };
+      return result;
+    },
   }, rubric);
 }
 const turn = (question, answer) => ({question, answer});

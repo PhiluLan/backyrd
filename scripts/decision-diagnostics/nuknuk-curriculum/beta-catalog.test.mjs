@@ -9,6 +9,7 @@ import {
   graphAuditHash,
   checkSourceInvariants,
   trainingAnswer,
+  orderForSchema,
   buildBetaCatalog,
   verifyBetaCatalog,
 } from "./beta-catalog.mjs";
@@ -309,6 +310,10 @@ test("persona review blocks unclarified child participation and preserves restau
     assert(!facts(r).some(f => f.key === "offer.kind" && f.value.text === "HOTEL"));
     assert(r.finalMeaning.extensions.some(e => /Hotel/.test(e.description)));
   }
+  const dialogueWithAdditions = row("everyday-conversation-same-area-less-touristy");
+  const incompleteOutput = structuredClone(dialogueWithAdditions.expected);
+  delete incompleteOutput.additions.facts;
+  assert.throws(() => orderForSchema(incompleteOutput, dialogueWithAdditions.request.outputSchema), /missing_required_output_field/);
   const invalidClarification = structuredClone(row("everyday-spontaneous-saved"));
   invalidClarification.expected.clarification.options = [];
   assert.throws(() => checkSourceInvariants(invalidClarification), /clarification_options_contract/);
