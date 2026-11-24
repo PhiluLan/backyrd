@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-if(process.argv[2]==='--product-search-v7'){
-  await (await import('./nuknuk-product-training.mjs')).exportProductGpuBundle(process.argv.slice(3));
+if(['--product-search-v7','--product-search-v7-beta'].includes(process.argv[2])){
+  await (await import('./nuknuk-product-training.mjs')).exportProductGpuBundle(process.argv[2]==='--product-search-v7-beta'?process.argv.slice(3,7):process.argv.slice(3),process.argv[2]==='--product-search-v7-beta'?{betaAdmissionFile:process.argv[7]}:{});
   process.exit(0);
 }
 // Explicit allowlist export, no project checkout, .env, credentials or private key.

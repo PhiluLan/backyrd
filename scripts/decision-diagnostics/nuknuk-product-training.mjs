@@ -154,19 +154,20 @@ export async function exportProductTraining(args, options={}){
  return manifest;
 }
 
-export async function exportProductGpuBundle(args){
+export async function exportProductGpuBundle(args,options={}){
  const [dataArg,hfArg,tokenizerArg,outArg]=args;
  if(args.length!==4)throw Error('usage: --product-search-v7 DATA CURRENT_HF_ADAPTER TOKENIZER OUTPUT');
  const data=resolve(dataArg),hf=resolve(hfArg),tokenizer=resolve(tokenizerArg),out=resolve(outArg);
  const manifestBytes=await readFile(resolve(data,'manifest.json')),manifest=JSON.parse(manifestBytes);
- if(manifest.cohort==='BETA_V1')throw Error('beta_gpu_export_requires_review_and_separate_training_plan');
+ const beta=manifest.cohort==='BETA_V1';let admission=null;
+ if(beta){if(!options.betaAdmissionFile)throw Error('beta_gpu_export_requires_review_and_separate_training_plan');const {verifyBetaAdmission}=await import('./nuknuk-beta-admission.mjs');admission=await verifyBetaAdmission(data,JSON.parse(await readFile(options.betaAdmissionFile)),resolve(dirname(fileURLToPath(import.meta.url)),'../..'));}
  const preflight=JSON.parse(await readFile(resolve(data,'preflight.json'))),parentProof=JSON.parse(await readFile(resolve(data,'parent-verification.json')));
- if(manifest.version!=='backyrd.nuknuk-product-training-manifest@1'||manifest.vocabularyHash!==NUKNUK_TRAINING_VOCABULARY_HASH||manifest.caseCount!==152||manifest.counts.TRAIN!==121
-  ||preflight.datasetManifestFileSha256!==sha(manifestBytes)||preflight.caseCount!==152||preflight.maxTotalTokens>5120
+ if(manifest.version!=='backyrd.nuknuk-product-training-manifest@1'||manifest.vocabularyHash!==NUKNUK_TRAINING_VOCABULARY_HASH||manifest.caseCount!==(beta?1200:152)||manifest.counts.TRAIN!==(beta?800:121)||manifest.counts.VALIDATION!==(beta?200:15)
+  ||preflight.datasetManifestFileSha256!==sha(manifestBytes)||preflight.caseCount!==(beta?1200:152)||(beta&&preflight.transferCaseCount!==64)||preflight.maxTotalTokens>5120
   ||preflight.cases.some(r=>!r.grammarAccepted||!r.completionOnlyMaskVerified||!r.prefixTokenIdsSha256)
   ||parentProof.result!=='PASS'||parentProof.manifestSha256!==sha(manifestBytes)||!parentProof.exactTransposeEquality)throw Error('product_gpu_preflight_not_bound');
  const root=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
- for(const [name,hash] of Object.entries(manifest.sourceHashes))if(await fileSha(resolve(root,name))!==hash)throw Error('product_gpu_source_changed');
+ for(const [name,hash] of Object.entries(beta?admission.sourceHashes:manifest.sourceHashes))if(await fileSha(resolve(root,name))!==hash)throw Error('product_gpu_source_changed');
  const payload=new Map();
  for(const name of ['train.jsonl','valid.jsonl']){
   const bytes=await readFile(resolve(data,name));if(sha(bytes)!==manifest.files[name].sha256)throw Error('product_gpu_data_changed');payload.set(name,bytes);
@@ -181,11 +182,11 @@ export async function exportProductGpuBundle(args){
  const inputs=JSON.parse(await readFile(resolve(data,'evaluation-inputs.json')));
  if(sha(await readFile(resolve(data,'evaluation-inputs.json')))!==manifest.files['evaluation-inputs.json'].sha256)throw Error('product_gpu_evaluation_changed');
  const dev=inputs.cases.filter(r=>r.split==='VALIDATION').map(({expected,...row})=>row);
- if(dev.length!==15)throw Error('product_gpu_development_count_changed');
- payload.set('development-requests.json',Buffer.from(JSON.stringify({cases:dev},null,2)+'\n'));
+ if(dev.length!==(beta?200:15))throw Error('product_gpu_development_count_changed');
+ payload.set('development-requests.json',Buffer.from(JSON.stringify({cases:beta?[...new Map(dev.map(r=>[r.scenarioGroup,r])).values()].slice(0,15):dev},null,2)+'\n'));
  payload.set('native-prefixes.json',Buffer.from(JSON.stringify(preflight.cases.filter(r=>r.split!=='TEST').map(r=>({id:r.id,split:r.split,prefixTokenIdsSha256:r.prefixTokenIdsSha256})),null,2)+'\n'));
  // Continuation only. No fresh adapter, rank change, test upload or live service mutation.
- const yaml=`base_model: /workspace/backyrd-product-training/base
+ let yaml=`base_model: /workspace/backyrd-product-training/base
 plugins:
   - axolotl.integrations.cut_cross_entropy.CutCrossEntropyPlugin
   - axolotl.integrations.liger.LigerPlugin
@@ -246,14 +247,15 @@ save_safetensors: true
 use_wandb: false
 dataset_processes: 4
 `;
+ if(beta){yaml=yaml.replace('num_epochs: 2','num_epochs: 1').replace('eval_steps: 29','eval_steps: 200').replace('save_steps: 29','save_steps: 50').replace('plugins:\n','plugins:\n  - nuknuk_beta_callback.BetaPlugin\n');payload.set('nuknuk_beta_callback.py',await readFile(resolve(root,'scripts/decision-diagnostics/nuknuk-beta-callback.py')));}
  payload.set('train.yaml',Buffer.from(yaml));
- const gpuManifest={version:'backyrd.nuknuk-product-gpu-bundle@1',profile:'PRODUCT_SEARCH_V7_CONTINUATION_V1',
+ const gpuManifest={version:'backyrd.nuknuk-product-gpu-bundle@1',profile:beta?'PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1':'PRODUCT_SEARCH_V7_CONTINUATION_V1',...(beta?{admissionReceiptSha256:admission.receiptSha256,sourceHashes:admission.sourceHashes}:{}),
   datasetHash:manifest.datasetHash,sourceManifestSha256:sha(manifestBytes),parent:manifest.parent,
   image:'axolotlai/axolotl-cloud-uv@sha256:5a989be77ecfc9ef6f4e578d0addec4e6a6fb882b64abe0b84613666c58afe61',
-  recipe:{rank:16,alpha:32,epochs:2,learningRate:0.000006,seed:42,trainingRows:121,validationRows:15,maxTotalTokens:5120,maxTrainingSeconds:1800,
+  recipe:{rank:16,alpha:32,epochs:beta?1:2,learningRate:0.000006,seed:42,trainingRows:beta?800:121,validationRows:beta?200:15,optimizerUpdates:beta?200:undefined,maxTotalTokens:5120,maxTrainingSeconds:beta?5100:1800,
    initialization:'EXACT_CURRENT_ADAPTER_CONTINUATION',testUploaded:false,activationAuthorized:false},
   files:Object.fromEntries([...payload].map(([name,bytes])=>[name,{sha256:sha(bytes),bytes:bytes.length}])),
-  budgetCeilingUsd:4,hourlyUpperBoundUsd:3.7,closingReserveUsd:1,resourceCreationAuthorizedByBundle:false,providerStopRequired:true};
+  budgetCeilingUsd:beta?10:4,hourlyUpperBoundUsd:beta?3.5:3.7,closingReserveUsd:1,resourceCreationAuthorizedByBundle:false,providerStopRequired:true};
  await mkdir(out,{mode:0o700});for(const [name,bytes] of payload){await mkdir(dirname(resolve(out,name)),{recursive:true,mode:0o700});await writeFile(resolve(out,name),bytes,{flag:'wx',mode:0o600});}
  await writeFile(resolve(out,'product-gpu-manifest.json'),JSON.stringify(gpuManifest,null,2)+'\n',{flag:'wx',mode:0o600});
  console.log(JSON.stringify({directory:out,manifestSha256:await fileSha(resolve(out,'product-gpu-manifest.json')),testUploaded:false,resourcesStarted:false}));

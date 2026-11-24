@@ -527,7 +527,7 @@ def generate_structured_batch(state, batch, max_seconds=240, max_output_tokens=2
             return scores.masked_fill(~allowed,float('-inf'))
     prefixes = [tokenizer.apply_chat_template(r['messages'], tokenize=True, add_generation_prompt=True,
                 enable_thinking=False, return_dict=False) for r in batch]
-    product = state['boundary'].get('profile') == 'PRODUCT_SEARCH_V7_CONTINUATION_V1'
+    product = state['boundary'].get('profile') in ('PRODUCT_SEARCH_V7_CONTINUATION_V1','PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1')
     maximum_prefix = state['boundary'].get('maxTotalTokens', 4608) if product else 4096
     if product and maximum_prefix not in (4608, 5120):
         raise ValueError('nuknuk_gpu_evaluation_prefix_limit_invalid')
@@ -902,7 +902,7 @@ def prefer(args):
 def verify_product_gpu_bundle(folder):
     manifest = json.loads((folder/'product-gpu-manifest.json').read_text())
     if (manifest.get('version') != 'backyrd.nuknuk-product-gpu-bundle@1'
-        or manifest.get('profile') != 'PRODUCT_SEARCH_V7_CONTINUATION_V1'
+        or manifest.get('profile') not in ('PRODUCT_SEARCH_V7_CONTINUATION_V1','PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1')
         or manifest.get('recipe',{}).get('testUploaded') is not False
         or manifest['recipe'].get('maxTotalTokens') not in (4608, 5120)
         or manifest['parent']['trainingBase'] != {'repo':'Qwen/Qwen3.6-35B-A3B','revision':'995ad96eacd98c81ed38be0c5b274b04031597b0'}):
@@ -910,6 +910,14 @@ def verify_product_gpu_bundle(folder):
     allowed={'train.jsonl','valid.jsonl','seed/adapter_config.json','seed/adapter_model.safetensors',
         'tokenizer/tokenizer.json','tokenizer/tokenizer_config.json','tokenizer/chat_template.jinja',
         'nuknuk-gpu.py','nuknuk-runpod-watch.py','development-requests.json','native-prefixes.json','train.yaml'}
+    if manifest['profile']=='PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1':
+        allowed.add('nuknuk_beta_callback.py')
+        recipe=manifest['recipe']
+        if (manifest.get('sourceManifestSha256')!='58caa68751ff2a779eaaebee519e14db3bf022cdd912302b629856fd65c464ee'
+            or not re.fullmatch('[a-f0-9]{64}',manifest.get('admissionReceiptSha256',''))
+            or any(recipe.get(k)!=v for k,v in {'rank':16,'alpha':32,'epochs':1,'trainingRows':800,'validationRows':200,'optimizerUpdates':200,'maxTrainingSeconds':5100,'learningRate':0.000006,'seed':42}.items())
+            or manifest.get('budgetCeilingUsd')!=10):
+            raise ValueError('product_beta_recipe_invalid')
     if set(manifest['files']) != allowed:
         raise ValueError('product_gpu_payload_not_allowlisted')
     for name,binding in manifest['files'].items():
@@ -1012,31 +1020,42 @@ def product_evaluate(args):
 def product_train(args):
     import signal
     folder=args.bundle.resolve(strict=True);manifest=verify_product_gpu_bundle(folder)
-    if args.output.exists() or manifest['recipe']['maxTrainingSeconds']!=1800 or manifest['recipe']['epochs']!=2:
+    beta=manifest['profile']=='PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1'
+    seconds=5100 if beta else 1800
+    if args.output.exists() or (folder.parent/'output').exists() or manifest['recipe']['maxTrainingSeconds']!=seconds or manifest['recipe']['epochs']!=(1 if beta else 2):
         raise ValueError('product_train_recipe_or_output_invalid')
     parent_evaluation=json.loads((folder.parent/'parent-development/result.json').read_text())
     if (parent_evaluation.get('datasetHash')!=manifest['datasetHash'] or parent_evaluation.get('caseCount')!=15
         or parent_evaluation.get('adapterSha256')!=manifest['parent']['hfAdapterSha256']):
         raise ValueError('product_train_parent_evaluation_required')
     cards=subprocess.check_output(['nvidia-smi','--query-gpu=memory.total','--format=csv,noheader,nounits'],text=True,timeout=10).strip().splitlines()
-    if len(cards)!=1 or int(cards[0])<90000:raise ValueError('product_train_single_96gb_gpu_required')
-    prepare_product_native(folder);product_base(folder)
+    if len(cards)!=1 or int(cards[0])<(79000 if beta else 90000):raise ValueError('product_train_gpu_memory_required')
+    if not (folder/'native-tokenization.json').exists():prepare_product_native(folder)
+    product_base(folder)
     args.output.mkdir(mode=0o700)
     process=None
     try:
         with (args.output/'train.log').open('x') as log:
-            process=subprocess.Popen(['axolotl','train',str(folder/'train.yaml')],stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
-            status=process.wait(timeout=1800)
+            environment=os.environ.copy()
+            if beta:
+                native=json.loads((folder/'native-tokenization.json').read_text())
+                if native.get('result')!='PASS' or native.get('datasetHash')!=manifest['datasetHash'] or len(native.get('rows',[]))!=1000 or any(file_sha(folder/name)!=value for name,value in native.get('tokenizedFiles',{}).items()) or set(native.get('tokenizedFiles',{}))!={'train-tokenized.jsonl','valid-tokenized.jsonl'}:raise ValueError('product_beta_native_parity_required')
+                environment.update(PYTHONPATH=str(folder)+os.pathsep+environment.get('PYTHONPATH',''),BACKYRD_TRAINING_RECEIPTS=str(args.output.resolve()),BACKYRD_MAXIMUM_TRAIN_TOKENS=str(max(r['inputTokens']for r in native['rows']if r['split']=='TRAIN')))
+            process=subprocess.Popen(['axolotl','train',str(folder/'train.yaml')],stdout=log,stderr=subprocess.STDOUT,start_new_session=True,env=environment)
+            status=process.wait(timeout=seconds)
         if status!=0:raise ValueError('product_train_subprocess_failed')
     finally:
         if process is not None and process.poll() is None:
             os.killpg(process.pid,signal.SIGKILL);process.wait(timeout=15)
+    if beta:
+        progress=json.loads((args.output/'beta-progress.json').read_text())
+        if progress.get('step')!=200 or progress.get('status')!='COMPLETE':raise ValueError('product_beta_epoch_incomplete')
     adapter=folder.parent/'output'
     if not (adapter/'adapter_model.safetensors').is_file() or not (adapter/'adapter_config.json').is_file():
         raise ValueError('product_train_adapter_missing')
     write_json(args.output/'result.json',{'status':'TRAINED_REQUIRES_COMPARISON','datasetHash':manifest['datasetHash'],
         'parentAdapterSha256':manifest['parent']['hfAdapterSha256'],'adapterSha256':file_sha(adapter/'adapter_model.safetensors'),
-        'model':manifest['parent']['trainingBase'],'trainingRows':manifest['recipe']['trainingRows'],'epochs':2,'testCalled':False,'productionActivation':False,
+        'model':manifest['parent']['trainingBase'],'trainingRows':manifest['recipe']['trainingRows'],'epochs':manifest['recipe']['epochs'],'completedOptimizerUpdates':200 if beta else None,'testCalled':False,'productionActivation':False,
         'providerBillingStopped':False})
 
 

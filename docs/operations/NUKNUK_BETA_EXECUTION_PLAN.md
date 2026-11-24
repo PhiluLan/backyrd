@@ -140,3 +140,25 @@ admission, bind the corrected runtime commit/source hashes separately and retain
 the reviewed data/prompt hashes. Do not claim all old source hashes still match.
 The plan's pending trainer admission and account quote are explicit remaining
 engineering inputs, not a request to review 800 cases again.
+
+## Explicit Beta execution admission
+
+The Beta exporter requires a separate, source-bound receipt containing the
+review-6 manifest, actual founder training instruction, Astra preparation review
+and agreed risk-based founder sample. This does not turn preparation review into
+model-quality approval. The bundle omits TEST and TRANSFER payloads.
+
+`nuknuk-beta-run.py` owns exactly one allocation attempt and refuses an existing
+operation. It revalidates a five-minute quote, prepaid balance and idle account;
+an independent local guard is armed before creation. An own-Pod native guard and
+the canonical financial watcher must be ready before model work. The provider
+credential remains local. A100 80 GB is an admitted lower-price equivalent when
+H100 capacity is absent; the same deadline and spending ceiling apply.
+
+Training uses the existing Product trainer with an explicit Beta profile, native
+prefix/mask parity, one epoch and 200 optimizer updates. The Axolotl callback
+records actual timings and aborts a slow ten-update probe. An incomplete epoch
+cannot produce a complete candidate receipt. Parent/candidate DEV smoke is not
+full candidate acceptance. Results must be checksummed locally before deletion;
+the controller deletes only its own Pod and confirms absence even on failure.
+No live service is paused or replaced by this workflow.
