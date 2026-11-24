@@ -113,6 +113,7 @@ export default function NuknukPage() {
     </section>
     <Activity />
     <div className={styles.links}>
+      <Link className="bi-back" href="/nuknuk/lernen">Lernwerkstatt öffnen →</Link>
       <Link className="bi-back" href="/decision-diagnostics">Decision-Diagnose →</Link>
       <Link className="bi-back" href="/system">Systemstatus →</Link>
     </div>

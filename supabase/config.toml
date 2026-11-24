@@ -507,3 +507,8 @@ entrypoint = "./functions/enrich-spot-description/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/decision-admin-diagnostic/index.ts"
+
+[functions.nuknuk-learning]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/nuknuk-learning/index.ts"

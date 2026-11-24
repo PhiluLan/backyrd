@@ -52,6 +52,18 @@ def verify_export(folder, expected_manifest_hash):
     if sha(manifest_bytes) != expected_manifest_hash:
         raise ValueError("nuknuk_training_manifest_changed")
     manifest = json.loads(manifest_bytes)
+    if manifest.get('version') == 'backyrd.nuknuk-learning-dataset@1':
+        if (manifest.get('purpose') != 'REVIEWED_UNDERSTANDING_ADAPTER_DATA_ONLY'
+                or manifest.get('kind') != 'TRAIN_DEV' or manifest.get('counts', {}).get('TEST') != 0
+                or manifest.get('testUsedForTraining') is not False):
+            raise ValueError('nuknuk_workshop_training_scope_invalid')
+        # Re-use the canonical exporter/validator, not a second target parser.
+        verified = subprocess.run(['node', str(Path(__file__).with_name('nuknuk-learning-workshop.mjs')),
+                                   'verify', str(folder)], capture_output=True, text=True, timeout=120)
+        if verified.returncode:
+            raise ValueError('nuknuk_workshop_export_invalid')
+        return {name: [json.loads(line) for line in (folder / (name + '.jsonl')).read_text().splitlines() if line.strip()]
+                for name in ('train', 'valid')} | {'test': []}
     if (manifest.get("version") != "backyrd.nuknuk-understanding-dataset@1"
             or manifest.get("purpose") != "SUPERVISED_UNDERSTANDING_ADAPTER_DATA_ONLY"):
         raise ValueError("nuknuk_training_export_invalid")
@@ -112,6 +124,7 @@ def main():
     parser.add_argument("--manifest-sha256", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--model-config-sha256", help="Required for reviewed workshop data on a locally pinned Qwen model outside the historical cache paths.")
     parser.add_argument("--one-epoch", action="store_true", help="Visit every training row once; otherwise retain the 20-step technical pilot.")
     parser.add_argument("--initial-adapter", type=Path)
     parser.add_argument("--initial-adapter-sha256")
@@ -122,7 +135,13 @@ def main():
     model = args.model.resolve(strict=True)
     folder = args.data.resolve(strict=True)
     output = args.output.resolve()
-    if model.name not in REVISIONS or output.exists() or output == model or model in output.parents:
+    manifest_value = json.loads((folder / 'manifest.json').read_text())
+    workshop = manifest_value.get('version') == 'backyrd.nuknuk-learning-dataset@1'
+    pinned_workshop_model = (workshop and args.model_config_sha256 is not None
+                            and len(args.model_config_sha256) == 64
+                            and sha((model / 'config.json').read_bytes()) == args.model_config_sha256
+                            and json.loads((model / 'config.json').read_text()).get('model_type') in ('qwen3_5', 'qwen3_5_moe'))
+    if (model.name not in REVISIONS and not pinned_workshop_model) or output.exists() or output == model or model in output.parents:
         raise ValueError("nuknuk_training_path_invalid")
     os.environ.update(HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1",
                       HF_HUB_DISABLE_TELEMETRY="1", WANDB_DISABLED="true")
@@ -159,7 +178,7 @@ def main():
             raise ValueError("nuknuk_training_path_invalid")
         config["resume_adapter_file"] = initial_adapter["file"]
     report = {"status": "PREFLIGHT_PASSED", "trainingExecuted": False, "baseWeightsChangedByThisTool": False,
-              "manifestSha256": args.manifest_sha256, "preprocessing": measured,
+              "manifestSha256": args.manifest_sha256, "modelConfigSha256": args.model_config_sha256, "preprocessing": measured,
               "allTrainingRowsScheduled": args.one_epoch,
               "runtimeVersion": importlib.metadata.version("mlx-vlm"), "config": config,
               "initialAdapter": initial_adapter,

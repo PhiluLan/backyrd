@@ -54,6 +54,7 @@ function FeedbackDetailContent({ id }: { id: string }) {
   const f = detail?.feedback, context = f?.decision_context;
   return <div className="bi-page">
     <Link className="bi-back" href="/feedback">← Zum Feedback-Eingang</Link>
+    <Link className="bi-action" href={`/nuknuk/lernen?feedback=${encodeURIComponent(id)}`}>Als anonymisierten Lernfall vorbereiten →</Link>
     <header className="bi-header"><div><div className="bi-eyebrow">Produktqualität</div><h1>Rückmeldung verstehen</h1><p>Einordnen, prüfen und die nächste Verbesserung festhalten.</p></div></header>
     {error && <div className="bi-error" role="alert">{error}<div className={styles.actions}><button className="bi-button" disabled={loading || saving} onClick={() => { setLoading(true); setError(""); setDetail(null); setNotice(""); setRefresh(v => v + 1); }}>Aktuellen Stand laden · Eingaben verwerfen</button></div></div>}
     {notice && <p className={styles.success} role="status">{notice}</p>}
