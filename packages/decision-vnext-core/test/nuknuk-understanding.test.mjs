@@ -1536,3 +1536,35 @@ test('a dialogue amount replacement cannot erase known duration scope',()=>{
  assert.doesNotThrow(()=>mergeNuknukDialogueUpdate(initial,patch('ACTIVITY'),[{answer,question:null}]),'a stated new scope remains representable');
  assert.doesNotThrow(()=>mergeNuknukDialogueUpdate(initial,{changes:[{id:'duration',quote:'Die Zeitgrenze entfällt.',fact:null}]},[{answer:'Die Zeitgrenze entfällt.',question:null}]));
 });
+
+test('compact group context does not inherit the contradictory V6 capacity default',()=>{
+ const input={query:'Wir sind fünf, zwei davon brauchen stufenlosen Zugang.',reference:{now:'2026-11-25T09:00:00Z',timezone:'Europe/Zurich'}};
+ const compact=buildNuknukCompactSearchRequest(input).instructions;
+ assert(!compact.includes('Explizite vollständige Besucherzahl als people.count REQUIRED'));
+ assert(compact.includes('Eine reine Beschreibung der Besuchsgruppe ist people.count CONTEXT'));
+ assert(compact.includes('ausdrücklich verlangte Angebotskapazität'));
+ const historical=buildNuknukUnderstandingRequest({...input,instructionProfile:'SPOT_GROUNDED_V6'}).instructions;
+ assert(historical.includes('Explizite vollständige Besucherzahl als people.count REQUIRED'));
+});
+
+test('positive required group budget without basis asks instead of guessing, without rewriting meaning',()=>{
+ const reference={now:'2026-11-25T09:00:00Z',timezone:'Europe/Zurich'};
+ const raw=(count,amount,scope,modality='REQUIRED')=>({meaning:{entities:[{id:'a',kind:'ACTIVITY',label:'Schwimmen',members:[]},{id:'g',kind:'GROUP',label:'Gruppe',members:[]}],facts:[
+  {id:'swim',key:'experience.activity',value:{text:'swimming'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a']},
+  {id:'count',key:'people.count',value:{amount:count,operator:'EQ',unit:'PEOPLE'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:['g']},
+  {id:'money',key:'budget.maximum',value:{amount,operator:'LTE',currency:'CHF'},modality,basis:'EXPLICIT',subjectIds:['a']},
+  ...(scope?[{id:'scope',key:'budget.scope',value:{scope},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:['a']}]:[]),
+ ]}});
+ const first=raw(4,38,null),frozen=structuredClone(first);
+ const unknown=validateNuknukCompactSearch(first,{query:'Wir sind vier und möchten schwimmen gehen. Höchstens 38 Franken.',reference});
+ assert.equal(unknown.clarification.dimension,'BUDGET');assert.deepEqual(unknown.clarification.options,['Pro Person','Für die ganze Gruppe']);
+ assert.deepEqual(first,frozen);assert(!unknown.searchMeaning.facts.some(f=>f.key==='budget.scope'));
+ for(const [count,amount,scope,modality,query]of [
+  [4,80,'GROUP_TOTAL','REQUIRED','Wir sind vier und möchten schwimmen gehen. Zusammen höchstens 80 Franken.'],
+  [4,38,'PER_PERSON','REQUIRED','Wir sind vier und möchten schwimmen gehen. Höchstens 38 Franken pro Person.'],
+  [1,38,null,'REQUIRED','Ich möchte schwimmen gehen, höchstens 38 Franken.'],
+  [4,0,null,'REQUIRED','Wir sind vier und möchten kostenlos schwimmen gehen.'],
+  [4,38,null,'PREFERRED','Wir sind vier und möchten schwimmen gehen, möglichst höchstens 38 Franken.'],
+ ])assert.equal(validateNuknukCompactSearch(raw(count,amount,scope,modality),{query,reference}).clarification,null,query);
+ assert.throws(()=>validateNuknukCompactSearch(raw(4,38,null),{query:'Wir sind vier und möchten schwimmen gehen. Höchstens 38 Franken pro Person.',reference}),/source_budget_contradicted/);
+});

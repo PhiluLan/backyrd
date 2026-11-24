@@ -259,6 +259,9 @@ export function buildNuknukCompactSearchRequest(input: { query: string; referenc
   const sourceRefusals = sourceActivityRefusals(input.query);
   const instructions = base.instructions
     .replace('SPOT_GROUNDED_V6', 'COMPACT_SEARCH_V7')
+    // The inherited V6 capacity default contradicts the compact contract below.
+    // Keep actual capacity requirements, without turning party context into one.
+    .replace(/^PRÄZISION V6:.*$/mu, 'GRUPPENKONTEXT V7: Eine reine Beschreibung der Besuchsgruppe ist people.count CONTEXT an einer GROUP. Eine ausdrücklich verlangte Angebotskapazität oder Zahl gleichzeitig benötigter Spielerplätze bleibt people.count REQUIRED an der betroffenen Gruppe. Zuschauer benötigen keinen erfundenen Spielerplatz. Keine unbekannten Mitglieder erfinden.')
     .replace('Schema-JSON {meaning,moment}', 'Schema-JSON {meaning,clarification?,singleActivity?}')
     .replace(/^moment:.*\nQuotes.*\nFehlende Auswahlhilfe:.*\nDimension .*\n/mu, '')
     + `
@@ -1313,6 +1316,12 @@ const bookingScopeQuestion = {
   options: ['Für einen bestimmten Teil', 'Für alle Teile'],
 } as const;
 
+const groupBudgetQuestion = {
+  question: 'Gilt deine Geldgrenze pro Person oder für die ganze Gruppe?',
+  dimension: 'BUDGET',
+  options: ['Pro Person', 'Für die ganze Gruppe'],
+} as const;
+
 /** Expand the compact wire format before applying the existing search boundary. */
 export function validateNuknukCompactSearch(raw: unknown, input: { query: string; reference: LibrarianReference }) {
   return validateCompactTurn(raw, input, input.query);
@@ -1384,6 +1393,22 @@ export function validateCompactTurn(raw: unknown, input: { query: string; refere
   if (search.requestState === 'UNSUPPORTED_CAPABILITY' && !search.boundary
       && !input.query.includes(`Rückfrage: ${unsupportedQuestion.question}`)) {
     suppliedQuestion ??= unsupportedQuestion;
+  }
+  if (!suppliedQuestion && search.requestState === 'EXECUTABLE' && !answeredQuestions.length
+      && !search.searchMeaning.logic
+      && search.searchMeaning.entities.filter(entity => entity.kind === 'ACTIVITY' || entity.kind === 'OFFER').length <= 1) {
+    const money = search.searchMeaning.facts.filter(fact => fact.key === 'budget.maximum'
+      && fact.modality === 'REQUIRED' && 'amount' in fact.value && fact.value.amount > 0);
+    const groupKnown = search.searchMeaning.facts.some(fact => fact.key === 'people.count'
+      && (fact.modality === 'CONTEXT' || fact.modality === 'REQUIRED')
+      && 'amount' in fact.value && 'operator' in fact.value && fact.value.operator === 'EQ' && fact.value.amount > 1);
+    const bound = money[0];
+    const scopeKnown = bound && search.searchMeaning.facts.some(fact => fact.key === 'budget.scope'
+      && fact.modality === 'CONTEXT' && 'scope' in fact.value
+      && (fact.value.scope === 'PER_PERSON' || fact.value.scope === 'GROUP_TOTAL')
+      && (!fact.subjectIds.length || !bound.subjectIds.length || fact.subjectIds.some(id => bound.subjectIds.includes(id))));
+    // Ask about missing quantity basis; never assume it or synthesize a tariff.
+    if (money.length === 1 && groupKnown && !scopeKnown) suppliedQuestion = groupBudgetQuestion;
   }
   if (!suppliedQuestion && search.requestState === 'EXECUTABLE' && !answeredQuestions.length
       && hasOpenBirthdayDinnerDirection(input.query)
