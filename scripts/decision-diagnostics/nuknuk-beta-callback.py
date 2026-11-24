@@ -11,7 +11,9 @@ from transformers import TrainerCallback
 def estimate_remaining(step_seconds, minimum_tokens, maximum_tokens, remaining_updates):
     if len(step_seconds) != 10 or any(not math.isfinite(s) or s <= 0 for s in step_seconds) or minimum_tokens <= 0 or maximum_tokens > 5120 or remaining_updates != 190:
         raise ValueError('beta_probe_measurements_invalid')
-    return max(step_seconds)*remaining_updates*max(1,maximum_tokens/minimum_tokens)**2*1.5
+    # Update 1 includes one-time kernel/compiler initialization. It has already
+    # consumed the elapsed budget; only updates 2..10 predict recurring work.
+    return max(step_seconds[1:])*remaining_updates*max(1,maximum_tokens/minimum_tokens)**2*1.5
 
 
 class BetaCallback(TrainerCallback):
@@ -48,7 +50,9 @@ class BetaCallback(TrainerCallback):
         if state.global_step==10:
             if not self.lengths:raise ValueError('beta_probe_no_actual_batch_lengths')
             estimate=estimate_remaining(self.steps,min(self.lengths),self.maximum_tokens,190)
-            extra.update(probeMinimumTokens=min(self.lengths),estimatedRemainingSeconds=estimate)
+            extra.update(probeMinimumTokens=min(self.lengths),estimatedRemainingSeconds=estimate,
+                initializationUpdateSeconds=self.steps[0],steadyProbeMaximumSeconds=max(self.steps[1:]),
+                initializationIncludedInElapsedBudget=True,probeVersion=2)
             if estimate>min(4800,5100-(time.monotonic()-self.started)):
                 status='ABORT_SLOW_PROBE';control.should_training_stop=True;control.should_save=True
         self.record(state,status,**extra)

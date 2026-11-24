@@ -33,8 +33,8 @@ export function admitBetaQuote(quote,nowEpochSeconds){
  return {status:'WITHIN_PLANNED_ENVELOPE_NOT_RESOURCE_AUTHORIZATION',quoteHash:contentHash(quote),allInHourlyUsd:inclusive,plannedMaximumIncludingReserveUsd:upper,maximumBillingSeconds:9000,watchdog:{budgetProfile:'beta-10',hourlyUsd:Math.ceil(inclusive*100)/100,maxComputeHourlyUsd:computeCeiling,ceilingUsd:Math.min(10,Math.floor(quote.availableCreditUsd*100)/100),reserveUsd:1,priorUsd:fixed+prior},resourcesStarted:false};
 }
 export function remainingTrainingFits({stepSeconds,minimumProbeTokens,maximumRemainingTokens,remainingUpdates,remainingSeconds}){
- if(!Array.isArray(stepSeconds)||stepSeconds.length<10||stepSeconds.some(s=>typeof s!=='number'||!Number.isFinite(s)||s<=0))throw Error('beta_probe_measurement_required');
+ if(!Array.isArray(stepSeconds)||stepSeconds.length!==10||stepSeconds.some(s=>typeof s!=='number'||!Number.isFinite(s)||s<=0))throw Error('beta_probe_measurement_required');
  for(const x of [minimumProbeTokens,maximumRemainingTokens,remainingUpdates,remainingSeconds])if(typeof x!=='number'||!Number.isFinite(x)||x<=0)throw Error('beta_probe_bounds');
- const seconds=Math.max(...stepSeconds)*remainingUpdates*Math.max(1,maximumRemainingTokens/minimumProbeTokens)**2*1.5;
+ const seconds=Math.max(...stepSeconds.slice(1))*remainingUpdates*Math.max(1,maximumRemainingTokens/minimumProbeTokens)**2*1.5;
  return {status:seconds<=Math.min(4800,remainingSeconds)?'FITS_ESTIMATED_REMAINDER':'ABORT_AND_EXPORT_PARTIAL_NOT_COMPLETE',conservativeEstimatedSeconds:Math.ceil(seconds),guaranteesCompletion:false};
 }

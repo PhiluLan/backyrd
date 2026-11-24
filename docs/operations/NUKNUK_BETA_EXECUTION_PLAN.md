@@ -1,10 +1,10 @@
 # NukNuk Beta: bounded execution plan, 24 November 2026
 
-Status: **Preparation complete; no allocation/training performed.** The price
-admission arithmetic and watchdog profile are implemented and tested. Actual
-execution still needs a fresh all-inclusive Pod quote and validated admission
-of this Beta cohort into the existing trainer. The existing Beta GPU exporter
-continues to reject execution; do not bypass it with a legacy profile.
+Status: **First controlled attempt aborted at 10/200 updates; owned Pod deleted.**
+The reviewed Beta exporter and single-Pod controller are implemented. No complete
+candidate or model activation resulted. Before another allocation, require a new
+explicit attempt authorization and fresh account/quote admission including prior
+costs. The original frozen bundle and receipts remain historical evidence.
 
 ## Exact inputs and recipe
 
@@ -81,8 +81,12 @@ silently left running. Existing stop-only tooling is not a deletion receipt.
 | **Total billing lifetime** | **150** |
 
 The probe is part of the 200 updates, not an extra epoch or separate allocation.
-Use maximum observed optimizer-update time, token-length scaling and 1.5 safety
-factor. `remainingTrainingFits` requires ten measured updates and returns ABORT
+Use the maximum observed time from updates 2–10, token-length scaling and a
+1.5 safety factor. Update 1 includes one-time initialization: charge its actual
+time once in elapsed time and the absolute billing deadline, rather than
+projecting initialization for every remaining update. Retain and validate all
+ten measurements. A recurring slowdown or insufficient elapsed-time budget
+still aborts. `remainingTrainingFits` requires ten measured updates and returns ABORT
 if the conservative remainder exceeds its 80-minute/remaining-time allowance.
 An incomplete checkpoint is evidence of an aborted attempt, never a trained
 candidate or success. Do not extend the deadline or retry allocation.
@@ -106,7 +110,7 @@ and adapter/tensor completeness before planned removal. If budget protection
 requires removal before artifacts are complete, the budget wins and the attempt
 is incomplete. Never put the account-wide provider key in the training container.
 The allocation/deletion controller must be validated and armed before allocating;
-the stop watchdog alone is insufficient. No deletion controller was run here.
+the stop watchdog alone is insufficient. The controller must confirm deletion after every attempted run.
 
 ## Evaluation and activation
 
@@ -162,3 +166,22 @@ cannot produce a complete candidate receipt. Parent/candidate DEV smoke is not
 full candidate acceptance. Results must be checksummed locally before deletion;
 the controller deletes only its own Pod and confirms absence even on failure.
 No live service is paused or replaced by this workflow.
+
+## First controlled attempt and probe correction
+
+On November 24 the founder explicitly authorized Runpod transfer and one run.
+A100 80 GB at USD 2.19/hour was allocated with 200 GB temporary disk and no
+persistent volumes. All 1,000 native tokenization/mask checks passed. The parent
+completed the 15-request DEV smoke (all French; 3 semantic passes). This small
+selection is not multilingual or full Beta acceptance.
+
+The first optimizer update took 127.604 seconds; updates 2–10 took 9.746–11.853
+seconds. Probe version 1 incorrectly projected the initialization outlier across
+190 remaining updates and aborted at update 10. The incomplete checkpoint and
+36 checksummed result files were secured locally; the owned Pod was deleted and
+account inventory showed zero running spend and no network volumes. The initial
+balance difference was USD 0.8464; billing may settle later. No retry or activation
+was performed. Probe version 2 separates the one-time update from steady work
+without resetting elapsed time, provider deadline, cost guards or full-epoch
+requirements. Tests replay this exact observation and still reject recurring
+slowdown and exhausted time budgets. Version 2 has not run on a GPU.
