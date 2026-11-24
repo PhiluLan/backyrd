@@ -3331,3 +3331,53 @@ Unter **System → NukNuk** prüft die Statusansicht den konfigurierten Endpunkt
 Die Anfragestatistik umfasst abgeschlossene Backend-Versuche, die tatsächlich an den NukNuk-Verständnisdienst geroutet wurden. Sie misst die Operationen für Verständnis und Bibliothekar getrennt. Die Gesamtdauer enthält die übrige Backend-Verarbeitung. Ein Backend-Ergebnis mit provisorischen Spots erscheint als «Orte zum Abklären». Clientseitige Ausweichvorschläge sind darin nicht messbar. Die Kennzahl für Rückfragen kann sich mit Vorschlägen überschneiden.
 
 Die Erfassung beginnt mit der bereitgestellten Decision-Version und schreibt Betriebsmetadaten im Hintergrund. Der tägliche Überblick liest ein rollendes 24-Stunden-Fenster. Die Migration richtet eine stündliche Bereinigung für Einträge älter als sieben Tage ein. Suchtexte, Kontokennungen, Spot-IDs und Modellantworten gehören nicht in diese Tabelle.
+
+## 24. November 2026: eigenständiger Beta-Gesamtkatalog v2
+
+Der aktuelle Auftrag ist ein eigenständiges Vorbereitungs- und Datenpaket. Die
+Admin-Werkstatt ist dafür keine Voraussetzung. Der beauftragte Assistenzprozess
+verfasst und prüft synthetische Alltagssituationen und ihre strukturierten Ziele;
+Founder muss keine tausend Einzelannotationstätigkeiten übernehmen. Eine
+Assistenzprüfung wird nicht als unabhängige menschliche Goldbewertung ausgegeben.
+
+Die versionierten Quellen erweitern die bestehende Offline-Kuration unter
+`scripts/decision-diagnostics/nuknuk-curriculum/beta-*.mjs`. Sie verwenden den
+aktuellen kompakten Suchvertrag und die bestehende atomare Dialogaktualisierung.
+Sie importieren keinen alten Moment-, Founder- oder Shadow-Runtime und ändern
+keine Produktzulassung. Die bestehenden Syntax-, Vertrags- und Bibliothekar-
+Grenzen bleiben unverändert. Unbekannte aktuelle Öffnung, Preis, Verfügbarkeit
+und Angebotsberechtigung werden nicht in Modellgewichte hineinerfunden.
+
+```sh
+npm run decision-vnext:build
+node --test scripts/decision-diagnostics/nuknuk-curriculum/beta-catalog.test.mjs
+node scripts/decision-diagnostics/nuknuk-curriculum/beta-catalog.mjs build AUSGABE
+node scripts/decision-diagnostics/nuknuk-curriculum/beta-catalog.mjs verify AUSGABE
+```
+
+Die Ausgabe enthält vollständige Lesefassung und Fragenkatalog, Begriffs-
+zuordnungen, TRAIN/DEV-JSONL, getrennte TEST-Eingaben, lokale Soll-Ziele,
+Abdeckungsmatrix, versionierte Quell- und Dateihashes sowie einen Trainingsplan.
+Es wird keine TEST-Trainingsdatei erzeugt. Referenzzeiten sind fest, numerische
+Werte quellengebunden und verwandte Formulierungen gruppiert. Das Graph-Audit
+ignoriert Feldreihenfolge, neutrale IDs und Zahlenvarianten, erhält aber Rollen,
+Bezüge, Bedingungen, Modalitäten und Bindungen. Es ist ein konservativer
+Überlappungscheck, kein Beweis semantischer Unabhängigkeit. Ein gesonderter
+historischer Textabgleich weist bekannte frühere Eingaben aus.
+
+Der vorhandene `preflight.py` unterstützt dieses Format zusätzlich zum bisherigen
+Format. Er prüft mit dem lokalen Qwen-Tokenizer, der echten Chatvorlage und
+llguidance 1.9.1 alle Antworten einschliesslich Grammatik, Feldreihenfolge,
+Abschluss-Token, Completion-Maskierung und 5.120-Token-Grenze. Es werden keine
+Gewichte geladen, keine Netzwerkverbindungen aufgebaut und kein Modell trainiert.
+Der spätere GPU-Runner muss dieselben Tokenizer-/Template-Hashes und die tatsächliche
+SFT-Maskierung erneut gegen seine installierte Implementierung verifizieren.
+
+Der Plan begrenzt den vorgeschlagenen gesamten Cloud-Lebenszyklus auf 50 USD,
+einschliesslich Anlauf, Fehlversuchen, Pilot, Training, Prüfungen und Speicher
+bis zur bestätigten Löschung. Fünf USD bleiben als Reserve. Ein eigener Pod,
+Auto-Pay aus, kein automatischer Ersatz-Pod. Die reine Budget-Zulassungsfunktion
+muss eine konservative Prognose aus dem gemessenen Pilot verwerfen, wenn sie
+nicht in das Restbudget und die vorgesehene Laufzeit passt. Das Paket kann keine
+Ressourcen anlegen und autorisiert weder einen Trainingsstart noch eine
+Produktivaktivierung. Aus einem synthetischen Katalog folgt kein Beta-Qualitätssiegel.
