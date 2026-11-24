@@ -501,3 +501,65 @@ Restoration checks the original adapter hash, local health and the public gatewa
 expected unauthenticated 401. CPU-only tests cover cleanup, changed-agent refusal,
 stale-PID protection, incomplete-GPU refusal and independent restoration. This
 training/test authorization is not a production activation or Beta qualification.
+
+### German continuation results, 24 November 2026
+
+The one allocated A100 completed the prescribed 484 presentations, one epoch and
+121 optimizer updates. The final HF adapter is
+`2ded24e29d7189fc3ea258103d042778c02b90b55d99fe2d24fbd87116ea2b3c`;
+its exactly transposed MLX adapter is
+`542402392cd4cb06365de79ace721a3ccc5e03508286b4bcd0edbf3286e0660d`.
+All 80 finite tensors and the final checkpoint/trainer state were verified locally.
+
+A post-training SSH transport failure interrupted periodic result transfer after
+13 of the 15 child DEV responses had been secured. The controller removed its Pod
+as designed. The complete final adapter, training result and checkpoint-121 state
+were already secured; a separate recovery receipt verified their hashes, completed
+recipe and independent provider deletion before admitting the Mac comparison.
+The failed controller state was retained. No second paid attempt was started.
+The two missing GPU responses are unavailable, not semantic failures or passes.
+On the 13 paired GPU DEV responses, the strict graph oracle passed 4 for each arm;
+this is neither blind acceptance nor a complete meaning-accuracy estimate.
+
+The Mac then generated all 50 actual responses: the same 25 frozen German DEV
+requests with the same current prompt for the prior trained parent and new child.
+Both produced 25 complete responses without inference transport failures.
+Accepted handoffs regressed from 21/25 to 19/25; median local inference time changed
+from 10.192 to 9.503 seconds (nearest-rank p95 14.914 to 14.110 seconds).
+Assistant review against the predeclared source obligations found 12/25 parent
+passes and 10/25 child passes, with two unresolved review cases in each arm. These
+are observed development cases and assistant judgments, not independent human
+gold or a Beta acceptance score.
+
+Remaining defects include conflating the requester with the four-year-old,
+unbound subgroups, incorrect gift roles, lost evening/date constraints, lost
+venue-level sauna exclusion and missing travel inclusion. The child additionally
+dropped the restaurant exclusion in the child query and reduced two vegan diners
+to one. In the new pizza wording it promoted group context to a required condition;
+the synthetic Product replay consequently lost an otherwise available match.
+Budget clarification and simple per-person budgets still worked. The unchanged
+19-entry synthetic World replay gave 14 primary results for the parent and 12 for
+the child, with two clarifications each. Result count is not understanding
+accuracy; missing World evidence and unsupported matching remain separate from
+model errors. No real inventory, iPhone UI or deployed API was certified here.
+
+All 50 responses were secured before restoring the original live adapter
+`ade9ce9b2b73f56188af73e42870ba953a5f04f08dfc0ad78032a24811ad3740`.
+The first public-gateway readiness check was transiently unsuccessful; a later
+independent restoration check confirmed original local health, local/public
+unauthenticated 401 responses and stopped candidate port. The maintenance window
+lasted approximately 9.4 minutes. No candidate was publicly activated.
+
+Provider-reported new debit was USD 1.9519104544, remaining prepaid balance
+USD 11.8844907191, cumulative debit including previous attempts USD 5.7744961421.
+The owned Pod was deleted, current spend was zero, no network volume remained,
+and the nine pre-existing Pods remained stopped without volumes.
+
+Verdict: **QUALITY HOLD — DO NOT ACTIVATE**. The recipe completed, but did not
+repair the target behaviors reliably. Review role/subgroup supervision and actual
+learning on diverse target-free development requests before another paid run;
+do not solve this by weakening validators or selecting on TEST/TRANSFER.
+Detailed local receipts are in operation `nuknuk-german-training-20261124-r1`,
+especially `results-report.json`, `training-completed.json`,
+`gpu-development-comparison.json`, `billing-final.json` and
+`mac-tests/restored.json`. No merge, release or deployment was performed.
