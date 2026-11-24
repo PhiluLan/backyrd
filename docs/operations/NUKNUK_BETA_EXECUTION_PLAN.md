@@ -384,8 +384,10 @@ all 25 input/output pairs and both chain replays to their file hashes.
 
 ### German remediation after the matched candidate test
 
-Work class: PRODUCT_RELEASE (Decision semantics and delivery control). Local
-development only; no model training, live replacement, schema change or release.
+Work class: FAST_PR (Decision semantics and delivery control). The source-aware
+classifier requires decision, delivery-policy and repository-security gates;
+it reports no unknown paths or blocked reasons. Local development only; no model
+training, live replacement, schema change or release.
 
 The compact handoff now preserves an existing participant-group budget basis for
 one unambiguous visit: one activity, one budget, one explicit scope and one group
@@ -433,7 +435,7 @@ the trained weights and their remaining semantic gaps are unchanged.
 Validation passed 184 focused understanding, curriculum, evaluation and controlled
 World tests; 791 Decision-core tests; strict typecheck; 56 release-contract tests;
 119 delivery-policy tests; single-route/closure and repository/secret checks.
-The required local Mobile certification is **blocked**, not passed: the existing
+The additional local Mobile release-check attempt is **blocked**, not passed: the existing
 Mobile `image-size: 2.0.3` override resolves Metro 0.83.3's `^1.0.2` dependency to
 an incompatible API. Metro passes an image file path while that version expects
 bytes. Direct asset reproduction, clean single-worker Web export and iOS export
