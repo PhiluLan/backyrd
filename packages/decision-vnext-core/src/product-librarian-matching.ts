@@ -431,7 +431,15 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         return report("UNKNOWN", "DEFERRED_TO_SELECTED_ACTIVITY_EXCLUSION");
     const scopedKind = profile && concept && offerDuty(fact)
         && profile.offers.some(offer => concept === "zoo" && offer.kind === "VISIT" || (OFFER_CONCEPTS[offer.kind] ?? []).includes(concept));
-    const placeType = !scopedKind && !librarianFacilityConcept(fact) ? assessLibrarianPlaceType(preferenceOnly ? { ...fact, modality: "PREFERRED" } : fact, world) : null;
+    const facility = librarianFacilityConcept(fact);
+    // A canonical positive venue identity (Spa) may also name a facility.
+    // Verified, authorized DISCOVERY classification can prove the venue, but
+    // never an area/offer-scoped facility or absence of an excluded facility.
+    const venueIdentity = fact.key === "offer.kind" && fact.modality !== "EXCLUDED"
+        && !fact.subjectIds.some(id => request.entities.some(e => e.id === id && ["AREA", "OFFER"].includes(e.kind)));
+    const typeAssessment = !scopedKind && (!facility || venueIdentity)
+        ? assessLibrarianPlaceType(preferenceOnly ? { ...fact, modality: "PREFERRED" } : fact, world) : null;
+    const placeType = facility && typeAssessment?.state !== "MET" ? null : typeAssessment;
     if (placeType) return report(placeType.state, placeType.reason, placeType.hashes.length ? [{ evidenceHashes: placeType.hashes, offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: placeType.state === "UNKNOWN", chargeable: false }] : []);
     if (!profile || !profileHash) {
         const park = world.facts.find(row => row.key === "classification.place_types" && Array.isArray(row.value)

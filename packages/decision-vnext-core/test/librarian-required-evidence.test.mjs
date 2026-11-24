@@ -296,3 +296,24 @@ test('a person-bound meal excludes only their selected activity; venue bans stay
  const combined=structuredClone(mixed);combined.decisionProjection.facts.find(f=>f.key==='experience.profile').value.offers[0].properties.push(prop('experience.activity','swimming'));
  assert.equal(search(own,[combined]).ranked.length,0,'a meal that actually includes the refused activity stays ineligible');
 });
+
+test('Spa venue identity uses authorized classification without borrowing facility or absence evidence',()=>{
+ const venue=binding(8095,profile());
+ venue.decisionProjection.facts=venue.decisionProjection.facts.map(f=>f.key==='classification.place_types'?worldFact(f.key,['SPA']):f);
+ const q=request([fact('spa','offer.kind','Spa')]);
+ assert.equal(search(q,[venue]).ranked.length,1);
+ assert.equal(search(q,[venue]).ranked[0].facts.find(f=>f.factId==='spa').reason,'VERIFIED_SPOT_TYPE');
+ const hotel=binding(8096,profile([offer()],[area()],'STAY'));
+ hotel.decisionProjection.facts=hotel.decisionProjection.facts.map(f=>f.key==='classification.place_types'?worldFact(f.key,['HOTEL']):f);
+ assert.equal(search(q,[hotel]).ranked.length,0,'hotel classification is not a Spa');
+ const hotelWithSpa=structuredClone(hotel);hotelWithSpa.decisionProjection.facts.find(f=>f.key==='experience.profile').value.properties.push(prop('offer.feature','Spa'));
+ assert.equal(search(q,[hotelWithSpa]).ranked.length,1,'verified embedded Spa evidence still works when classification is HOTEL');
+ const feature=request([meal(),fact('spa','offer.facility','Spa')]);
+ assert.equal(search(feature,[venue]).ranked.length,0,'venue identity alone is not facility evidence');
+ const scoped=request([meal(),fact('spa','offer.kind','Spa','REQUIRED',['room'])],{entities:[{id:'a1',kind:'ACTIVITY',label:'visit',members:[]},{id:'room',kind:'AREA',label:'room',members:[]}]});
+ assert.equal(search(scoped,[venue]).ranked.length,0,'a requested room cannot borrow site classification');
+ const excluded=request([meal(),fact('ban','offer.kind','Spa','EXCLUDED')]);
+ assert.equal(search(excluded,[hotel]).ranked.length,0,'missing SPA classification is not proof of absence');
+ const stale=structuredClone(venue);stale.decisionProjection.facts.find(f=>f.key==='classification.place_types').freshness='STALE';
+ assert.throws(()=>search(q,[stale]),/product_world_fact_not_current_verified/,'stale classification is rejected at the canonical input boundary');
+});
