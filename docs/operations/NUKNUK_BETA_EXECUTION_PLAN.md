@@ -250,3 +250,58 @@ three attempts was USD 3.7102, subject to provider settlement. The local operati
 contains source/input admissions, the fixed candidate receipt, exact outputs,
 semantic comparisons and provider cleanup evidence. No account key or model
 artifact is committed to Git.
+
+## German follow-up: retained live model, not the GPU candidate
+
+At the founder's request, 20 natural German requests were frozen before inference,
+run against the already loaded MLX round-3 model, repeated after local software
+changes, and supplemented with five fresh wording probes (45 local calls total).
+The 200-update GPU candidate was not activated or loaded. No second model,
+maintenance window, cloud allocation, production read/write or phone test occurred.
+
+`nuknuk-german-diagnostics.mjs` binds model/adapter, prompts, questions and source
+hashes. `nuknuk-german-chain.mjs` replays actual model responses through the canonical
+Product handler and Bibliothekar using 19 synthetic test spots and neutral,
+no-consent in-memory ports. This checks the Product chain, not the deployed
+Supabase/real-inventory/network/iPhone journey. Expected meaning obligations are
+assistant-authored development evidence, not independent human gold or holdout.
+
+Confirmed local corrections:
+
+- An exact `time.clock_start EQ` without end/duration now checks arrival instead
+  of inventing a stay through midnight. Explicit end/duration requirements remain
+  intact. The 19:00 dinner reproducer now selects the open test restaurant, and an
+  explicitly requested 19:00–21:00 visit still rejects a venue closing at 20:00.
+- One positive mandatory budget for a known group without a quantity basis now
+  produces the per-person/group-total clarification. No scope or tariff is
+  synthesized; zero, one-person, preferred and explicitly scoped budgets retain
+  their prior behavior. Both original and fresh German probes show the question.
+- The compact prompt no longer inherits the contradictory V6 default that turns
+  every complete visitor count into required capacity. Actual explicitly demanded
+  capacity is preserved. **This prompt edit remains experimental and on hold**:
+  repeated German outputs still mis-scope groups, and an ID collision and lost
+  recipient role appeared. Removing a prompt contradiction is not evidence of
+  stable model improvement and does not authorize rollout.
+
+The baseline generated 20/20 responses with one handoff-validation failure; the
+repeat generated 20/20 with two such failures; fresh wording generated 5/5 with
+none. These are structural counts, not semantic accuracy. Median model-call
+latencies were approximately 8.0s, 8.5s and 9.1s respectively. Current results do
+not establish Beta readiness. The local checks passed: 791 Decision-core tests,
+105 understanding/diagnostic tests, strict typecheck, repository/secret invariants
+and the single-route boundary. No deployment, mobile release certification or
+production schema change was performed.
+
+Remaining confirmed model fields: participant and recipient roles; group/subgroup
+membership; fact/entity ID uniqueness; dropped mandatory visit-time information;
+and unsupported duplicate extensions for already represented people/ages.
+Separate backend limitations were reproduced with valid controlled plans:
+`PRICE_PURPOSE_UNSTRUCTURED` for swimming admission budgets and
+`MULTI_VISIT_SEQUENCE_NOT_SUPPORTED` for museum-then-coffee. Unknown travel time,
+weather and absent facilities remain unknown rather than being fabricated.
+These are not all problems that additional model training alone can resolve.
+
+Detailed input/output-bound assistant review is retained locally as
+`nuknuk-german-diagnostics-20261124/german-review.json`. The next candidate-quality
+step is a separately isolated German evaluation of the trained adapter; do not
+infer its German quality from this live-parent diagnostic or its French smoke.
