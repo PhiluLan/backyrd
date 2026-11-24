@@ -190,7 +190,7 @@ def run_locked(args,folder):
     if (folder/'state.json').exists():raise ValueError('single_allocation_attempt_already_used')
     quote=json.loads(args.quote.read_text());receipt=json.loads(args.quote_admission.read_text())
     manifest=json.loads((args.bundle/'product-gpu-manifest.json').read_text())
-    if manifest['profile']!='PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1' or manifest['recipe']['trainingRows']!=800:raise ValueError('approved_beta_bundle_required')
+    if manifest['profile'] not in ('PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1','PRODUCT_SEARCH_V7_BETA_REMEDIATION_V2') or manifest['recipe']['trainingRows']!=(484 if manifest['profile']=='PRODUCT_SEARCH_V7_BETA_REMEDIATION_V2' else 800):raise ValueError('approved_beta_bundle_required')
     check=subprocess.check_output(['node',str(Path(__file__).with_name('verify-nuknuk-beta-quote.mjs')),str(args.quote)],text=True)
     if json.loads(check)!=receipt:raise ValueError('quote_receipt_changed')
     billing=rest(args.key_file,'GET','/v2/billing/balance')
@@ -285,12 +285,20 @@ touch COMPLETE
             if state['exit']is not None:
                 if state['exit'].strip()!='0'or not state['complete']:raise RuntimeError('bounded_workflow_failed')
                 result=json.loads((target/'training-receipts/result.json').read_text());adapter=target/'output/adapter_model.safetensors'
-                if result.get('datasetHash')!=manifest['datasetHash'] or result.get('trainingRows')!=800 or result.get('epochs')!=1 or result.get('completedOptimizerUpdates')!=200 or digest(adapter.read_bytes())!=result['adapterSha256']:raise ValueError('candidate_not_complete_or_verified')
+                if result.get('datasetHash')!=manifest['datasetHash'] or result.get('trainingRows')!=manifest['recipe']['trainingRows'] or result.get('epochs')!=1 or result.get('completedOptimizerUpdates')!=manifest['recipe']['optimizerUpdates'] or digest(adapter.read_bytes())!=result['adapterSha256']:raise ValueError('candidate_not_complete_or_verified')
                 save(folder,'TRAINED_AND_SECURED',candidateSha256=result['adapterSha256'],results=str(target));break
             time.sleep(15)
         else:raise TimeoutError('billing_window_closing')
     except BaseException as error:
-        save(folder,'FAILED',failureType=type(error).__name__)
+        capacity_rejected=False
+        if not created and isinstance(error,urllib.error.HTTPError) and error.code in (400,409,503):
+            try:
+                body=json.loads(error.read(65536));detail=body.get('error',body)
+                message=detail.get('message','') if isinstance(detail,dict) else str(detail)
+                code=detail.get('code','') if isinstance(detail,dict) else ''
+                capacity_rejected=code in ('NO_CAPACITY','INSUFFICIENT_GPU_CAPACITY','GPU_UNAVAILABLE','INSUFFICIENT_CAPACITY') or bool(re.search(r'(?:no (?:available|suitable|matching) (?:gpu|pod|resource)|insufficient (?:gpu |pod )?capacity|no gpu.{0,40}available)',message,re.I))
+            except (ValueError,TypeError):pass
+        save(folder,'FAILED',failureType=type(error).__name__,capacityRejected=capacity_rejected)
         if ssh:
             try:sync(ssh,folder,'failure')
             except Exception:pass

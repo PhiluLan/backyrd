@@ -9,7 +9,7 @@ from transformers import TrainerCallback
 
 
 def estimate_remaining(step_seconds, minimum_tokens, maximum_tokens, remaining_updates):
-    if len(step_seconds) != 10 or any(not math.isfinite(s) or s <= 0 for s in step_seconds) or minimum_tokens <= 0 or maximum_tokens > 5120 or remaining_updates != 190:
+    if len(step_seconds) != 10 or any(not math.isfinite(s) or s <= 0 for s in step_seconds) or minimum_tokens <= 0 or maximum_tokens > 5120 or remaining_updates not in (190,111):
         raise ValueError('beta_probe_measurements_invalid')
     # Update 1 includes one-time kernel/compiler initialization. It has already
     # consumed the elapsed budget; only updates 2..10 predict recurring work.
@@ -20,6 +20,11 @@ class BetaCallback(TrainerCallback):
     def __init__(self, model):
         self.folder=Path(os.environ['BACKYRD_TRAINING_RECEIPTS'])
         self.maximum_tokens=int(os.environ['BACKYRD_MAXIMUM_TRAIN_TOKENS'])
+        self.total_updates=int(os.environ.get('BACKYRD_TOTAL_UPDATES','200'))
+        self.maximum_seconds=int(os.environ.get('BACKYRD_MAX_TRAIN_SECONDS','5100'))
+        if (self.total_updates,self.maximum_seconds) not in [(200,5100),(121,3900)]:raise ValueError('beta_recipe_environment_invalid')
+        self.total_updates=int(os.environ.get('BACKYRD_TOTAL_UPDATES','200'));self.max_seconds=int(os.environ.get('BACKYRD_MAX_TRAIN_SECONDS','5100'))
+        if (self.total_updates,self.max_seconds) not in ((200,5100),(121,3900)):raise ValueError('beta_callback_unapproved_recipe')
         self.steps=[];self.lengths=[];self.started=None;self.step_started=None
         self.model=model;self.hook=model.register_forward_pre_hook(self.observe,with_kwargs=True)
 
@@ -35,7 +40,7 @@ class BetaCallback(TrainerCallback):
         temp=self.folder/'beta-progress.tmp';temp.write_text(json.dumps(value));temp.replace(self.folder/'beta-progress.json')
 
     def on_train_begin(self,args,state,control,**kwargs):
-        if state.max_steps!=200 or args.gradient_accumulation_steps!=4 or args.per_device_train_batch_size!=1 or args.num_train_epochs!=1:
+        if state.max_steps!=self.total_updates or args.gradient_accumulation_steps!=4 or args.per_device_train_batch_size!=1 or args.num_train_epochs!=1:
             raise ValueError('beta_actual_trainer_recipe_changed')
         self.started=time.monotonic();self.record(state,'TRAINING')
 
@@ -45,15 +50,15 @@ class BetaCallback(TrainerCallback):
     def on_step_end(self,args,state,control,**kwargs):
         elapsed=time.monotonic()-self.step_started
         if len(self.steps)<10:self.steps.append(elapsed)
-        status='COMPLETE' if state.global_step==200 else 'TRAINING'
+        status='COMPLETE' if state.global_step==self.total_updates else 'TRAINING'
         extra={'optimizerStepSeconds':elapsed}
         if state.global_step==10:
             if not self.lengths:raise ValueError('beta_probe_no_actual_batch_lengths')
-            estimate=estimate_remaining(self.steps,min(self.lengths),self.maximum_tokens,190)
+            estimate=estimate_remaining(self.steps,min(self.lengths),self.maximum_tokens,self.total_updates-10)
             extra.update(probeMinimumTokens=min(self.lengths),estimatedRemainingSeconds=estimate,
                 initializationUpdateSeconds=self.steps[0],steadyProbeMaximumSeconds=max(self.steps[1:]),
                 initializationIncludedInElapsedBudget=True,probeVersion=2)
-            if estimate>min(4800,5100-(time.monotonic()-self.started)):
+            if estimate>min(self.max_seconds-300,self.max_seconds-(time.monotonic()-self.started)):
                 status='ABORT_SLOW_PROBE';control.should_training_stop=True;control.should_save=True
         self.record(state,status,**extra)
         return control
@@ -65,7 +70,7 @@ class BetaCallback(TrainerCallback):
 
     def on_train_end(self,args,state,control,**kwargs):
         self.hook.remove()
-        if state.global_step==200:self.record(state,'COMPLETE')
+        if state.global_step==self.total_updates:self.record(state,'COMPLETE')
 
 
 class BetaPlugin(BasePlugin):

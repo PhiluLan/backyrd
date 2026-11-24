@@ -15,8 +15,8 @@ import {buildNuknukDialogueUpdate,mergeNuknukDialogueUpdate} from '../../package
 import {createDecisionProductNuknukProvider} from '../../packages/decision-vnext-core/dist/product-nuknuk-provider.js';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 async function fileSha(path){const hash=createHash('sha256');for await(const part of createReadStream(path))hash.update(part);return hash.digest('hex');}
-export function validateProductTrainingRows(rows){
- const ids=new Set(),groups=new Map(),inputs=new Set();
+export function validateProductTrainingRows(rows,{allowReviewedRepetitions=false}={}){
+ const ids=new Set(),groups=new Map(),inputs=new Map();
  if(!Array.isArray(rows)||!rows.length)throw Error('product_training_empty');
  for(const row of rows){
   if(ids.has(row.id)||!['TRAIN','VALIDATION','TEST'].includes(row.split)||!row.review?.trim())throw Error('product_training_inventory_invalid');
@@ -24,7 +24,8 @@ export function validateProductTrainingRows(rows){
   if(groups.has(row.scenarioGroup)&&groups.get(row.scenarioGroup)!==row.split)throw Error('product_training_group_leakage');
   groups.set(row.scenarioGroup,row.split);
   const input=contentHash({query:row.query,previousMeaning:row.previousMeaning??null,turns:row.turns??null,reference:row.reference});
-  if(inputs.has(input))throw Error('product_training_duplicate_input');inputs.add(input);
+  const prior=inputs.get(input);
+  if(prior&&!(allowReviewedRepetitions&&row.split==='TRAIN'&&prior.split==='TRAIN'&&row.teachingCaseId&&row.teachingCaseId===prior.teachingCaseId&&prior.repetition===1&&row.repetition===2&&prior.id===row.teachingCaseId+'-repeat-1'&&row.id===row.teachingCaseId+'-repeat-2'&&contentHash(prior.expected)===contentHash(row.expected)))throw Error('product_training_duplicate_input');inputs.set(input,row);
   if(row.scenarioGroup.startsWith('known-')&&row.split!=='TRAIN')throw Error('product_training_known_case_in_evaluation');
   let validated,merged=row.expected;
   if(row.task==='DIALOGAKTUALISIERUNG_V3'){
@@ -61,8 +62,8 @@ export async function exportProductTraining(args, options={}){
  const [outArg,modelArg,mlxArg,hfArg]=args;
  if(args.length!==4)throw Error('usage: --product-search-v7 OUTPUT MODEL_DIR CURRENT_MLX_ADAPTER CURRENT_HF_ADAPTER');
  const out=resolve(outArg),model=resolve(modelArg),mlx=resolve(mlxArg),hf=resolve(hfArg);
- const beta=options.cohort==='BETA_V1';
- const rows=beta?(await import('./nuknuk-beta-training-cases.mjs')).betaTrainingCases():productTrainingCases(),inventory=validateProductTrainingRows(rows);
+ const remediation=options.cohort==='BETA_REMEDIATION_V2',beta=options.cohort==='BETA_V1'||remediation;
+ const rows=remediation?(await import('./nuknuk-beta-training-program.mjs')).betaRemediationCohort():beta?(await import('./nuknuk-beta-training-cases.mjs')).betaTrainingCases():productTrainingCases(),inventory=validateProductTrainingRows(rows,{allowReviewedRepetitions:remediation});
  const mlxConfig=JSON.parse(await readFile(resolve(mlx,'adapter_config.json'))),hfConfig=JSON.parse(await readFile(resolve(hf,'adapter_config.json')));
  if(mlxConfig.fine_tune_type!=='lora'||mlxConfig.lora_parameters.rank!==16||hfConfig.r!==16||hfConfig.lora_alpha!==32)throw Error('product_training_parent_architecture_changed');
  const modelConfig=JSON.parse(await readFile(resolve(model,'config.json')));
@@ -72,7 +73,7 @@ export async function exportProductTraining(args, options={}){
   scope:beta?['CREATE_BETA_CURRICULUM','REQUEST_INDEPENDENT_ASTRA_REVIEW']:['SYNTHETIC_TARGETED_TRAINING_PREPARATION','SEPARATE_CANDIDATE_TRAINING','BASELINE_COMPARISON'],
   independentHumanGold:false,independentAssistantReview:false,reviewedAt};
  const transferRows=beta?(await import('./nuknuk-beta-transfer-cases.mjs')).betaTransferCases():[];
- if(beta)validateProductTrainingRows([...rows.filter(r=>r.split!=='TEST'),...transferRows.map(r=>({...r,split:'TEST'}))]);
+ if(beta)validateProductTrainingRows([...rows.filter(r=>r.split!=='TEST'),...transferRows.map(r=>({...r,split:'TEST'}))],{allowReviewedRepetitions:remediation});
  const delegationHash=contentHash(commission),evaluation=[],reviewed=[],transferEvaluation=[],transferPairs=[];
  const files={train:[],valid:[],test:[]};
  for(const row of [...rows,...transferRows]){
@@ -111,7 +112,7 @@ export async function exportProductTraining(args, options={}){
  for(const [name,pairs] of Object.entries(files))payload[name+'.jsonl']=pairs.map(JSON.stringify).join('\n')+'\n';
  if(beta){
   const {betaTrainingProgram,betaSupplementalChecks}=await import('./nuknuk-beta-training-program.mjs');
-  payload['training-program.json']=JSON.stringify(betaTrainingProgram(),null,2)+'\n';
+  payload['training-program.json']=JSON.stringify(remediation?(await import('./nuknuk-beta-training-program.mjs')).betaRemediationProgram():betaTrainingProgram(),null,2)+'\n';
   const {auditBetaTransfer,betaNativeReviewPacket}=await import('./nuknuk-beta-review.mjs');
   payload['transfer-evaluation-inputs.json']=JSON.stringify({cases:transferEvaluation},null,2)+'\n';
   payload['transfer.jsonl']=transferPairs.map(JSON.stringify).join('\n')+'\n';
@@ -135,7 +136,7 @@ export async function exportProductTraining(args, options={}){
 
  }
  const manifest={version:'backyrd.nuknuk-product-training-manifest@1',purpose:'SUPERVISED_DATA_EXPORT_ONLY',instructionProfiles:['COMPACT_SEARCH_V7','DIALOGAKTUALISIERUNG_V3'],
-  ...inventory,...(beta?{cohort:'BETA_V1',readiness:'DRAFT_PENDING_ASTRA_REVIEW',modelResponsesUsedForTargets:false}:{}),datasetHash:contentHash(reviewed),splitHash:contentHash(rows.map(r=>[r.id,r.scenarioGroup,r.split])),delegationHash,sourceHashes,parent,vocabularyHash:NUKNUK_TRAINING_VOCABULARY_HASH,
+  ...inventory,...(remediation?{remediation:{version:2,parentCandidateSha256:'2b620aa7fbec48946c3e8ce25182452f0e4e366bab8e9ea20f1ebb47d02ce271',replayRows:400,uniqueCorrectionRows:42,correctionRepetitions:2,uniqueTrainRows:442,trainingRows:484,optimizerUpdates:121,learningRate:0.000002}}:{}),...(beta?{cohort:remediation?'BETA_REMEDIATION_V2':'BETA_V1',readiness:'DRAFT_PENDING_ASTRA_REVIEW',modelResponsesUsedForTargets:false}:{}),datasetHash:contentHash(reviewed),splitHash:contentHash(rows.map(r=>[r.id,r.scenarioGroup,r.split])),delegationHash,sourceHashes,parent,vocabularyHash:NUKNUK_TRAINING_VOCABULARY_HASH,
   sourceCommit:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),
   sourceWorktreeClean:execFileSync('git',['status','--porcelain'],{cwd:root,encoding:'utf8'}).trim()==='',
   files:Object.fromEntries(Object.entries(payload).map(([name,bytes])=>[name,{sha256:sha(bytes),bytes:Buffer.byteLength(bytes)}])),
@@ -159,11 +160,11 @@ export async function exportProductGpuBundle(args,options={}){
  if(args.length!==4)throw Error('usage: --product-search-v7 DATA CURRENT_HF_ADAPTER TOKENIZER OUTPUT');
  const data=resolve(dataArg),hf=resolve(hfArg),tokenizer=resolve(tokenizerArg),out=resolve(outArg);
  const manifestBytes=await readFile(resolve(data,'manifest.json')),manifest=JSON.parse(manifestBytes);
- const beta=manifest.cohort==='BETA_V1';let admission=null;
+ const remediation=manifest.cohort==='BETA_REMEDIATION_V2',beta=manifest.cohort==='BETA_V1'||remediation;let admission=null;
  if(beta){if(!options.betaAdmissionFile)throw Error('beta_gpu_export_requires_review_and_separate_training_plan');const {verifyBetaAdmission}=await import('./nuknuk-beta-admission.mjs');admission=await verifyBetaAdmission(data,JSON.parse(await readFile(options.betaAdmissionFile)),resolve(dirname(fileURLToPath(import.meta.url)),'../..'));}
  const preflight=JSON.parse(await readFile(resolve(data,'preflight.json'))),parentProof=JSON.parse(await readFile(resolve(data,'parent-verification.json')));
- if(manifest.version!=='backyrd.nuknuk-product-training-manifest@1'||manifest.vocabularyHash!==NUKNUK_TRAINING_VOCABULARY_HASH||manifest.caseCount!==(beta?1200:152)||manifest.counts.TRAIN!==(beta?800:121)||manifest.counts.VALIDATION!==(beta?200:15)
-  ||preflight.datasetManifestFileSha256!==sha(manifestBytes)||preflight.caseCount!==(beta?1200:152)||(beta&&preflight.transferCaseCount!==64)||preflight.maxTotalTokens>5120
+ if(manifest.version!=='backyrd.nuknuk-product-training-manifest@1'||manifest.vocabularyHash!==NUKNUK_TRAINING_VOCABULARY_HASH||manifest.caseCount!==(remediation?884:beta?1200:152)||manifest.counts.TRAIN!==(remediation?484:beta?800:121)||manifest.counts.VALIDATION!==(beta?200:15)
+  ||preflight.datasetManifestFileSha256!==sha(manifestBytes)||preflight.caseCount!==(remediation?884:beta?1200:152)||(beta&&preflight.transferCaseCount!==64)||preflight.maxTotalTokens>5120
   ||preflight.cases.some(r=>!r.grammarAccepted||!r.completionOnlyMaskVerified||!r.prefixTokenIdsSha256)
   ||parentProof.result!=='PASS'||parentProof.manifestSha256!==sha(manifestBytes)||!parentProof.exactTransposeEquality)throw Error('product_gpu_preflight_not_bound');
  const root=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
@@ -181,9 +182,9 @@ export async function exportProductGpuBundle(args,options={}){
  for(const name of ['nuknuk-gpu.py','nuknuk-runpod-watch.py'])payload.set(name,await readFile(resolve(root,'scripts/decision-diagnostics',name)));
  const inputs=JSON.parse(await readFile(resolve(data,'evaluation-inputs.json')));
  if(sha(await readFile(resolve(data,'evaluation-inputs.json')))!==manifest.files['evaluation-inputs.json'].sha256)throw Error('product_gpu_evaluation_changed');
- const dev=inputs.cases.filter(r=>r.split==='VALIDATION').map(({expected,...row})=>row);
- if(dev.length!==(beta?200:15))throw Error('product_gpu_development_count_changed');
- payload.set('development-requests.json',Buffer.from(JSON.stringify({cases:beta?[...new Map(dev.map(r=>[r.scenarioGroup,r])).values()].slice(0,15):dev},null,2)+'\n'));
+ const dev=inputs.cases.filter(r=>r.split==='VALIDATION'&&(!remediation||r.locale==='de')).map(({expected,...row})=>row);
+ if(dev.length!==(remediation?50:beta?200:15))throw Error('product_gpu_development_count_changed');
+ payload.set('development-requests.json',Buffer.from(JSON.stringify({cases:beta?[...new Map((remediation?dev.filter(r=>['de','de-CH'].includes(r.locale)):dev).map(r=>[r.scenarioGroup,r])).values()].slice(0,15):dev},null,2)+'\n'));
  payload.set('native-prefixes.json',Buffer.from(JSON.stringify(preflight.cases.filter(r=>r.split!=='TEST').map(r=>({id:r.id,split:r.split,prefixTokenIdsSha256:r.prefixTokenIdsSha256})),null,2)+'\n'));
  // Continuation only. No fresh adapter, rank change, test upload or live service mutation.
  let yaml=`base_model: /workspace/backyrd-product-training/base
@@ -248,11 +249,12 @@ use_wandb: false
 dataset_processes: 4
 `;
  if(beta){yaml=yaml.replace('num_epochs: 2','num_epochs: 1').replace('eval_steps: 29','eval_steps: 200').replace('save_steps: 29','save_steps: 50').replace('plugins:\n','plugins:\n  - nuknuk_beta_callback.BetaPlugin\n');payload.set('nuknuk_beta_callback.py',await readFile(resolve(root,'scripts/decision-diagnostics/nuknuk-beta-callback.py')));}
+ if(remediation)yaml=yaml.replace('learning_rate: 0.000006','learning_rate: 0.000002');
  payload.set('train.yaml',Buffer.from(yaml));
- const gpuManifest={version:'backyrd.nuknuk-product-gpu-bundle@1',profile:beta?'PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1':'PRODUCT_SEARCH_V7_CONTINUATION_V1',...(beta?{admissionReceiptSha256:admission.receiptSha256,sourceHashes:admission.sourceHashes}:{}),
+ const gpuManifest={version:'backyrd.nuknuk-product-gpu-bundle@1',profile:remediation?'PRODUCT_SEARCH_V7_BETA_REMEDIATION_V2':beta?'PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1':'PRODUCT_SEARCH_V7_CONTINUATION_V1',...(beta?{admissionReceiptSha256:admission.receiptSha256,sourceHashes:admission.sourceHashes}:{}),
   datasetHash:manifest.datasetHash,sourceManifestSha256:sha(manifestBytes),parent:manifest.parent,
   image:'axolotlai/axolotl-cloud-uv@sha256:5a989be77ecfc9ef6f4e578d0addec4e6a6fb882b64abe0b84613666c58afe61',
-  recipe:{rank:16,alpha:32,epochs:beta?1:2,learningRate:0.000006,seed:42,trainingRows:beta?800:121,validationRows:beta?200:15,optimizerUpdates:beta?200:undefined,maxTotalTokens:5120,maxTrainingSeconds:beta?5100:1800,
+  recipe:{rank:16,alpha:32,epochs:beta?1:2,learningRate:remediation?0.000002:0.000006,seed:42,trainingRows:remediation?484:beta?800:121,validationRows:beta?200:15,optimizerUpdates:remediation?121:beta?200:undefined,maxTotalTokens:5120,maxTrainingSeconds:remediation?3900:beta?5100:1800,
    initialization:'EXACT_CURRENT_ADAPTER_CONTINUATION',testUploaded:false,activationAuthorized:false},
   files:Object.fromEntries([...payload].map(([name,bytes])=>[name,{sha256:sha(bytes),bytes:bytes.length}])),
   budgetCeilingUsd:beta?10:4,hourlyUpperBoundUsd:beta?3.5:3.7,closingReserveUsd:1,resourceCreationAuthorizedByBundle:false,providerStopRequired:true};

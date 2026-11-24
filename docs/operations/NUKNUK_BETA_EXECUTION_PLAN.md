@@ -448,3 +448,56 @@ local build attempts. Full evidence and the draft bank are retained locally in
 `nuknuk-german-remediation-20261124`. Provider cost is USD 0; the candidate remains
 on quality hold pending model learning, development evaluation and the unconsumed
 acceptance checks.
+
+### Authorized German continuation, 24 November 2026
+
+The founder explicitly authorized training, repeated capacity search until a
+suitable Pod is available, and an isolated Mac maintenance window followed by
+restoration without repeated permission questions. The cumulative existing USD
+10 ceiling is retained, including USD 3.8225856877 from earlier attempts. Capacity
+search never permits parallel Pods, a price-limit increase, or an automatic retry
+of a started training job. Only a positively identified capacity rejection with
+no allocated Pod can be searched again; an ambiguous creation is reconciled and
+cleaned up rather than blindly retried.
+
+Independent Astra review 2 accepted all 42 non-quarantined correction targets.
+Four new targets were corrected from an unjustifiably specific `dinner` to `meal`,
+preserving the required visit date/EVENING and the separate appointment context.
+The new catalog is bound to manifest
+`dc08575da70135f7af23d3e06193a730ba5004943f8f6d0253b8d2d6bf1d2e73` and the
+review receipt to
+`cebdd13692dffe49f0cb80982cb97d25d144c51b4852d233194372c0cd2b60a8`.
+The old source/target cohort is unchanged; its provider prompts reflect current
+runtime instructions, so old inference outputs are not a controlled baseline.
+
+The explicitly versioned `BETA_REMEDIATION_V2` continues the prior frozen
+200-update candidate, not the live parent: 400 original German/Swiss TRAIN rows
+once plus each of 42 correction rows twice. These are 484 presentations of 442
+unique examples, not 484 independent situations. One epoch, 121 optimizer updates,
+learning rate 2e-6, rank 16/alpha 32, accumulation 4 and seed 42 are fixed. Duplicate
+inputs remain rejected by default; the explicit repetition policy permits only
+the two matching, TRAIN-only presentations of a reviewed correction. The 200 DEV
+and 200 TEST rows retain their original IDs, sources, targets and splits. The six
+quarantined corrections remain excluded; TEST/TRANSFER are not uploaded or used
+for checkpoint selection.
+
+Local tokenizer/template/grammar/completion-mask preflight passed all 884 catalog
+rows; maximum total length is 5,096 of 5,120 tokens. The HF/MLX continuation parent
+passed exact orientation/configuration verification for all 80 adapter tensors.
+The immutable GPU bundle uses the existing bounded trainer and dual watchdogs,
+with the new exact 484/121 recipe and unchanged cumulative budget controls. The
+local controller and callback exercise both the old 200-update recipe and new
+121-update completion and cleanup. The GPU compares 15 target-free German DEV
+requests before/after training; this is development evidence, not Beta acceptance.
+
+`nuknuk-mac-comparison.py` owns the subsequent isolated comparison. It admits only
+a locally secured candidate whose owned GPU has been removed. It pauses only
+the original Backyrd LaunchAgent, serves the prior trained parent and child
+serially on loopback 8089 through the canonical unchanged memory guard, and runs
+the same 25 frozen German requests for each with the current prompt. An independent
+EOF/deadline watcher restores the original live adapter/gateway even on failure;
+the maximum window is 1,200 seconds. No test candidate gets a public gateway.
+Restoration checks the original adapter hash, local health and the public gateway's
+expected unauthenticated 401. CPU-only tests cover cleanup, changed-agent refusal,
+stale-PID protection, incomplete-GPU refusal and independent restoration. This
+training/test authorization is not a production activation or Beta qualification.

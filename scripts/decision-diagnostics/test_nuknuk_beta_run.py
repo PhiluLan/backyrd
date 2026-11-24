@@ -24,14 +24,18 @@ class Tests(unittest.TestCase):
     cleanup.assert_called_once_with(op,args.key_file)
    state=json.loads((op/'state.json').read_text());self.assertEqual(state['phase'],'REMOVED');self.assertEqual(state['failureType'],'URLError')
  def test_success_arms_financial_watch_only_after_native_guard_then_verifies_and_deletes(self):
+  self.successful_profile('PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1',800,200)
+ def test_remediation_success_verifies_121_updates_and_removes_the_owned_pod(self):
+  self.successful_profile('PRODUCT_SEARCH_V7_BETA_REMEDIATION_V2',484,121)
+ def successful_profile(self,profile,train_rows,updates):
   with tempfile.TemporaryDirectory() as tmp:
    root=Path(tmp);bundle=root/'bundle';bundle.mkdir();op=root/'op';op.mkdir();(op/'guard.ready').write_text('123')
-   manifest={'profile':'PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1','recipe':{'trainingRows':800},'image':'pinned-image','parent':{'hfAdapterSha256':'a'*64},'datasetHash':'dataset'}
+   manifest={'profile':profile,'recipe':{'trainingRows':train_rows,'optimizerUpdates':updates},'image':'pinned-image','parent':{'hfAdapterSha256':'a'*64},'datasetHash':'dataset'}
    (bundle/'product-gpu-manifest.json').write_text(json.dumps(manifest))
    quote=root/'quote.json';quote.write_text(json.dumps({'gpu':'NVIDIA A100-SXM4-80GB'}));receipt={'maximumBillingSeconds':7200,'plannedMaximumIncludingReserveUsd':6.62,'watchdog':{'maxComputeHourlyUsd':2.22,'priorUsd':0,'hourlyUsd':2.25,'ceilingUsd':7.65}};rp=root/'receipt.json';rp.write_text(json.dumps(receipt));pub=root/'pub';pub.write_text('ssh-ed25519 SYNTHETIC')
    args=SimpleNamespace(operation=op,bundle=bundle,quote=quote,quote_admission=rp,key_file=root/'key',public_key=pub,private_key=root/'private')
    result=root/'result';(result/'output').mkdir(parents=True);(result/'training-receipts').mkdir();(result/'output/adapter_model.safetensors').write_bytes(b'candidate')
-   (result/'training-receipts/result.json').write_text(json.dumps({'datasetHash':'dataset','trainingRows':800,'epochs':1,'completedOptimizerUpdates':200,'adapterSha256':m.digest(b'candidate')}))
+   (result/'training-receipts/result.json').write_text(json.dumps({'datasetHash':'dataset','trainingRows':train_rows,'epochs':1,'completedOptimizerUpdates':updates,'adapterSha256':m.digest(b'candidate')}))
    events=[];pid='syntheticpod123'
    def rest(key,method,path,payload=None):
     if method=='GET':return {'billingMode':'PREPAID','balanceAmount':7.65}

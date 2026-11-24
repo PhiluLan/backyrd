@@ -31,6 +31,16 @@ class Tests(unittest.TestCase):
       cb.on_step_begin(args,state,control);cb.lengths.append(4352);clock[0]+=127.604 if index==0 else 10;state.global_step=index+1;cb.on_step_end(args,state,control)
      receipt=module.json.loads((Path(tmp)/'beta-progress.json').read_text());self.assertEqual(receipt['status'],expected);self.assertTrue(receipt['initializationIncludedInElapsedBudget']);self.assertEqual(receipt['probeVersion'],2)
      self.assertEqual(control.should_training_stop,expected=='ABORT_SLOW_PROBE');self.assertGreater(receipt['elapsedSeconds'],spent+200)
+ def test_remediation_has_exactly_121_updates_and_cannot_increase_the_epoch(self):
+  with tempfile.TemporaryDirectory()as tmp,patch.dict(module.os.environ,{'BACKYRD_TRAINING_RECEIPTS':tmp,'BACKYRD_MAXIMUM_TRAIN_TOKENS':'5096','BACKYRD_TOTAL_UPDATES':'121','BACKYRD_MAX_TRAIN_SECONDS':'3900'}):
+   model=Mock();cb=module.BetaCallback(model)
+   args=SimpleNamespace(gradient_accumulation_steps=4,per_device_train_batch_size=1,num_train_epochs=1)
+   state=SimpleNamespace(max_steps=121,global_step=0);control=SimpleNamespace(should_training_stop=False,should_save=False)
+   cb.on_train_begin(args,state,control);state.global_step=121;cb.on_train_end(args,state,control)
+   self.assertEqual(module.json.loads((Path(tmp)/'beta-progress.json').read_text())['status'],'COMPLETE')
+   state.max_steps=200
+   with self.assertRaises(ValueError):cb.on_train_begin(args,state,control)
+   self.assertGreater(module.estimate_remaining([10]*10,4300,5096,111),0)
  def test_invalid_or_missing_actual_measurements_are_rejected(self):
   for steps,tokens in [([],4000),([float('nan')]*10,4000),([5]*10,0)]:
    with self.assertRaises(ValueError):module.estimate_remaining(steps,tokens,5000,190)

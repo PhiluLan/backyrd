@@ -87,3 +87,15 @@ test('teaching target review catches missing roles, subgroup links, budget bindi
  const row=betaRemediationCases()[0],protectedRow={...row,id:'protected',split:'TEST'};
  const audit=auditBetaRemediationTargets([row],[protectedRow]);assert.equal(audit.quarantinedRows,1);assert.equal(audit.rows[0].exportStatus,'QUARANTINED_HELDOUT_PATTERN');
 });
+
+test('remediation repeats are explicit and cannot authorize duplicate validation or conflicting targets',async()=>{
+ const {betaRemediationCohort}=await import('./nuknuk-beta-training-program.mjs');
+ const rows=betaRemediationCohort(),heldout=betaTrainingCases().filter(r=>r.split!=='TRAIN');
+ assert.equal(rows.filter(r=>r.split==='TRAIN').length,484);assert.deepEqual(rows.filter(r=>r.split!=='TRAIN'),heldout);
+ assert.throws(()=>validateProductTrainingRows(rows),/duplicate_input/);
+ assert.equal(validateProductTrainingRows(rows,{allowReviewedRepetitions:true}).counts.TRAIN,484);
+ const bad=structuredClone(rows);const repeated=bad.find(r=>r.repetition===2);repeated.expected.meaning.facts[0].modality='PREFERRED';
+ assert.throws(()=>validateProductTrainingRows(bad,{allowReviewedRepetitions:true}),/duplicate_input/);
+ const leak=structuredClone(rows);leak.find(r=>r.repetition===2).split='VALIDATION';
+ assert.throws(()=>validateProductTrainingRows(leak,{allowReviewedRepetitions:true}),/group_leakage|duplicate_input/);
+});

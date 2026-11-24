@@ -45,7 +45,7 @@ if product_profile:
     assert max_total_tokens in (4608, 5120)
     assert manifest.get("trainingLimits") == {"maxTotalTokens": max_total_tokens, "maxAnswerTokens": 2048}
 transfer_requests = []
-if manifest.get("cohort") == "BETA_V1" and "transfer-evaluation-inputs.json" in manifest["files"]:
+if manifest.get("cohort") in ("BETA_V1","BETA_REMEDIATION_V2") and "transfer-evaluation-inputs.json" in manifest["files"]:
     for name in ["transfer-evaluation-inputs.json", "transfer.jsonl"]:
         assert sha(folder / name) == manifest["files"][name]["sha256"], (name, "transfer_input_changed")
     transfer_requests = json.loads((folder / "transfer-evaluation-inputs.json").read_text())["cases"]

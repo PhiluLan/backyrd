@@ -1,5 +1,5 @@
 // Review and execution specification. Merely creating it cannot train or deploy.
-import {betaTrainingCases,betaRemediationCases} from './nuknuk-beta-training-cases.mjs';
+import {betaTrainingCases,betaRemediationCases,semanticPattern} from './nuknuk-beta-training-cases.mjs';
 import {betaConversationOracles,betaBoundaryOracle} from './nuknuk-beta-evaluation.mjs';
 import {betaTransferCases} from './nuknuk-beta-transfer-cases.mjs';
 import {contentHash} from '../../packages/decision-vnext-core/dist/canonical.js';
@@ -71,4 +71,14 @@ export function betaTrainingProgram(){
 export function betaRemediationProgram(){
  const rows=betaRemediationCases(),audit=auditBetaRemediationTargets(rows,betaTrainingCases(),betaTransferCases());
  return {version:'backyrd.beta-remediation-program@2',status:'DRAFT_NOT_TRAINING_OR_ACTIVATION_APPROVAL',languages:['de','de-CH'],rows:rows.length,families:new Set(rows.map(r=>r.familyId)).size,themes:Object.fromEntries([...new Set(rows.map(r=>r.theme))].map(t=>[t,rows.filter(r=>r.theme===t).length])),targetAudit:audit,quarantinedRows:audit.quarantinedRows,reviewableRows:rows.length-audit.quarantinedRows,frozenCohortChanged:false,diagnostic25AreDevelopment:true,acceptanceHoldoutsUnconsumed:true,paidResourcesStarted:false,trainingAuthorized:false,activationAuthorized:false,admission:['Keep structurally colliding rows quarantined; never train across preserved TEST/TRANSFER groups.','Review non-quarantined German/Swiss wording and targets; audit lexical and semantic near-overlap beyond graph hashes.','Bind any later export to reviewed target hashes, current prompt, parent adapter and explicit cost plan.','Recheck development semantics, dialogue, routing and safety before untouched acceptance evaluation.'],limitations:['Assistant-authored corrections are not independent human gold.','These rows do not automatically enter the 800-row training export.','A valid target or rejection of an old bad output is not evidence that trained weights improved.']};
+}
+
+export function betaRemediationCohort(){
+ const original=betaTrainingCases(),draft=betaRemediationCases(),audit=betaRemediationProgram().targetAudit;
+ const usable=new Set(audit.rows.filter(r=>!r.issues.length&&!r.protectedPatternCollisions.length).map(r=>r.id));
+ const replay=original.filter(r=>r.split==='TRAIN'&&['de','de-CH'].includes(r.locale));
+ const corrections=draft.filter(r=>usable.has(r.id));
+ if(replay.length!==400||corrections.length!==42)throw Error('remediation_fixed_inventory_changed');
+ const taught=corrections.flatMap(r=>[1,2].map(repetition=>({...structuredClone(r),id:r.id+'-repeat-'+repetition,teachingCaseId:r.id,repetition,review:'German remediation: preserve roles, membership, budget subject, exclusion qualifier and mandatory visit context; no invented spot facts.',scenarioGroup:'beta1-semantic-'+semanticPattern(r).slice(0,24),split:'TRAIN'})));
+ return [...structuredClone(replay),...taught,...structuredClone(original.filter(r=>r.split!=='TRAIN'))];
 }
