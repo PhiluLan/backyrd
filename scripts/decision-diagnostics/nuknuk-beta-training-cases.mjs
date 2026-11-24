@@ -389,3 +389,38 @@ export function betaTrainingCases(){
  if(rows.length!==1200||rows.filter(r=>r.split==='TRAIN').length!==800||rows.filter(r=>r.split==='VALIDATION').length!==200||rows.filter(r=>r.split==='TEST').length!==200)throw Error('beta_split_inventory');
  return rows;
 }
+
+/** Development-only correction bank. Does not alter the frozen 800/200/200
+ * cohort or promote observed diagnostics into an independent acceptance set. */
+export function betaRemediationCases() {
+ const specs=[];
+ const add=(theme,id,de,ch,facts,extra={})=>specs.push({theme,id,queries:{de,'de-CH':ch},expected:{meaning:meaning(facts,extra)}});
+ const self=C('people.role','self',['self']);
+ const kin=(name,years)=>[C('people.relationship',name,['p1']),...(years===undefined?[]:[C('people.age',{amount:years,operator:'EQ',unit:'YEARS'},['p1'])]),self];
+ const people=[E('a1'),E('p1','PERSON'),E('self','PERSON')];
+ add('roles','father','Ich möchte mit meinem Vater ins Museum.','Ich möcht mit mim Vater is Museum.',[R('offer.kind','MUSEUM'),...kin('father')],{entities:people});
+ add('roles','young-daughter','Ich möchte mit meiner 9-jährigen Tochter drinnen etwas unternehmen.','Ich möcht mit minere 9-jährige Tochter dinne öppis undernäh.',[R('experience.activity','offene Entdeckung'),R('offer.area','indoor'),...kin('daughter',9),C('people.relationship','adult_accompanied',['p1'],'INFERRED'),{...R('condition.children','children_activity'),basis:'INFERRED'}],{entities:people});
+ add('roles','adult-son','Ich möchte mit meinem 24-jährigen Sohn eine Ausstellung besuchen.','Ich möcht mit mim 24-jährige Sohn e Usstellig bsueche.',[R('experience.activity','exhibition'),...kin('son',24)],{entities:people});
+ add('roles','gift','Ein Keramikkurs als Geschenk für meinen Bruder.','En Töpferkurs als Gschenk für min Brüeder.',[R('experience.activity','ceramics_course'),C('people.relationship','brother',['p1']),C('people.role','recipient',['p1']),C('experience.occasion','Geschenk')],{entities:[E('a1'),E('p1','PERSON')]});
+ for(const [id,total,n,key,value,de,ch]of [
+  ['vegan',8,3,'food.diet','vegan','vegane Gerichte','vegani Gricht'],
+  ['lactose',5,2,'food.diet','lactose_free','laktosefreie Gerichte','laktosefreii Gricht'],
+  ['access',6,2,'participation.accessibility','step_free','stufenlosen Zugang','stufelose Zuegang'],
+  ['vegetarian',7,4,'food.diet','vegetarian','vegetarische Gerichte','vegetarischi Gricht'],
+ ])add('subgroups',id,`Wir sind ${total}. ${n} von uns brauchen ${de}. Wir möchten ${id==='access'?'eine Ausstellung besuchen':'essen gehen'}.`,`Mir sind ${total}. ${n} vo üs bruuched ${ch}. Mir möchted ${id==='access'?'e Usstellig bsueche':'öppis ässe'}.`,[R(id==='access'?'experience.activity':'food.meal',id==='access'?'exhibition':'meal'),C('people.count',count(total),['all']),C('people.count',count(n),['some']),R(key,value,['some'])],{entities:[E('a1'),E('all','GROUP',['some']),E('some','GROUP')]});
+ for(const [id,de,ch,scope]of [
+  ['before','Pro Person höchstens 28 Franken.','Pro Person höchstens 28 Franke.','PER_PERSON'],
+  ['after','Höchstens 28 Franken pro Person.','Höchstens 28 Franke pro Person.','PER_PERSON'],
+  ['total-before','Zusammen möchten wir höchstens 96 Franken ausgeben.','Zäme möchted mir höchstens 96 Franke usgäh.','GROUP_TOTAL'],
+  ['total-after','Höchstens 96 Franken für uns alle zusammen.','Höchstens 96 Franke für üs alli zäme.','GROUP_TOTAL'],
+ ])add('budget-bindings',id,`Wir sind drei und möchten essen gehen. ${de}`,`Mir sind drü und möchted öppis ässe. ${ch}`,[R('food.meal','meal'),C('people.count',count(3),['g1']),R('budget.maximum',money(scope==='PER_PERSON'?28:96)),C('budget.scope',{scope})],{entities:[E('a1'),E('g1','GROUP')]});
+ for(const [id,activity,de,ch]of [['sauna','sauna','Sauna','Sauna'],['bowling','bowling','Bowling','Bowling']])for(const venue of [false,true]){
+  add('exclusions',id+(venue?'-venue':'-self'),venue?`Ich möchte essen gehen. Ein Ort mit ${de} kommt für mich nicht infrage.`:`Ich möchte essen gehen. ${de} möchte ich dabei nicht machen.`,venue?`Ich möcht öppis ässe. En Ort mit ${ch} chunnt für mich nöd infrag.`:`Ich möcht öppis ässe. ${ch} möcht ich debii nöd mache.`,[R('food.meal','meal',venue?['a1']:['a1','self']),...(venue?[]:[self]),{...R(venue?'offer.kind':'experience.activity',activity,venue?['a1']:['self']),modality:'EXCLUDED'}],{entities:[E('a1'),...(venue?[]:[E('self','PERSON')])]});
+ }
+ add('visit-time','tonight','Heute Abend möchte ich vegetarisch essen gehen.','Hüt Abig möcht ich vegetarisch ässe go.',[R('food.meal','dinner'),R('food.diet','vegetarian'),R('time.date',date('2027-02-03')),R('time.day_phase',phase('EVENING'))]);
+ add('visit-time','tomorrow','Morgen Vormittag möchte ich ins Museum.','Morn am Vormittag möcht ich is Museum.',[R('offer.kind','MUSEUM'),R('time.date',date('2027-02-04')),R('time.day_phase',phase('MORNING'))]);
+ add('visit-time','other-appointment','Heute Abend möchte ich essen gehen. Morgen Vormittag habe ich einen anderen Termin.','Hüt Abig möcht ich ässe go. Morn am Vormittag han ich en andere Termin.',[R('food.meal','dinner'),R('time.date',date('2027-02-03')),R('time.day_phase',phase('EVENING')),C('time.date',date('2027-02-04'),['other']),C('time.day_phase',phase('MORNING'),['other'])],{entities:[E('a1'),E('other')]});
+ add('visit-time','fixed-clock','Am 6. Februar 2027 um 18:45 Uhr möchte ich essen gehen.','Am 6. Februar 2027 am 18:45 möcht ich ässe go.',[R('food.meal','meal'),R('time.date',date('2027-02-06')),R('time.clock_start',clock('18:45'))]);
+ for(const n of [3,5])for(const capacity of [false,true])add('party-capacity',`${n}-${capacity?'capacity':'context'}`,capacity?`Ich suche einen Keramikkurs mit mindestens ${n} gleichzeitigen Teilnehmerplätzen.`:`Wir sind ${n} und möchten einen Keramikkurs besuchen.`,capacity?`Ich suech en Töpferkurs mit mindestens ${n} gliichziitige Teilnähmerplätz.`:`Mir sind ${n} und möchted en Töpferkurs bsueche.`,[R('experience.activity','ceramics_course'),{...(capacity?R:C)('people.count',capacity?{amount:n,operator:'GTE',unit:'PEOPLE'}:count(n),['g1'])}],{entities:[E('a1'),E('g1','GROUP')]});
+ return specs.flatMap(spec=>['de','de-CH'].map(locale=>({id:`beta-remediation-v2-${spec.theme}-${spec.id}-${locale}`,familyId:`beta-remediation-v2-${spec.theme}-${spec.id}`,theme:spec.theme,locale,split:'DEVELOPMENT',task:'COMPACT_SEARCH_V7',query:spec.queries[locale],reference:REF,expected:structuredClone(spec.expected),reviewStatus:'DRAFT_PENDING_REVIEW',critical:true,provenance:{kind:'AUTHORED_SYNTHETIC_DEVELOPMENT_REMEDIATION',independentHumanGold:false},trainingAuthorized:false})));
+}

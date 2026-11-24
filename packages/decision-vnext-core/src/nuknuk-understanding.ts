@@ -311,6 +311,13 @@ Eine einzelne Person bleibt PERSON, mehrere Personen GROUP. adult_accompanied nu
 gemeinsamer Teilnahme mit Kindern, nicht allein wegen einer erwachsenen Begleitperson ergänzen.
 Begleitung verlangt keine Anbieterleistung unter people.participation. Geschenkempfänger zusätzlich
 als people.role recipient CONTEXT und Geschenk als experience.occasion CONTEXT erhalten.
+Bei «ich mit meinem/meiner ...» gibt es eine eigene PERSON mit people.role self und
+eine getrennte PERSON für die Begleitung. Die Begleitperson darf nicht zugleich self sein.
+Eine Altersangabe gehört nur zur bezeichneten Person, nie zur anfragenden Person.
+Besuchstag und Besuchstageszeit sind REQUIRED; ein anderer Termin ist nur CONTEXT.
+Bei Ausschlüssen den entscheidenden Zusatz erhalten: «Bad mit Sauna ausgeschlossen»
+schliesst Sauna am Ort aus, nicht alle Bäder. «Sauna nicht machen» bleibt eine eigene
+ausgeschlossene Tätigkeit und darf nicht verschwinden, auch wenn Schwimmen Hauptzweck ist.
 ZEITUMFANG: Verfügbare Minuten sind time.duration LTE AVAILABLE_TOTAL, keine berechnete Enduhrzeit.
 includes nur für ausdrücklich genannte Bestandteile setzen; ein Zug als Zeitbezug belegt keine Anreise.
 GELDUMFANG: Zusammen/insgesamt fürs Vorhaben ist budget.scope GROUP_TOTAL, pro Person PER_PERSON;
@@ -383,12 +390,13 @@ function sourceMoneyBound(text: string) {
   const code = groups.prefix ?? groups.suffix!;
   const expectedCurrency = /^(?:CHF|Franken)$/iu.test(code) ? 'CHF' : /^(?:EUR|Euro)$/iu.test(code) ? 'EUR' : 'USD';
   const perPerson = /^\s*(?:pro (?:Person|Kopf|Gast)|je Person|per person|par personne)\b/iu.exec(after);
+  const perPersonBefore = /\b(?:pro (?:Person|Kopf|Gast)|je Person|per person|par personne)\s*$/iu.test(prefix);
   // Adjacent explicit scope only. "Insgesamt 35 Minuten ... unter CHF 30"
   // must not become a group budget merely because it contains "insgesamt".
-  const groupBefore = /\b(?:zusammen|insgesamt|in total|au total)\s*$/iu.test(prefix);
+  const groupBefore = /\b(?:zusammen|insgesamt|in total|au total)(?:\s+(?:möchten|wollen|dürfen|sollen)\s+(?:wir|ich))?\s*$/iu.test(prefix);
   const groupAfter = /^\s*(?:zusammen|insgesamt|in total|au total|für (?:uns (?:beide|alle)|alle))\b/iu.exec(after);
-  if (perPerson && groupBefore) return null; // Conflicting source scope needs interpretation.
-  const scope = perPerson ? 'PER_PERSON' : groupBefore || groupAfter ? 'GROUP_TOTAL' : null;
+  if ((perPerson || perPersonBefore) && (groupBefore || groupAfter)) return null; // Conflicting source scope needs interpretation.
+  const scope = perPerson || perPersonBefore ? 'PER_PERSON' : groupBefore || groupAfter ? 'GROUP_TOTAL' : null;
   return {quote:source[0]+(perPerson?.[0]??''),amount:Number(groups.amount!.replace(',', '.')),currency:expectedCurrency,operator,
     modality:preferred ? 'PREFERRED' as const : 'REQUIRED' as const,
     scopeFact:scope ? {key:'budget.scope',modality:'CONTEXT',value:{scope}} : undefined};
@@ -428,6 +436,108 @@ function assertSourceActivityRefusals(text: string, meaning: LunaMeaningOutput):
   for (const refusal of sourceActivityRefusals(text)) {
     const facts = meaning.facts.filter(f => 'text' in f.value && librarianConcept(f.value.text) === refusal.concept && f.modality === 'EXCLUDED');
     if (!facts.length || facts.some(f => f.key !== 'experience.activity')) throw Error('nuknuk_source_activity_exclusion_misscoped');
+  }
+  // Fronted personal refusal: «Sauna möchte ich dabei nicht machen». Only a
+  // canonical activity in a standalone, unconditional clause is admitted.
+  if (/\b(?:wenn|falls|oder|statt|früher|damals|bisher)\b/iu.test(text)) return;
+  for (const match of text.matchAll(/(?:^|[.!?;])\s*([\p{L} -]+?)\s+(?:möchte|will)\s+ich\s+(?:dabei\s+)?nicht\s+(?:machen|spielen|besuchen)\s*(?=[.!?;]|$)/giu)) {
+    const concept = librarianConcept(match[1]!.trim());
+    if (!concept || !OFFER_CATALOG.some(offer => offer.concept === concept && !hasOfferModule(offer.kind,'food'))) continue;
+    if (!meaning.facts.some(f => f.key === 'experience.activity' && f.modality === 'EXCLUDED'
+        && 'text' in f.value && librarianConcept(f.value.text) === concept)) throw Error('nuknuk_source_activity_exclusion_misscoped');
+  }
+}
+
+/** One shared visit has one spending basis. A participant-group annotation can
+ * be attached to that sole activity without guessing its value. Never cross
+ * activities, conditional branches, multiple budgets or unrelated groups. */
+function normalizeSingleVisitBudgetScope(meaning: LunaMeaningOutput): LunaMeaningOutput {
+  if (meaning.logic || meaning.bindings.length || meaning.extensions.length) return meaning;
+  const activities = meaning.entities.filter(e => e.kind === 'ACTIVITY');
+  const budgets = meaning.facts.filter(f => ['budget.maximum','budget.amount','budget.target'].includes(f.key));
+  const scopes = meaning.facts.filter(f => f.key === 'budget.scope');
+  if (activities.length !== 1 || budgets.length !== 1 || scopes.length !== 1) return meaning;
+  const budget = budgets[0]!, scope = scopes[0]!, activity = activities[0]!;
+  if (budget.subjectIds.length !== 1 || budget.subjectIds[0] !== activity.id
+      || scope.modality !== 'CONTEXT' || !('scope' in scope.value)
+      || !['PER_PERSON','GROUP_TOTAL'].includes(scope.value.scope) || scope.subjectIds.length !== 1) return meaning;
+  const group = meaning.entities.find(e => e.id === scope.subjectIds[0] && e.kind === 'GROUP');
+  if (!group || meaning.entities.filter(e => e.kind === 'GROUP').length !== 1
+      || !meaning.facts.some(f => f.key === 'people.count' && f.modality === 'CONTEXT'
+        && f.subjectIds.length === 1 && f.subjectIds[0] === group.id)) return meaning;
+  return {...meaning,facts:meaning.facts.map(f => f.id === scope.id ? {...f,subjectIds:[activity.id]} : f)};
+}
+
+function assertCompactSemanticIntegrity(text: string, meaning: LunaMeaningOutput): void {
+  if (meaning.facts.some(f => f.key === 'people.relationship' && 'text' in f.value
+      && /^(?:self|recipient)$/iu.test(f.value.text))) throw Error('nuknuk_person_role_wrong_family');
+  const explicitCompanion = !/["„“«»]|\b(?:wenn|falls|früher|damals)\b/iu.test(text)
+    && /\bmit\s+(?:meiner|meinem|meinen|unserer|unserem|unseren)\s+(?:[\p{L}\d-]+jährige[nmrs]?\s+)?(?:Tochter|Sohn|Vater|Mutter|Bruder|Schwester)\b/iu.test(text);
+  for (const person of meaning.entities.filter(e => e.kind === 'PERSON')) {
+    const facts = meaning.facts.filter(f => f.subjectIds.includes(person.id));
+    if (facts.some(f => f.key === 'people.count' && 'amount' in f.value && f.value.amount > 1)) {
+      throw Error('nuknuk_person_count_requires_group');
+    }
+    const self = facts.some(f => f.key === 'people.role' && 'text' in f.value && f.value.text === 'self');
+    if (explicitCompanion && self && facts.some(f => f.key === 'people.relationship' && 'text' in f.value
+        && /^(?:daughter|son|father|mother|brother|sister|tochter|sohn|vater|mutter|bruder|schwester)$/iu.test(f.value.text))) {
+      throw Error('nuknuk_self_companion_role_conflict');
+    }
+  }
+  // A narrowly stated venue qualifier must survive the ban. Do not guess
+  // which facility is excluded from conditionals, quotations or reported speech.
+  if (/["„“«»]|\b(?:wenn|falls|oder|früher|damals|sagte)\b/iu.test(text)) return;
+  const explicitWholeParty = /\b(?:wir|mir)\s+sind\s+(?:insgesamt\s+)?(?:\d+|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn)\b(?!\s+Gruppen)/iu.test(text)
+    || /\bzu\s+(?:zweit|dritt|viert|fünft|sechst|siebt|acht)\b/iu.test(text);
+  if (!meaning.logic && explicitWholeParty
+      && /\b(?:\d+|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn)\s+(?:von uns|vo üs)\b/iu.test(text)) {
+    const counts = meaning.facts.filter(f => f.key === 'people.count' && 'amount' in f.value
+      && 'operator' in f.value && f.value.operator === 'EQ' && f.subjectIds.length === 1
+      && meaning.entities.some(e => e.id === f.subjectIds[0] && e.kind === 'GROUP'));
+    if (counts.length > 1) {
+      // Existing entities must encode the claimed subset. Do not manufacture
+      // members or sum subgroup sizes, and do not cross conditional plans.
+      const reaches = (from: string, to: string, visited = new Set<string>()): boolean => {
+        if (visited.has(from)) return false;
+        visited.add(from);
+        return (meaning.entities.find(e => e.id === from)?.members ?? []).some(id => id === to || reaches(id,to,visited));
+      };
+      const largest = Math.max(...counts.map(f => 'amount' in f.value ? f.value.amount : 0));
+      const totals = counts.filter(f => 'amount' in f.value && f.value.amount === largest);
+      if (!totals.some(total => counts.every(part => part.id === total.id
+          || reaches(total.subjectIds[0]!,part.subjectIds[0]!)))) throw Error('nuknuk_subgroup_membership_not_retained');
+    }
+  }
+  for (const m of text.matchAll(/(?:^|[.!?;])\s*(?:ein|eine)\s+[\p{L}-]+\s+mit\s+([\p{L}-]+)\s+kommt\s+für\s+mich\s+nicht\s+infrage\s*(?=[.!?;]|$)/giu)) {
+    const concept = librarianConcept(m[1]!);
+    if (concept && OFFER_CATALOG.some(offer => offer.concept === concept && !hasOfferModule(offer.kind,'food'))
+        && !meaning.facts.some(f => f.key === 'offer.kind' && f.modality === 'EXCLUDED'
+        && 'text' in f.value && (librarianConcept(f.value.text) === concept
+          || !/\b(?:ohne|nicht|kein\w*)\b/iu.test(f.value.text)
+            && new RegExp(String.raw`\bmit\s+${m[1]}\b`,'iu').test(f.value.text)))) {
+      throw Error('nuknuk_venue_exclusion_qualifier_lost');
+    }
+  }
+}
+
+/** Guard only a direct, single-visit German date/daypart request. Other
+ * appointments, hypotheticals, quotes and dialogue remain the interpreter's
+ * scoped task; this check never synthesizes a visit time. */
+function assertSourceVisitTime(text: string, meaning: LunaMeaningOutput, reference: LibrarianReference): void {
+  if (meaning.logic || meaning.entities.filter(e => e.kind === 'ACTIVITY').length > 1
+      || /["„“«»]|\b(?:wenn|falls|oder|Rückfrage|Antwort)\b/iu.test(text)) return;
+  const m = /^(?:(?:ich möchte|wir möchten|wir wollen)\s+)?(heute|morgen)\s+(Abend|Nachmittag|Vormittag|Morgen)\s+(?:(?:möchte ich|möchten wir|wollen wir)\s+)?(?:essen|vegetarisch essen|ins Museum|in ein Museum|ins Kino|Kaffee trinken)\b/iu.exec(text.trim());
+  if (!m) return;
+  const today = librarianLocalDate(reference.now,reference.timezone);
+  const date = m[1]!.toLocaleLowerCase('de-CH') === 'heute' ? today
+    : new Date(Date.parse(today+'T12:00:00Z')+86400000).toISOString().slice(0,10);
+  const phase = /Abend/iu.test(m[2]!) ? 'EVENING' : /Nachmittag/iu.test(m[2]!) ? 'AFTERNOON' : 'MORNING';
+  const activityIds = new Set(meaning.entities.filter(e => e.kind === 'ACTIVITY').map(e => e.id));
+  const visit = meaning.facts.filter(f => f.modality === 'REQUIRED'
+    && (!f.subjectIds.length || f.subjectIds.every(id => activityIds.has(id))));
+  if (!visit.some(f => f.key === 'time.date' && 'date' in f.value && f.value.date === date && f.value.operator === 'EQ')
+      || !visit.some(f => f.key === 'time.day_phase' && 'phase' in f.value && f.value.phase === phase)) {
+    throw Error('nuknuk_source_visit_time_not_retained');
   }
 }
 const foodTraceTerm = String.raw`(?:[\p{L}-]*spuren|kreuzkontamination|kreuzkontakt)(?:\s+(?:von|mit)\s+[\p{L}-]+)?`;
@@ -1023,7 +1133,8 @@ function prepareNuknukSearch(value: unknown, input: { query: string; reference: 
   }
   const grounded = repairCompactWeather && userText === input.query ? normalizeSimpleRainPlan(accepted,userText) : null;
   if (grounded) accepted = validateActiveLunaMeaningOutput(grounded);
-  const output = userText === input.query ? protectTrailingRainAlternative(userText, accepted) : accepted;
+  const originalOutput = userText === input.query ? protectTrailingRainAlternative(userText, accepted) : accepted;
+  const output = repairCompactWeather ? normalizeSingleVisitBudgetScope(originalOutput) : originalOutput;
   // This exact legacy value has one canonical family. Keep its modality,
   // references and scope, and leave all other concept errors to the validator.
   const mentionsChildren = /\b(?:kind(?:er|ern)?|tochter|sohn)\b/iu.test(input.query);
@@ -1377,6 +1488,8 @@ export function validateCompactTurn(raw: unknown, input: { query: string; refere
     // full-meaning training snapshots retain their own versioned review rules.
     assertSourceMoneyBound(userText, search.output);
     assertSourceActivityRefusals(userText, search.output);
+    assertCompactSemanticIntegrity(userText, search.output);
+    assertSourceVisitTime(userText, search.output, input.reference);
   } catch (error) {
     if (!(guardOutdoor && error instanceof LibrarianContractError && error.code === 'condition_unbound')) throw error;
     // An incomplete weather branch cannot establish which outdoor criteria

@@ -56,3 +56,34 @@ test('venue bans use canonical facility facts and each new protocol has teaching
  for(const match of protocols)for(const split of ['TRAIN','TEST'])assert(rows.some(r=>r.split===split&&match(r)),split);
  for(const r of rows.filter(r=>r.theme==='subgroup-scope'))for(const f of r.expected.meaning.facts.filter(f=>f.key==='people.count'&&f.subjectIds.includes('g2')))assert(f.value.amount>1);
 });
+
+test('German remediation keeps frozen bank intact and isolates 48 draft development rows',async()=>{
+ const {betaRemediationCases}=await import('./nuknuk-beta-training-cases.mjs');
+ const {auditBetaRemediationTargets}=await import('./nuknuk-beta-review.mjs');
+ const {validateNuknukCompactSearch}=await import('../../packages/decision-vnext-core/dist/nuknuk-understanding.js');
+ const rows=betaRemediationCases(),before=structuredClone(rows),audit=auditBetaRemediationTargets(rows,betaTrainingCases());
+ assert.equal(rows.length,48);assert.equal(new Set(rows.map(r=>r.id)).size,48);
+ assert(rows.every(r=>['de','de-CH'].includes(r.locale)&&r.split==='DEVELOPMENT'&&!r.trainingAuthorized));
+ assert.equal(betaTrainingProgram().semanticSourceSetHash,'d8a6395404b1a3aab45d4d80ee2b025e18cb449aefeec00259372b7bfc2020fc');
+ assert.equal(audit.status,'TARGET_INVARIANTS_PASS_NOT_TRAINING_APPROVAL');assert.equal(audit.trainingAuthorized,false);
+ for(const row of rows)validateNuknukCompactSearch(row.expected,row);
+ assert.deepEqual(rows,before);
+ for(const theme of ['roles','subgroups','budget-bindings','exclusions','visit-time','party-capacity'])assert.equal(rows.filter(r=>r.theme===theme).length,8);
+});
+
+test('teaching target review catches missing roles, subgroup links, budget binding, times and exclusions',async()=>{
+ const {betaRemediationCases}=await import('./nuknuk-beta-training-cases.mjs');
+ const {auditBetaRemediationTargets}=await import('./nuknuk-beta-review.mjs');
+ const mutate=(theme,edit,expected)=>{
+  const row=structuredClone(betaRemediationCases().find(r=>r.theme===theme));edit(row.expected.meaning);
+  assert(auditBetaRemediationTargets([row],[]).rows[0].issues.includes(expected),theme);
+ };
+ mutate('roles',m=>m.facts=m.facts.filter(f=>f.key!=='people.role'),'SELF_AND_COMPANION_NOT_DISTINCT');
+ mutate('subgroups',m=>m.entities.forEach(e=>e.members=[]),'SUBGROUP_NOT_LINKED');
+ mutate('budget-bindings',m=>m.facts.find(f=>f.key==='budget.scope').subjectIds=['g1'],'BUDGET_SCOPE_UNBOUND');
+ mutate('visit-time',m=>m.facts.filter(f=>f.key.startsWith('time.')).forEach(f=>f.modality='CONTEXT'),'VISIT_TIME_NOT_REQUIRED');
+ mutate('exclusions',m=>m.facts=m.facts.filter(f=>f.modality!=='EXCLUDED'),'EXCLUSION_LOST_OR_MISSCOPED');
+ mutate('party-capacity',m=>m.facts.find(f=>f.key==='people.count').modality='REQUIRED','PARTY_CAPACITY_MODALITY');
+ const row=betaRemediationCases()[0],protectedRow={...row,id:'protected',split:'TEST'};
+ const audit=auditBetaRemediationTargets([row],[protectedRow]);assert.equal(audit.quarantinedRows,1);assert.equal(audit.rows[0].exportStatus,'QUARANTINED_HELDOUT_PATTERN');
+});

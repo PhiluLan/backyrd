@@ -1,8 +1,9 @@
 // Review and execution specification. Merely creating it cannot train or deploy.
-import {betaTrainingCases} from './nuknuk-beta-training-cases.mjs';
+import {betaTrainingCases,betaRemediationCases} from './nuknuk-beta-training-cases.mjs';
 import {betaConversationOracles,betaBoundaryOracle} from './nuknuk-beta-evaluation.mjs';
 import {betaTransferCases} from './nuknuk-beta-transfer-cases.mjs';
 import {contentHash} from '../../packages/decision-vnext-core/dist/canonical.js';
+import {auditBetaRemediationTargets} from './nuknuk-beta-review.mjs';
 const L=['de','de-CH','en','fr'];
 const t=(de,ch,en,fr)=>Object.fromEntries(L.map((l,i)=>[l,[de,ch,en,fr][i]]));
 export function betaSupplementalChecks(){
@@ -64,4 +65,10 @@ export function betaTrainingProgram(){
   costs:{newCloudAllocationNow:false,proposedTotalCloudCeilingUsd:10,includes:'all attempts, startup, downloads, training, GPU development evaluation, transfers and any storage until verified deletion',closingReserveUsd:1,oneOwnedPodOnly:true,noAutomaticRetryAllocation:true,stopAndDeleteAfterSecuring:true,rateMustBeVerifiedBeforeAllocation:true,notACostEstimateOrCompletionGuarantee:true,macTrainingDeferred:true,macInferenceRequiresPlannedMaintenanceOrSeparateServingHost:true},
   semanticSourceSetHash:contentHash(rows.map(({id,scenarioGroup,split,query,expected,previousMeaning,turns})=>({id,scenarioGroup,split,query,expected,previousMeaning:previousMeaning??null,turns:turns??null}))),
   limitations:['1200 rows are 300 authored families and fewer semantic groups, not 1200 independent user situations.','Four language variants are correlated. Independent assistant review is not independent human gold.','Known historical evaluation was observed; no old TEST is relabelled fresh.','Direct SFT dialogue uses authored previous meanings; actual multi-turn behavior is tested separately.','No catalog facts, user accounts, reviews, feedback or production data are included.','The resource and training recipe is a proposal; GPU export stays blocked until separately bound review and execution planning.']};
+}
+
+/** A reviewable development proposal, deliberately outside the frozen cohort. */
+export function betaRemediationProgram(){
+ const rows=betaRemediationCases(),audit=auditBetaRemediationTargets(rows,betaTrainingCases(),betaTransferCases());
+ return {version:'backyrd.beta-remediation-program@2',status:'DRAFT_NOT_TRAINING_OR_ACTIVATION_APPROVAL',languages:['de','de-CH'],rows:rows.length,families:new Set(rows.map(r=>r.familyId)).size,themes:Object.fromEntries([...new Set(rows.map(r=>r.theme))].map(t=>[t,rows.filter(r=>r.theme===t).length])),targetAudit:audit,quarantinedRows:audit.quarantinedRows,reviewableRows:rows.length-audit.quarantinedRows,frozenCohortChanged:false,diagnostic25AreDevelopment:true,acceptanceHoldoutsUnconsumed:true,paidResourcesStarted:false,trainingAuthorized:false,activationAuthorized:false,admission:['Keep structurally colliding rows quarantined; never train across preserved TEST/TRANSFER groups.','Review non-quarantined German/Swiss wording and targets; audit lexical and semantic near-overlap beyond graph hashes.','Bind any later export to reviewed target hashes, current prompt, parent adapter and explicit cost plan.','Recheck development semantics, dialogue, routing and safety before untouched acceptance evaluation.'],limitations:['Assistant-authored corrections are not independent human gold.','These rows do not automatically enter the 800-row training export.','A valid target or rejection of an old bad output is not evidence that trained weights improved.']};
 }

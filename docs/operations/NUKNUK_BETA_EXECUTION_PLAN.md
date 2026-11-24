@@ -381,3 +381,68 @@ guard was unchanged: peak candidate physical footprint was 21.67 GiB with no swa
 growth during the test. Provider cost for this evaluation was USD 0. Full local
 evidence is `nuknuk-candidate-german-20261124/german-comparison-review.json`, binding
 all 25 input/output pairs and both chain replays to their file hashes.
+
+### German remediation after the matched candidate test
+
+Work class: PRODUCT_RELEASE (Decision semantics and delivery control). Local
+development only; no model training, live replacement, schema change or release.
+
+The compact handoff now preserves an existing participant-group budget basis for
+one unambiguous visit: one activity, one budget, one explicit scope and one group
+with contextual count. Only the scope's subject binding changes. Multiple visits,
+conditions, bindings, extensions, budgets or groups are not guessed. Currency,
+amount, operator and PER_PERSON/GROUP_TOTAL are never invented or reversed.
+Source-money validation also recognizes an adjacent basis before the amount and
+the explicit phrase “zusammen möchten wir”. The saved vegetarian 30 CHF-per-person
+output now reaches the Bibliothekar with the correct binding and recovers its
+confirmed test restaurant without a redundant question.
+
+Additional bounded loss/contradiction checks reject a fronted personal activity
+refusal that disappears, a known venue-facility ban whose qualifier disappears,
+multiple people represented as one PERSON, self confused with an explicitly
+stated relative companion, a role stored under relationship, missing membership
+for explicitly stated whole-party/subgroup context, and a direct single-visit
+German date/daypart request that is lost or downgraded. They do not reconstruct
+missing people, attendance, opening hours, prices or membership. Separate groups,
+the user's own family role, other appointments and atmosphere exclusions have
+negative regression coverage. Complex, hypothetical and reported source language
+remains the interpreter's scoped task; these guards are not a universal parser.
+The prompt states separate self/companion entities, mandatory visit times and
+preservation of the decisive exclusion qualifier.
+
+`betaRemediationCases()` adds 48 draft development examples: 24 families with
+German and Swiss German wording, covering roles, subgroup membership, budget
+binding, personal/venue exclusions, visit time and party/capacity distinction.
+The frozen original cohort's semantic source-set hash remains
+`d8a6395404b1a3aab45d4d80ee2b025e18cb449aefeec00259372b7bfc2020fc`.
+The target audit quarantines six rows colliding structurally with reserved
+TEST/TRANSFER patterns; 42 remain reviewable. No draft row automatically enters
+the training export. Graph collision checks do not replace a paraphrase review.
+`betaRemediationProgram()` records the separate review/export requirements and
+cannot authorize paid resources or activation. The old 25 diagnostic wishes
+remain observed development comparisons, not fresh acceptance tests.
+
+The explicit `--revalidate-saved-output` mode replays saved responses through the
+current Product provider and synthetic World while binding the unchanged source
+request/schema and original output hashes. It records that the system prompt and
+validator have changed and performs **zero new model calls**. Eight saved bad
+outputs are now rejected and the budget-binding reproducer is corrected. This
+does not mean eight wishes are now understood correctly: without new inference,
+the trained weights and their remaining semantic gaps are unchanged.
+
+Validation passed 184 focused understanding, curriculum, evaluation and controlled
+World tests; 791 Decision-core tests; strict typecheck; 56 release-contract tests;
+119 delivery-policy tests; single-route/closure and repository/secret checks.
+The required local Mobile certification is **blocked**, not passed: the existing
+Mobile `image-size: 2.0.3` override resolves Metro 0.83.3's `^1.0.2` dependency to
+an incompatible API. Metro passes an image file path while that version expects
+bytes. Direct asset reproduction, clean single-worker Web export and iOS export
+all fail on `expo-router/assets/sitemap.png` with the TextDecoder list error.
+Mobile dependency manifests were not changed by this remediation. No browser
+journey or iOS release artifact is certified, and no merge/release is approved.
+
+The existing live-parent adapter was independently checked healthy after the
+local build attempts. Full evidence and the draft bank are retained locally in
+`nuknuk-german-remediation-20261124`. Provider cost is USD 0; the candidate remains
+on quality hold pending model learning, development evaluation and the unconsumed
+acceptance checks.
