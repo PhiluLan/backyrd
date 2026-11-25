@@ -10,6 +10,22 @@ const bytes=x=>JSON.stringify(x,null,2)+'\n';
 const fraction=rows=>rows.filter(r=>r.status==='PASS').length/rows.length;
 function grouped(rows,key){return Object.fromEntries([...new Set(rows.map(r=>r[key]))].sort().map(k=>{const all=rows.filter(r=>r[key]===k);return[k,{total:all.length,passed:all.filter(r=>r.status==='PASS').length,fraction:fraction(all),worstVariant:all.every(r=>r.status==='PASS')?'PASS':'FAIL_OR_REVIEW'}];}));}
 const quantile=(a,p)=>a.length?[...a].sort((x,y)=>x-y)[Math.ceil(p*a.length)-1]:null;
+export function catalogFailureReason(row){
+ if(row.error)return row.error;
+ if(row.semanticMatch===false)return 'SEMANTIC_GRAPH_MISMATCH';
+ if(row.clarificationStatus==='FAIL')return 'CLARIFICATION_FAILED';
+ if(row.clarificationStatus==='REVIEW_REQUIRED')return 'CLARIFICATION_REVIEW_REQUIRED';
+ return 'REVIEW_REQUIRED';
+}
+export function catalogDiagnosticDimensions(score,actual,goldModel,goldHost){
+ const generated=actual.status==='GENERATED_REQUIRES_SEMANTIC_REVIEW'&&actual.raw!=null;
+ return {generation:generated?'PASS':'FAIL',contractValidation:generated?(score.actualMeaning?'PASS':'FAIL'):'NOT_EXECUTED',
+  semanticGraph:score.semanticMatch===true?'PASS':score.actualMeaning?'FAIL':'NOT_EXECUTED',
+  clarification:score.clarificationStatus??'NOT_EXECUTED',
+  modelInteraction:score.modelInteraction?score.modelInteraction===goldModel?'PASS':'FAIL':'NOT_EXECUTED',
+  hostInteraction:score.hostInteraction?score.hostInteraction===goldHost?'PASS':'FAIL':'NOT_EXECUTED',
+  hostProjection:score.projectedMeaning?'RECORDED_NOT_INDEPENDENTLY_VERIFIED':'NOT_EXECUTED',hostRequestState:score.hostRequestState??null};
+}
 export function scoreCatalogResults(catalog,manifest,bundle,result,{oracle=false}={}){
  const split=result.split;if(!['DEV','TEST'].includes(split))throw Error('beta_score_split_invalid');
  const packet=evaluationPacket(catalog,split),expected=catalog.cases.filter(r=>r.split===split);
@@ -20,12 +36,12 @@ export function scoreCatalogResults(catalog,manifest,bundle,result,{oracle=false
   const input={...row,familyId:row.family,messages:packet.cases.find(x=>x.id===row.id).messages};
   const score=actual.raw&&actual.status==='GENERATED_REQUIRES_SEMANTIC_REVIEW'?scoreBetaRow(input,actual.raw,{questionScope:'MODEL_WIRE'}):{id:row.id,status:'FAIL',error:actual.errorType??actual.status,semanticMatch:false};
   const goldModel=row.expected.clarification?'CLARIFY':'SEARCH',goldHost=row.expectedInteraction;
-  return {...score,locale:row.locale,theme:row.theme,family:row.family,scenarioGroup:row.scenarioGroup,provenance:row.provenance.kind,stratum:trainingStratum(row),dialogue:row.task==='DIALOGAKTUALISIERUNG_V3',expectedModelInteraction:goldModel,expectedHostInteraction:goldHost,firstAttemptPreserved:true,rawOutputHash:sha(JSON.stringify(actual.raw??null)),durationMs:actual.durationMs??null,
+  return {...score,diagnosticDimensions:catalogDiagnosticDimensions(score,actual,goldModel,goldHost),locale:row.locale,theme:row.theme,family:row.family,scenarioGroup:row.scenarioGroup,provenance:row.provenance.kind,stratum:trainingStratum(row),dialogue:row.task==='DIALOGAKTUALISIERUNG_V3',expectedModelInteraction:goldModel,expectedHostInteraction:goldHost,firstAttemptPreserved:true,rawOutputHash:sha(JSON.stringify(actual.raw??null)),durationMs:actual.durationMs??null,
     audit:{rubric:row.rubric,criticalFields:['roles','age','money','time','modality','subjectIds','logic','bindings','weatherConditions','dialogue-retention'],expectedMeaning:row.finalMeaning,actualMeaning:score.actualMeaning??null,requiresAdjudication:score.status!=='PASS',automaticGoldRewrite:false}};
  });
  const groups=grouped(scored,'scenarioGroup'),groupFractions=Object.values(groups).map(r=>r.fraction),duration=scored.map(r=>r.durationMs).filter(x=>Number.isFinite(x)&&x>=0);
  const confusion={model:{},host:{}};for(const r of scored){for(const [kind,target,actual]of [['model',r.expectedModelInteraction,r.modelInteraction??'INVALID'],['host',r.expectedHostInteraction,r.hostInteraction??'INVALID']]){const key=target+' -> '+actual;confusion[kind][key]=(confusion[kind][key]??0)+1;}}
- return {version:'backyrd.nuknuk-beta-scored-results@1',datasetHash:manifest.catalogHash,adapterSha256:result.adapterSha256,split,modelEvaluated:!oracle,oracleOnly:oracle,total:scored.length,passed:scored.filter(r=>r.status==='PASS').length,fullCaseFraction:fraction(scored),scenarioGroupMacroFraction:groupFractions.reduce((s,n)=>s+n,0)/groupFractions.length,perScenarioGroup:groups,perFamily:grouped(scored,'family'),perLocale:grouped(scored,'locale'),perTheme:grouped(scored,'theme'),perProvenance:grouped(scored,'provenance'),perStratum:grouped(scored,'stratum'),interactionConfusion:confusion,latency:{p50Ms:quantile(duration,.5),p95Ms:quantile(duration,.95),measured:duration.length,missing:scored.length-duration.length},dialogue:{total:scored.filter(r=>r.dialogue).length,passed:scored.filter(r=>r.dialogue&&r.status==='PASS').length},adjudicationQueue:scored.filter(r=>r.status!=='PASS').map(r=>({id:r.id,status:r.status,reason:r.error??r.clarificationStatus??'SEMANTIC_MISMATCH',audit:r.audit})),cases:scored,limitations:['Strict graph comparison is conservative; equivalent unrecognised graphs require bound adjudication, never automatic PASS.','Visible synthetic TEST is a reviewed regression suite, not an independent blind user study.','Host projection and model wire interaction are reported separately.','No automatic gold edits, candidate activation or actual recommendation acceptance.']};
+ return {version:'backyrd.nuknuk-beta-scored-results@1',datasetHash:manifest.catalogHash,adapterSha256:result.adapterSha256,split,modelEvaluated:!oracle,oracleOnly:oracle,total:scored.length,passed:scored.filter(r=>r.status==='PASS').length,fullCaseFraction:fraction(scored),scenarioGroupMacroFraction:groupFractions.reduce((s,n)=>s+n,0)/groupFractions.length,perScenarioGroup:groups,perFamily:grouped(scored,'family'),perLocale:grouped(scored,'locale'),perTheme:grouped(scored,'theme'),perProvenance:grouped(scored,'provenance'),perStratum:grouped(scored,'stratum'),interactionConfusion:confusion,latency:{p50Ms:quantile(duration,.5),p95Ms:quantile(duration,.95),measured:duration.length,missing:scored.length-duration.length},dialogue:{total:scored.filter(r=>r.dialogue).length,passed:scored.filter(r=>r.dialogue&&r.status==='PASS').length},adjudicationQueue:scored.filter(r=>r.status!=='PASS').map(r=>({id:r.id,status:r.status,reason:catalogFailureReason(r),diagnosticDimensions:r.diagnosticDimensions,audit:r.audit})),cases:scored,limitations:['Strict graph comparison is conservative; equivalent unrecognised graphs require bound adjudication, never automatic PASS.','Visible synthetic TEST is a reviewed regression suite, not an independent blind user study.','Host projection and model wire interaction are reported separately.','No automatic gold edits, candidate activation or actual recommendation acceptance.']};
 }
 export function pairedCatalogReports(parent,candidate){
  if(parent.datasetHash!==candidate.datasetHash||parent.split!==candidate.split||parent.total!==candidate.total||parent.oracleOnly!==candidate.oracleOnly)throw Error('beta_paired_input_mismatch');

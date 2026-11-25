@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import {cre
 import {materializeBetaCases,isolateSplits,compactWireForSchema}from'./beta-catalog.mjs';
 import {betaMixture,evaluationPacket,STRATUM_MASS}from'./beta-mixture.mjs';
 import {compareBetaMeaning}from'../nuknuk-beta-semantics.mjs';
-import {scoreCatalogResults,pairedCatalogReports}from'./beta-evaluation.mjs';
+import {scoreCatalogResults,pairedCatalogReports,catalogFailureReason,catalogDiagnosticDimensions}from'./beta-evaluation.mjs';
 const rows=isolateSplits(materializeBetaCases().rows).rows;
 const catalog={cases:rows.map(r=>({...r,request:{...r.request,input:r.request.messages[1].content}})),prompts:Object.fromEntries(rows.map(r=>[r.request.promptHash,r.request.messages[0].content])),schemas:Object.fromEntries(rows.map(r=>[r.request.schemaHash,r.request.outputSchema]))};
 const manifest={catalogHash:'catalog-test'},bundle={datasetHash:manifest.catalogHash};
@@ -15,3 +15,13 @@ test('critical field and dialogue mutations fail semantic checks and paired gate
 
 test('semantic comparison accepts optional compact members but retains required facts',()=>{assert(compareBetaMeaning({facts:[],entities:[{id:'a',kind:'ACTIVITY'}]},{facts:[],entities:[{id:'a',kind:'ACTIVITY',members:[]}],extensions:[],bindings:[],uncertainties:[],weatherConditions:[],logic:null}));assert.throws(()=>compareBetaMeaning({},{facts:[]}));});
 test('all 2350 weighted examples, including the last two, have identical accumulation scaling',()=>{const mix=betaMixture(rows.filter(r=>r.split==='TRAIN')),n=mix.cases.length,acc=5;assert.equal(n,2350);assert.equal(n%acc,0);const contributions=Array(n).fill(0);for(let start=0;start<n;start+=acc)for(let i=start;i<start+acc;i++)contributions[i]+=mix.cases[i].lossWeight/acc;for(let i=0;i<n;i++)assert(Math.abs(contributions[i]*acc-mix.cases[i].lossWeight)<1e-12);assert(contributions[n-1]>0);assert(contributions[n-2]>0);});
+
+test('failed meaning never reports a passed clarification as its failure reason',()=>{
+ const row={status:'FAIL',semanticMatch:false,clarificationStatus:'PASS'};
+ assert.equal(catalogFailureReason(row),'SEMANTIC_GRAPH_MISMATCH');
+ assert.equal(catalogFailureReason({...row,error:'contract_failed'}),'contract_failed');
+ assert.equal(catalogFailureReason({...row,semanticMatch:true,clarificationStatus:'FAIL'}),'CLARIFICATION_FAILED');
+ assert.equal(catalogFailureReason({...row,semanticMatch:true,clarificationStatus:'REVIEW_REQUIRED'}),'CLARIFICATION_REVIEW_REQUIRED');
+ const dimensions=catalogDiagnosticDimensions({...row,actualMeaning:{facts:[]},projectedMeaning:{facts:[]},modelInteraction:'SEARCH',hostInteraction:'SEARCH'},{status:'GENERATED_REQUIRES_SEMANTIC_REVIEW',raw:{}},'SEARCH','SEARCH');
+ assert.equal(dimensions.semanticGraph,'FAIL');assert.equal(dimensions.clarification,'PASS');assert.equal(dimensions.hostProjection,'RECORDED_NOT_INDEPENDENTLY_VERIFIED');assert.equal(row.status,'FAIL');
+});

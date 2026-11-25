@@ -97,3 +97,72 @@ ausgeführten Versionen; ein einzelner vorhandener Interpreter gilt nicht als
 Cross-Version-PASS. Fehlende Interpreter sind ein Testfehler. Alte und neue
 Inferenzquellen müssen denselben Hash ergeben, semantische Mutationen dagegen
 unterschiedliche. Die Runtime verweigert weiterhin jede echte Abweichung.
+
+## Lokale 40-Fälle-Prüfung nach abgeschlossenem DEV-Lauf
+
+Klasse FAST_PR: ausschließlich Diagnoseausgaben und Offline-Reviewwerkzeuge;
+keine Änderung an Product-Ranking, Parser, Datenbank, Modell oder Live-Konfiguration.
+`beta-evaluation.mjs` trennt Generation, Vertrag, Graphvergleich, Rückfrage,
+Routing und aufgezeichnete Host-Projektion. Ein bestandener Rückfragenteilcheck
+darf niemals als Fehlergrund PASS erscheinen. Der historische Gesamtstatus und
+die historischen Ergebnisdateien bleiben unverändert.
+
+Nach Build des vorhandenen Decision-Core:
+
+```sh
+node scripts/decision-diagnostics/nuknuk-curriculum/beta-local-review.mjs prepare OPERATION_ROOT NEW_REVIEW_DIRECTORY
+node scripts/decision-diagnostics/nuknuk-curriculum/beta-local-review.mjs run NEW_REVIEW_DIRECTORY
+```
+
+Die Auswahl wird vor dem Replay eingefroren: alle zehn Rückschritte, zehn
+familiengemischte Verbesserungen, zehn zusätzliche Kompositions- und zehn
+zusätzliche Dialogfälle. Alle40 IDs sind eindeutig und stammen ausschließlich
+aus vorhandenen DEV-Ausgaben. TEST bleibt unangetastet. Originaldateien,
+tatsächlich geladene kompilierte Host-/Abhängigkeitsmodule, Testfixtures,
+Runner und Node-Version sind hashgebunden. Änderungen vor oder während des
+Replays machen den Nachweis ungültig. Ein erneuter Lauf benötigt dann ein
+neues gebundenes Manifest; die Fallauswahl wird nicht ergebnisabhängig geändert.
+
+Gespeicherte Parent-/Kandidatenantworten und Gold laufen durch die vorhandene
+Validierung, den Dialog-Merge und den bestehenden Product-HTTP-Handler. Nur
+Auth-, RPC-, Welt- und Persistenzports stammen aus dessen synthetischem
+Testfixture. Alle Vergleichswelten müssen zuvor den kanonischen Weltvertrag
+bestehen. Globales fetch wird während des Replays verworfen; bekannte Ports sind synthetisch.
+Das ist keine betriebssystemweite Netzwerksperre. Es wird kein
+Modell aufgerufen und keine echte Datenbank oder Nutzerinformation gelesen.
+
+Die Beobachtung vergleicht Auswahl, Zulässigkeit, Angebot/Bereich, bedingte
+Pläne sowie angezeigte Zeit-, Personen- und Budgetkontexte. Ein endlicher
+synthetischer Katalog beweist keine allgemeine semantische Gleichwertigkeit.
+Gleiche leere Ergebnisse werden NO_POSITIVE_WITNESS; gleiche positive
+Beobachtungen heißen ausschließlich SAME_ON_SYNTHETIC_PROBES. Vertragsfehler
+und unterschiedliche Host-Ausgaben bleiben sichtbar. Ein HTTP-Fehler ist
+kein gültiges leeres Ergebnis.
+
+Insbesondere stammen vorherige Bedeutungen der Dialogfälle aus dem
+eingefrorenen DEV-Eingang; dies ist kein Nachweis einer vollständigen
+Live-Unterhaltung. Fachliche KI-Annotationen werden von menschlicher
+Gold-Abnahme unterschieden. Kein Diagnoseergebnis ändert automatisch Gold,
+Trainingssplit, ursprüngliche Scores oder Aktivierungsfreigaben. Neue
+Trainingsdaten dürfen nicht heimlich aus den geprüften DEV-/TEST-Fällen
+entstehen. Korrekturvorschläge sind gesonderte, nicht trainierbare
+Spezifikationen bis zur fachlichen Freigabe einer neuen Datenversion.
+
+Der Importgraph der tatsächlich genutzten Diagnosemodule wird mit dem bereits
+installierten TypeScript-Parser erfasst (statische sowie literale dynamische
+Imports). Nichtliterale dynamische und unbekannte externe Imports werden
+abgelehnt. Parserbytes, Paketauflösung und tatsächliche Distdateien sind
+gebunden. Eine Änderung einer transitiven Quelle muss den Nachweis verwerfen.
+
+Die Probeabdeckung wird außerdem pro Dimension ausgewiesen: Ein positiver
+Tee-Treffer beweist keine Atmosphärenpräferenz. Datum, Geld, Alter, Zugang,
+Modalität, Personenbezug und logische Bindungen bleiben mit Kontrastbelegen
+oder ausdrücklicher Abdeckungslücke sichtbar. Separate synthetische
+Host-Gegenbeispiele prüfen Preisgrenze, Altersgrenze, Besuchstag und Pflicht
+gegenüber Präferenz; sie sind Harness-Tests und keine zusätzlichen
+Modell-Leistungsfälle. Gold-, Kandidaten- und Hostfehler werden getrennt.
+
+Ein Abschlussmanifest bindet Manifest, alle40 Einzelbelege, abgeleitete
+Diagnosen, Annotationen und Berichte. Die spätere Review-Präzisierung
+verändert keine Originaldaten. Der integrierte Prüfer verwirft veränderte
+Ergebnis- oder Annotationsdateien.
