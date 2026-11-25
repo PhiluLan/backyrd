@@ -135,10 +135,16 @@ class Recovery(unittest.TestCase):
    folder=Path(name);state={'phase':'DEVELOPMENT','deadline':1000,'podId':'abc12345678','preexistingPodIds':[],'started':100,'initialBalanceUsd':51,'allInHourlyRateUsd':4.45,'computeRateCap':4.42};(folder/'state.json').write_text(json.dumps(state))
    pod={'id':state['podId'],'desiredStatus':'RUNNING','costPerHr':4.39,'runtime':{}}
    account={'pods':[pod],'networkVolumes':[]};args=SimpleNamespace(key_file=folder/'key')
-   with patch.object(ctl,'catalog_account',return_value=({'balanceAmount':50},{**account,'pods':[{**pod,'runtime':None}]})),patch.object(ctl,'owned',return_value=pod),patch.object(ctl.time,'time',return_value=150),patch.object(ctl.time,'sleep'):
-    ctl.catalog_cost_check(args,folder)
+   with patch.object(ctl,'catalog_account',return_value=({'balanceAmount':50},{**account,'pods':[{**pod,'runtime':None}]})),patch.object(ctl,'rest',return_value={'id':pod['id'],'name':'own','status':'RUNNING','cost':4.39,'disk':200,'mounts':{},'runtime':{'ports':[]}})as detail,patch.object(ctl.time,'time',return_value=150),patch.object(ctl.time,'sleep'):
+    ctl.catalog_cost_check(args,folder);self.assertEqual(detail.call_args.args[2],'/v2/pods/'+pod['id'])
    with patch.object(ctl,'catalog_account',return_value=({'balanceAmount':50},{**account,'pods':[{**pod,'costPerHr':5}]})),patch.object(ctl,'owned'),patch.object(ctl.time,'time',return_value=150):
     with self.assertRaisesRegex(ValueError,'pod_tariff_exceeded'):ctl.catalog_cost_check(args,folder)
+ def test_runtime_detail_rejects_wrong_identity_name_or_tariff(self):
+  with tempfile.TemporaryDirectory()as name:
+   folder=Path(name);state={'phase':'DEVELOPMENT','deadline':1000,'runName':'own','podId':'abc12345678','preexistingPodIds':[],'started':100,'initialBalanceUsd':51,'allInHourlyRateUsd':4.45,'computeRateCap':4.42};(folder/'state.json').write_text(json.dumps(state));listed={'id':state['podId'],'name':'own','desiredStatus':'RUNNING','costPerHr':4.39,'runtime':None};raw={'id':state['podId'],'name':'own','status':'RUNNING','cost':4.39,'disk':200,'mounts':{},'runtime':{'ports':[]}}
+   for change,reason in [({'id':'wrong1234567'},'identity_changed'),({'name':'other'},'name_changed'),({'cost':5},'tariff_exceeded'),({'status':'EXITED'},'not_running')]:
+    with self.subTest(change=change),patch.object(ctl,'catalog_account',return_value=({'balanceAmount':50},{'pods':[listed],'networkVolumes':[]})),patch.object(ctl,'rest',return_value={**raw,**change}),patch.object(ctl.time,'time',return_value=150):
+     with self.assertRaisesRegex(ValueError,reason):ctl.catalog_cost_check(SimpleNamespace(key_file=folder/'key'),folder)
  def test_native_guard_survives_one_network_failure_and_stops_at_original_deadline(self):
   self.native_guard_fixture(False)
  def test_native_guard_stops_on_sustained_observation_loss(self):

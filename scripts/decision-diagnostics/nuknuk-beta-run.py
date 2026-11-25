@@ -803,15 +803,22 @@ def catalog_cost_check(args,folder):
     state=json.loads((folder/'state.json').read_text())
     billing,account=catalog_read_retry(lambda:catalog_account(args),folder)
     if quota_cleanup_required(account.get('restRateLimits',{})):raise ValueError('catalog_rest_quota_cleanup_required')
+    listed=next((p for p in account['pods']if p['id']==state['podId']),None)
+    if listed is not None:
+        reason=guard_stop_reason(state,listed,time.time(),time.time(),False)
+        if reason:raise ValueError('catalog_'+reason.lower())
     for observation in range(3):
-        pod=next((p for p in account['pods']if p['id']==state['podId']),None)if observation==0 else catalog_read_retry(lambda:owned(folder,args.key_file),folder)
-        if pod is not None and state.get('runName')is not None and pod.get('name')!=state['runName']:raise ValueError('catalog_owned_name_changed')
+        # REST list inventories need not include runtime. Query the bound own-Pod
+        # detail, rather than repeatedly asking the same list for absent fields.
+        pod=listed if observation==0 and listed is not None and listed.get('runtime')is not None else catalog_read_retry(lambda:catalog_pod_record(rest(args.key_file,'GET','/v2/pods/'+state['podId'])),folder)
+        if pod['id']!=state['podId']:raise ValueError('catalog_owned_identity_changed')
+        if state.get('runName')is not None and pod.get('name')!=state['runName']:raise ValueError('catalog_owned_name_changed')
         reason=guard_stop_reason(state,pod,time.time(),time.time(),False)
         if reason:
-            catalog_attempt_event(folder,'PROVIDER_STATE_REJECTED',reason=reason,podId=pod.get('id')if pod else None,desiredStatus=pod.get('desiredStatus')if pod else None,costPerHr=pod.get('costPerHr')if pod else None)
+            catalog_attempt_event(folder,'PROVIDER_STATE_REJECTED',reason=reason,podId=pod['id'],desiredStatus=pod.get('desiredStatus'),costPerHr=pod.get('costPerHr'))
             raise ValueError('catalog_'+reason.lower())
-        if pod is not None and pod.get('runtime')is not None:break
-        catalog_attempt_event(folder,'PROVIDER_RUNTIME_RECHECK',podPresent=pod is not None,observation=observation+1)
+        if pod.get('runtime')is not None:break
+        catalog_attempt_event(folder,'PROVIDER_RUNTIME_RECHECK',podPresent=True,observation=observation+1)
         if observation==2:raise ValueError('catalog_owned_runtime_unavailable_after_rechecks')
         time.sleep(5)
     known=set(state['preexistingPodIds'])|{state['podId']}
