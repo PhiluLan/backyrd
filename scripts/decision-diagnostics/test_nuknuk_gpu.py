@@ -25,6 +25,15 @@ class GpuPreparationTests(unittest.TestCase):
                 gpu.validate_beta_selection(receipt, bad_source, {'datasetHash':'data'}, 'bundle', adapter)
         gpu.validate_beta_selection({**receipt, 'status':'DEV_PASSED_FROZEN_SELECTION'}, {'catalogVariant':'general'}, {'datasetHash':'data'}, 'bundle', 'p')
 
+    def test_evaluation_only_execution_rejects_model_training_before_weights_or_native_preparation(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory()as name:
+            folder=Path(name);args=SimpleNamespace(bundle=folder,execution_approval=folder/'auth')
+            with patch.object(gpu,'verify_product_gpu_bundle',return_value={}),patch.object(gpu,'beta_execution_admission',return_value={'evaluationOnly':True}),patch.object(gpu,'verify_beta_native')as native,patch.object(gpu,'product_base')as base:
+                with self.assertRaisesRegex(ValueError,'evaluation_only_training_forbidden'):gpu.train_beta_catalog(args)
+                native.assert_not_called();base.assert_not_called()
+
     def test_completed_candidate_conversion_preserves_projection_and_rejects_bad_tensors(self):
         keys=[f'language_model.model.layers.{i}.self_attn.{p}_proj' for i in range(3,40,4) for p in ('k','o','q','v')]
         rng=np.random.default_rng(42)

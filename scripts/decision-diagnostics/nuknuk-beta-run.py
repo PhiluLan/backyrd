@@ -19,9 +19,11 @@ import shlex
 import subprocess
 import sys
 import tarfile
+import threading
 import time
 import urllib.error
 import urllib.request
+import urllib.parse
 import uuid
 
 spec=importlib.util.spec_from_file_location('watch',Path(__file__).with_name('nuknuk-runpod-watch.py'))
@@ -41,17 +43,155 @@ def save(folder,phase,**extra):
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
-def rest(key_file,method,path,payload=None):
+REST_RATE_LIMITS={}
+REST_RETRY_NOT_BEFORE=0.0
+
+def rate_limits_from_headers(headers,now):
+    result={}
+    for window,remaining,seconds in re.findall(r'"(minute|hour|day)";\s*r=(\d+);\s*t=(\d+)',headers.get('RateLimit','')):
+        result[window]={'remaining':int(remaining),'resetsAt':now+int(seconds)}
+    for window in ['minute','hour','day']:
+        remaining=headers.get('X-RateLimit-Remaining-'+window);reset=headers.get('X-RateLimit-Reset-'+window)
+        if remaining is not None and str(remaining).isdigit():result[window]={'remaining':int(remaining),'resetsAt':float(reset)if reset and re.fullmatch(r'[0-9.]+',str(reset))else now}
+    return result
+
+def quota_cleanup_required(limits):return any(v['remaining']<=40 for v in limits.values())
+
+
+def merge_rate_state(previous, incoming, now):
+    # Missing headers do not revoke previously observed user-wide quotas.
+    limits={k:dict(v)for k,v in previous.get('limits',{}).items()if v['resetsAt']>now}
+    for key,value in incoming.get('limits',{}).items():
+        if value['resetsAt']<=now:continue
+        prior=limits.get(key)
+        limits[key]=dict(prior)if prior and prior['remaining']<value['remaining']else dict(value)
+    return {'limits':limits,'retryNotBefore':max(previous.get('retryNotBefore',0),incoming.get('retryNotBefore',0))}
+
+
+def merge_rate_ledger(key_file,incoming):
+    ledger=rate_ledger_path(key_file)
+    with ledger.with_suffix('.lock').open('a')as lock:
+        os.fchmod(lock.fileno(),0o600);fcntl.flock(lock,fcntl.LOCK_EX)
+        previous=json.loads(ledger.read_text())if ledger.exists()else{}
+        state=merge_rate_state(previous,incoming,time.time())
+        ledger.write_text(json.dumps(state));ledger.chmod(0o600)
+        return state
+
+
+def catalog_sync_rate_ledger(args,ssh):
+    # Dedicated own-Pod SSH, no provider API quota. Both sides merge restrictions;
+    # eight reserved calls cover bounded in-flight reads between 30-second syncs.
+    incoming=json.loads(ssh_call(ssh,'cat /tmp/backyrd-provider-rate.json',15))
+    for value in incoming.get('limits',{}).values():value['remaining']=max(0,value['remaining']-8)
+    merged=merge_rate_ledger(args.key_file,incoming)
+    code="import fcntl,json,time,pathlib;"+inspect.getsource(merge_rate_state)+"\np=pathlib.Path('/tmp/backyrd-provider-rate.json');lock=p.with_suffix('.lock').open('a');fcntl.flock(lock,fcntl.LOCK_EX);old=json.loads(p.read_text())if p.exists()else{};new=merge_rate_state(old,"+repr(merged)+",time.time());new['lastSyncEpoch']=time.time();p.write_text(json.dumps(new))"
+    # Function definition cannot follow a semicolon compound statement.
+    code=code.replace('import fcntl,json,time,pathlib;def ','import fcntl,json,time,pathlib\ndef ')
+    ssh_call(ssh,PY+' -c '+shlex.quote(code),15)
+    return merged
+
+
+class CatalogRateSync:
+    def __init__(self,args,ssh):
+        self.args=args;self.ssh=ssh;self.stop=threading.Event();self.lastSuccessful=0;self.error=None
+        self.refresh()
+        self.thread=threading.Thread(target=self.loop,name='owned-pod-quota-sync',daemon=True);self.thread.start()
+    def refresh(self):
+        catalog_sync_rate_ledger(self.args,self.ssh);self.lastSuccessful=time.time();self.error=None
+    def loop(self):
+        while not self.stop.wait(15):
+            try:self.refresh()
+            except Exception as error:self.error=type(error).__name__
+    def close(self):self.stop.set();self.thread.join(35)
+
+
+def rate_ledger_path(key_file):return key_file.with_name('.backyrd-rest-rate-ledger.json')
+
+
+def rest(key_file,method,path,payload=None,cleanup=False):
+    global REST_RETRY_NOT_BEFORE
     if not path.startswith('/v2/'):raise ValueError('provider_path_not_allowlisted')
     if key_file.stat().st_mode&0o077:raise ValueError('credential_permissions')
-    key=key_file.read_text().strip()
-    request=urllib.request.Request('https://api.runpod.io'+path,data=json.dumps(payload).encode() if payload is not None else None,headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'},method=method)
-    with urllib.request.build_opener(NoRedirect).open(request,timeout=25) as result:
-        data=result.read();return json.loads(data) if data else None
+    ledger=rate_ledger_path(key_file)
+    with ledger.with_suffix('.lock').open('a')as lock:
+        os.fchmod(lock.fileno(),0o600);fcntl.flock(lock,fcntl.LOCK_EX)
+        cached=json.loads(ledger.read_text())if ledger.exists()else{}
+        state=merge_rate_state(cached,{},time.time())
+        REST_RATE_LIMITS.clear();REST_RATE_LIMITS.update(state['limits']);REST_RETRY_NOT_BEFORE=state['retryNotBefore']
+        if time.time()<REST_RETRY_NOT_BEFORE:raise urllib.error.HTTPError('https://api.runpod.io'+path,429,'shared Retry-After cooldown',{'Retry-After':str(REST_RETRY_NOT_BEFORE-time.time())},None)
+        if not cleanup and method!='DELETE'and quota_cleanup_required(state['limits']):raise ValueError('catalog_rest_quota_cleanup_required')
+        # Reserve before transmission: timeout/URLError may have reached provider.
+        for value in state['limits'].values():value['remaining']=max(0,value['remaining']-1)
+        ledger.write_text(json.dumps(state));ledger.chmod(0o600)
+        key=key_file.read_text().strip()
+        request=urllib.request.Request('https://api.runpod.io'+path,data=json.dumps(payload).encode()if payload is not None else None,headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'},method=method)
+        try:
+            with urllib.request.build_opener(NoRedirect).open(request,timeout=25)as response:
+                data=response.read();incoming={'limits':rate_limits_from_headers(response.headers,time.time())};return json.loads(data)if data else None
+        except urllib.error.HTTPError as error:
+            incoming={'limits':rate_limits_from_headers(error.headers or{},time.time())}
+            if error.code==429:
+                delay=retry_after_seconds(error);incoming['retryNotBefore']=time.time()+(delay if delay is not None else 30)
+            raise
+        finally:
+            if 'incoming'in locals():
+                state=merge_rate_state(state,incoming,time.time());ledger.write_text(json.dumps(state));ledger.chmod(0o600)
+                REST_RATE_LIMITS.clear();REST_RATE_LIMITS.update(state['limits']);REST_RETRY_NOT_BEFORE=state['retryNotBefore']
+
+
+def catalog_pod_record(value):
+    if not isinstance(value,dict) or not re.fullmatch(r'[a-z0-9]{8,30}',value.get('id','')) or not isinstance(value.get('name'),str):raise ValueError('catalog_rest_pod_identity_invalid')
+    status=value.get('status')
+    if status not in ['PROVISIONING','STARTING','RUNNING','EXITED','ERROR','TERMINATED']:raise ValueError('catalog_rest_pod_state_invalid')
+    rate=value.get('cost');disk=value.get('disk');mounts=value.get('mounts')or{}
+    if isinstance(rate,bool)or not isinstance(rate,(int,float))or not math.isfinite(rate)or rate<0 or isinstance(disk,bool)or not isinstance(disk,(int,float))or disk<0 or not isinstance(mounts,dict):raise ValueError('catalog_rest_pod_cost_storage_invalid')
+    persistent=mounts.get('persistent')or{};volume=persistent.get('size',0)
+    if isinstance(volume,bool)or not isinstance(volume,(int,float))or volume<0:raise ValueError('catalog_rest_volume_invalid')
+    runtime=value.get('runtime');ports=[]
+    if runtime is not None:
+        if not isinstance(runtime,dict):raise ValueError('catalog_rest_runtime_invalid')
+        for port in runtime.get('ports',[]):
+            if not isinstance(port,dict):raise ValueError('catalog_rest_port_invalid')
+            ports.append({'ip':port.get('ip'),'isIpPublic':bool(port.get('public')and port.get('ip')),'privatePort':port.get('private'),'publicPort':port.get('public'),'type':port.get('type')})
+        runtime={**runtime,'ports':ports}
+    return {'id':value['id'],'name':value['name'],'desiredStatus':'RUNNING'if status in ['PROVISIONING','STARTING','RUNNING']else status,'runtime':runtime,'costPerHr':rate,'volumeInGb':volume,'containerDiskInGb':disk,'mounts':mounts,'rawStatus':status}
+
+
+def catalog_list(key,path,field,cleanup=False):
+    rows=[];cursor=None;seen=set()
+    for page in range(10):
+        url=path+('&'if'?'in path else'?')+'cursor='+urllib.parse.quote(cursor,safe='')if cursor else path
+        value=rest(key,'GET',url,**({'cleanup':True}if cleanup else{}))
+        if not isinstance(value,dict)or not isinstance(value.get(field),list)or not isinstance(value.get('pagination'),dict):raise ValueError('catalog_rest_roster_invalid')
+        rows.extend(value[field]);pagination=value['pagination']
+        if pagination.get('hasNextPage')is False:
+            if pagination.get('nextCursor')is not None:raise ValueError('catalog_rest_cursor_inconsistent')
+            return rows
+        cursor=pagination.get('nextCursor')
+        if pagination.get('hasNextPage')is not True or not isinstance(cursor,str)or not cursor or cursor in seen:raise ValueError('catalog_rest_cursor_invalid')
+        seen.add(cursor)
+    raise ValueError('catalog_rest_pagination_bound_exceeded')
+
+
+def catalog_pods(key,cleanup=False):
+    rows=catalog_list(key,'/v2/pods?includeClusterPods=true','pods',cleanup)
+    result=[catalog_pod_record(p)for p in rows]
+    if len({p['id']for p in result})!=len(result):raise ValueError('catalog_rest_duplicate_pod')
+    return result
+
+
+def retry_after_seconds(error):
+    if not isinstance(error,urllib.error.HTTPError)or error.code!=429:return None
+    raw=error.headers.get('Retry-After')if error.headers else None
+    if raw is None:return None
+    try:value=float(raw)
+    except (ValueError,TypeError):return None
+    return value if math.isfinite(value)and value>=0 else None
 
 
 def owned(folder,key):
-    state=json.loads((folder/'state.json').read_text());rows=watch.status(key)
+    state=json.loads((folder/'state.json').read_text());rows=catalog_pods(key)if state.get('limitPolicy')=='COST_ONLY_50_USD'else watch.status(key)
+    if state.get('limitPolicy')=='COST_ONLY_50_USD'and quota_cleanup_required(REST_RATE_LIMITS):raise ValueError('catalog_rest_quota_cleanup_required')
     matches=[row for row in rows if row['name']==state['runName'] and row['id'] not in state['preexistingPodIds']]
     if len(matches)>1:raise ValueError('ambiguous_own_allocation')
     if matches and state.get('podId') and matches[0]['id']!=state['podId']:raise ValueError('owned_identity_changed')
@@ -119,7 +259,7 @@ def legacy_guard(args):
 def guard(args):
     if json.loads((args.operation/'state.json').read_text()).get('limitPolicy')!='COST_ONLY_50_USD':return legacy_guard(args)
     (args.operation/'guard.ready').write_text(str(os.getpid()))
-    last_verified=time.time()
+    last_verified=time.time();next_read=0
     while True:
         state=json.loads((args.operation/'state.json').read_text())
         if state['phase'] in ['REMOVED','NO_ALLOCATION']:return
@@ -128,9 +268,12 @@ def guard(args):
             # Check the independent deadline before any potentially slow API read.
             reason=guard_stop_reason(state,None,time.time(),last_verified)
             if reason is None:
-                try:pod=owned(args.operation,args.key_file)
+                try:
+                    if time.time()>=next_read:pod=owned(args.operation,args.key_file)
                 except Exception as caught:
                     error=caught
+                    delay=retry_after_seconds(caught)
+                    if delay is not None:next_read=time.time()+delay
                     if not transient_provider_error(caught):reason='PROVIDER_VALIDATION_FAILED'
                 if pod is not None:last_verified=time.time()
                 reason=reason or guard_stop_reason(state,pod,time.time(),last_verified)
@@ -147,9 +290,9 @@ def guard(args):
         except Exception as caught:
             catalog_attempt_event(args.operation,'LOCAL_GUARD_CLEANUP_ERROR',errorType=type(caught).__name__)
             if state.get('podId'):
-                try:watch.stop(args.key_file,state['podId'])
+                try:rest(args.key_file,'DELETE','/v2/pods/'+state['podId'])
                 except Exception:pass
-        time.sleep(10)
+        time.sleep(30)
 
 
 class SSHTransportError(RuntimeError):
@@ -225,7 +368,7 @@ print(hashlib.sha256((root/'results.tgz').read_bytes()).hexdigest())'''
     return target
 
 
-NATIVE_GUARD=(inspect.getsource(transient_provider_error)+'\n'+inspect.getsource(guard_stop_reason)+'\n'+r'''import os,json,time,urllib.request,urllib.error,re,math
+NATIVE_GUARD=(inspect.getsource(rate_limits_from_headers)+'\n'+inspect.getsource(quota_cleanup_required)+'\n'+inspect.getsource(merge_rate_state)+'\n'+inspect.getsource(transient_provider_error)+'\n'+inspect.getsource(guard_stop_reason)+'\n'+r'''import os,json,time,urllib.request,urllib.error,re,math,signal,fcntl
 from pathlib import Path
 
 def native_main():
@@ -234,16 +377,53 @@ def native_main():
  assert re.fullmatch('[a-z0-9]{8,30}',pod)and re.fullmatch('[A-Za-z0-9_-]{20,256}',key)
  deadline=float(os.environ['BACKYRD_DEADLINE'])
  def event(kind,**fields):print(json.dumps({'event':kind,'epoch':time.time(),'podId':pod,**fields}),flush=True)
+ quota={'limits':{},'retryNotBefore':0}
+ def publish_quota():
+  target=Path('/tmp/backyrd-provider-rate.json');value=dict(quota)
+  if target.exists():
+   previous=json.loads(target.read_text())
+   if previous.get('lastSyncEpoch')is not None:value['lastSyncEpoch']=previous['lastSyncEpoch']
+  p=Path('/tmp/backyrd-provider-rate.tmp');p.write_text(json.dumps(value));p.replace(target)
  def api(query):
+  nonlocal quota
+  if os.environ.get('BACKYRD_PROVIDER_API')=='REST_V2':
+   lock=Path('/tmp/backyrd-provider-rate.lock').open('a');fcntl.flock(lock,fcntl.LOCK_EX)
+   ledger=Path('/tmp/backyrd-provider-rate.json')
+   if ledger.exists():
+    cached=json.loads(ledger.read_text());quota=merge_rate_state(quota,cached,time.time())
+    if not query.startswith('mutation')and cached.get('lastSyncEpoch')is not None and time.time()-cached['lastSyncEpoch']>=60:raise ValueError('controller_quota_sync_expired')
+  if os.environ.get('BACKYRD_PROVIDER_API')=='REST_V2':
+   deleting=query.startswith('mutation')
+   if time.time()<quota['retryNotBefore']:raise urllib.error.HTTPError('https://api.runpod.io/v2/pods/'+pod,429,'native Retry-After cooldown',{'Retry-After':str(quota['retryNotBefore']-time.time())},None)
+   req=urllib.request.Request('https://api.runpod.io/v2/pods/'+pod,method='DELETE'if deleting else'GET',headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'})
+   for v in quota['limits'].values():v['remaining']=max(0,v['remaining']-1)
+   publish_quota()
+   try:
+    with urllib.request.urlopen(req,timeout=15)as response:
+     quota=merge_rate_state(quota,{'limits':rate_limits_from_headers(response.headers,time.time())},time.time());publish_quota()
+     if deleting:return {'data':{'podStop':{'id':pod,'desiredStatus':'EXITED'}}}
+     value=json.load(response)
+     if quota_cleanup_required(quota['limits']):raise ValueError('provider_quota_cleanup_required')
+   except urllib.error.HTTPError as error:
+    if error.code==429:
+     retry=error.headers.get('Retry-After','30')if error.headers else'30'
+     until=time.time()+max(1,float(retry))if re.fullmatch(r'[0-9.]+',str(retry))else time.time()+30
+     quota=merge_rate_state(quota,{'limits':rate_limits_from_headers(error.headers or{},time.time()),'retryNotBefore':until},time.time());publish_quota()
+    if deleting and error.code==404:return {'data':{'podStop':{'id':pod,'desiredStatus':'EXITED'}}}
+    raise
+   if value.get('id')!=pod or value.get('status')not in ['PROVISIONING','STARTING','RUNNING','EXITED','ERROR','TERMINATED']:raise ValueError('provider_response_rejected')
+   return {'data':{'pod':{'id':value['id'],'desiredStatus':'RUNNING'if value['status']in ['PROVISIONING','STARTING','RUNNING']else value['status'],'costPerHr':value.get('cost')}}}
   req=urllib.request.Request('https://api.runpod.io/graphql',data=json.dumps({'query':query,'variables':{'id':pod}}).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'})
   with urllib.request.urlopen(req,timeout=15)as r:result=json.load(r)
   if result.get('errors')or 'data'not in result:raise ValueError('provider_response_rejected')
   return result
  control={'deadline':deadline-float(os.environ.get('BACKYRD_STOP_LEAD_SECONDS','120')),'podId':pod,'computeRateCap':float(os.environ['BACKYRD_COMPUTE_CAP'])}
- last_verified=time.time();armed=False;row=None
+ last_verified=time.time();armed=False;row=None;next_read=0
  while True:
   reason=guard_stop_reason(control,None,time.time(),last_verified,False)
   if reason:break
+  if time.time()<next_read:
+   time.sleep(min(5,max(0,next_read-time.time()),max(0,control['deadline']-time.time())));continue
   try:
    row=api('query($id:String!){pod(input:{podId:$id}){id costPerHr desiredStatus}}')['data']['pod']
    if row is None:raise ValueError('owned_pod_missing')
@@ -252,15 +432,33 @@ def native_main():
    last_verified=time.time();armed=True
   except Exception as error:
    event('PROVIDER_READ_ERROR',errorType=type(error).__name__,httpStatus=error.code if isinstance(error,urllib.error.HTTPError)else None)
+   if isinstance(error,urllib.error.HTTPError)and error.code==429:
+    retry=error.headers.get('Retry-After','30')if error.headers else'30'
+    next_read=time.time()+max(1,float(retry))if re.fullmatch(r'[0-9.]+',str(retry))else time.time()+30
    if not transient_provider_error(error):reason='PROVIDER_VALIDATION_FAILED';break
   if armed:
    # Heartbeat reflects last verified provider observation, never a failed read.
    p=Path('/tmp/backyrd-guard.tmp');p.write_text(json.dumps({'podId':pod,'deadline':deadline,'heartbeat':last_verified}));p.replace('/tmp/backyrd-guard.ready')
-  time.sleep(min(10,max(0,control['deadline']-time.time())))
+  time.sleep(min(30 if os.environ.get('BACKYRD_PROVIDER_API')=='REST_V2'else 10,max(0,control['deadline']-time.time())))
+ Path('/tmp/backyrd-guard.failed').write_text(json.dumps({'podId':pod,'failedReason':reason,'epoch':time.time()}))
+ # Stop paid work locally immediately; provider deletion must still honour cooldown.
+ if os.environ.get('BACKYRD_PROVIDER_API')=='REST_V2':
+  for proc in Path('/proc').iterdir():
+   if proc.name.isdigit():
+    try:
+     command=(proc/'cmdline').read_bytes()
+     if b'nuknuk-gpu.py'in command and b'product-'in command:os.kill(int(proc.name),signal.SIGTERM)
+    except (OSError,ValueError):pass
  event('STOP_REQUIRED',reason=reason,desiredStatus=row.get('desiredStatus')if row else None,costPerHr=row.get('costPerHr')if row else None)
  while True:
+  if time.time()<quota['retryNotBefore']:
+   time.sleep(min(30,quota['retryNotBefore']-time.time()));continue
   try:api('mutation($id:String!){podStop(input:{podId:$id}){id desiredStatus}}');event('STOP_ACKNOWLEDGED');break
-  except Exception as error:event('STOP_RETRY',errorType=type(error).__name__);time.sleep(5)
+  except Exception as error:
+   event('STOP_RETRY',errorType=type(error).__name__)
+   retry=error.headers.get('Retry-After','5')if isinstance(error,urllib.error.HTTPError)and error.headers else'5'
+   until=time.time()+max(1,float(retry))if re.fullmatch(r'[0-9.]+',str(retry))else time.time()+5
+   while time.time()<until:time.sleep(min(30,until-time.time()))
 
 if __name__=='__main__':native_main()
 ''')
@@ -447,26 +645,31 @@ def catalog_cleanup(args,folder):
     consistent=0
     for attempt in range(40):
         try:
-            _,account=catalog_account(args)
-            matches=[p for p in account['pods']if p['id']in ids or p['name']in names]
-            for pod in matches:
-                if pod['id']in state['preexistingPodIds']:raise ValueError('catalog_cleanup_preexisting_identity_refused')
-                ids.add(pod['id'])
-                if pod['desiredStatus']!='EXITED' or pod['runtime']is not None:watch.stop(args.key_file,pod['id'])
-            confirmed_absent=True
+            if ids.intersection(state['preexistingPodIds']):raise ValueError('catalog_cleanup_preexisting_identity_refused')
             for pid in ids:
                 try:rest(args.key_file,'DELETE','/v2/pods/'+pid)
                 except urllib.error.HTTPError as error:
                     if error.code!=404:raise
-                try:rest(args.key_file,'GET','/v2/pods/'+pid);confirmed_absent=False
+            _,account=catalog_account(args,cleanup=True)
+            matches=[p for p in account['pods']if p['id']in ids or p['name']in names]
+            for pod in matches:
+                if pod['id']in state['preexistingPodIds']:raise ValueError('catalog_cleanup_preexisting_identity_refused')
+                ids.add(pod['id'])
+            confirmed_absent=True
+            for pid in ids:
+                try:rest(args.key_file,'GET','/v2/pods/'+pid,cleanup=True);confirmed_absent=False
                 except urllib.error.HTTPError as error:
                     if error.code!=404:raise
-            clean=not matches and confirmed_absent and account.get('currentSpendPerHr')==0 and not account.get('networkVolumes') and all(p.get('volumeInGb')==0 for p in account['pods'])
+            clean=not matches and confirmed_absent and account.get('currentSpendPerHr')==0 and not (account.get('networkVolumes')or account.get('globalVolumes')) and all(p.get('volumeInGb')==0 for p in account['pods'])
             consistent=consistent+1 if clean else 0
             if consistent>=3:
                 catalog_attempt_event(folder,'CLEANUP_CONFIRMED',runName=state['runName'],podIds=sorted(ids),consistentAccountReads=consistent);return
         except Exception as error:
             consistent=0;print(json.dumps({'phase':'CATALOG_CLEANUP_RETRY','type':type(error).__name__}),flush=True)
+            delay=retry_after_seconds(error)
+            if delay is not None:
+                if delay>60:raise
+                time.sleep(delay)
         time.sleep(3)
     raise ValueError('catalog_paid_resource_cleanup_unconfirmed_guard_required')
 
@@ -494,6 +697,7 @@ def catalog_authority(args):
         or value.get('autoPay')is not False or value.get('productionActivation')is not False
         or value.get('bundleManifestSha256')!=digest((args.bundle/'product-gpu-manifest.json').read_bytes())):
         raise ValueError('catalog_explicit_current_authority_required')
+    if value.get('evaluationOnly',False)!=bool(getattr(args,'evaluate_only',False)):raise ValueError('catalog_evaluation_mode_authority_required')
     return value
 
 
@@ -521,22 +725,28 @@ def catalog_campaign_prior(authority):
     return initial,claimed
 
 
-def catalog_account(args):
-    billing=rest(args.key_file,'GET','/v2/billing/balance')
-    account=watch.query(args.key_file,'{myself{currentSpendPerHr pods{id name desiredStatus volumeInGb runtime{uptimeInSeconds}} networkVolumes{id size}}}')['myself']
+def catalog_account(args,cleanup=False):
+    billing=rest(args.key_file,'GET','/v2/billing/balance',**({'cleanup':True}if cleanup else{}))
+    pods=catalog_pods(args.key_file,cleanup)
+    networks=catalog_list(args.key_file,'/v2/network-volumes','networkVolumes',cleanup);globals_=catalog_list(args.key_file,'/v2/global-volumes','globalVolumes',cleanup)
+    if not isinstance(networks,list)or not isinstance(globals_,list):raise ValueError('catalog_rest_volume_roster_invalid')
+    account={'currentSpendPerHr':sum(p['costPerHr']for p in pods if p['desiredStatus']not in ['EXITED','TERMINATED']),'pods':pods,'networkVolumes':networks,'globalVolumes':globals_,'restRateLimits':dict(REST_RATE_LIMITS)}
+
     if billing.get('billingMode')!='PREPAID' or isinstance(billing.get('balanceAmount'),bool) or not isinstance(billing.get('balanceAmount'),(int,float)) or not math.isfinite(billing['balanceAmount']):
         raise ValueError('catalog_prepaid_billing_required')
     return billing,account
 
 
 def catalog_validate_idle(billing,account,required_credit=50):
-    if billing['balanceAmount']<required_credit or account.get('currentSpendPerHr')!=0 or account.get('networkVolumes') or any(p.get('desiredStatus')!='EXITED' or p.get('runtime')is not None or p.get('volumeInGb')!=0 for p in account['pods']):
+    if quota_cleanup_required(account.get('restRateLimits',{})):raise ValueError('catalog_rest_quota_headroom_required')
+    if billing['balanceAmount']<required_credit or account.get('currentSpendPerHr')!=0 or (account.get('networkVolumes')or account.get('globalVolumes')) or any(p.get('desiredStatus')!='EXITED' or p.get('runtime')is not None or p.get('volumeInGb')!=0 for p in account['pods']):
         raise ValueError('catalog_account_not_clean_or_credit_insufficient')
 
 
-def catalog_prepare_resume(source_bundle,snapshot,bundle,output):
+def catalog_prepare_resume(source_bundle,snapshot,bundle,output,component="parent-development"):
     """Import original first attempts only after source and snapshot checksum checks."""
     if output.exists():raise ValueError('catalog_resume_output_exists')
+    if component not in ['parent-development','candidate-development']:raise ValueError('catalog_resume_component_invalid')
     old=json.loads((source_bundle/'product-gpu-manifest.json').read_text())
     current=json.loads((bundle/'product-gpu-manifest.json').read_text())
     for name,binding in old['files'].items():
@@ -558,15 +768,18 @@ def catalog_prepare_resume(source_bundle,snapshot,bundle,output):
     smoke=json.loads((snapshot/'framework-smoke/result.json').read_text())
     if smoke.get('bundleManifestSha256')!=digest((source_bundle/'product-gpu-manifest.json').read_bytes())or smoke.get('status')!='PASS':raise ValueError('catalog_resume_original_smoke_unbound')
     # Use every recorded case, including failed first attempts; never cherry-pick.
-    paths=sorted((snapshot/'parent-development').glob('*.json'))
-    if any('parent-development/'+p.name not in hashes for p in paths):raise ValueError('catalog_resume_unbound_record')
+    paths=sorted((snapshot/component).glob('*.json'))
+    if any(component+'/'+p.name not in hashes for p in paths):raise ValueError('catalog_resume_unbound_record')
     records=[json.loads(p.read_text())for p in paths if p.name not in ('result.json','resume-receipt.json')]
-    value={'version':'backyrd.nuknuk-parent-resume@1','binding':{'datasetHash':current['datasetHash'],'adapterSha256':current['parent']['hfAdapterSha256'],'requestPacketSha256':digest((bundle/'development-requests.json').read_bytes()),'inferenceContractSha256':contract,'image':current['image'],'tokenizerFiles':current['parent']['modelFiles'],'split':'DEV','firstAttemptOnly':True},'sourceBundleManifestSha256':digest((source_bundle/'product-gpu-manifest.json').read_bytes()),'sourceSnapshotManifestSha256':digest((snapshot/'artifact-manifest.json').read_bytes()),'runtime':json.loads((snapshot/'runtime.json').read_text()),'gpuName':'NVIDIA H100 80GB HBM3','records':records}
+    candidate_result=json.loads((snapshot/'training-receipts/result.json').read_text())if component=='candidate-development'else None
+    adapter_sha=candidate_result['adapterSha256']if candidate_result else current['parent']['hfAdapterSha256']
+    value={'sourceComponent':component,'version':'backyrd.nuknuk-parent-resume@1','binding':{'datasetHash':current['datasetHash'],'adapterSha256':adapter_sha,'requestPacketSha256':digest((bundle/'development-requests.json').read_bytes()),'inferenceContractSha256':contract,'image':current['image'],'tokenizerFiles':current['parent']['modelFiles'],'split':'DEV','firstAttemptOnly':True},'sourceBundleManifestSha256':digest((source_bundle/'product-gpu-manifest.json').read_bytes()),'sourceSnapshotManifestSha256':digest((snapshot/'artifact-manifest.json').read_bytes()),'runtime':json.loads((snapshot/'runtime.json').read_text()),'gpuName':'NVIDIA H100 80GB HBM3','records':records}
+    if candidate_result is not None:value['sourceCandidateResultText']=(snapshot/'training-receipts/result.json').read_text()
     value.update(sourceSnapshotManifestText=(snapshot/'artifact-manifest.json').read_text(),sourceRuntimeText=(snapshot/'runtime.json').read_text(),sourceSmokeText=(snapshot/'framework-smoke/result.json').read_text())
     value['binding'].update(caseIdsSha256=digest(json.dumps(sorted(r['id']for r in records),separators=(',',':')).encode()),caseCount=len(records),failedFirstAttemptCount=sum(r['status']!='GENERATED_REQUIRES_SEMANTIC_REVIEW'for r in records))
     packet=json.loads((bundle/'development-requests.json').read_text())
     output.write_text(json.dumps(value,indent=2)+'\n');output.chmod(0o600)
-    try:gpu.catalog_resume_records(output,current,bundle/'development-requests.json',packet['cases'],current['parent']['hfAdapterSha256'])
+    try:gpu.catalog_resume_records(output,current,bundle/'development-requests.json',packet['cases'],adapter_sha)
     except BaseException:output.unlink();raise
     return {'resumePacketSha256':digest(output.read_bytes()),'savedFirstAttempts':len(records),'remainingCases':len(packet['cases'])-len(records),'failedFirstAttemptsRetained':sum(r['status']!='GENERATED_REQUIRES_SEMANTIC_REVIEW'for r in records),'generationUnchanged':True,'resourcesCreated':False}
 
@@ -581,14 +794,18 @@ def catalog_read_retry(read,folder):
             if not (transient_provider_error(error) or isinstance(error,(SSHTransportError,subprocess.TimeoutExpired))) or time.time()-started>=60:raise
             catalog_attempt_event(folder,'PROVIDER_READ_RETRY',errorType=type(error).__name__,httpStatus=error.code if isinstance(error,urllib.error.HTTPError)else None)
             save(folder,state['phase'],providerReadRetryEpoch=time.time())
-            time.sleep(min(5,max(0,state['deadline']-time.time())))
+            delay=retry_after_seconds(error)
+            if delay is not None and delay>min(60-(time.time()-started),max(0,state['deadline']-time.time())):raise
+            time.sleep(min(delay if delay is not None else 5,max(0,state['deadline']-time.time())))
 
 
 def catalog_cost_check(args,folder):
     state=json.loads((folder/'state.json').read_text())
     billing,account=catalog_read_retry(lambda:catalog_account(args),folder)
+    if quota_cleanup_required(account.get('restRateLimits',{})):raise ValueError('catalog_rest_quota_cleanup_required')
     for observation in range(3):
-        pod=catalog_read_retry(lambda:owned(folder,args.key_file),folder)
+        pod=next((p for p in account['pods']if p['id']==state['podId']),None)if observation==0 else catalog_read_retry(lambda:owned(folder,args.key_file),folder)
+        if pod is not None and state.get('runName')is not None and pod.get('name')!=state['runName']:raise ValueError('catalog_owned_name_changed')
         reason=guard_stop_reason(state,pod,time.time(),time.time(),False)
         if reason:
             catalog_attempt_event(folder,'PROVIDER_STATE_REJECTED',reason=reason,podId=pod.get('id')if pod else None,desiredStatus=pod.get('desiredStatus')if pod else None,costPerHr=pod.get('costPerHr')if pod else None)
@@ -598,7 +815,7 @@ def catalog_cost_check(args,folder):
         if observation==2:raise ValueError('catalog_owned_runtime_unavailable_after_rechecks')
         time.sleep(5)
     known=set(state['preexistingPodIds'])|{state['podId']}
-    if any(p['id']not in known or p['id']!=state['podId'] and (p['desiredStatus']!='EXITED' or p['runtime']is not None or p['volumeInGb']!=0)for p in account['pods']) or account.get('networkVolumes'):
+    if any(p['id']not in known or p['id']!=state['podId'] and (p['desiredStatus']!='EXITED' or p['runtime']is not None or p['volumeInGb']!=0)for p in account['pods']) or (account.get('networkVolumes')or account.get('globalVolumes')):
         raise ValueError('catalog_unexpected_billable_resource')
     debit=max(0,state['initialBalanceUsd']-billing['balanceAmount'])
     bound=state.get('priorCostUsd',0)+max(0,time.time()-state['started'])*state['allInHourlyRateUsd']/3600
@@ -642,6 +859,33 @@ touch COMPLETE
     return script.replace(' WHEEL_INSTALL',verification+'\n'+install)
 
 
+def catalog_evaluation_startup_script(manifest,wheel_sha,wheel_name):
+    script=catalog_startup_script(manifest,wheel_sha,wheel_name,True)
+    lines=[line for line in script.splitlines()if ' product-train --bundle 'not in line]
+    script='\n'.join(lines)+'\n'
+    script=script.replace('--output candidate-development --execution-approval','--output candidate-development --resume candidate-resume.json --execution-approval')
+    if ' product-train 'in script or '--resume parent-resume.json'not in script or '--resume candidate-resume.json'not in script:raise ValueError('catalog_evaluation_only_script_invalid')
+    return script
+
+
+def catalog_candidate_payload(args,manifest,authority):
+    source=getattr(args,'candidate_source',None);result_path=getattr(args,'candidate_result',None)
+    if source is None or result_path is None:raise ValueError('catalog_completed_candidate_inputs_required')
+    result_bytes=result_path.read_bytes();result=json.loads(result_bytes);adapter=source/'adapter_model.safetensors';config=source/'adapter_config.json'
+    if (digest(result_bytes)!=authority.get('completedTrainingResultSha256')or digest(adapter.read_bytes())!=authority.get('evaluationCandidateSha256')or digest(config.read_bytes())!=authority.get('evaluationCandidateConfigSha256')
+        or result.get('sourceManifestSha256')!=authority.get('originalTrainingBundleManifestSha256')or result.get('status')!='TRAINED_REQUIRES_COMPARISON'or result.get('datasetHash')!=manifest['datasetHash']or result.get('parentAdapterSha256')!=manifest['parent']['hfAdapterSha256']or result.get('model')!=manifest['parent']['trainingBase']
+        or result.get('adapterSha256')!=authority.get('evaluationCandidateSha256')or result.get('trainingRows')!=manifest['recipe']['trainingRows']or result.get('completedOptimizerUpdates')!=manifest['recipe']['optimizerUpdates']or result.get('epochs')!=1):raise ValueError('catalog_completed_candidate_lineage_invalid')
+    identity_path=Path(authority['frozenCandidateIdentityFile']);identity_raw=identity_path.read_bytes();identity=json.loads(identity_raw)
+    if digest(identity_raw)!=authority.get('frozenCandidateIdentitySha256')or identity.get('candidateAdapterSha256')!=result['adapterSha256']or identity.get('selectionPolicy')!='ONE_PREREGISTERED_FINAL_CHECKPOINT'or identity.get('testUsedForSelection')is not False:raise ValueError('catalog_final_candidate_identity_not_bound')
+    cfg=json.loads(config.read_text())
+    if cfg.get('r')!=16 or cfg.get('lora_alpha')!=32 or cfg.get('lora_dropout')!=0 or sorted(cfg.get('target_modules',[]))!=manifest['parent']['targetModules']or cfg.get('use_dora')or cfg.get('use_rslora'):raise ValueError('catalog_candidate_architecture_changed')
+    value=io.BytesIO()
+    with tarfile.open(fileobj=value,mode='w:gz')as archive:
+        for name,raw in [('output/adapter_model.safetensors',adapter.read_bytes()),('output/adapter_config.json',config.read_bytes()),('training-receipts/result.json',result_bytes)]:
+            item=tarfile.TarInfo(name);item.size=len(raw);item.mode=0o600;archive.addfile(item,io.BytesIO(raw))
+    return value.getvalue()
+
+
 def catalog_launch(ssh,script,stage):
     # No wall-clock timeout wrapper. Only the cost watchdog can expire this job.
     ssh_call(ssh,'cat > '+REMOTE+'/'+stage+'.sh',30,script.encode())
@@ -655,12 +899,12 @@ def catalog_monitor(args,folder,ssh,stage):
         catalog_cost_check(args,folder);counter+=1
         code="import pathlib,json;root=pathlib.Path("+repr(REMOTE)+");p=root/"+repr(stage+'-EXIT')+";print(json.dumps({'exit':p.read_text()if p.exists()else None}))"
         status=json.loads(catalog_read_retry(lambda:ssh_call(ssh,PY+' -c '+shlex.quote(code),25),folder))
-        if counter%6==1 or status['exit']is not None:
+        if counter%4==1 or status['exit']is not None:
             target=catalog_read_retry(lambda:sync(ssh,folder,stage+'-'+str(counter).zfill(5)),folder);save(folder,stage.upper(),latestResults=str(target),lastSuccessfulSyncEpoch=time.time())
         if status['exit']is not None:
             if status['exit'].strip()!='0':raise ValueError('catalog_remote_'+stage+'_failed')
             return target
-        time.sleep(20)
+        time.sleep(30)
 
 
 def catalog_upload_json(ssh,name,path):
@@ -701,6 +945,16 @@ def catalog_run(args,folder):
         if authority.get('parentResumeCaseIdsSha256')!=resume_value['binding'].get('caseIdsSha256')or authority.get('parentResumeCaseCount')!=resume_value['binding'].get('caseCount')or authority.get('parentResumeFailedFirstAttemptCount')!=resume_value['binding'].get('failedFirstAttemptCount'):raise ValueError('catalog_resume_roster_not_authorized')
         packet=json.loads((args.bundle/'development-requests.json').read_text())
         gpu.catalog_resume_records(resume_path,manifest,args.bundle/'development-requests.json',packet['cases'],manifest['parent']['hfAdapterSha256'])
+    evaluation_only=bool(getattr(args,'evaluate_only',False));candidate_payload=None
+    if evaluation_only:
+        if resume_path is None or getattr(args,'resume_candidate',None)is None:raise ValueError('catalog_evaluation_both_resume_receipts_required')
+        candidate_payload=catalog_candidate_payload(args,manifest,authority)
+        candidate_resume=args.resume_candidate
+        if digest(candidate_resume.read_bytes())!=authority.get('candidateResumeSha256'):raise ValueError('catalog_candidate_resume_not_authorized')
+        candidate_value=json.loads(candidate_resume.read_text())
+        if candidate_value.get('sourceComponent')!='candidate-development':raise ValueError('catalog_candidate_resume_component_required')
+        packet=json.loads((args.bundle/'development-requests.json').read_text())
+        gpu.catalog_resume_records(candidate_resume,manifest,args.bundle/'development-requests.json',packet['cases'],authority['evaluationCandidateSha256'])
     payload=package(args.bundle,manifest)
     initial,account=catalog_account(args);catalog_validate_idle(initial,account,50-campaign_prior)
     if campaign_initial is not None:
@@ -724,11 +978,11 @@ def catalog_run(args,folder):
                 print(json.dumps({'phase':'WAITING_FOR_RESUME_COMPATIBLE_H100','billablePodCreated':False}),flush=True);time.sleep(30);continue
         quote=choices[0];compute=float(quote['price']['secure']);cap=compute+.03;rate=cap+storage_rate
         prior=max(campaign_prior,initial['balanceAmount']-billing['balanceAmount'],0);started=time.time();deadline=catalog_budget(started,prior,rate);name='backyrd-catalog-'+uuid.uuid4().hex[:16]
-        save(folder,'PREPARED',limitPolicy='COST_ONLY_50_USD',runName=name,started=started,deadline=deadline,initialBalanceUsd=initial['balanceAmount'],balanceAtAllocationUsd=billing['balanceAmount'],campaignId=authority.get('campaignId'),priorCostUsd=prior,allInHourlyRateUsd=rate,storageHourlyUsd=storage_rate,storageTariffSha256=digest(args.storage_tariff.read_bytes()),computeRateCap=cap,gpu=quote['id'],accountId=account_meta['id'],preexistingPodIds=baseline_ids,podId=None,bundleHash=digest((args.bundle/'product-gpu-manifest.json').read_bytes()),resourcesRemoved=False)
+        save(folder,'PREPARED',limitPolicy='COST_ONLY_50_USD',runName=name,started=started,deadline=deadline,initialBalanceUsd=initial['balanceAmount'],balanceAtAllocationUsd=billing['balanceAmount'],campaignId=authority.get('campaignId'),priorCostUsd=prior,allInHourlyRateUsd=rate,storageHourlyUsd=storage_rate,storageTariffSha256=digest(args.storage_tariff.read_bytes()),computeRateCap=cap,gpu=quote['id'],accountId=account_meta['id'],preexistingPodIds=baseline_ids,podId=None,bundleHash=digest((args.bundle/'product-gpu-manifest.json').read_bytes()),resourcesRemoved=False,evaluationOnly=evaluation_only)
         (folder/'quote.json').write_text(json.dumps({'gpu':quote,'containerDiskGb':200,'persistentVolumeGb':0,'allInHourlyRateUsd':rate,'storageHourlyUsd':storage_rate,'storageTariff':storage_receipt,'costCeilingUsd':50,'reserveUsd':5,'priorCostUsd':prior,'campaignId':authority.get('campaignId'),'campaignInitialBalanceUsd':initial['balanceAmount'],'costDerivedDeadline':deadline,'noIndependentTimeLimit':True,'providerPolicy':'SECURE_ON_DEMAND_NO_REQUESTED_EXPIRY','authorization':authority},indent=2)+'\n')
         command="python3 -u -c \"import os,base64;exec(base64.b64decode(os.environ['BACKYRD_GUARD']))\" > /tmp/backyrd-guard.log 2>&1 & exec sleep infinity"
-        request={'name':name,'cloud':'SECURE','gpu':{'id':quote['id'],'count':1,'minRamPerGpu':96,'minVcpuCountPerGpu':8},'image':manifest['image'],'disk':200,'mounts':{},'startSsh':True,'ports':['22/tcp'],'cmd':['/bin/bash','-lc',command],'env':{'PUBLIC_KEY':args.public_key.read_text().strip(),'JUPYTER_DISABLE':'1','BACKYRD_GUARD':base64.b64encode(NATIVE_GUARD.encode()).decode(),'BACKYRD_DEADLINE':str(deadline),'BACKYRD_COMPUTE_CAP':str(cap),'BACKYRD_STOP_LEAD_SECONDS':'0'}}
-        guard_process=None;diagnostic_process=None;creation_requested=False
+        request={'name':name,'cloud':'SECURE','gpu':{'id':quote['id'],'count':1,'minRamPerGpu':96,'minVcpuCountPerGpu':8},'image':manifest['image'],'disk':200,'mounts':{},'startSsh':True,'ports':['22/tcp'],'cmd':['/bin/bash','-lc',command],'env':{'PUBLIC_KEY':args.public_key.read_text().strip(),'JUPYTER_DISABLE':'1','BACKYRD_GUARD':base64.b64encode(NATIVE_GUARD.encode()).decode(),'BACKYRD_DEADLINE':str(deadline),'BACKYRD_COMPUTE_CAP':str(cap),'BACKYRD_STOP_LEAD_SECONDS':'0','BACKYRD_PROVIDER_API':'REST_V2'}}
+        guard_process=None;diagnostic_process=None;rate_sync=None;creation_requested=False
         try:
             with (folder/('guard-'+name+'.log')).open('x')as log:guard_process=subprocess.Popen([sys.executable,'-B',str(Path(__file__).resolve()),'guard','--operation',str(folder),'--key-file',str(args.key_file)],stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
             for _ in range(30):
@@ -759,20 +1013,24 @@ def catalog_run(args,folder):
                     raise ValueError('catalog_assigned_image_storage_or_stop_policy_changed')
                 for key in ['expiresAt','maxRuntimeSeconds','leaseExpiresAt']:
                     if detail.get(key)not in (None,0):raise ValueError('catalog_unexpected_provider_runtime_limit')
-                record=watch.query(args.key_file,'query($id:String!){pod(input:{podId:$id}){id desiredStatus volumeInGb containerDiskInGb runtime{ports{ip isIpPublic privatePort publicPort type}}}}',{'id':pid})['pod']
+                record=catalog_pod_record(detail)
                 if not record or record['volumeInGb']!=0 or record['containerDiskInGb']!=200 or record['desiredStatus']=='EXITED':raise ValueError('catalog_assigned_resource_not_safe')
                 ports=[p for p in (record.get('runtime')or{}).get('ports',[])if p['isIpPublic']and p['privatePort']==22 and p['type']=='tcp']
                 if len(ports)==1:
                     import ipaddress
                     port=ports[0];host=str(ipaddress.ip_address(port['ip']));ssh=['ssh','-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','ConnectTimeout=5','-o','StrictHostKeyChecking=accept-new','-o','UserKnownHostsFile='+str(folder/'known_hosts'),'-i',str(args.private_key),'-p',str(int(port['publicPort'])),'root@'+host]
                     try:
-                        ready=json.loads(ssh_call(ssh,'cat /tmp/backyrd-guard.ready',15))
+                        ready=json.loads(ssh_call(ssh,'if test -f /tmp/backyrd-guard.failed; then cat /tmp/backyrd-guard.failed; else cat /tmp/backyrd-guard.ready; fi',15))
+                        if ready.get('podId')==pid and ready.get('failedReason'):raise ValueError('catalog_native_guard_failed_before_start')
                         if ready['podId']==pid and ready['deadline']==deadline and 0<=time.time()-ready['heartbeat']<45:break
                     except (SSHTransportError,subprocess.TimeoutExpired,RuntimeError,json.JSONDecodeError):pass
                 time.sleep(10)
+            rate_sync=CatalogRateSync(args,ssh)
             with (folder/'native-guard-stream.jsonl').open('ab',buffering=0)as diagnostics, (folder/'native-guard-stream-stderr.log').open('ab',buffering=0)as errors:
                 diagnostic_process=subprocess.Popen([*ssh,'tail -n +1 -F /tmp/backyrd-guard.log'],stdin=subprocess.DEVNULL,stdout=diagnostics,stderr=errors,start_new_session=True)
             approval={'executionAuthorized':True,'bundleManifestSha256':digest((args.bundle/'product-gpu-manifest.json').read_bytes()),'parentAdapterSha256':manifest['parent']['hfAdapterSha256'],'autoPay':False,'ownedPods':1,'totalCeilingUsd':50,'reserveUsd':5,'startedEpoch':started,'deadlineEpoch':deadline,'observedSpentUsd':prior,'allInHourlyRateUsd':rate,'storageAllowanceUsd':0,'watchdogHeartbeatPath':'/tmp/backyrd-guard.ready','podId':pid,'accountId':account_meta['id'],'campaignId':authority.get('campaignId'),'campaignInitialBalanceUsd':initial['balanceAmount'],'campaignPriorCostUsd':prior,'priorReceiptHashes':[r['stateSha256']for r in authority.get('priorAttempts',[])],'storageHourlyUsd':storage_rate,'storageTariffSha256':digest(args.storage_tariff.read_bytes()),'limitPolicy':'COST_ONLY_50_USD','launchedImage':detail['image'],'providerRuntimeLimit':None}
+            if resume_path is not None:approval['parentResumeSha256']=authority['parentResumeSha256']
+            if evaluation_only:approval.update(evaluationOnly=True,evaluationCandidateSha256=authority['evaluationCandidateSha256'],candidateResumeSha256=authority['candidateResumeSha256'])
             ap=folder/'execution-approval.json';ap.write_text(json.dumps(approval,indent=2)+'\n');ap.chmod(0o600)
             ssh_call(ssh,'mkdir -p '+REMOTE,20);catalog_upload_json(ssh,'execution-approval.json',ap)
             ssh_call(ssh,'cat > '+REMOTE+'/input.tgz',90,payload)
@@ -780,12 +1038,19 @@ def catalog_run(args,folder):
             ssh_call(ssh,PY+' -c '+shlex.quote(unpack),45)
             ssh_call(ssh,'cat > '+REMOTE+'/'+args.llguidance_wheel.name,60,args.llguidance_wheel.read_bytes())
             if resume_path is not None:catalog_upload_json(ssh,'parent-resume.json',resume_path)
+            if evaluation_only:
+                catalog_upload_json(ssh,'candidate-resume.json',args.resume_candidate)
+                ssh_call(ssh,'cat > '+REMOTE+'/secured-candidate.tgz',90,candidate_payload)
+                unpack_candidate="import hashlib,tarfile,pathlib;p=pathlib.Path("+repr(REMOTE+'/secured-candidate.tgz')+");assert hashlib.sha256(p.read_bytes()).hexdigest()=="+repr(digest(candidate_payload))+";tarfile.open(p).extractall("+repr(REMOTE)+",filter='data')"
+                ssh_call(ssh,PY+' -c '+shlex.quote(unpack_candidate),45)
             save(folder,'DEVELOPMENT',providerRequestedImageVerified=True,resolvedRuntimeImageDigestVerified=False,providerRuntimeExpiryConfigured=False)
-            process_id=catalog_launch(ssh,catalog_startup_script(manifest,authority['llguidanceWheelSha256'],args.llguidance_wheel.name,resume_path is not None),'development');save(folder,'DEVELOPMENT',remoteProcessId=process_id)
+            startup=catalog_evaluation_startup_script(manifest,authority['llguidanceWheelSha256'],args.llguidance_wheel.name)if evaluation_only else catalog_startup_script(manifest,authority['llguidanceWheelSha256'],args.llguidance_wheel.name,resume_path is not None)
+            process_id=catalog_launch(ssh,startup,'development');save(folder,'DEVELOPMENT',remoteProcessId=process_id)
             target=catalog_monitor(args,folder,ssh,'development')
             trained=json.loads((target/'training-receipts/result.json').read_text());adapter=target/'output/adapter_model.safetensors'
             if trained.get('datasetHash')!=manifest['datasetHash'] or trained.get('completedOptimizerUpdates')!=manifest['recipe']['optimizerUpdates'] or trained.get('trainingRows')!=manifest['recipe']['trainingRows'] or digest(adapter.read_bytes())!=trained.get('adapterSha256'):
                 raise ValueError('catalog_completed_candidate_not_bound')
+            if evaluation_only and (digest((target/'training-receipts/result.json').read_bytes())!=authority['completedTrainingResultSha256']or trained['adapterSha256']!=authority['evaluationCandidateSha256']):raise ValueError('catalog_evaluation_candidate_changed_after_upload')
             save(folder,'TRAINED_SECURED',candidateSha256=trained['adapterSha256'],results=str(target))
             comparison=catalog_compare(args,folder,target,'DEV')
             if comparison['comparison']['passed'] or (source.get('catalogVariant')=='understanding-correction-v1' and comparison['comparison'].get('testExecutionPermitted') is True):
@@ -813,6 +1078,7 @@ touch COMPLETE
             # Includes lost-create-response reconciliation: no second allocation.
             raise
         finally:
+            if rate_sync is not None:rate_sync.close()
             if allocated or failure:
                 if creation_requested and not allocated:
                     discovered=None
@@ -842,6 +1108,10 @@ if __name__=='__main__':
     for name in ['operation','key-file','bundle','quote','quote-admission','private-key','public-key']:parser.add_argument('--'+name,type=Path,required=name in ['operation','key-file'])
     parser.add_argument('--catalog-package',type=Path)
     parser.add_argument('--resume-parent',type=Path)
+    parser.add_argument('--evaluate-only',action='store_true')
+    parser.add_argument('--candidate-source',type=Path)
+    parser.add_argument('--candidate-result',type=Path)
+    parser.add_argument('--resume-candidate',type=Path)
     parser.add_argument('--execution-authorization',type=Path)
     parser.add_argument('--storage-tariff',type=Path)
     parser.add_argument('--llguidance-wheel',type=Path)

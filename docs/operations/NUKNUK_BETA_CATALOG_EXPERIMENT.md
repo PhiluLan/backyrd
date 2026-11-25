@@ -217,3 +217,31 @@ Vorversuche und den aktuellen Bundlehash binden. Guthaben allein erhöht die
 Grenze nicht. Kein zweiter Pod, keine Aufladung, keine automatische Aktivierung.
 Native Mac-Prüfungen erfolgen isoliert unter dem bestehenden Speicherwächter;
 bei autorisierter Livepause sichert ein unabhängiger Wächter die Wiederherstellung.
+
+### Fortsetzung ohne erneutes Training
+
+`--evaluate-only` bindet den gesicherten Endadapter, seine Konfiguration, den
+ursprünglichen Trainingsbeleg und die vorregistrierte Checkpoint-Identität.
+Beide DEV-Resume-Pakete erhalten sämtliche gespeicherten Erstantworten, auch
+fehlgeschlagene. Der neue Orchestrierungsbundle ersetzt den ursprünglichen
+Trainingsbeleg nicht. Daten, Lade-/Generierungsfingerprint, Tokenizer und Runtime
+bleiben identisch. GPU-Training verweigert Evaluate-only bereits bei Admission.
+
+Der Katalogcontroller verwendet REST v2 für Konto, Ressourcen und Löschung.
+DELETE eigener gebundener IDs steht vor der Inventur. Controller und lokaler
+Guard teilen ein flock-geschütztes Quota-/Cooldown-Ledger. Fehlende Header
+löschen keine Einschränkung; jede weitere reguläre Anfrage einschließlich
+Pagination prüft die 40-Anfragen-Cleanupreserve. Cleanup darf die Reserve nutzen,
+aber keinen bekannten Retry-After umgehen. Der native Guard gleicht seine
+Einschränkungen über das bestehende SSH alle 30 Sekunden konservativ mit dem
+Controller ab (separater Worker: 15 Sekunden Pause, höchstens zweimal 15 Sekunden
+SSH; native Sperre nach 60 Sekunden ohne Abgleich); acht weitere Anfragen bleiben für zwischenzeitliche Beobachtungen
+reserviert.
+
+Nach 90 Sekunden ohne Providerbeobachtung bleibt Modelladmission gesperrt.
+Der native Guard beendet lokale Produktprozesse, markiert den Ausfall und wartet
+mit DELETE auf einen bekannten Retry-After. Prozessstopp beendet keine
+GPU-Abrechnung und beweist keine Ressourcenlöschung. Die gebundene Kostengrenze
+wird nicht verlängert. Bei unerreichbarer Providerverwaltung ist sofortige
+Löschung nicht garantiert; der Zustand bleibt offen, bis DELETE-/404- und
+Inventurbelege vorliegen. Keine neue Allokation bei unbestätigter Bereinigung.

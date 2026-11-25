@@ -47,13 +47,13 @@ class Contracts(unittest.TestCase):
    folder=Path(name);state={'runName':'run','podId':'abc12345678','preexistingPodIds':[]};(folder/'state.json').write_text(json.dumps(state));ctl.catalog_attempt_event(folder,'CREATE_INTENT',runName='run');ctl.catalog_attempt_event(folder,'POD_ACKNOWLEDGED',runName='run',podId='abc12345678')
    pod={'id':'abc12345678','name':'run','desiredStatus':'RUNNING','runtime':{},'volumeInGb':0};snapshots=[({'balanceAmount':50},{'currentSpendPerHr':2.9,'networkVolumes':[],'pods':[pod]})]*2+[({'balanceAmount':50},{'currentSpendPerHr':0,'networkVolumes':[],'pods':[]})]*3
    reads=[0]
-   def api(key,method,path,payload=None):
+   def api(key,method,path,payload=None,**kwargs):
     if method=='DELETE':return None
     reads[0]+=1
     if reads[0]<=2:return {'id':'abc12345678'}
     raise HTTPError('https://api.runpod.io',404,'not found',{},None)
    with patch.object(ctl,'catalog_account',side_effect=snapshots)as account,patch.object(ctl,'rest',side_effect=api),patch.object(ctl.watch,'stop')as stop,patch.object(ctl.time,'sleep'):
-    ctl.catalog_cleanup(SimpleNamespace(key_file=folder/'key'),folder);self.assertEqual(account.call_count,5);self.assertEqual(stop.call_count,2)
+    ctl.catalog_cleanup(SimpleNamespace(key_file=folder/'key'),folder);self.assertEqual(account.call_count,5);self.assertEqual(stop.call_count,0)
  def lost_creation_fixture(self,delayed):
   with tempfile.TemporaryDirectory()as name:
    folder=Path(name);bundle=folder/'bundle';bundle.mkdir();catalog=folder/'catalog';catalog.mkdir();(catalog/'manifest.json').write_text(json.dumps({'catalogHash':'dataset'}));(catalog/'test-inference-inputs.json').write_text('{}');(bundle/'product-gpu-manifest.json').write_text('{}');op=folder/'op';op.mkdir();(op/'guard.ready').write_text('1');wheel=folder/'runtime.whl';wheel.write_bytes(b'wheel')
@@ -62,7 +62,7 @@ class Contracts(unittest.TestCase):
    quote={'id':'NVIDIA H100 PCIe','secure':True,'memory':80,'availability':'HIGH','price':{'secure':2.89}}
    authority={'llguidanceWheelSha256':ctl.digest(b'wheel')};args=SimpleNamespace(operation=op,bundle=bundle,catalog_package=catalog,execution_authorization=folder/'authority',private_key=folder/'private',public_key=folder/'public',storage_tariff=folder/'storage',llguidance_wheel=wheel,key_file=folder/'key');args.public_key.write_text('ssh-ed25519 SYNTHETIC');args.storage_tariff.write_text('{}')
    billing={'billingMode':'PREPAID','balanceAmount':51};account={'currentSpendPerHr':0,'networkVolumes':[],'pods':[]};pod={'id':'abc12345678','name':'bound','desiredStatus':'RUNNING','runtime':{},'costPerHr':2.89}
-   def api(key,method,path,payload=None):
+   def api(key,method,path,payload=None,**kwargs):
     if method=='POST':raise URLError('lost create reply')
     if path=='/v2/account':return {'id':'account'}
     if 'catalog/gpus'in path:return [quote]
@@ -85,19 +85,19 @@ class Contracts(unittest.TestCase):
    quote={'id':'NVIDIA H100 PCIe','secure':True,'memory':80,'availability':'HIGH','price':{'secure':2.89}};authority={'llguidanceWheelSha256':ctl.digest(b'wheel')};args=SimpleNamespace(operation=op,bundle=bundle,catalog_package=catalog,execution_authorization=folder/'authority',private_key=folder/'private',public_key=folder/'public',storage_tariff=folder/'storage',llguidance_wheel=wheel,key_file=folder/'key');args.public_key.write_text('ssh-ed25519 SYNTHETIC');args.storage_tariff.write_text('{}')
    billing={'billingMode':'PREPAID','balanceAmount':51};account={'currentSpendPerHr':0,'networkVolumes':[],'pods':[]};pod={'id':'abc12345678','name':'bound','desiredStatus':'RUNNING','runtime':{},'costPerHr':2.89};request={};gone=[False]
    target=folder/'results';(target/'training-receipts').mkdir(parents=True);(target/'output').mkdir();(target/'output/adapter_model.safetensors').write_bytes(b'synthetic-adapter');candidate=ctl.digest(b'synthetic-adapter');(target/'training-receipts/result.json').write_text(json.dumps({'datasetHash':'dataset','completedOptimizerUpdates':470,'trainingRows':2350,'adapterSha256':candidate}))
-   def api(key,method,path,payload=None):
+   def api(key,method,path,payload=None,**kwargs):
     if method=='POST':request.update(payload);return {'id':'abc12345678'}
     if path=='/v2/account':return {'id':'account'}
     if 'catalog/gpus'in path:return [quote]
     if 'billing/balance'in path:return billing
-    if path=='/v2/pods/abc12345678':return {'image':'pinned','disk':200,'mounts':{},'locked':False}
+    if path=='/v2/pods/abc12345678':return {'id':'abc12345678','name':'bound','status':'RUNNING','cost':2.89,'image':'pinned','disk':200,'mounts':{},'locked':False,'runtime':{'ports':[{'ip':'192.0.2.1','private':22,'public':22000,'type':'tcp'}]}}
     raise ValueError('unexpected mock API')
    def ssh(transport,command,timeout=25,data=None):
-    if command=='cat /tmp/backyrd-guard.ready':return json.dumps({'podId':'abc12345678','deadline':float(request['env']['BACKYRD_DEADLINE']),'heartbeat':time.time()}).encode()
+    if 'cat /tmp/backyrd-guard.ready'in command:return json.dumps({'podId':'abc12345678','deadline':float(request['env']['BACKYRD_DEADLINE']),'heartbeat':time.time()}).encode()
     return b''
    ports={'pod':{'id':'abc12345678','desiredStatus':'RUNNING','volumeInGb':0,'containerDiskInGb':200,'runtime':{'ports':[{'isIpPublic':True,'privatePort':22,'publicPort':12345,'type':'tcp','ip':'192.0.2.1'}]}}}
    guard=Mock();guard.poll.return_value=None
-   with patch.object(ctl,'catalog_authority',return_value=authority),patch.object(ctl,'catalog_storage_rate',return_value=(.03,{})),patch.object(ctl.importlib.util,'spec_from_file_location',return_value=SimpleNamespace(loader=loader)),patch.object(ctl.importlib.util,'module_from_spec',return_value=module),patch.object(ctl,'catalog_account',return_value=(billing,account)),patch.object(ctl,'package',return_value=b'archive'),patch.object(ctl,'rest',side_effect=api)as rest,patch.object(ctl.subprocess,'Popen',return_value=guard),patch.object(ctl,'owned',side_effect=lambda *args:None if gone[0]else pod),patch.object(ctl,'catalog_cleanup',side_effect=lambda *args:gone.__setitem__(0,True)),patch.object(ctl.time,'sleep'),patch.object(ctl.watch,'query',return_value=ports),patch.object(ctl,'ssh_call',side_effect=ssh)as upload,patch.object(ctl,'catalog_launch',return_value=123),patch.object(ctl,'catalog_monitor',return_value=target),patch.object(ctl,'catalog_compare',return_value={'comparison':{'passed':False}}):
+   with patch.object(ctl,'catalog_authority',return_value=authority),patch.object(ctl,'catalog_storage_rate',return_value=(.03,{})),patch.object(ctl.importlib.util,'spec_from_file_location',return_value=SimpleNamespace(loader=loader)),patch.object(ctl.importlib.util,'module_from_spec',return_value=module),patch.object(ctl,'catalog_account',return_value=(billing,account)),patch.object(ctl,'package',return_value=b'archive'),patch.object(ctl,'rest',side_effect=api)as rest,patch.object(ctl.subprocess,'Popen',return_value=guard),patch.object(ctl,'owned',side_effect=lambda *args:None if gone[0]else pod),patch.object(ctl,'catalog_cleanup',side_effect=lambda *args:gone.__setitem__(0,True)),patch.object(ctl.time,'sleep'),patch.object(ctl.watch,'query',return_value=ports),patch.object(ctl,'ssh_call',side_effect=ssh)as upload,patch.object(ctl,'CatalogRateSync'),patch.object(ctl,'catalog_launch',return_value=123),patch.object(ctl,'catalog_monitor',return_value=target),patch.object(ctl,'catalog_compare',return_value={'comparison':{'passed':False}}):
     state=ctl.catalog_run(args,op)
     self.assertEqual(state['phase'],'REMOVED');self.assertTrue(state['resourcesRemoved']);self.assertEqual(state['candidateSha256'],candidate);self.assertFalse(state['testExecuted']);self.assertEqual(sum(call.args[1]=='POST'for call in rest.call_args_list),1);self.assertFalse(any('cat > '+ctl.REMOTE+'/test-inference-inputs.json'in call.args[1]for call in upload.call_args_list))
  def test_campaign_keeps_original_fifty_dollar_cap_across_failed_attempt(self):
@@ -135,9 +135,9 @@ class Recovery(unittest.TestCase):
    folder=Path(name);state={'phase':'DEVELOPMENT','deadline':1000,'podId':'abc12345678','preexistingPodIds':[],'started':100,'initialBalanceUsd':51,'allInHourlyRateUsd':4.45,'computeRateCap':4.42};(folder/'state.json').write_text(json.dumps(state))
    pod={'id':state['podId'],'desiredStatus':'RUNNING','costPerHr':4.39,'runtime':{}}
    account={'pods':[pod],'networkVolumes':[]};args=SimpleNamespace(key_file=folder/'key')
-   with patch.object(ctl,'catalog_account',return_value=({'balanceAmount':50},account)),patch.object(ctl,'owned',side_effect=[{**pod,'runtime':None},pod]),patch.object(ctl.time,'time',return_value=150),patch.object(ctl.time,'sleep'):
+   with patch.object(ctl,'catalog_account',return_value=({'balanceAmount':50},{**account,'pods':[{**pod,'runtime':None}]})),patch.object(ctl,'owned',return_value=pod),patch.object(ctl.time,'time',return_value=150),patch.object(ctl.time,'sleep'):
     ctl.catalog_cost_check(args,folder)
-   with patch.object(ctl,'catalog_account',return_value=({'balanceAmount':50},account)),patch.object(ctl,'owned',return_value={**pod,'costPerHr':5}),patch.object(ctl.time,'time',return_value=150):
+   with patch.object(ctl,'catalog_account',return_value=({'balanceAmount':50},{**account,'pods':[{**pod,'costPerHr':5}]})),patch.object(ctl,'owned'),patch.object(ctl.time,'time',return_value=150):
     with self.assertRaisesRegex(ValueError,'pod_tariff_exceeded'):ctl.catalog_cost_check(args,folder)
  def test_native_guard_survives_one_network_failure_and_stops_at_original_deadline(self):
   self.native_guard_fixture(False)
@@ -167,7 +167,7 @@ class Resume(unittest.TestCase):
   with tempfile.TemporaryDirectory()as name:
    folder=Path(name);packet=folder/'requests.json';packet.write_text('{}');path=folder/'resume.json'
    row={'id':'case','task':'COMPACT_SEARCH_V7','promptHash':'prompt','inputHash':'input','schemaHash':'schema'}
-   manifest={'datasetHash':'data','image':'pinned','parent':{'modelFiles':{'tokenizer':'hash'}}}
+   manifest={'datasetHash':'data','image':'pinned','parent':{'hfAdapterSha256':'parent','modelFiles':{'tokenizer':'hash'}}}
    value={'sourceBundleManifestSha256':'source','sourceSnapshotManifestSha256':'snapshot','binding':{'datasetHash':'data','adapterSha256':'parent','requestPacketSha256':gpu.file_sha(packet),'inferenceContractSha256':gpu.catalog_inference_contract(Path(gpu.__file__).read_text()),'image':'pinned','tokenizerFiles':manifest['parent']['modelFiles'],'split':'DEV','firstAttemptOnly':True},'runtime':{k:'pinned'for k in ['torch','transformers','peft','axolotl','tokenizers','llguidance']},'gpuName':'NVIDIA H100 80GB HBM3','records':[{**row,'status':'FAILED','raw':None,'attempt':1}]}
    value['binding'].update(caseIdsSha256=ctl.digest(b'["case"]'),caseCount=1,failedFirstAttemptCount=1)
    value['sourceRuntimeText']=json.dumps(value['runtime']);value['sourceSmokeText']=json.dumps({'status':'PASS','bundleManifestSha256':'source'})
@@ -193,4 +193,143 @@ class CrossPythonResume(unittest.TestCase):
   values=[json.loads(subprocess.check_output([py,'-B','-c',code],text=True))for py in interpreters]
   self.assertEqual({tuple(v['python'])for v in values},{(3,12),(3,13)})
   self.assertEqual(len({v['hash']for v in values}),1)
+
+class RestAndEvaluationSafety(unittest.TestCase):
+ def test_rest_cursor_walk_includes_second_page_and_rejects_repeated_cursor(self):
+  first={'pods':[{'id':'one'}],'pagination':{'hasNextPage':True,'nextCursor':'a+/='}}
+  last={'pods':[{'id':'two'}],'pagination':{'hasNextPage':False,'nextCursor':None}}
+  with patch.object(ctl,'rest',side_effect=[first,last])as api:
+   self.assertEqual([p['id']for p in ctl.catalog_list(Path('/key'),'/v2/pods?includeClusterPods=true','pods')],['one','two'])
+   self.assertIn('cursor=a%2B%2F%3D',api.call_args.args[2])
+  with patch.object(ctl,'rest',side_effect=[first,first]):
+   with self.assertRaisesRegex(ValueError,'cursor_invalid'):ctl.catalog_list(Path('/key'),'/v2/pods','pods')
+ def test_rest_shape_maps_initialization_and_preserves_tariff_storage_ports(self):
+  raw={'id':'abc12345678','name':'owned','status':'STARTING','cost':4.39,'disk':200,'mounts':{},'runtime':None}
+  item=ctl.catalog_pod_record(raw);self.assertEqual(item['desiredStatus'],'RUNNING');self.assertIsNone(item['runtime']);self.assertEqual(item['costPerHr'],4.39)
+  item=ctl.catalog_pod_record({**raw,'status':'RUNNING','mounts':{'persistent':{'size':7}},'runtime':{'ports':[{'ip':'192.0.2.1','private':22,'public':22001,'type':'tcp'}]}})
+  self.assertEqual(item['volumeInGb'],7);self.assertEqual(item['runtime']['ports'][0]['publicPort'],22001)
+  for changed in [{'status':'UNKNOWN'},{'cost':float('nan')},{'disk':-1},{'id':'bad/id'}]:
+   with self.assertRaises(ValueError):ctl.catalog_pod_record({**raw,**changed})
+ def test_rate_headers_reserve_cleanup_headroom_and_long_retry_never_busy_retries(self):
+  limits=ctl.rate_limits_from_headers({'RateLimit':'"minute";r=170;t=12, "day";r=39;t=5000'},100)
+  self.assertTrue(ctl.quota_cleanup_required(limits));self.assertEqual(limits['day']['resetsAt'],5100)
+  with tempfile.TemporaryDirectory()as name:
+   folder=Path(name);(folder/'state.json').write_text(json.dumps({'phase':'DEVELOPMENT','deadline':10000}));error=HTTPError('https://api.runpod.io',429,'limited',{'Retry-After':'16696'},None);read=Mock(side_effect=error)
+   with patch.object(ctl.time,'time',return_value=100),patch.object(ctl.time,'sleep')as sleep:
+    with self.assertRaises(HTTPError):ctl.catalog_read_retry(read,folder)
+    self.assertEqual(read.call_count,1);sleep.assert_not_called()
+ def test_cleanup_deletes_bound_owned_id_even_when_account_observation_is_throttled(self):
+  with tempfile.TemporaryDirectory()as name:
+   folder=Path(name);(folder/'state.json').write_text(json.dumps({'runName':'owned','podId':'abc12345678','preexistingPodIds':[]}));events=[]
+   def api(*args):events.append(('delete',args[2]));return None
+   def account(*args,**kwargs):events.append(('account',));raise HTTPError('https://api.runpod.io',429,'limited',{'Retry-After':'1000'},None)
+   with patch.object(ctl,'rest',side_effect=api),patch.object(ctl,'catalog_account',side_effect=account),patch.object(ctl.watch,'query')as graphql,patch.object(ctl.time,'sleep'):
+    with self.assertRaises(HTTPError):ctl.catalog_cleanup(SimpleNamespace(key_file=folder/'key'),folder)
+    self.assertEqual(events[0],('delete','/v2/pods/abc12345678'));graphql.assert_not_called()
+ def test_cleanup_never_deletes_preexisting_id(self):
+  with tempfile.TemporaryDirectory()as name:
+   folder=Path(name);(folder/'state.json').write_text(json.dumps({'runName':'owned','podId':'abc12345678','preexistingPodIds':['abc12345678']}))
+   with patch.object(ctl,'rest')as api,patch.object(ctl.time,'sleep'):
+    with self.assertRaises(ValueError):ctl.catalog_cleanup(SimpleNamespace(key_file=folder/'key'),folder)
+    api.assert_not_called()
+ def test_evaluation_only_script_has_no_training_and_requires_both_first_attempt_resumes(self):
+  script=ctl.catalog_evaluation_startup_script({'parent':{'hfAdapterSha256':'a'*64}},'b'*64,'runtime.whl')
+  self.assertNotIn(' product-train ',script);self.assertIn('--resume parent-resume.json',script);self.assertIn('--resume candidate-resume.json',script);self.assertNotIn('--split TEST',script)
+ def test_evaluation_only_authority_cannot_be_used_in_training_mode(self):
+  with tempfile.TemporaryDirectory()as name:
+   root=Path(name);bundle=root/'bundle';bundle.mkdir();(bundle/'product-gpu-manifest.json').write_text('{}');path=root/'auth.json';auth={'executionAuthorized':True,'totalCeilingUsd':50,'limitPolicy':'COST_ONLY_50_USD','autoPay':False,'productionActivation':False,'bundleManifestSha256':ctl.digest(b'{}'),'evaluationOnly':True};path.write_text(json.dumps(auth));args=SimpleNamespace(bundle=bundle,execution_authorization=path,evaluate_only=False)
+   with self.assertRaisesRegex(ValueError,'evaluation_mode_authority_required'):ctl.catalog_authority(args)
+   args.evaluate_only=True;self.assertTrue(ctl.catalog_authority(args)['evaluationOnly'])
+
+class QuotaLedger(unittest.TestCase):
+ class Response:
+  def __init__(self,value,headers=None):self.value=value;self.headers=headers or{}
+  def __enter__(self):return self
+  def __exit__(self,*args):pass
+  def read(self):return json.dumps(self.value).encode()
+ def test_low_billing_quota_prevents_all_following_list_requests(self):
+  with tempfile.TemporaryDirectory()as t:
+   key=Path(t)/'key';key.write_text('synthetic');key.chmod(0o600)
+   opener=Mock();opener.open.return_value=self.Response({'billingMode':'PREPAID','balanceAmount':50},{'RateLimit':'"day";r=39;t=5000'})
+   with patch.object(ctl.urllib.request,'build_opener',return_value=opener):
+    with self.assertRaisesRegex(ValueError,'quota_cleanup_required'):ctl.catalog_account(SimpleNamespace(key_file=key))
+    self.assertEqual(opener.open.call_count,1)
+ def test_missing_headers_retain_windows_and_low_page_stops_pagination(self):
+  with tempfile.TemporaryDirectory()as t:
+   key=Path(t)/'key';key.write_text('synthetic');key.chmod(0o600)
+   opener=Mock();opener.open.side_effect=[self.Response({}, {'RateLimit':'"day";r=100;t=5000'}),self.Response({}),self.Response({'pods':[],'pagination':{'hasNextPage':True,'nextCursor':'next'}},{'RateLimit':'"minute";r=39;t=60'})]
+   with patch.object(ctl.urllib.request,'build_opener',return_value=opener):
+    ctl.rest(key,'GET','/v2/account');ctl.rest(key,'GET','/v2/account')
+    self.assertEqual(ctl.REST_RATE_LIMITS['day']['remaining'],99)
+    with self.assertRaisesRegex(ValueError,'quota_cleanup_required'):ctl.catalog_list(key,'/v2/pods','pods')
+    self.assertEqual(opener.open.call_count,3)
+ def test_shared_cooldown_blocks_second_process_api_and_cleanup_before_retry(self):
+  import subprocess,sys
+  with tempfile.TemporaryDirectory()as t:
+   key=Path(t)/'key';key.write_text('synthetic');key.chmod(0o600)
+   opener=Mock();opener.open.side_effect=HTTPError('https://api.runpod.io',429,'limited',{'Retry-After':'1000'},None)
+   with patch.object(ctl.urllib.request,'build_opener',return_value=opener):
+    with self.assertRaises(HTTPError):ctl.rest(key,'GET','/v2/account')
+   code="import importlib.util;from pathlib import Path;from unittest.mock import patch;s=importlib.util.spec_from_file_location('c',"+repr(str(Path(ctl.__file__)))+");m=importlib.util.module_from_spec(s);s.loader.exec_module(m)\nwith patch.object(m.urllib.request,'build_opener')as o:\n try:m.rest(Path("+repr(str(key))+"),'DELETE','/v2/pods/abc12345678')\n except m.urllib.error.HTTPError as e:assert e.code==429\n else:raise AssertionError('cooldown missing')\n o.assert_not_called()"
+   subprocess.run([sys.executable,'-B','-c',code],check=True,capture_output=True)
+ def test_stale_remote_never_increases_headroom_or_shortens_cooldown(self):
+  old={'limits':{'day':{'remaining':39,'resetsAt':5000}},'retryNotBefore':1000}
+  stale={'limits':{'day':{'remaining':900,'resetsAt':7000}},'retryNotBefore':200}
+  merged=ctl.merge_rate_state(old,stale,100);self.assertEqual(merged,old)
+  self.assertEqual(ctl.merge_rate_state(merged,{},5001)['limits'],{})
+ def test_uncertain_transmission_still_reserves_quota(self):
+  with tempfile.TemporaryDirectory()as t:
+   key=Path(t)/'key';key.write_text('synthetic');key.chmod(0o600);ctl.merge_rate_ledger(key,{'limits':{'day':{'remaining':100,'resetsAt':time.time()+1000}}})
+   opener=Mock();opener.open.side_effect=URLError('reply lost')
+   with patch.object(ctl.urllib.request,'build_opener',return_value=opener):
+    with self.assertRaises(URLError):ctl.rest(key,'GET','/v2/account')
+   self.assertEqual(json.loads(ctl.rate_ledger_path(key).read_text())['limits']['day']['remaining'],99)
+ def test_interleaved_processes_atomically_consume_headerless_request_budget(self):
+  import multiprocessing
+  with tempfile.TemporaryDirectory()as t:
+   key=Path(t)/'key';key.write_text('synthetic');key.chmod(0o600)
+   ctl.merge_rate_ledger(key,{'limits':{'day':{'remaining':100,'resetsAt':time.time()+1000}}})
+   def worker():
+    opener=Mock();opener.open.return_value=QuotaLedger.Response({})
+    with patch.object(ctl.urllib.request,'build_opener',return_value=opener):
+     for _ in range(4):ctl.rest(key,'GET','/v2/account')
+   ps=[multiprocessing.get_context('fork').Process(target=worker)for _ in range(2)]
+   for p in ps:p.start()
+   for p in ps:p.join(10);self.assertEqual(p.exitcode,0)
+   self.assertEqual(json.loads(ctl.rate_ledger_path(key).read_text())['limits']['day']['remaining'],92)
+ def test_rest_native_429_stops_work_at_grace_but_deletes_only_after_retry(self):
+  import contextlib,io
+  ns={'__name__':'native_test'};exec(ctl.NATIVE_GUARD,ns);clock=[100.];calls=[];events=[]
+  def api(request,timeout):
+   calls.append((clock[0],request.method,request.full_url))
+   if request.method=='GET':raise HTTPError(request.full_url,429,'limited',{'Retry-After':'1000'},None)
+   return QuotaLedger.Response({})
+  with tempfile.TemporaryDirectory()as t:
+   original_path=ns['Path'];proc=Path(t)/'proc';proc.mkdir();job=proc/'321';job.mkdir();(job/'cmdline').write_bytes(b'python\0nuknuk-gpu.py\0product-evaluate')
+   def path(value):
+    if value=='/proc':return proc
+    if value=='/proc/1/environ':return Mock(read_bytes=lambda:b'RUNPOD_POD_ID=abc12345678\0RUNPOD_API_KEY=abcdefghijklmnopqrstuvwx\0')
+    return original_path(t+'/'+value.rsplit('/',1)[-1])
+   ns['Path']=path
+   with patch.dict(ns['os'].environ,{'BACKYRD_PROVIDER_API':'REST_V2','BACKYRD_DEADLINE':'2000','BACKYRD_COMPUTE_CAP':'4.42','BACKYRD_STOP_LEAD_SECONDS':'0'}),patch.object(ns['urllib'].request,'urlopen',side_effect=api),patch.object(ns['os'],'kill',side_effect=lambda pid,sig:events.append((clock[0],pid,sig))),patch.object(ns['time'],'time',side_effect=lambda:clock[0]),patch.object(ns['time'],'sleep',side_effect=lambda d:clock.__setitem__(0,clock[0]+d)),contextlib.redirect_stdout(io.StringIO())as output:ns['native_main']()
+   failed=json.loads(path('/tmp/backyrd-guard.failed').read_text());self.assertEqual(failed['epoch'],190);self.assertEqual(failed['failedReason'],'PROVIDER_OBSERVATION_EXPIRED');self.assertEqual(events[0][0],190)
+   self.assertEqual([(x[0],x[1])for x in calls],[(100,'GET'),(1100,'DELETE')]);self.assertTrue(all('/v2/pods/abc12345678'in x[2]for x in calls));self.assertNotIn('graphql',str(calls))
+
+class CompletedCandidate(unittest.TestCase):
+ def test_payload_is_exact_allowlist_and_rejects_weights_lineage_and_checkpoint_changes(self):
+  import tarfile,io
+  with tempfile.TemporaryDirectory()as t:
+   root=Path(t);source=root/'output';source.mkdir();(source/'adapter_model.safetensors').write_bytes(b'candidate');cfg={'r':16,'lora_alpha':32,'lora_dropout':0,'target_modules':['q_proj']};(source/'adapter_config.json').write_text(json.dumps(cfg));(source/'unapproved-secret').write_text('never transferred')
+   result=root/'result.json';value={'status':'TRAINED_REQUIRES_COMPARISON','sourceManifestSha256':'original','datasetHash':'data','parentAdapterSha256':'parent','model':'pinned','adapterSha256':ctl.digest(b'candidate'),'trainingRows':1000,'completedOptimizerUpdates':200,'epochs':1};result.write_text(json.dumps(value));frozen=root/'frozen.json';frozen.write_text(json.dumps({'candidateAdapterSha256':value['adapterSha256'],'selectionPolicy':'ONE_PREREGISTERED_FINAL_CHECKPOINT','testUsedForSelection':False}))
+   authority={'completedTrainingResultSha256':ctl.digest(result.read_bytes()),'evaluationCandidateSha256':value['adapterSha256'],'evaluationCandidateConfigSha256':ctl.digest((source/'adapter_config.json').read_bytes()),'originalTrainingBundleManifestSha256':'original','frozenCandidateIdentityFile':str(frozen),'frozenCandidateIdentitySha256':ctl.digest(frozen.read_bytes())};manifest={'datasetHash':'data','parent':{'hfAdapterSha256':'parent','trainingBase':'pinned','targetModules':['q_proj']},'recipe':{'trainingRows':1000,'optimizerUpdates':200}};args=SimpleNamespace(candidate_source=source,candidate_result=result)
+   payload=ctl.catalog_candidate_payload(args,manifest,authority)
+   with tarfile.open(fileobj=io.BytesIO(payload),mode='r:gz')as archive:self.assertEqual(archive.getnames(),['output/adapter_model.safetensors','output/adapter_config.json','training-receipts/result.json'])
+   for field,replacement in [('epochs',2),('model','wrong'),('completedOptimizerUpdates',199),('sourceManifestSha256','other'),('parentAdapterSha256','other')]:
+    result.write_text(json.dumps({**value,field:replacement}));modified={**authority,'completedTrainingResultSha256':ctl.digest(result.read_bytes())}
+    with self.assertRaisesRegex(ValueError,'lineage_invalid'):ctl.catalog_candidate_payload(args,manifest,modified)
+   result.write_text(json.dumps(value));(source/'adapter_model.safetensors').write_bytes(b'changed')
+   with self.assertRaisesRegex(ValueError,'lineage_invalid'):ctl.catalog_candidate_payload(args,manifest,authority)
+   (source/'adapter_model.safetensors').write_bytes(b'candidate');frozen.write_text(json.dumps({'candidateAdapterSha256':value['adapterSha256'],'selectionPolicy':'BEST_OF_TEST','testUsedForSelection':True}));authority['frozenCandidateIdentitySha256']=ctl.digest(frozen.read_bytes())
+   with self.assertRaisesRegex(ValueError,'final_candidate_identity_not_bound'):ctl.catalog_candidate_payload(args,manifest,authority)
+
 if __name__=='__main__':unittest.main()

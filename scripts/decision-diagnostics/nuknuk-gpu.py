@@ -1381,10 +1381,13 @@ def catalog_resume_records(path,manifest,packet_path,requests,adapter_sha256):
     rows={r['id']:r for r in requests};records=value.get('records',[])
     roster_hash=hashlib.sha256(json.dumps(sorted(r['id']for r in records),separators=(',',':')).encode()).hexdigest()
     if binding.get('caseIdsSha256')!=roster_hash:raise ValueError('beta_resume_case_ids_changed')
+    component=value.get('sourceComponent','parent-development')
+    if component not in ['parent-development','candidate-development']:raise ValueError('beta_resume_component_invalid')
+    if component=='parent-development'and adapter_sha256!=manifest['parent']['hfAdapterSha256']:raise ValueError('beta_resume_parent_adapter_changed')
     source_text=value.get('sourceSnapshotManifestText','')
     if hashlib.sha256(source_text.encode()).hexdigest()!=value['sourceSnapshotManifestSha256']:raise ValueError('beta_resume_snapshot_manifest_changed')
     snapshot=json.loads(source_text)
-    snapshot_cases={name[len('parent-development/'):-5]:sha for name,sha in snapshot.items()if name.startswith('parent-development/')and name.endswith('.json')and name not in ('parent-development/result.json','parent-development/resume-receipt.json')}
+    snapshot_cases={name[len(component+'/'):-5]:sha for name,sha in snapshot.items()if name.startswith(component+'/')and name.endswith('.json')and name not in (component+'/result.json',component+'/resume-receipt.json')}
     if set(snapshot_cases)!={r['id']for r in records}or binding.get('caseCount')!=len(records)or binding.get('failedFirstAttemptCount')!=sum(r.get('status')!='GENERATED_REQUIRES_SEMANTIC_REVIEW'for r in records):raise ValueError('beta_resume_snapshot_roster_changed')
     for record in records:
         original_bytes=(json.dumps(record,ensure_ascii=False,indent=2)+'\n').encode()
@@ -1395,6 +1398,13 @@ def catalog_resume_records(path,manifest,packet_path,requests,adapter_sha256):
     if json.loads(value['sourceRuntimeText'])!=value['runtime']:raise ValueError('beta_resume_runtime_metadata_changed')
     smoke=json.loads(value['sourceSmokeText'])
     if smoke.get('status')!='PASS'or smoke.get('bundleManifestSha256')!=value['sourceBundleManifestSha256']:raise ValueError('beta_resume_source_bundle_unbound')
+    if component=='candidate-development':
+        text=value.get('sourceCandidateResultText','')
+        if hashlib.sha256(text.encode()).hexdigest()!=snapshot.get('training-receipts/result.json')or snapshot.get('output/adapter_model.safetensors')!=adapter_sha256:raise ValueError('beta_resume_candidate_snapshot_not_bound')
+        trained=json.loads(text)
+        if (trained.get('status')!='TRAINED_REQUIRES_COMPARISON'or trained.get('sourceManifestSha256')!=value['sourceBundleManifestSha256']or trained.get('datasetHash')!=manifest['datasetHash']or trained.get('adapterSha256')!=adapter_sha256
+            or trained.get('parentAdapterSha256')!=manifest['parent']['hfAdapterSha256']or trained.get('model')!=manifest['parent']['trainingBase']or trained.get('trainingRows')!=manifest['recipe']['trainingRows']or trained.get('completedOptimizerUpdates')!=manifest['recipe']['optimizerUpdates']or trained.get('epochs')!=1):raise ValueError('beta_resume_candidate_lineage_invalid')
+
 
     if len({r['id']for r in records})!=len(records):raise ValueError('beta_resume_duplicate_case')
     for record in records:
@@ -1420,7 +1430,7 @@ def validate_beta_selection(selection, source_manifest, manifest, bundle_hash, a
 def evaluate_beta_catalog(args):
     folder=args.bundle.resolve(strict=True);manifest=verify_product_gpu_bundle(folder)
     split=args.split
-    beta_execution_admission(folder,manifest,args.execution_approval)
+    approval=beta_execution_admission(folder,manifest,args.execution_approval)
     if args.output.exists() or file_sha(args.adapter/'adapter_model.safetensors')!=args.adapter_sha256:raise ValueError('beta_eval_output_or_adapter_invalid')
     if split=='TEST':
         if args.requests is None or args.selection_receipt is None:raise ValueError('beta_eval_test_requires_frozen_selection')
@@ -1438,7 +1448,11 @@ def evaluate_beta_catalog(args):
         or any(r['split']!=split or 'expected'in r or 'finalMeaning'in r or [m['role']for m in r['messages']]!=['system','user']for r in requests)):
         raise ValueError('beta_eval_target_free_roster_required')
     cached,resume=catalog_resume_records(getattr(args,'resume',None),manifest,packet_path,requests,args.adapter_sha256)
-    if resume is not None and (split!='DEV' or args.adapter_sha256!=manifest['parent']['hfAdapterSha256']):raise ValueError('beta_resume_parent_development_only')
+    if resume is not None:
+        allowed=(args.adapter_sha256==manifest['parent']['hfAdapterSha256']and resume.get('sourceComponent','parent-development')=='parent-development')or(approval.get('evaluationOnly')is True and approval.get('evaluationCandidateSha256')==args.adapter_sha256 and resume.get('sourceComponent')=='candidate-development')
+        if split!='DEV'or not allowed:raise ValueError('beta_resume_parent_development_only')
+        receipt_key='candidateResumeSha256'if resume.get('sourceComponent')=='candidate-development'else'parentResumeSha256'
+        if file_sha(args.resume)!=approval.get(receipt_key):raise ValueError('beta_resume_execution_receipt_not_bound')
     verify_beta_framework_smoke(folder)
     # All configuration/identity gates above run before model loading or downloads.
     import torch
@@ -1539,6 +1553,7 @@ def train_beta_catalog(args):
     import signal
     folder=args.bundle.resolve(strict=True);manifest=verify_product_gpu_bundle(folder)
     admission=beta_execution_admission(folder,manifest,args.execution_approval)
+    if admission.get('evaluationOnly')is True:raise ValueError('beta_evaluation_only_training_forbidden')
     native=verify_beta_native(folder,manifest)
     if str(folder) != '/workspace/backyrd-product-training/job':raise ValueError('beta_catalog_canonical_job_path_required')
     verify_beta_framework_smoke(folder)
