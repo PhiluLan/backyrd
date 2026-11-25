@@ -694,6 +694,8 @@ export async function buildBetaCatalog(out) {
     "scripts/decision-diagnostics/nuknuk-beta-semantics.mjs",
     "scripts/decision-diagnostics/nuknuk-gpu-bundle.mjs",
     "scripts/decision-diagnostics/nuknuk-gpu.py",
+    "scripts/decision-diagnostics/nuknuk-beta-run.py",
+    "scripts/decision-diagnostics/test_nuknuk_catalog_execution.py",
     "scripts/decision-diagnostics/nuknuk-beta-callback.py",
     "scripts/decision-diagnostics/nuknuk-runpod-watch.py",
     "scripts/decision-diagnostics/nuknuk-curriculum/preflight.py",

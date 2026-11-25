@@ -51,7 +51,7 @@ export async function exportBetaCatalogGpuBundle(args){
  put('catalog-manifest.json',sourceBytes);
  for(const name of ['nuknuk-gpu.py','nuknuk-runpod-watch.py','nuknuk-beta-callback.py'])put(name==='nuknuk-beta-callback.py'?'nuknuk_beta_callback.py':name,await readFile(resolve(root,'scripts/decision-diagnostics',name)));
  if(manifest.counts.TRAIN%5!==0)throw Error('beta_bundle_partial_accumulation_forbidden');
- const steps=manifest.counts.TRAIN/5,recipe={rank:16,alpha:32,epochs:1,learningRate:0.000002,seed:42,trainingRows:manifest.counts.TRAIN,validationRows:manifest.counts.DEV,optimizerUpdates:steps,gradientAccumulationSteps:5,maxTotalTokens:5120,maxAnswerTokens:2048,maxTrainingSeconds:14400,initialization:'EXACT_REFERENCE_PARENT_CONTINUATION',testUploaded:false,activationAuthorized:false,mixtureVersion:mixture.version};
+ const steps=manifest.counts.TRAIN/5,recipe={rank:16,alpha:32,epochs:1,learningRate:0.000002,seed:42,trainingRows:manifest.counts.TRAIN,validationRows:manifest.counts.DEV,optimizerUpdates:steps,gradientAccumulationSteps:5,maxTotalTokens:5120,maxAnswerTokens:2048,maxTrainingSeconds:null,initialization:'EXACT_REFERENCE_PARENT_CONTINUATION',testUploaded:false,activationAuthorized:false,mixtureVersion:mixture.version};
  let yaml=`base_model: /workspace/backyrd-product-training/base
 plugins:
   - nuknuk_beta_callback.BetaPlugin
@@ -117,7 +117,7 @@ dataset_processes: 4
  put('train.yaml',yaml);
  for(const [name,bytes]of payload){await mkdir(dirname(resolve(out,name)),{recursive:true,mode:0o700});await writeFile(resolve(out,name),bytes,{flag:'wx',mode:0o600});}
  const result={version:'backyrd.nuknuk-product-gpu-bundle@1',profile:BETA_PROFILE,datasetHash:manifest.catalogHash,sourceManifestSha256:expectedManifestSha,sourceSha:manifest.sourceSha,parent:{...parent,modelFiles:tokenFiles},image:BETA_IMAGE,recipe,
-  testRequestPacketSha256:byteSha(JSON.stringify(evaluationPacket(catalog,'TEST'),null,2)+'\n'),budgetCeilingUsd:50,closingReserveUsd:5,maximumOwnedGpuSeconds:21600,resourceCreationAuthorizedByBundle:false,providerStopRequired:true,testLabelsUploaded:false,
+  testRequestPacketSha256:byteSha(JSON.stringify(evaluationPacket(catalog,'TEST'),null,2)+'\n'),budgetCeilingUsd:50,closingReserveUsd:5,maximumOwnedGpuSeconds:null,limitPolicy:'COST_ONLY_50_USD',resourceCreationAuthorizedByBundle:false,providerStopRequired:true,testLabelsUploaded:false,
   files:Object.fromEntries([...payload].map(([name,bytes])=>[name,{sha256:byteSha(bytes),bytes:bytes.length}]))};
  await writeFile(resolve(out,'product-gpu-manifest.json'),JSON.stringify(result,null,2)+'\n',{flag:'wx',mode:0o600});
  return {directory:out,bundleManifestSha256:await fileSha(resolve(out,'product-gpu-manifest.json')),counts:manifest.counts,resourcesStarted:false,testLabelsUploaded:false};

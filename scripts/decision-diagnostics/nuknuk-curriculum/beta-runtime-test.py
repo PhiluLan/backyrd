@@ -7,7 +7,7 @@ import sys
 import tempfile
 import types
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch,Mock
 import numpy as np
 ROOT=Path(__file__).resolve().parents[1]
 # Only the BasePlugin import is stubbed; production Transformers collation is real.
@@ -55,6 +55,18 @@ class Contracts(unittest.TestCase):
    for key,value in [('runtime',{}),('gradientAccumulationSteps',4),('nuknukModelLoaded',True),('nuknukTrainingExecuted',True),('activationAuthorized',True),('trainerInputsReceiptSha256','bad')]:
     changed={**receipt,key:value};(smoke/'result.json').write_text(json.dumps(changed))
     with self.assertRaises(ValueError):gpu.verify_beta_framework_smoke(folder)
+ def test_catalog_pilot_only_observes_slow_projection(self):
+  with tempfile.TemporaryDirectory()as name,patch.dict(os.environ,{'BACKYRD_CATALOG_BUNDLE':name,'BACKYRD_TRAINING_RECEIPTS':name,'BACKYRD_MAXIMUM_TRAIN_TOKENS':'5000','BACKYRD_TOTAL_UPDATES':'470','BACKYRD_MAX_TRAIN_SECONDS':'100'}),patch.object(callback,'catalog_admission',return_value={}):
+   args=types.SimpleNamespace(gradient_accumulation_steps=5,per_device_train_batch_size=1,num_train_epochs=1);state=types.SimpleNamespace(max_steps=470,global_step=0);control=types.SimpleNamespace(should_training_stop=False,should_save=False)
+   cb=callback.BetaCallback(Mock());cb.on_train_begin(args,state,control)
+   for index in range(10):
+    cb.on_step_begin(args,state,control);cb.lengths.append(2000);cb.step_started-=100;state.global_step=index+1;cb.on_step_end(args,state,control)
+   self.assertFalse(control.should_training_stop);self.assertTrue(json.loads((Path(name)/'beta-progress.json').read_text())['observationOnly'])
+ def test_budget_admission_accepts_more_than_six_hours_when_cost_fits(self):
+  with tempfile.TemporaryDirectory()as name:
+   folder=Path(name);(folder/'product-gpu-manifest.json').write_text('{}');heartbeat=folder/'heartbeat.json';approval=folder/'approval.json'
+   value={'bundleManifestSha256':gpu.file_sha(folder/'product-gpu-manifest.json'),'parentAdapterSha256':'parent','executionAuthorized':True,'autoPay':False,'ownedPods':1,'totalCeilingUsd':50,'reserveUsd':5,'startedEpoch':100,'deadlineEpoch':50000,'observedSpentUsd':0,'allInHourlyRateUsd':2.9,'storageAllowanceUsd':0,'watchdogHeartbeatPath':str(heartbeat),'podId':'abcdef12345'};approval.write_text(json.dumps(value));heartbeat.write_text(json.dumps({'podId':'abcdef12345','deadline':50000,'heartbeat':200}))
+   with patch.dict(os.environ,{'RUNPOD_POD_ID':'abcdef12345'}),patch.object(gpu.time,'time',return_value=200):gpu.beta_execution_admission(folder,{'parent':{'hfAdapterSha256':'parent'}},approval)
  def test_bound_probe(self):
   self.assertGreater(callback.catalog_estimate([100]+[2]*9,100,200,578),578*2)
   with self.assertRaises(ValueError):callback.catalog_estimate([float('nan')]*10,100,200,578)

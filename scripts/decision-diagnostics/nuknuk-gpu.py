@@ -1255,7 +1255,7 @@ def verify_beta_catalog_bundle(folder, manifest):
         'native-prefixes.json','train.yaml','parent-binding.json','parent-verification.json','training-mixture.json','catalog-manifest.json'}
     if (manifest.get('version') != 'backyrd.nuknuk-product-gpu-bundle@1' or set(manifest.get('files',{})) != expected
         or manifest.get('budgetCeilingUsd') != 50 or manifest.get('closingReserveUsd') != 5
-        or manifest.get('maximumOwnedGpuSeconds') != 21600 or manifest.get('testLabelsUploaded') is not False
+        or manifest.get('maximumOwnedGpuSeconds') is not None or manifest.get('limitPolicy')!='COST_ONLY_50_USD' or manifest.get('testLabelsUploaded') is not False
         or manifest.get('resourceCreationAuthorizedByBundle') is not False
         or manifest.get('image') != 'axolotlai/axolotl-cloud-uv@sha256:5a989be77ecfc9ef6f4e578d0addec4e6a6fb882b64abe0b84613666c58afe61'
         or manifest['parent']['trainingBase'] != {'repo':'Qwen/Qwen3.6-35B-A3B','revision':'995ad96eacd98c81ed38be0c5b274b04031597b0'}):
@@ -1271,7 +1271,7 @@ def verify_beta_catalog_bundle(folder, manifest):
     source=json.loads((folder/'catalog-manifest.json').read_text());recipe=manifest['recipe']
     if (source['catalogHash']!=manifest['datasetHash'] or file_sha(folder/'catalog-manifest.json')!=manifest['sourceManifestSha256']
         or any(recipe.get(k)!=v for k,v in {'rank':16,'alpha':32,'epochs':1,'learningRate':0.000002,'seed':42,'trainingRows':source['counts']['TRAIN'],
-            'validationRows':source['counts']['DEV'],'optimizerUpdates':source['counts']['TRAIN']//5,'gradientAccumulationSteps':5,'maxTotalTokens':5120,'maxAnswerTokens':2048,'maxTrainingSeconds':14400,'testUploaded':False}.items())
+            'validationRows':source['counts']['DEV'],'optimizerUpdates':source['counts']['TRAIN']//5,'gradientAccumulationSteps':5,'maxTotalTokens':5120,'maxAnswerTokens':2048,'maxTrainingSeconds':None,'testUploaded':False}.items())
         or not re.fullmatch('[a-f0-9]{64}',manifest.get('testRequestPacketSha256',''))):
         raise ValueError('beta_catalog_recipe_changed')
     for name,split in [('train','TRAIN'),('valid','DEV')]:
@@ -1322,7 +1322,7 @@ def beta_execution_admission(folder, manifest, approval):
         if isinstance(value.get(key),bool) or not isinstance(value.get(key),(int,float)) or not math.isfinite(value[key]):raise ValueError('beta_catalog_quote_invalid')
     if value['allInHourlyRateUsd']<=0 or min(value['observedSpentUsd'],value['storageAllowanceUsd'])<0:raise ValueError('beta_catalog_quote_invalid')
     available=50-value['observedSpentUsd']-value['storageAllowanceUsd']-5
-    bound=min(value['startedEpoch']+21600,value['startedEpoch']+available/value['allInHourlyRateUsd']*3600)
+    bound=value['startedEpoch']+available/value['allInHourlyRateUsd']*3600
     if available<=0 or value['startedEpoch']>time.time() or not time.time()<value['deadlineEpoch']<=bound:raise ValueError('beta_catalog_deadline_exceeded')
     heartbeat=json.loads(Path(value['watchdogHeartbeatPath']).read_text())
     if (heartbeat.get('podId')!=value.get('podId') or value.get('podId')!=os.environ.get('RUNPOD_POD_ID')
@@ -1453,8 +1453,8 @@ def train_beta_catalog(args):
     cards=subprocess.check_output(['nvidia-smi','--query-gpu=memory.total','--format=csv,noheader,nounits'],text=True,timeout=10).strip().splitlines()
     if len(cards)!=1 or int(cards[0])<79000:raise ValueError('beta_catalog_one_sufficient_gpu_required')
     product_base(folder);args.output.mkdir(mode=0o700)
-    seconds=min(manifest['recipe']['maxTrainingSeconds'],int(admission['deadlineEpoch']-time.time())-300)
-    if seconds<120:raise ValueError('beta_catalog_insufficient_remaining_budget')
+    seconds=int(admission['deadlineEpoch']-time.time())
+    if seconds<=0:raise ValueError('beta_catalog_insufficient_remaining_budget')
     environment=os.environ.copy();environment.update(PYTHONDONTWRITEBYTECODE='1',PYTHONPATH=str(folder)+os.pathsep+environment.get('PYTHONPATH',''),BACKYRD_TRAINING_RECEIPTS=str(args.output.resolve()),BACKYRD_CATALOG_BUNDLE=str(folder),BACKYRD_EXECUTION_APPROVAL=str(args.execution_approval.resolve()),BACKYRD_TOTAL_UPDATES=str(manifest['recipe']['optimizerUpdates']),BACKYRD_MAX_TRAIN_SECONDS=str(seconds),BACKYRD_MAXIMUM_TRAIN_TOKENS=str(max(r['inputTokens']for r in native['rows']if r['split']=='TRAIN')))
     process=None
     try:

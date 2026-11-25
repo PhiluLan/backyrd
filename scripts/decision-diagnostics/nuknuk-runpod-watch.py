@@ -113,8 +113,6 @@ def watch(args):
         if not isinstance(compute, (float, int)) or isinstance(compute, bool) or not math.isfinite(compute) or not 0 < compute <= min(2.89, args.hourly_usd) or args.hourly_usd > 3.5:
             raise ValueError('runpod_beta_rate_limits_required')
     deadline = min(args.deadline, budget_deadline(args.started, args.prior_usd, args.hourly_usd, args.ceiling_usd, args.reserve_usd, profile))
-    if profile == 'beta-catalog-50':
-        deadline = min(deadline,args.started+21600)
     if profile == 'beta-10':
         deadline = min(deadline, args.started + 9000)
     if args.log.exists():

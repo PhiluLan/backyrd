@@ -58,10 +58,10 @@ class BetaCallback(TrainerCallback):
         if state.global_step==10:
             if not self.lengths:raise ValueError('beta_probe_no_actual_batch_lengths')
             estimate=(catalog_estimate(self.steps,min(self.lengths),self.maximum_tokens,self.total_updates-10) if os.environ.get('BACKYRD_CATALOG_BUNDLE') else estimate_remaining(self.steps,min(self.lengths),self.maximum_tokens,self.total_updates-10))
-            extra.update(probeMinimumTokens=min(self.lengths),estimatedRemainingSeconds=estimate,
+            extra.update(observationOnly=bool(os.environ.get('BACKYRD_CATALOG_BUNDLE')),probeMinimumTokens=min(self.lengths),estimatedRemainingSeconds=estimate,
                 initializationUpdateSeconds=self.steps[0],steadyProbeMaximumSeconds=max(self.steps[1:]),
                 initializationIncludedInElapsedBudget=True,probeVersion=2)
-            if estimate>min(self.max_seconds-300,self.max_seconds-(time.monotonic()-self.started)):
+            if not os.environ.get('BACKYRD_CATALOG_BUNDLE') and estimate>min(self.max_seconds-300,self.max_seconds-(time.monotonic()-self.started)):
                 status='ABORT_SLOW_PROBE';control.should_training_stop=True;control.should_save=True
         self.record(state,status,**extra)
         return control
