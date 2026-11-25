@@ -130,4 +130,18 @@ class CatalogChecks(unittest.TestCase):
      self.assertEqual(m.run(root,root/'candidate',root/'completion',Path('/python'),root/'spec'),1)
      restore.assert_called_once_with(root);runner.terminate.assert_called_once();watcher.wait.assert_called_once()
 
+class EvaluationOrigin(unittest.TestCase):
+ def test_bridge_preserves_original_receipt_and_rejects_non_evaluation_or_changed_data(self):
+  with tempfile.TemporaryDirectory()as tmp:
+   root=Path(tmp);old=root/'old';new=root/'new';old.mkdir();new.mkdir()
+   source=Path(m.__file__).with_name('nuknuk-gpu.py').read_text()
+   original={'profile':'same','datasetHash':'data','parent':{'hfAdapterSha256':'parent'},'image':'pinned','recipe':{'epochs':1},'files':{'nuknuk-gpu.py':{'sha256':m.hashlib.sha256(source.encode()).hexdigest()}}}
+   for folder in [old,new]:(folder/'nuknuk-gpu.py').write_text(source);(folder/'manifest.json').write_text(json.dumps(original))
+   spec={'files':{'bundleManifest':{'path':str(new/'manifest.json'),'sha256':m.sha(new/'manifest.json')},'originalTrainingBundleManifest':{'path':str(old/'manifest.json'),'sha256':m.sha(old/'manifest.json')}}}
+   self.assertEqual(m.catalog_training_origin(spec,original,{'evaluationOnly':True}),m.sha(old/'manifest.json'))
+   with self.assertRaisesRegex(ValueError,'evaluation_continuation_required'):m.catalog_training_origin(spec,original,{})
+   with self.assertRaisesRegex(ValueError,'protected_input_changed'):m.catalog_training_origin(spec,{**original,'datasetHash':'wrong'},{'evaluationOnly':True})
+   (new/'nuknuk-gpu.py').write_text(source+'\n# changed after seal')
+   with self.assertRaisesRegex(ValueError,'bundle_changed'):m.catalog_training_origin(spec,original,{'evaluationOnly':True})
+
 if __name__=='__main__':unittest.main()

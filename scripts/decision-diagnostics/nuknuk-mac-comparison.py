@@ -6,6 +6,7 @@ for a founder-authorized maintenance window after the GPU has been removed.
 import argparse
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -131,6 +132,27 @@ def preflight(root,candidate,completion,python,comparison_spec=None):
     if not re.fullmatch(r'https://[a-z0-9][a-z0-9.-]+',domain):raise ValueError('original_domain_invalid')
     return {'deadline':time.time()+1200,'python':str(python),'live':{'model':h['loaded_model'],'adapter':h['loaded_adapter']},'plistSha256':PLIST_SHA,'gatewayDomain':domain,'parentDirectories':[str(p)for p in parents],'candidate':str(candidate),'candidateMlxSha256':conversion['mlxAdapterSha256'],'candidateHfSha256':conversion['hfAdapterSha256'],'resourceGuardSha256':sha(GUARD),'publicCandidate':False,'maxSeconds':1200}
 
+def catalog_training_origin(spec,bundle,state):
+    """Retain the original training receipt across an evaluation-only continuation."""
+    origin=spec['files'].get('originalTrainingBundleManifest')
+    if origin is None:return spec['files']['bundleManifest']['sha256']
+    if state.get('evaluationOnly')is not True:raise ValueError('native_evaluation_continuation_required')
+    original=read(Path(origin['path']))
+    for key in ['profile','datasetHash','parent','image','recipe']:
+        if original.get(key)!=bundle.get(key):raise ValueError('native_continuation_protected_input_changed')
+    excluded={'nuknuk-gpu.py','catalog-manifest.json','parent-binding.json','parent-verification.json'}
+    if {k:v for k,v in original['files'].items()if k not in excluded}!={k:v for k,v in bundle['files'].items()if k not in excluded}:raise ValueError('native_continuation_data_changed')
+    sources=[]
+    for manifest,entry in [(original,origin),(bundle,spec['files']['bundleManifest'])]:
+        folder=Path(entry['path']).parent
+        for name,binding in manifest['files'].items():
+            if Path(name).is_absolute()or '..'in Path(name).parts or sha(folder/name)!=binding['sha256']:raise ValueError('native_continuation_bundle_changed')
+        sources.append(folder/'nuknuk-gpu.py')
+    module_spec=importlib.util.spec_from_file_location('native_gpu_lineage',sources[1]);gpu=importlib.util.module_from_spec(module_spec);module_spec.loader.exec_module(gpu)
+    if gpu.catalog_inference_contract(sources[0].read_text())!=gpu.catalog_inference_contract(sources[1].read_text()):raise ValueError('native_continuation_inference_changed')
+    return origin['sha256']
+
+
 def preflight_catalog(root,candidate,completion,python,spec_path):
     """Bound a small native DEV parity check to secured GPU evidence; no model load."""
     if (root/'session.json').exists():raise ValueError('maintenance_already_used')
@@ -142,7 +164,8 @@ def preflight_catalog(root,candidate,completion,python,spec_path):
     source=read(Path(spec['files']['catalogManifest']['path']));bundle=read(Path(spec['files']['bundleManifest']['path']));state=read(Path(spec['files']['runState']['path']));trained=read(completion);conversion=read(candidate/'conversion.json')
     if source.get('catalogVariant')!='understanding-correction-v1' or bundle['sourceManifestSha256']!=spec['files']['catalogManifest']['sha256'] or bundle['datasetHash']!=source['catalogHash']:raise ValueError('native_catalog_dataset_invalid')
     if state.get('phase')!='REMOVED' or state.get('resourcesRemoved') is not True or state.get('bundleHash')!=spec['files']['bundleManifest']['sha256']:raise ValueError('secured_gpu_removal_required')
-    if trained.get('status')!='TRAINED_REQUIRES_COMPARISON' or trained.get('datasetHash')!=bundle['datasetHash'] or trained.get('parentAdapterSha256')!=bundle['parent']['hfAdapterSha256'] or trained.get('completedOptimizerUpdates')!=bundle['recipe']['optimizerUpdates'] or trained.get('adapterSha256')!=conversion.get('hfAdapterSha256') or state.get('candidateSha256')!=trained.get('adapterSha256') or trained.get('sourceManifestSha256')!=spec['files']['bundleManifest']['sha256'] or trained.get('trainingRows')!=bundle['recipe']['trainingRows'] or trained.get('epochs')!=bundle['recipe']['epochs'] or spec['files']['hfAdapter']['sha256']!=trained.get('adapterSha256'):raise ValueError('secured_training_completion_required')
+    training_origin=catalog_training_origin(spec,bundle,state)
+    if trained.get('status')!='TRAINED_REQUIRES_COMPARISON' or trained.get('datasetHash')!=bundle['datasetHash'] or trained.get('parentAdapterSha256')!=bundle['parent']['hfAdapterSha256'] or trained.get('completedOptimizerUpdates')!=bundle['recipe']['optimizerUpdates'] or trained.get('adapterSha256')!=conversion.get('hfAdapterSha256') or state.get('candidateSha256')!=trained.get('adapterSha256') or trained.get('sourceManifestSha256')!=training_origin or trained.get('trainingRows')!=bundle['recipe']['trainingRows'] or trained.get('epochs')!=bundle['recipe']['epochs'] or spec['files']['hfAdapter']['sha256']!=trained.get('adapterSha256'):raise ValueError('secured_training_completion_required')
     if conversion.get('datasetHash')!=bundle['datasetHash'] or conversion.get('parentMlxSha256')!=bundle['parent']['mlxAdapterSha256'] or conversion.get('exactRoundTrip')is not True or conversion.get('modelLoaded')is not False or conversion.get('activated')is not False or sha(candidate/'adapters.safetensors')!=conversion.get('mlxAdapterSha256') or sha(candidate/'adapter_config.json')!=conversion.get('mlxConfigSha256'):raise ValueError('converted_candidate_identity_invalid')
     if conversion.get('tensors')!=80 or conversion.get('rank')!=16 or conversion.get('scale')!=2:raise ValueError('native_conversion_architecture_invalid')
     parent=Path(spec['parentAdapter'])
