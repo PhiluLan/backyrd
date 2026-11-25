@@ -48,11 +48,11 @@ class Contracts(unittest.TestCase):
   self.assertEqual(gpu.catalog_generation_budget(5100,2048),20)
   with self.assertRaises(ValueError):gpu.catalog_generation_budget(5120,2048)
  def test_framework_receipt_enforces_every_claim_before_weights(self):
-  with tempfile.TemporaryDirectory()as name:
+  with tempfile.TemporaryDirectory()as name,patch.object(gpu,'verify_product_gpu_bundle',return_value={'recipe':{'trainingRows':1000}}):
    root=Path(name);folder=root/'job';folder.mkdir();smoke=root/'framework-smoke';smoke.mkdir()
    (folder/'product-gpu-manifest.json').write_text('{}');(folder/'native-tokenization.json').write_text('{}')
-   inputs={'result':'PASS','checkedRows':2350,'actualTrainerDatasetVerified':True,'trainerCollatorVerified':True,'actualTrainerDataloaderVerified':False,'gradientAccumulationSteps':5,'partialAccumulationWindows':0};(smoke/'actual-trainer-inputs.json').write_text(json.dumps(inputs))
-   receipt={'status':'PASS','bundleManifestSha256':gpu.file_sha(folder/'product-gpu-manifest.json'),'nativeReceiptSha256':gpu.file_sha(folder/'native-tokenization.json'),'trainerInputsReceiptSha256':gpu.file_sha(smoke/'actual-trainer-inputs.json'),'runtime':{'transformers':'5.22.0','axolotl':'0.21.2.dev0','peft':'0.21.2','tokenizers':'0.23.3','llguidance':'1.9.1'},'pluginManagerUsed':True,'actualTrainerUsed':True,'toyScalarGradientChecks':2350,'gradientAccumulationSteps':5,'partialWindows':0,'nuknukModelLoaded':False,'nuknukTrainingExecuted':False,'activationAuthorized':False,'fullAxolotlCliVerified':False,'ociImageIdentityVerified':False}
+   inputs={'result':'PASS','checkedRows':1000,'actualTrainerDatasetVerified':True,'trainerCollatorVerified':True,'actualTrainerDataloaderVerified':False,'gradientAccumulationSteps':5,'partialAccumulationWindows':0};(smoke/'actual-trainer-inputs.json').write_text(json.dumps(inputs))
+   receipt={'status':'PASS','bundleManifestSha256':gpu.file_sha(folder/'product-gpu-manifest.json'),'nativeReceiptSha256':gpu.file_sha(folder/'native-tokenization.json'),'trainerInputsReceiptSha256':gpu.file_sha(smoke/'actual-trainer-inputs.json'),'runtime':{'transformers':'5.22.0','axolotl':'0.21.2.dev0','peft':'0.21.2','tokenizers':'0.23.3','llguidance':'1.9.1'},'pluginManagerUsed':True,'actualTrainerUsed':True,'toyScalarGradientChecks':1000,'gradientAccumulationSteps':5,'partialWindows':0,'nuknukModelLoaded':False,'nuknukTrainingExecuted':False,'activationAuthorized':False,'fullAxolotlCliVerified':False,'ociImageIdentityVerified':False}
    (smoke/'result.json').write_text(json.dumps(receipt));gpu.verify_beta_framework_smoke(folder)
    for key,value in [('runtime',{}),('gradientAccumulationSteps',4),('nuknukModelLoaded',True),('nuknukTrainingExecuted',True),('activationAuthorized',True),('trainerInputsReceiptSha256','bad')]:
     changed={**receipt,key:value};(smoke/'result.json').write_text(json.dumps(changed))
