@@ -48,3 +48,43 @@ Vor jedem NukNuk-Gewichtsdownload erzwingt der Runner zusätzlich `product-smoke
 Ein erfolgreiches synthetisches TEST-Ergebnis belegt Regressionstreue auf sichtbaren kuratierten Daten. Es ersetzt keine unabhängige Studie, native Latenzmessung, passende Ortsdaten oder sicherheitsgerechte Empfehlungen. Nach Einsicht in Kandidatenfehler wird TEST in der nächsten Version Entwicklungsevidenz; eine neue unabhängige Abschlussmenge ist erforderlich.
 
 Technische Referenzen: [Axolotl-Plugin-Schnittstellen](https://github.com/axolotl-ai-cloud/axolotl/blob/main/src/axolotl/integrations/base.py), [Transformers-Akkumulationsvertrag](https://github.com/huggingface/transformers/blob/main/docs/source/en/grad_accumulation.md). Die tatsächlichen Runtime-Versionen werden vor Ausführung geprüft; verlinkter Main-Quellcode allein beweist keine Laufzeitkompatibilität.
+
+## Wiederaufnahme und Ausfallschutz des GPU-Laufs
+
+Klasse: FAST_PR; betroffen sind ausschließlich der bestehende GPU-Runner,
+Owned-Pod-Controller, deren CPU-Tests und dieses Runbook. Kein App-Release,
+keine Datenbankänderung und keine automatische Modellaktivierung.
+
+Der lokale und der native Wächter verwenden dieselbe Entscheidungsfunktion.
+Ein einzelner Transportfehler, HTTP429 oder HTTP5xx beendet den Pod nicht.
+Ohne verifizierte Provider-Beobachtung endet die Gesundheitsfrist nach90s;
+Authentifizierungsfehler, ungültige Identität und unzulässiger Tarif bleiben
+sofortige Stopgründe. Die unveränderte, aus dem Gesamtbudget abgeleitete
+Kostenfrist wird vor jeder Abfrage geprüft und niemals durch Wiederholungen
+verschoben. Der lokale Controller darf300s ohne Heartbeat bleiben, um die
+begrenzten Status-/SSH-Leseversuche und eine Ergebnissicherung zuzulassen.
+Das ist keine zusätzliche Trainingslaufzeitgrenze. Mutierende Create-/Launch-
+Operationen werden nicht automatisch wiederholt. Native Stopgründe werden
+zusätzlich per SSH laufend auf den Mac gestreamt; periodische Snapshots und
+eine begrenzte Sicherung im Fehlerpfad bewahren weitere Diagnosebelege.
+
+`catalog_prepare_resume` im bestehenden Controller erzeugt aus dem bisherigen
+Bundle und einem vollständig hashgeprüften Snapshot ein target-freies
+Wiederaufnahmepaket. Daten, Parent, Tokenizer, Rezept, Image und unveränderter
+Inferenzcode müssen übereinstimmen. Alle vorhandenen Erstausgaben einschließlich
+Fehlschlägen bleiben erhalten. Kein selektiver Retry, keine Testlabels und
+keine Kandidatenantworten werden importiert. Eine ausdrückliche SHA-256-Bindung
+in der Ausführungsfreigabe ist vor Allokation erforderlich. GPU-Typ und die sechs
+aufgezeichneten Runtime-Versionen werden vor neuer Modellinferenz erneut geprüft.
+Bei abweichenden geschützten Eingaben wird die Wiederaufnahme abgelehnt.
+
+Fortsetzungen tragen dieselbe Kampagnen-ID, den ursprünglichen Kontostand und
+die hashgebundenen Abschlussbelege aller vorherigen Versuche. Tatsächliche und
+konservativ berechnete bisherige Kosten werden übernommen, nie auf null gesetzt.
+Die50-USD-Gesamtgrenze einschließlich5USD Abschlussreserve bleibt unverändert.
+Ein neuer Versuch ist eine bewusste Fortsetzung und keine automatische Neuanlage.
+
+Gezielte Annahmeprüfungen: einzelner und dauerhafter API-Ausfall, Auth-Fehler,
+Tarif-/Identitätswechsel, ursprüngliche Kostenfrist, fehlende Runtime-Angabe,
+veränderte Eingaben/Antworten, doppelte Fälle und Erhalt fehlgeschlagener
+Erstausgaben. CPU-Tests belegen diese Steuerungsregeln, keine Modellqualität.

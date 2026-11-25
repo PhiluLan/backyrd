@@ -107,4 +107,79 @@ class Contracts(unittest.TestCase):
    with self.assertRaisesRegex(ValueError,'cost_reset_refused'):ctl.catalog_campaign_prior({**authority,'campaignPriorCostUsd':0})
    state['resourcesRemoved']=False;path.write_text(json.dumps(state));authority['priorAttempts'][0]['stateSha256']=ctl.digest(path.read_bytes())
    with self.assertRaisesRegex(ValueError,'not_secured_and_removed'):ctl.catalog_campaign_prior(authority)
+class Recovery(unittest.TestCase):
+ def test_transient_classification_does_not_retry_unauthorized_or_invalid_data(self):
+  self.assertTrue(ctl.transient_provider_error(URLError('temporary')))
+  for code in [429,500,502,503]:self.assertTrue(ctl.transient_provider_error(HTTPError('https://api.runpod.io',code,'temporary',{},None)))
+  for error in [ValueError('wrong identity'),HTTPError('https://api.runpod.io',401,'unauthorized',{},None),HTTPError('https://api.runpod.io',403,'forbidden',{},None)]:self.assertFalse(ctl.transient_provider_error(error))
+ def test_shared_guard_grace_never_extends_cost_deadline_or_ignores_invalid_rate(self):
+  state={'podId':'abc12345678','deadline':1000,'heartbeat':100,'computeRateCap':4.42}
+  good={'id':state['podId'],'desiredStatus':'RUNNING','costPerHr':4.39}
+  self.assertIsNone(ctl.guard_stop_reason(state,None,150,100))
+  self.assertIsNone(ctl.guard_stop_reason(state,good,150,100))
+  self.assertEqual(ctl.guard_stop_reason(state,None,190,100),'PROVIDER_OBSERVATION_EXPIRED')
+  self.assertEqual(ctl.guard_stop_reason({**state,'heartbeat':999},None,1000,999),'COST_DEADLINE_REACHED')
+  for changed,reason in [({'costPerHr':4.5},'POD_TARIFF_EXCEEDED'),({'costPerHr':float('nan')},'POD_TARIFF_EXCEEDED'),({'costPerHr':True},'POD_TARIFF_INVALID'),({'id':'other1234567'},'POD_IDENTITY_CHANGED'),({'desiredStatus':'EXITED'},'POD_NOT_RUNNING')]:
+   self.assertEqual(ctl.guard_stop_reason(state,{**good,**changed},150,100),reason)
+ def test_idempotent_read_retries_and_budget_deadline_stops_retries(self):
+  with tempfile.TemporaryDirectory()as name:
+   folder=Path(name);(folder/'state.json').write_text(json.dumps({'phase':'DEVELOPMENT','deadline':1000}))
+   read=Mock(side_effect=[URLError('temporary'),{'ok':True}])
+   with patch.object(ctl.time,'time',return_value=100),patch.object(ctl.time,'sleep'):
+    self.assertEqual(ctl.catalog_read_retry(read,folder),{'ok':True});self.assertEqual(read.call_count,2)
+   with patch.object(ctl.time,'time',return_value=1000):
+    with self.assertRaisesRegex(ValueError,'cost_budget_reached'):ctl.catalog_read_retry(read,folder)
+   self.assertEqual(read.call_count,2)
+ def test_cost_check_accepts_single_missing_runtime_but_rejects_real_tariff(self):
+  with tempfile.TemporaryDirectory()as name:
+   folder=Path(name);state={'phase':'DEVELOPMENT','deadline':1000,'podId':'abc12345678','preexistingPodIds':[],'started':100,'initialBalanceUsd':51,'allInHourlyRateUsd':4.45,'computeRateCap':4.42};(folder/'state.json').write_text(json.dumps(state))
+   pod={'id':state['podId'],'desiredStatus':'RUNNING','costPerHr':4.39,'runtime':{}}
+   account={'pods':[pod],'networkVolumes':[]};args=SimpleNamespace(key_file=folder/'key')
+   with patch.object(ctl,'catalog_account',return_value=({'balanceAmount':50},account)),patch.object(ctl,'owned',side_effect=[{**pod,'runtime':None},pod]),patch.object(ctl.time,'time',return_value=150),patch.object(ctl.time,'sleep'):
+    ctl.catalog_cost_check(args,folder)
+   with patch.object(ctl,'catalog_account',return_value=({'balanceAmount':50},account)),patch.object(ctl,'owned',return_value={**pod,'costPerHr':5}),patch.object(ctl.time,'time',return_value=150):
+    with self.assertRaisesRegex(ValueError,'pod_tariff_exceeded'):ctl.catalog_cost_check(args,folder)
+ def test_native_guard_survives_one_network_failure_and_stops_at_original_deadline(self):
+  self.native_guard_fixture(False)
+ def test_native_guard_stops_on_sustained_observation_loss(self):
+  self.native_guard_fixture(True)
+ def native_guard_fixture(self,sustained):
+  import contextlib,io
+  namespace={'__name__':'native_guard_test'};exec(ctl.NATIVE_GUARD,namespace)
+  clock=[100];calls=[];responses=[True]+[False]*8 if sustained else [True,False,True]
+  class Response:
+   def __init__(self,value):self.value=value
+   def __enter__(self):return self
+   def __exit__(self,*args):pass
+   def read(self):return json.dumps(self.value).encode()
+  def api(request,timeout):
+   query=json.loads(request.data)['query'];calls.append(query)
+   if 'mutation'in query:return Response({'data':{'podStop':{'id':'abc12345678','desiredStatus':'EXITED'}}})
+   ok=responses.pop(0)
+   if not ok:raise URLError('temporary network failure')
+   return Response({'data':{'pod':{'id':'abc12345678','desiredStatus':'RUNNING','costPerHr':4.39}}})
+  with patch.dict(namespace['os'].environ,{'BACKYRD_DEADLINE':'1000'if sustained else '130','BACKYRD_COMPUTE_CAP':'4.42','BACKYRD_STOP_LEAD_SECONDS':'0'}),patch.object(Path,'read_bytes',return_value=b'RUNPOD_POD_ID=abc12345678\0RUNPOD_API_KEY=abcdefghijklmnopqrstuvwx\0'),patch.object(Path,'write_text'),patch.object(Path,'replace'),patch.object(namespace['urllib'].request,'urlopen',side_effect=api),patch.object(namespace['time'],'time',side_effect=lambda:clock[0]),patch.object(namespace['time'],'sleep',side_effect=lambda delay:clock.__setitem__(0,clock[0]+delay)),contextlib.redirect_stdout(io.StringIO())as log:
+   namespace['native_main']()
+  self.assertEqual(len(calls),10 if sustained else 4);self.assertIn('mutation',calls[-1]);self.assertEqual(clock[0],190 if sustained else 130);self.assertIn('PROVIDER_READ_ERROR',log.getvalue());self.assertIn('PROVIDER_OBSERVATION_EXPIRED'if sustained else 'COST_DEADLINE_REACHED',log.getvalue())
+class Resume(unittest.TestCase):
+ def test_resume_identity_and_failed_first_attempts_are_preserved(self):
+  spec=importlib.util.spec_from_file_location('resume_gpu',Path(__file__).with_name('nuknuk-gpu.py'));gpu=importlib.util.module_from_spec(spec);spec.loader.exec_module(gpu)
+  with tempfile.TemporaryDirectory()as name:
+   folder=Path(name);packet=folder/'requests.json';packet.write_text('{}');path=folder/'resume.json'
+   row={'id':'case','task':'COMPACT_SEARCH_V7','promptHash':'prompt','inputHash':'input','schemaHash':'schema'}
+   manifest={'datasetHash':'data','image':'pinned','parent':{'modelFiles':{'tokenizer':'hash'}}}
+   value={'sourceBundleManifestSha256':'source','sourceSnapshotManifestSha256':'snapshot','binding':{'datasetHash':'data','adapterSha256':'parent','requestPacketSha256':gpu.file_sha(packet),'inferenceContractSha256':gpu.catalog_inference_contract(Path(gpu.__file__).read_text()),'image':'pinned','tokenizerFiles':manifest['parent']['modelFiles'],'split':'DEV','firstAttemptOnly':True},'runtime':{k:'pinned'for k in ['torch','transformers','peft','axolotl','tokenizers','llguidance']},'gpuName':'NVIDIA H100 80GB HBM3','records':[{**row,'status':'FAILED','raw':None,'attempt':1}]}
+   value['binding'].update(caseIdsSha256=ctl.digest(b'["case"]'),caseCount=1,failedFirstAttemptCount=1)
+   value['sourceRuntimeText']=json.dumps(value['runtime']);value['sourceSmokeText']=json.dumps({'status':'PASS','bundleManifestSha256':'source'})
+   snapshot={'parent-development/case.json':ctl.digest((json.dumps(value['records'][0],ensure_ascii=False,indent=2)+'\n').encode()),'runtime.json':ctl.digest(value['sourceRuntimeText'].encode()),'framework-smoke/result.json':ctl.digest(value['sourceSmokeText'].encode())}
+   value['sourceSnapshotManifestText']=json.dumps(snapshot);value['sourceSnapshotManifestSha256']=ctl.digest(value['sourceSnapshotManifestText'].encode())
+   path.write_text(json.dumps(value));records,_=gpu.catalog_resume_records(path,manifest,packet,[row],'parent');self.assertEqual(records['case']['status'],'FAILED')
+   for mutation in [lambda v:v['binding'].update(adapterSha256='changed'),lambda v:v['records'][0].update(inputHash='changed'),lambda v:v['records'][0].update(attempt=2),lambda v:v.update(runtime={}),lambda v:v['records'].append(v['records'][0]),lambda v:v['binding'].update(failedFirstAttemptCount=0),lambda v:v['binding'].update(caseCount=0),lambda v:v['binding'].update(caseIdsSha256='changed')]:
+    altered=json.loads(json.dumps(value));mutation(altered);path.write_text(json.dumps(altered))
+    with self.assertRaises(ValueError):gpu.catalog_resume_records(path,manifest,packet,[row],'parent')
+ def test_generation_contract_detects_inference_changes(self):
+  spec=importlib.util.spec_from_file_location('resume_gpu',Path(__file__).with_name('nuknuk-gpu.py'));gpu=importlib.util.module_from_spec(spec);spec.loader.exec_module(gpu)
+  source=Path(gpu.__file__).read_text();expected=gpu.catalog_inference_contract(source)
+  for altered in [source.replace('do_sample=False','do_sample=True'),source.replace('max_seconds=90,max_output_tokens=2048','max_seconds=89,max_output_tokens=2048'),source.replace("attn_implementation='sdpa'","attn_implementation='eager'")]:self.assertNotEqual(expected,gpu.catalog_inference_contract(altered))
+  self.assertEqual(expected,gpu.catalog_inference_contract(source+'\n# orchestration comment\n'))
 if __name__=='__main__':unittest.main()

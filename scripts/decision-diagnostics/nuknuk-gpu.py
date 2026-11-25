@@ -1341,6 +1341,60 @@ def beta_execution_admission(folder, manifest, approval):
     return value
 
 
+def catalog_inference_contract(source):
+    """Source identity of model loading and generation; excludes orchestration only."""
+    import ast
+    tree=ast.parse(source)
+    names={'catalog_generation_budget','generate_structured_batch','generate_structured','product_base'}
+    selected=[node for node in tree.body if isinstance(node,ast.FunctionDef)and node.name in names]
+    evaluator=next(node for node in tree.body if isinstance(node,ast.FunctionDef)and node.name=='evaluate_beta_catalog')
+    # Bind the actual load configuration and invocation, not hand-written claims.
+    for node in ast.walk(evaluator):
+        if isinstance(node,ast.Call)and isinstance(node.func,ast.Attribute)and node.func.attr in ('from_pretrained','set_per_process_memory_fraction','JsonCompiler'):
+            selected.append(node)
+        elif isinstance(node,ast.Call)and isinstance(node.func,ast.Name)and node.func.id=='generate_structured':selected.append(node)
+        elif isinstance(node,ast.Assign)and any(isinstance(t,ast.Name)and t.id=='state'for t in node.targets):selected.append(node)
+    if len([n for n in selected if isinstance(n,ast.FunctionDef)])!=4:raise ValueError('beta_resume_generation_contract_missing')
+    return hashlib.sha256('\n'.join(ast.dump(n,include_attributes=False)for n in selected).encode()).hexdigest()
+
+
+def catalog_resume_records(path,manifest,packet_path,requests,adapter_sha256):
+    if path is None:return {},None
+    value=json.loads(path.read_text());binding=value.get('binding',{})
+    expected={'datasetHash':manifest['datasetHash'],'adapterSha256':adapter_sha256,'requestPacketSha256':file_sha(packet_path),
+        'inferenceContractSha256':catalog_inference_contract(Path(__file__).read_text()),'image':manifest['image'],
+        'tokenizerFiles':manifest['parent']['modelFiles'],'split':'DEV'}
+    if any(binding.get(k)!=v for k,v in expected.items())or binding.get('firstAttemptOnly')is not True:
+        raise ValueError('beta_resume_identity_changed')
+    if value.get('sourceSnapshotManifestSha256')is None or value.get('sourceBundleManifestSha256')is None:raise ValueError('beta_resume_provenance_required')
+    if set(value.get('runtime',{}))!={'torch','transformers','peft','axolotl','tokenizers','llguidance'}or value.get('gpuName')!='NVIDIA H100 80GB HBM3':raise ValueError('beta_resume_runtime_binding_incomplete')
+    rows={r['id']:r for r in requests};records=value.get('records',[])
+    roster_hash=hashlib.sha256(json.dumps(sorted(r['id']for r in records),separators=(',',':')).encode()).hexdigest()
+    if binding.get('caseIdsSha256')!=roster_hash:raise ValueError('beta_resume_case_ids_changed')
+    source_text=value.get('sourceSnapshotManifestText','')
+    if hashlib.sha256(source_text.encode()).hexdigest()!=value['sourceSnapshotManifestSha256']:raise ValueError('beta_resume_snapshot_manifest_changed')
+    snapshot=json.loads(source_text)
+    snapshot_cases={name[len('parent-development/'):-5]:sha for name,sha in snapshot.items()if name.startswith('parent-development/')and name.endswith('.json')and name not in ('parent-development/result.json','parent-development/resume-receipt.json')}
+    if set(snapshot_cases)!={r['id']for r in records}or binding.get('caseCount')!=len(records)or binding.get('failedFirstAttemptCount')!=sum(r.get('status')!='GENERATED_REQUIRES_SEMANTIC_REVIEW'for r in records):raise ValueError('beta_resume_snapshot_roster_changed')
+    for record in records:
+        original_bytes=(json.dumps(record,ensure_ascii=False,indent=2)+'\n').encode()
+        if hashlib.sha256(original_bytes).hexdigest()!=snapshot_cases[record['id']]:raise ValueError('beta_resume_original_record_changed')
+    for field,name in [('sourceRuntimeText','runtime.json'),('sourceSmokeText','framework-smoke/result.json')]:
+        text=value.get(field,'')
+        if hashlib.sha256(text.encode()).hexdigest()!=snapshot.get(name):raise ValueError('beta_resume_original_metadata_changed')
+    if json.loads(value['sourceRuntimeText'])!=value['runtime']:raise ValueError('beta_resume_runtime_metadata_changed')
+    smoke=json.loads(value['sourceSmokeText'])
+    if smoke.get('status')!='PASS'or smoke.get('bundleManifestSha256')!=value['sourceBundleManifestSha256']:raise ValueError('beta_resume_source_bundle_unbound')
+
+    if len({r['id']for r in records})!=len(records):raise ValueError('beta_resume_duplicate_case')
+    for record in records:
+        row=rows.get(record.get('id'))
+        if row is None or any(record.get(k)!=row[k]for k in ['id','task','promptHash','inputHash','schemaHash']):raise ValueError('beta_resume_request_changed')
+        if record.get('attempt')!=1 or record.get('status')not in ('GENERATED_REQUIRES_SEMANTIC_REVIEW','FAILED','PROVIDER_ERROR'):raise ValueError('beta_resume_first_attempt_required')
+        if record['status']=='GENERATED_REQUIRES_SEMANTIC_REVIEW' and (not isinstance(record.get('raw'),dict)or json.loads(record.get('rawText','null'))!=record['raw']):raise ValueError('beta_resume_output_changed')
+    return {r['id']:r for r in records},value
+
+
 def evaluate_beta_catalog(args):
     folder=args.bundle.resolve(strict=True);manifest=verify_product_gpu_bundle(folder)
     split=args.split
@@ -1362,6 +1416,8 @@ def evaluate_beta_catalog(args):
         or len({r['id']for r in requests})!=len(requests)
         or any(r['split']!=split or 'expected'in r or 'finalMeaning'in r or [m['role']for m in r['messages']]!=['system','user']for r in requests)):
         raise ValueError('beta_eval_target_free_roster_required')
+    cached,resume=catalog_resume_records(getattr(args,'resume',None),manifest,packet_path,requests,args.adapter_sha256)
+    if resume is not None and (split!='DEV' or args.adapter_sha256!=manifest['parent']['hfAdapterSha256']):raise ValueError('beta_resume_parent_development_only')
     verify_beta_framework_smoke(folder)
     # All configuration/identity gates above run before model loading or downloads.
     import torch
@@ -1370,7 +1426,13 @@ def evaluate_beta_catalog(args):
     from transformers import AutoModelForImageTextToText,AutoTokenizer,BitsAndBytesConfig
     from peft import PeftModel
     if importlib.metadata.version('llguidance')!='1.9.1' or importlib.metadata.version('transformers')!='5.22.0':raise ValueError('beta_eval_runtime_changed')
+    if resume is not None:
+        runtime={name:importlib.metadata.version(name)for name in resume['runtime']}
+        if runtime!=resume['runtime']:raise ValueError('beta_resume_runtime_changed')
+        gpu_name=subprocess.check_output(['nvidia-smi','--query-gpu=name','--format=csv,noheader'],text=True,timeout=10).strip()
+        if gpu_name!=resume['gpuName']:raise ValueError('beta_resume_gpu_changed')
     args.output.mkdir(mode=0o700)
+    if resume is not None:write_json(args.output/'resume-receipt.json',{'resumePacketSha256':file_sha(args.resume),'sourceBundleManifestSha256':resume['sourceBundleManifestSha256'],'sourceSnapshotManifestSha256':resume['sourceSnapshotManifestSha256'],'reusedCases':len(cached),'failedFirstAttemptsRetained':sum(r['status']!='GENERATED_REQUIRES_SEMANTIC_REVIEW'for r in cached.values())})
     base=product_base(folder);tokenizer=AutoTokenizer.from_pretrained(folder/'tokenizer',local_files_only=True,trust_remote_code=False)
     torch.cuda.set_per_process_memory_fraction(.90,0)
     model=AutoModelForImageTextToText.from_pretrained(base,local_files_only=True,trust_remote_code=False,use_safetensors=True,dtype=torch.bfloat16,device_map={'':0},attn_implementation='sdpa',quantization_config=BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_quant_type='nf4',bnb_4bit_use_double_quant=True,bnb_4bit_compute_dtype=torch.bfloat16))
@@ -1379,12 +1441,14 @@ def evaluate_beta_catalog(args):
     compiler=llguidance.JsonCompiler(separators=(', ',': '),whitespace_pattern='');records=[]
     for row in requests:
         beta_execution_admission(folder,manifest,args.execution_approval)
+        if row['id']in cached:
+            record=cached[row['id']];write_json(args.output/(row['id']+'.json'),record);records.append(record);continue
         try:generated=generate_structured(state,row['messages'],compiler.compile(json.dumps(row['outputSchema'])),max_seconds=90,max_output_tokens=2048)
         except Exception as error:generated={'status':'PROVIDER_ERROR','errorType':type(error).__name__,'raw':None}
         record={k:row[k]for k in ['id','task','promptHash','inputHash','schemaHash']};record.update(generated,attempt=1)
         write_json(args.output/(row['id']+'.json'),record);records.append(record)
     if file_sha(args.adapter/'adapter_model.safetensors')!=args.adapter_sha256:raise ValueError('beta_eval_adapter_mutated')
-    write_json(args.output/'result.json',{'version':'backyrd.nuknuk-beta-inference-results@1','datasetHash':manifest['datasetHash'],'bundleManifestSha256':file_sha(folder/'product-gpu-manifest.json'),'adapterSha256':args.adapter_sha256,'split':split,'requestPacketSha256':file_sha(packet_path),'caseCount':len(records),'cases':records,'firstAttemptOnly':True,'trainingExecuted':False,'modelEvaluated':True,'productionActivation':False})
+    write_json(args.output/'result.json',{'version':'backyrd.nuknuk-beta-inference-results@1','datasetHash':manifest['datasetHash'],'bundleManifestSha256':file_sha(folder/'product-gpu-manifest.json'),'adapterSha256':args.adapter_sha256,'split':split,'requestPacketSha256':file_sha(packet_path),'caseCount':len(records),'cases':records,'reusedCases':len(cached),'firstAttemptOnly':True,'trainingExecuted':False,'modelEvaluated':True,'productionActivation':False})
 
 
 def beta_framework_smoke(args):
@@ -1504,6 +1568,7 @@ if __name__ == "__main__":
         if product_command=='product-evaluate':
             product_parser.add_argument('--split',choices=['DEV','TEST'],default='DEV')
             product_parser.add_argument('--requests',type=Path)
+            product_parser.add_argument('--resume',type=Path)
             product_parser.add_argument('--selection-receipt',type=Path)
             product_parser.add_argument('--adapter',type=Path,required=True)
             product_parser.add_argument('--adapter-sha256',required=True)

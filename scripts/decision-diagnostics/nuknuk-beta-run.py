@@ -9,6 +9,7 @@ import fcntl
 import hashlib
 import importlib.util
 import io
+import inspect
 import json
 import math
 import os
@@ -71,7 +72,29 @@ def cleanup(folder,key):
     raise RuntimeError('owned_resource_deletion_unconfirmed')
 
 
-def guard(args):
+def transient_provider_error(error):
+    if isinstance(error,urllib.error.HTTPError):return error.code==429 or 500<=error.code<=599
+    return isinstance(error,(urllib.error.URLError,TimeoutError,ConnectionError))
+
+
+def guard_stop_reason(state,pod,now,last_verified,controller=True):
+    # A bounded observation grace is a health control, not a job duration cap.
+    if now>=state['deadline']:return 'COST_DEADLINE_REACHED'
+    if state.get('stopWhenDiscovered'):return 'EXPLICIT_CLEANUP_REQUIRED'
+    if controller and now-state['heartbeat']>300:return 'CONTROLLER_HEARTBEAT_EXPIRED'
+    if pod is not None:
+        if state.get('podId') and pod.get('id')!=state['podId']:return 'POD_IDENTITY_CHANGED'
+        if pod.get('desiredStatus')!='RUNNING':return 'POD_NOT_RUNNING'
+        rate=pod.get('costPerHr')
+        if isinstance(rate,bool):return 'POD_TARIFF_INVALID'
+        try:rate=float(rate)
+        except (TypeError,ValueError):return 'POD_TARIFF_INVALID'
+        if not math.isfinite(rate) or not 0<rate<=state['computeRateCap']:return 'POD_TARIFF_EXCEEDED'
+    if now-last_verified>=90:return 'PROVIDER_OBSERVATION_EXPIRED'
+    return None
+
+
+def legacy_guard(args):
     (args.operation/'guard.ready').write_text(str(os.getpid()))
     while True:
         state=json.loads((args.operation/'state.json').read_text())
@@ -87,6 +110,42 @@ def guard(args):
                 if state.get('stopWhenDiscovered'):
                     save(args.operation,'REMOVED',resourcesRemoved=True,reconciledLateAllocation=True);return
         except Exception:
+            if state.get('podId'):
+                try:watch.stop(args.key_file,state['podId'])
+                except Exception:pass
+        time.sleep(10)
+
+
+def guard(args):
+    if json.loads((args.operation/'state.json').read_text()).get('limitPolicy')!='COST_ONLY_50_USD':return legacy_guard(args)
+    (args.operation/'guard.ready').write_text(str(os.getpid()))
+    last_verified=time.time()
+    while True:
+        state=json.loads((args.operation/'state.json').read_text())
+        if state['phase'] in ['REMOVED','NO_ALLOCATION']:return
+        pod=None;error=None
+        try:
+            # Check the independent deadline before any potentially slow API read.
+            reason=guard_stop_reason(state,None,time.time(),last_verified)
+            if reason is None:
+                try:pod=owned(args.operation,args.key_file)
+                except Exception as caught:
+                    error=caught
+                    if not transient_provider_error(caught):reason='PROVIDER_VALIDATION_FAILED'
+                if pod is not None:last_verified=time.time()
+                reason=reason or guard_stop_reason(state,pod,time.time(),last_verified)
+            if error or reason:
+                catalog_attempt_event(args.operation,'LOCAL_GUARD_OBSERVATION',reason=reason,errorType=type(error).__name__ if error else None,podId=state.get('podId'),desiredStatus=pod.get('desiredStatus')if pod else None,costPerHr=pod.get('costPerHr')if pod else None)
+            if reason:
+                if state.get('limitPolicy')=='COST_ONLY_50_USD':
+                    if pod is not None and not state.get('podId'):
+                        save(args.operation,'LATE_ALLOCATION_DISCOVERED',podId=pod['id']);catalog_attempt_event(args.operation,'POD_DISCOVERED',runName=state['runName'],podId=pod['id'])
+                    catalog_cleanup(args,args.operation)
+                else:cleanup(args.operation,args.key_file)
+                if state.get('stopWhenDiscovered'):
+                    save(args.operation,'REMOVED',resourcesRemoved=True,reconciledLateAllocation=True);return
+        except Exception as caught:
+            catalog_attempt_event(args.operation,'LOCAL_GUARD_CLEANUP_ERROR',errorType=type(caught).__name__)
             if state.get('podId'):
                 try:watch.stop(args.key_file,state['podId'])
                 except Exception:pass
@@ -146,6 +205,8 @@ for name in ['output','training-receipts','parent-development','candidate-develo
 for name in ['EXIT','COMPLETE','workflow.log','runtime.json','development-EXIT','test-EXIT','development.log','test.log']:
  f=root/name
  if f.is_file():payload[name]=f.read_bytes()[-2000000:]
+guard=pathlib.Path('/tmp/backyrd-guard.log')
+if guard.is_file():payload['native-guard.log']=guard.read_bytes()[-2000000:]
 payload['artifact-manifest.json']=(json.dumps({k:hashlib.sha256(v).hexdigest()for k,v in payload.items()})+'\\n').encode()
 with tarfile.open(root/'results.tgz','w:gz')as out:
  for name,data in payload.items():
@@ -164,27 +225,46 @@ print(hashlib.sha256((root/'results.tgz').read_bytes()).hexdigest())'''
     return target
 
 
-NATIVE_GUARD=r'''import os,json,time,urllib.request,re
+NATIVE_GUARD=(inspect.getsource(transient_provider_error)+'\n'+inspect.getsource(guard_stop_reason)+'\n'+r'''import os,json,time,urllib.request,urllib.error,re,math
 from pathlib import Path
-values=dict(x.split(b'=',1)for x in Path('/proc/1/environ').read_bytes().split(b'\0')if b'='in x)
-pod=values.get(b'RUNPOD_POD_ID',b'').decode();key=values.get(b'RUNPOD_API_KEY',b'').decode()
-assert re.fullmatch('[a-z0-9]{8,30}',pod)and re.fullmatch('[A-Za-z0-9_-]{20,256}',key)
-deadline=float(os.environ['BACKYRD_DEADLINE'])
-def api(query):
- req=urllib.request.Request('https://api.runpod.io/graphql',data=json.dumps({'query':query,'variables':{'id':pod}}).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'})
- with urllib.request.urlopen(req,timeout=20)as r:return json.load(r)
-assert api('query($id:String!){pod(input:{podId:$id}){id}}')['data']['pod']['id']==pod
-while time.time()<deadline-float(os.environ.get('BACKYRD_STOP_LEAD_SECONDS','120')):
- try:
-  state=api('query($id:String!){pod(input:{podId:$id}){id costPerHr desiredStatus}}')['data']['pod']
-  if state['desiredStatus']!='RUNNING' or not 0<float(state['costPerHr'])<=float(os.environ['BACKYRD_COMPUTE_CAP']):break
- except Exception:break
- p=Path('/tmp/backyrd-guard.tmp');p.write_text(json.dumps({'podId':pod,'deadline':deadline,'heartbeat':time.time()}));p.replace('/tmp/backyrd-guard.ready');time.sleep(10)
-while True:
- try:
-  api('mutation($id:String!){podStop(input:{podId:$id}){id desiredStatus}}');break
- except Exception:time.sleep(5)
-'''
+
+def native_main():
+ values=dict(x.split(b'=',1)for x in Path('/proc/1/environ').read_bytes().split(b'\0')if b'='in x)
+ pod=values.get(b'RUNPOD_POD_ID',b'').decode();key=values.get(b'RUNPOD_API_KEY',b'').decode()
+ assert re.fullmatch('[a-z0-9]{8,30}',pod)and re.fullmatch('[A-Za-z0-9_-]{20,256}',key)
+ deadline=float(os.environ['BACKYRD_DEADLINE'])
+ def event(kind,**fields):print(json.dumps({'event':kind,'epoch':time.time(),'podId':pod,**fields}),flush=True)
+ def api(query):
+  req=urllib.request.Request('https://api.runpod.io/graphql',data=json.dumps({'query':query,'variables':{'id':pod}}).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'})
+  with urllib.request.urlopen(req,timeout=15)as r:result=json.load(r)
+  if result.get('errors')or 'data'not in result:raise ValueError('provider_response_rejected')
+  return result
+ control={'deadline':deadline-float(os.environ.get('BACKYRD_STOP_LEAD_SECONDS','120')),'podId':pod,'computeRateCap':float(os.environ['BACKYRD_COMPUTE_CAP'])}
+ last_verified=time.time();armed=False;row=None
+ while True:
+  reason=guard_stop_reason(control,None,time.time(),last_verified,False)
+  if reason:break
+  try:
+   row=api('query($id:String!){pod(input:{podId:$id}){id costPerHr desiredStatus}}')['data']['pod']
+   if row is None:raise ValueError('owned_pod_missing')
+   reason=guard_stop_reason(control,row,time.time(),last_verified,False)
+   if reason:break
+   last_verified=time.time();armed=True
+  except Exception as error:
+   event('PROVIDER_READ_ERROR',errorType=type(error).__name__,httpStatus=error.code if isinstance(error,urllib.error.HTTPError)else None)
+   if not transient_provider_error(error):reason='PROVIDER_VALIDATION_FAILED';break
+  if armed:
+   # Heartbeat reflects last verified provider observation, never a failed read.
+   p=Path('/tmp/backyrd-guard.tmp');p.write_text(json.dumps({'podId':pod,'deadline':deadline,'heartbeat':last_verified}));p.replace('/tmp/backyrd-guard.ready')
+  time.sleep(min(10,max(0,control['deadline']-time.time())))
+ event('STOP_REQUIRED',reason=reason,desiredStatus=row.get('desiredStatus')if row else None,costPerHr=row.get('costPerHr')if row else None)
+ while True:
+  try:api('mutation($id:String!){podStop(input:{podId:$id}){id desiredStatus}}');event('STOP_ACKNOWLEDGED');break
+  except Exception as error:event('STOP_RETRY',errorType=type(error).__name__);time.sleep(5)
+
+if __name__=='__main__':native_main()
+''')
+
 
 
 def run(args):
@@ -454,12 +534,69 @@ def catalog_validate_idle(billing,account,required_credit=50):
         raise ValueError('catalog_account_not_clean_or_credit_insufficient')
 
 
+def catalog_prepare_resume(source_bundle,snapshot,bundle,output):
+    """Import original first attempts only after source and snapshot checksum checks."""
+    if output.exists():raise ValueError('catalog_resume_output_exists')
+    old=json.loads((source_bundle/'product-gpu-manifest.json').read_text())
+    current=json.loads((bundle/'product-gpu-manifest.json').read_text())
+    for name,binding in old['files'].items():
+        path=source_bundle/name
+        if Path(name).is_absolute()or '..'in Path(name).parts or digest(path.read_bytes())!=binding['sha256']or path.stat().st_size!=binding['bytes']:raise ValueError('catalog_resume_original_bundle_changed')
+    for key in ['profile','datasetHash','parent','image','recipe']:
+        if old[key]!=current[key]:raise ValueError('catalog_resume_protected_input_changed')
+    old_files={k:v for k,v in old['files'].items()if k not in ('nuknuk-gpu.py','catalog-manifest.json','parent-binding.json','parent-verification.json')}
+    new_files={k:v for k,v in current['files'].items()if k not in ('nuknuk-gpu.py','catalog-manifest.json','parent-binding.json','parent-verification.json')}
+    if old_files!=new_files:raise ValueError('catalog_resume_non_orchestration_input_changed')
+    spec=importlib.util.spec_from_file_location('resume_gpu',bundle/'nuknuk-gpu.py');gpu=importlib.util.module_from_spec(spec);spec.loader.exec_module(gpu)
+    gpu.verify_product_gpu_bundle(bundle)
+    contract=gpu.catalog_inference_contract((source_bundle/'nuknuk-gpu.py').read_text())
+    if contract!=gpu.catalog_inference_contract((bundle/'nuknuk-gpu.py').read_text()):raise ValueError('catalog_resume_generation_changed')
+    hashes=json.loads((snapshot/'artifact-manifest.json').read_text())
+    for name,sha in hashes.items():
+        if Path(name).is_absolute()or '..'in Path(name).parts or digest((snapshot/name).read_bytes())!=sha:raise ValueError('catalog_resume_snapshot_changed')
+    if not {'runtime.json','framework-smoke/result.json'}.issubset(hashes):raise ValueError('catalog_resume_metadata_not_bound')
+    smoke=json.loads((snapshot/'framework-smoke/result.json').read_text())
+    if smoke.get('bundleManifestSha256')!=digest((source_bundle/'product-gpu-manifest.json').read_bytes())or smoke.get('status')!='PASS':raise ValueError('catalog_resume_original_smoke_unbound')
+    # Use every recorded case, including failed first attempts; never cherry-pick.
+    paths=sorted((snapshot/'parent-development').glob('*.json'))
+    if any('parent-development/'+p.name not in hashes for p in paths):raise ValueError('catalog_resume_unbound_record')
+    records=[json.loads(p.read_text())for p in paths if p.name not in ('result.json','resume-receipt.json')]
+    value={'version':'backyrd.nuknuk-parent-resume@1','binding':{'datasetHash':current['datasetHash'],'adapterSha256':current['parent']['hfAdapterSha256'],'requestPacketSha256':digest((bundle/'development-requests.json').read_bytes()),'inferenceContractSha256':contract,'image':current['image'],'tokenizerFiles':current['parent']['modelFiles'],'split':'DEV','firstAttemptOnly':True},'sourceBundleManifestSha256':digest((source_bundle/'product-gpu-manifest.json').read_bytes()),'sourceSnapshotManifestSha256':digest((snapshot/'artifact-manifest.json').read_bytes()),'runtime':json.loads((snapshot/'runtime.json').read_text()),'gpuName':'NVIDIA H100 80GB HBM3','records':records}
+    value.update(sourceSnapshotManifestText=(snapshot/'artifact-manifest.json').read_text(),sourceRuntimeText=(snapshot/'runtime.json').read_text(),sourceSmokeText=(snapshot/'framework-smoke/result.json').read_text())
+    value['binding'].update(caseIdsSha256=digest(json.dumps(sorted(r['id']for r in records),separators=(',',':')).encode()),caseCount=len(records),failedFirstAttemptCount=sum(r['status']!='GENERATED_REQUIRES_SEMANTIC_REVIEW'for r in records))
+    packet=json.loads((bundle/'development-requests.json').read_text())
+    output.write_text(json.dumps(value,indent=2)+'\n');output.chmod(0o600)
+    try:gpu.catalog_resume_records(output,current,bundle/'development-requests.json',packet['cases'],current['parent']['hfAdapterSha256'])
+    except BaseException:output.unlink();raise
+    return {'resumePacketSha256':digest(output.read_bytes()),'savedFirstAttempts':len(records),'remainingCases':len(packet['cases'])-len(records),'failedFirstAttemptsRetained':sum(r['status']!='GENERATED_REQUIRES_SEMANTIC_REVIEW'for r in records),'generationUnchanged':True,'resourcesCreated':False}
+
+
+def catalog_read_retry(read,folder):
+    started=time.time()
+    while True:
+        state=json.loads((folder/'state.json').read_text())
+        if time.time()>=state['deadline']:raise ValueError('catalog_cost_budget_reached')
+        try:return read()
+        except Exception as error:
+            if not (transient_provider_error(error) or isinstance(error,(SSHTransportError,subprocess.TimeoutExpired))) or time.time()-started>=60:raise
+            catalog_attempt_event(folder,'PROVIDER_READ_RETRY',errorType=type(error).__name__,httpStatus=error.code if isinstance(error,urllib.error.HTTPError)else None)
+            save(folder,state['phase'],providerReadRetryEpoch=time.time())
+            time.sleep(min(5,max(0,state['deadline']-time.time())))
+
+
 def catalog_cost_check(args,folder):
-    state=json.loads((folder/'state.json').read_text());billing,account=catalog_account(args)
-    pod=owned(folder,args.key_file)
-    if pod is None:raise ValueError('catalog_owned_pod_absent')
-    if pod['desiredStatus']!='RUNNING' or pod.get('runtime')is None or not 0<float(pod['costPerHr'])<=state['computeRateCap']:
-        raise ValueError('catalog_running_identity_or_tariff_changed')
+    state=json.loads((folder/'state.json').read_text())
+    billing,account=catalog_read_retry(lambda:catalog_account(args),folder)
+    for observation in range(3):
+        pod=catalog_read_retry(lambda:owned(folder,args.key_file),folder)
+        reason=guard_stop_reason(state,pod,time.time(),time.time(),False)
+        if reason:
+            catalog_attempt_event(folder,'PROVIDER_STATE_REJECTED',reason=reason,podId=pod.get('id')if pod else None,desiredStatus=pod.get('desiredStatus')if pod else None,costPerHr=pod.get('costPerHr')if pod else None)
+            raise ValueError('catalog_'+reason.lower())
+        if pod is not None and pod.get('runtime')is not None:break
+        catalog_attempt_event(folder,'PROVIDER_RUNTIME_RECHECK',podPresent=pod is not None,observation=observation+1)
+        if observation==2:raise ValueError('catalog_owned_runtime_unavailable_after_rechecks')
+        time.sleep(5)
     known=set(state['preexistingPodIds'])|{state['podId']}
     if any(p['id']not in known or p['id']!=state['podId'] and (p['desiredStatus']!='EXITED' or p['runtime']is not None or p['volumeInGb']!=0)for p in account['pods']) or account.get('networkVolumes'):
         raise ValueError('catalog_unexpected_billable_resource')
@@ -471,7 +608,7 @@ def catalog_cost_check(args,folder):
     return state
 
 
-def catalog_startup_script(manifest,wheel_sha=None,wheel_name=None):
+def catalog_startup_script(manifest,wheel_sha=None,wheel_name=None,resume=False):
     script='''#!/bin/bash
 set -euo pipefail
 cd /workspace/backyrd-product-training
@@ -496,6 +633,7 @@ CANDIDATE=$("$PY" -c "import json;print(json.load(open('training-receipts/result
 touch COMPLETE
 '''.replace('PARENT',manifest['parent']['hfAdapterSha256'])
 
+    if resume:script=script.replace('--output parent-development --execution-approval','--output parent-development --resume parent-resume.json --execution-approval')
     if wheel_sha is None or wheel_name is None:
         return script.replace(' WHEEL_INSTALL',' exit 78 # Missing immutable runtime artifact')
     if not re.fullmatch('[a-f0-9]{64}',wheel_sha) or not re.fullmatch(r'[A-Za-z0-9_.-]+\.whl',wheel_name):raise ValueError('catalog_runtime_wheel_identity_invalid')
@@ -516,9 +654,9 @@ def catalog_monitor(args,folder,ssh,stage):
     while True:
         catalog_cost_check(args,folder);counter+=1
         code="import pathlib,json;root=pathlib.Path("+repr(REMOTE)+");p=root/"+repr(stage+'-EXIT')+";print(json.dumps({'exit':p.read_text()if p.exists()else None}))"
-        status=json.loads(ssh_call(ssh,PY+' -c '+shlex.quote(code),25))
+        status=json.loads(catalog_read_retry(lambda:ssh_call(ssh,PY+' -c '+shlex.quote(code),25),folder))
         if counter%6==1 or status['exit']is not None:
-            target=sync(ssh,folder,stage+'-'+str(counter).zfill(5));save(folder,stage.upper(),latestResults=str(target),lastSuccessfulSyncEpoch=time.time())
+            target=catalog_read_retry(lambda:sync(ssh,folder,stage+'-'+str(counter).zfill(5)),folder);save(folder,stage.upper(),latestResults=str(target),lastSuccessfulSyncEpoch=time.time())
         if status['exit']is not None:
             if status['exit'].strip()!='0':raise ValueError('catalog_remote_'+stage+'_failed')
             return target
@@ -555,6 +693,13 @@ def catalog_run(args,folder):
         raise ValueError('catalog_source_changed')
     test=args.catalog_package/'test-inference-inputs.json'
     if digest(test.read_bytes())!=manifest['testRequestPacketSha256']:raise ValueError('catalog_local_test_packet_changed')
+    resume_path=getattr(args,'resume_parent',None)
+    if resume_path is not None:
+        if digest(resume_path.read_bytes())!=authority.get('parentResumeSha256'):raise ValueError('catalog_resume_not_authorized')
+        resume_value=json.loads(resume_path.read_text())
+        if authority.get('parentResumeCaseIdsSha256')!=resume_value['binding'].get('caseIdsSha256')or authority.get('parentResumeCaseCount')!=resume_value['binding'].get('caseCount')or authority.get('parentResumeFailedFirstAttemptCount')!=resume_value['binding'].get('failedFirstAttemptCount'):raise ValueError('catalog_resume_roster_not_authorized')
+        packet=json.loads((args.bundle/'development-requests.json').read_text())
+        gpu.catalog_resume_records(resume_path,manifest,args.bundle/'development-requests.json',packet['cases'],manifest['parent']['hfAdapterSha256'])
     payload=package(args.bundle,manifest)
     initial,account=catalog_account(args);catalog_validate_idle(initial,account,50-campaign_prior)
     if campaign_initial is not None:
@@ -571,13 +716,18 @@ def catalog_run(args,folder):
         if not choices:
             print(json.dumps({'phase':'WAITING_FOR_H100_CAPACITY','billablePodCreated':False}),flush=True);time.sleep(30);continue
         billing,account=catalog_account(args);catalog_validate_idle(billing,account,50-campaign_prior)
+        if resume_path is not None:
+            resume_gpu=json.loads(resume_path.read_text())['gpuName']
+            choices=[q for q in choices if q['id']==resume_gpu]
+            if not choices:
+                print(json.dumps({'phase':'WAITING_FOR_RESUME_COMPATIBLE_H100','billablePodCreated':False}),flush=True);time.sleep(30);continue
         quote=choices[0];compute=float(quote['price']['secure']);cap=compute+.03;rate=cap+storage_rate
         prior=max(campaign_prior,initial['balanceAmount']-billing['balanceAmount'],0);started=time.time();deadline=catalog_budget(started,prior,rate);name='backyrd-catalog-'+uuid.uuid4().hex[:16]
         save(folder,'PREPARED',limitPolicy='COST_ONLY_50_USD',runName=name,started=started,deadline=deadline,initialBalanceUsd=initial['balanceAmount'],balanceAtAllocationUsd=billing['balanceAmount'],campaignId=authority.get('campaignId'),priorCostUsd=prior,allInHourlyRateUsd=rate,storageHourlyUsd=storage_rate,storageTariffSha256=digest(args.storage_tariff.read_bytes()),computeRateCap=cap,gpu=quote['id'],accountId=account_meta['id'],preexistingPodIds=baseline_ids,podId=None,bundleHash=digest((args.bundle/'product-gpu-manifest.json').read_bytes()),resourcesRemoved=False)
         (folder/'quote.json').write_text(json.dumps({'gpu':quote,'containerDiskGb':200,'persistentVolumeGb':0,'allInHourlyRateUsd':rate,'storageHourlyUsd':storage_rate,'storageTariff':storage_receipt,'costCeilingUsd':50,'reserveUsd':5,'priorCostUsd':prior,'campaignId':authority.get('campaignId'),'campaignInitialBalanceUsd':initial['balanceAmount'],'costDerivedDeadline':deadline,'noIndependentTimeLimit':True,'providerPolicy':'SECURE_ON_DEMAND_NO_REQUESTED_EXPIRY','authorization':authority},indent=2)+'\n')
         command="python3 -u -c \"import os,base64;exec(base64.b64decode(os.environ['BACKYRD_GUARD']))\" > /tmp/backyrd-guard.log 2>&1 & exec sleep infinity"
         request={'name':name,'cloud':'SECURE','gpu':{'id':quote['id'],'count':1,'minRamPerGpu':96,'minVcpuCountPerGpu':8},'image':manifest['image'],'disk':200,'mounts':{},'startSsh':True,'ports':['22/tcp'],'cmd':['/bin/bash','-lc',command],'env':{'PUBLIC_KEY':args.public_key.read_text().strip(),'JUPYTER_DISABLE':'1','BACKYRD_GUARD':base64.b64encode(NATIVE_GUARD.encode()).decode(),'BACKYRD_DEADLINE':str(deadline),'BACKYRD_COMPUTE_CAP':str(cap),'BACKYRD_STOP_LEAD_SECONDS':'0'}}
-        guard_process=None;creation_requested=False
+        guard_process=None;diagnostic_process=None;creation_requested=False
         try:
             with (folder/('guard-'+name+'.log')).open('x')as log:guard_process=subprocess.Popen([sys.executable,'-B',str(Path(__file__).resolve()),'guard','--operation',str(folder),'--key-file',str(args.key_file)],stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
             for _ in range(30):
@@ -619,6 +769,8 @@ def catalog_run(args,folder):
                         if ready['podId']==pid and ready['deadline']==deadline and 0<=time.time()-ready['heartbeat']<45:break
                     except (SSHTransportError,subprocess.TimeoutExpired,RuntimeError,json.JSONDecodeError):pass
                 time.sleep(10)
+            with (folder/'native-guard-stream.jsonl').open('ab',buffering=0)as diagnostics, (folder/'native-guard-stream-stderr.log').open('ab',buffering=0)as errors:
+                diagnostic_process=subprocess.Popen([*ssh,'tail -n +1 -F /tmp/backyrd-guard.log'],stdin=subprocess.DEVNULL,stdout=diagnostics,stderr=errors,start_new_session=True)
             approval={'executionAuthorized':True,'bundleManifestSha256':digest((args.bundle/'product-gpu-manifest.json').read_bytes()),'parentAdapterSha256':manifest['parent']['hfAdapterSha256'],'autoPay':False,'ownedPods':1,'totalCeilingUsd':50,'reserveUsd':5,'startedEpoch':started,'deadlineEpoch':deadline,'observedSpentUsd':prior,'allInHourlyRateUsd':rate,'storageAllowanceUsd':0,'watchdogHeartbeatPath':'/tmp/backyrd-guard.ready','podId':pid,'accountId':account_meta['id'],'campaignId':authority.get('campaignId'),'campaignInitialBalanceUsd':initial['balanceAmount'],'campaignPriorCostUsd':prior,'priorReceiptHashes':[r['stateSha256']for r in authority.get('priorAttempts',[])],'storageHourlyUsd':storage_rate,'storageTariffSha256':digest(args.storage_tariff.read_bytes()),'limitPolicy':'COST_ONLY_50_USD','launchedImage':detail['image'],'providerRuntimeLimit':None}
             ap=folder/'execution-approval.json';ap.write_text(json.dumps(approval,indent=2)+'\n');ap.chmod(0o600)
             ssh_call(ssh,'mkdir -p '+REMOTE,20);catalog_upload_json(ssh,'execution-approval.json',ap)
@@ -626,8 +778,9 @@ def catalog_run(args,folder):
             unpack="import hashlib,tarfile,pathlib;p=pathlib.Path("+repr(REMOTE+'/input.tgz')+");assert hashlib.sha256(p.read_bytes()).hexdigest()=="+repr(digest(payload))+";tarfile.open(p).extractall("+repr(REMOTE)+",filter='data')"
             ssh_call(ssh,PY+' -c '+shlex.quote(unpack),45)
             ssh_call(ssh,'cat > '+REMOTE+'/'+args.llguidance_wheel.name,60,args.llguidance_wheel.read_bytes())
+            if resume_path is not None:catalog_upload_json(ssh,'parent-resume.json',resume_path)
             save(folder,'DEVELOPMENT',providerRequestedImageVerified=True,resolvedRuntimeImageDigestVerified=False,providerRuntimeExpiryConfigured=False)
-            process_id=catalog_launch(ssh,catalog_startup_script(manifest,authority['llguidanceWheelSha256'],args.llguidance_wheel.name),'development');save(folder,'DEVELOPMENT',remoteProcessId=process_id)
+            process_id=catalog_launch(ssh,catalog_startup_script(manifest,authority['llguidanceWheelSha256'],args.llguidance_wheel.name,resume_path is not None),'development');save(folder,'DEVELOPMENT',remoteProcessId=process_id)
             target=catalog_monitor(args,folder,ssh,'development')
             trained=json.loads((target/'training-receipts/result.json').read_text());adapter=target/'output/adapter_model.safetensors'
             if trained.get('datasetHash')!=manifest['datasetHash'] or trained.get('completedOptimizerUpdates')!=470 or trained.get('trainingRows')!=2350 or digest(adapter.read_bytes())!=trained.get('adapterSha256'):
@@ -650,6 +803,12 @@ touch COMPLETE
             break
         except BaseException as error:
             failure=type(error).__name__+':'+str(error);save(folder,'FAILED',failure=failure)
+            # Best-effort final evidence capture cannot prevent or delay budget cleanup indefinitely.
+            if ssh is not None:
+                try:
+                    secured=sync(ssh,folder,'failure-'+str(int(time.time())))
+                    save(folder,'FAILED',failure=failure,latestResults=str(secured))
+                except Exception as sync_error:catalog_attempt_event(folder,'FAILURE_SYNC_UNAVAILABLE',errorType=type(sync_error).__name__)
             # Includes lost-create-response reconciliation: no second allocation.
             raise
         finally:
@@ -672,6 +831,7 @@ touch COMPLETE
                     save(folder,'REMOVED',resourcesRemoved=True,finalObservedDebitUsd=debit,observedAttemptDebitUsd=max(0,billing['balanceAmount']-final_billing['balanceAmount']),finalBalanceUsd=final_billing['balanceAmount'],failure=failure)
                 finally:
                     final_state=json.loads((folder/'state.json').read_text())
+                    if diagnostic_process is not None and diagnostic_process.poll()is None:diagnostic_process.terminate()
                     if final_state.get('resourcesRemoved') is True and guard_process and guard_process.poll()is None:guard_process.terminate()
     return json.loads((folder/'state.json').read_text())
 
@@ -680,6 +840,7 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('command',choices=['run','guard'])
     for name in ['operation','key-file','bundle','quote','quote-admission','private-key','public-key']:parser.add_argument('--'+name,type=Path,required=name in ['operation','key-file'])
     parser.add_argument('--catalog-package',type=Path)
+    parser.add_argument('--resume-parent',type=Path)
     parser.add_argument('--execution-authorization',type=Path)
     parser.add_argument('--storage-tariff',type=Path)
     parser.add_argument('--llguidance-wheel',type=Path)
