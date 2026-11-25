@@ -10,6 +10,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -416,16 +417,40 @@ def catalog_authority(args):
     return value
 
 
+def catalog_campaign_prior(authority):
+    import math
+    entries=authority.get('priorAttempts',[]);initial=authority.get('campaignInitialBalanceUsd');prior=0
+    if entries and (not isinstance(authority.get('campaignId'),str) or not isinstance(authority.get('campaignAccountId'),str)):raise ValueError('catalog_campaign_identity_required')
+    if entries and (isinstance(initial,bool) or not isinstance(initial,(int,float)) or not math.isfinite(initial) or initial<50):raise ValueError('catalog_campaign_initial_credit_required')
+    seen=set()
+    for entry in entries:
+        path=Path(entry['stateFile']);raw=path.read_bytes()
+        if digest(raw)!=entry['stateSha256']:raise ValueError('catalog_prior_attempt_receipt_changed')
+        state=json.loads(raw)
+        if state.get('phase')!='REMOVED' or state.get('resourcesRemoved')is not True or state.get('podId')in seen or state.get('initialBalanceUsd')!=initial or state.get('accountId')!=authority.get('campaignAccountId'):
+            raise ValueError('catalog_prior_attempt_not_secured_and_removed')
+        if state.get('campaignId')is not None and state['campaignId']!=authority.get('campaignId'):raise ValueError('catalog_prior_campaign_changed')
+        seen.add(state['podId'])
+        for key in ['started','heartbeat','allInHourlyRateUsd','finalObservedDebitUsd']:
+            if isinstance(state.get(key),bool) or not isinstance(state.get(key),(int,float)) or not math.isfinite(state[key]):raise ValueError('catalog_prior_cost_receipt_invalid')
+        elapsed=max(0,state['heartbeat']-state['started'])
+        prior+=max(state.get('observedAttemptDebitUsd',state['finalObservedDebitUsd']),elapsed*state['allInHourlyRateUsd']/3600)
+    claimed=authority.get('campaignPriorCostUsd',0)
+    if isinstance(claimed,bool) or not isinstance(claimed,(int,float)) or not math.isfinite(claimed) or claimed<prior or not 0<=claimed<45:
+        raise ValueError('catalog_campaign_cost_reset_refused')
+    return initial,claimed
+
+
 def catalog_account(args):
     billing=rest(args.key_file,'GET','/v2/billing/balance')
     account=watch.query(args.key_file,'{myself{currentSpendPerHr pods{id name desiredStatus volumeInGb runtime{uptimeInSeconds}} networkVolumes{id size}}}')['myself']
-    if billing.get('billingMode')!='PREPAID' or not isinstance(billing.get('balanceAmount'),(int,float)):
+    if billing.get('billingMode')!='PREPAID' or isinstance(billing.get('balanceAmount'),bool) or not isinstance(billing.get('balanceAmount'),(int,float)) or not math.isfinite(billing['balanceAmount']):
         raise ValueError('catalog_prepaid_billing_required')
     return billing,account
 
 
-def catalog_validate_idle(billing,account):
-    if billing['balanceAmount']<50 or account.get('currentSpendPerHr')!=0 or account.get('networkVolumes') or any(p.get('desiredStatus')!='EXITED' or p.get('runtime')is not None or p.get('volumeInGb')!=0 for p in account['pods']):
+def catalog_validate_idle(billing,account,required_credit=50):
+    if billing['balanceAmount']<required_credit or account.get('currentSpendPerHr')!=0 or account.get('networkVolumes') or any(p.get('desiredStatus')!='EXITED' or p.get('runtime')is not None or p.get('volumeInGb')!=0 for p in account['pods']):
         raise ValueError('catalog_account_not_clean_or_credit_insufficient')
 
 
@@ -439,7 +464,7 @@ def catalog_cost_check(args,folder):
     if any(p['id']not in known or p['id']!=state['podId'] and (p['desiredStatus']!='EXITED' or p['runtime']is not None or p['volumeInGb']!=0)for p in account['pods']) or account.get('networkVolumes'):
         raise ValueError('catalog_unexpected_billable_resource')
     debit=max(0,state['initialBalanceUsd']-billing['balanceAmount'])
-    bound=max(0,time.time()-state['started'])*state['allInHourlyRateUsd']/3600
+    bound=state.get('priorCostUsd',0)+max(0,time.time()-state['started'])*state['allInHourlyRateUsd']/3600
     spent=max(debit,bound)
     if spent>=45 or time.time()>=state['deadline']:raise ValueError('catalog_cost_budget_reached')
     save(folder,state['phase'],observedDebitUsd=debit,conservativeAccruedUsd=bound,remainingToHardCeilingUsd=50-spent)
@@ -519,6 +544,7 @@ def catalog_run(args,folder):
     if any(getattr(args,key,None)is None for key in ['bundle','catalog_package','execution_authorization','private_key','public_key','storage_tariff','llguidance_wheel']):raise ValueError('catalog_explicit_run_inputs_required')
     if (folder/'state.json').exists() or (folder/'attempt-ledger.jsonl').exists():raise ValueError('catalog_operation_already_allocated_or_attempted')
     authority=catalog_authority(args)
+    campaign_initial,campaign_prior=catalog_campaign_prior(authority)
     storage_rate,storage_receipt=catalog_storage_rate(args.storage_tariff)
     if args.llguidance_wheel is None or digest(args.llguidance_wheel.read_bytes())!=authority.get('llguidanceWheelSha256') or not re.fullmatch(r'[A-Za-z0-9_.-]+\.whl',args.llguidance_wheel.name):raise ValueError('catalog_hash_bound_runtime_wheel_required')
     spec=importlib.util.spec_from_file_location('bound_gpu',args.bundle/'nuknuk-gpu.py');gpu=importlib.util.module_from_spec(spec);spec.loader.exec_module(gpu)
@@ -530,9 +556,12 @@ def catalog_run(args,folder):
     test=args.catalog_package/'test-inference-inputs.json'
     if digest(test.read_bytes())!=manifest['testRequestPacketSha256']:raise ValueError('catalog_local_test_packet_changed')
     payload=package(args.bundle,manifest)
-    initial,account=catalog_account(args);catalog_validate_idle(initial,account)
+    initial,account=catalog_account(args);catalog_validate_idle(initial,account,50-campaign_prior)
+    if campaign_initial is not None:
+        initial={**initial,'balanceAmount':campaign_initial}
     account_meta=rest(args.key_file,'GET','/v2/account')
     if not isinstance(account_meta.get('id'),str):raise ValueError('catalog_account_identity_unavailable')
+    if authority.get('campaignAccountId') is not None and authority['campaignAccountId']!=account_meta['id']:raise ValueError('catalog_campaign_account_changed')
     baseline_ids=[p['id']for p in account['pods']]
     # Capacity rejections may be retried only after proving no Pod was created.
     # A started/ambiguous paid job is never automatically retried.
@@ -541,11 +570,11 @@ def catalog_run(args,folder):
         response=rest(args.key_file,'GET','/v2/catalog/gpus?include=AVAILABILITY&product=POD&cloud=SECURE&count=1');rows=response if isinstance(response,list)else response['gpus'];choices=catalog_candidates(rows)
         if not choices:
             print(json.dumps({'phase':'WAITING_FOR_H100_CAPACITY','billablePodCreated':False}),flush=True);time.sleep(30);continue
-        billing,account=catalog_account(args);catalog_validate_idle(billing,account)
+        billing,account=catalog_account(args);catalog_validate_idle(billing,account,50-campaign_prior)
         quote=choices[0];compute=float(quote['price']['secure']);cap=compute+.03;rate=cap+storage_rate
-        prior=max(0,initial['balanceAmount']-billing['balanceAmount']);started=time.time();deadline=catalog_budget(started,prior,rate);name='backyrd-catalog-'+uuid.uuid4().hex[:16]
-        save(folder,'PREPARED',limitPolicy='COST_ONLY_50_USD',runName=name,started=started,deadline=deadline,initialBalanceUsd=initial['balanceAmount'],priorCostUsd=prior,allInHourlyRateUsd=rate,storageHourlyUsd=storage_rate,storageTariffSha256=digest(args.storage_tariff.read_bytes()),computeRateCap=cap,gpu=quote['id'],accountId=account_meta['id'],preexistingPodIds=baseline_ids,podId=None,bundleHash=digest((args.bundle/'product-gpu-manifest.json').read_bytes()),resourcesRemoved=False)
-        (folder/'quote.json').write_text(json.dumps({'gpu':quote,'containerDiskGb':200,'persistentVolumeGb':0,'allInHourlyRateUsd':rate,'storageHourlyUsd':storage_rate,'storageTariff':storage_receipt,'costCeilingUsd':50,'reserveUsd':5,'priorCostUsd':prior,'costDerivedDeadline':deadline,'noIndependentTimeLimit':True,'providerPolicy':'SECURE_ON_DEMAND_NO_REQUESTED_EXPIRY','authorization':authority},indent=2)+'\n')
+        prior=max(campaign_prior,initial['balanceAmount']-billing['balanceAmount'],0);started=time.time();deadline=catalog_budget(started,prior,rate);name='backyrd-catalog-'+uuid.uuid4().hex[:16]
+        save(folder,'PREPARED',limitPolicy='COST_ONLY_50_USD',runName=name,started=started,deadline=deadline,initialBalanceUsd=initial['balanceAmount'],balanceAtAllocationUsd=billing['balanceAmount'],campaignId=authority.get('campaignId'),priorCostUsd=prior,allInHourlyRateUsd=rate,storageHourlyUsd=storage_rate,storageTariffSha256=digest(args.storage_tariff.read_bytes()),computeRateCap=cap,gpu=quote['id'],accountId=account_meta['id'],preexistingPodIds=baseline_ids,podId=None,bundleHash=digest((args.bundle/'product-gpu-manifest.json').read_bytes()),resourcesRemoved=False)
+        (folder/'quote.json').write_text(json.dumps({'gpu':quote,'containerDiskGb':200,'persistentVolumeGb':0,'allInHourlyRateUsd':rate,'storageHourlyUsd':storage_rate,'storageTariff':storage_receipt,'costCeilingUsd':50,'reserveUsd':5,'priorCostUsd':prior,'campaignId':authority.get('campaignId'),'campaignInitialBalanceUsd':initial['balanceAmount'],'costDerivedDeadline':deadline,'noIndependentTimeLimit':True,'providerPolicy':'SECURE_ON_DEMAND_NO_REQUESTED_EXPIRY','authorization':authority},indent=2)+'\n')
         command="python3 -u -c \"import os,base64;exec(base64.b64decode(os.environ['BACKYRD_GUARD']))\" > /tmp/backyrd-guard.log 2>&1 & exec sleep infinity"
         request={'name':name,'cloud':'SECURE','gpu':{'id':quote['id'],'count':1,'minRamPerGpu':96,'minVcpuCountPerGpu':8},'image':manifest['image'],'disk':200,'mounts':{},'startSsh':True,'ports':['22/tcp'],'cmd':['/bin/bash','-lc',command],'env':{'PUBLIC_KEY':args.public_key.read_text().strip(),'JUPYTER_DISABLE':'1','BACKYRD_GUARD':base64.b64encode(NATIVE_GUARD.encode()).decode(),'BACKYRD_DEADLINE':str(deadline),'BACKYRD_COMPUTE_CAP':str(cap),'BACKYRD_STOP_LEAD_SECONDS':'0'}}
         guard_process=None;creation_requested=False
@@ -590,7 +619,7 @@ def catalog_run(args,folder):
                         if ready['podId']==pid and ready['deadline']==deadline and 0<=time.time()-ready['heartbeat']<45:break
                     except (SSHTransportError,subprocess.TimeoutExpired,RuntimeError,json.JSONDecodeError):pass
                 time.sleep(10)
-            approval={'executionAuthorized':True,'bundleManifestSha256':digest((args.bundle/'product-gpu-manifest.json').read_bytes()),'parentAdapterSha256':manifest['parent']['hfAdapterSha256'],'autoPay':False,'ownedPods':1,'totalCeilingUsd':50,'reserveUsd':5,'startedEpoch':started,'deadlineEpoch':deadline,'observedSpentUsd':prior,'allInHourlyRateUsd':rate,'storageAllowanceUsd':0,'watchdogHeartbeatPath':'/tmp/backyrd-guard.ready','podId':pid,'accountId':account_meta['id'],'storageHourlyUsd':storage_rate,'storageTariffSha256':digest(args.storage_tariff.read_bytes()),'limitPolicy':'COST_ONLY_50_USD','launchedImage':detail['image'],'providerRuntimeLimit':None}
+            approval={'executionAuthorized':True,'bundleManifestSha256':digest((args.bundle/'product-gpu-manifest.json').read_bytes()),'parentAdapterSha256':manifest['parent']['hfAdapterSha256'],'autoPay':False,'ownedPods':1,'totalCeilingUsd':50,'reserveUsd':5,'startedEpoch':started,'deadlineEpoch':deadline,'observedSpentUsd':prior,'allInHourlyRateUsd':rate,'storageAllowanceUsd':0,'watchdogHeartbeatPath':'/tmp/backyrd-guard.ready','podId':pid,'accountId':account_meta['id'],'campaignId':authority.get('campaignId'),'campaignInitialBalanceUsd':initial['balanceAmount'],'campaignPriorCostUsd':prior,'priorReceiptHashes':[r['stateSha256']for r in authority.get('priorAttempts',[])],'storageHourlyUsd':storage_rate,'storageTariffSha256':digest(args.storage_tariff.read_bytes()),'limitPolicy':'COST_ONLY_50_USD','launchedImage':detail['image'],'providerRuntimeLimit':None}
             ap=folder/'execution-approval.json';ap.write_text(json.dumps(approval,indent=2)+'\n');ap.chmod(0o600)
             ssh_call(ssh,'mkdir -p '+REMOTE,20);catalog_upload_json(ssh,'execution-approval.json',ap)
             ssh_call(ssh,'cat > '+REMOTE+'/input.tgz',90,payload)
@@ -640,7 +669,7 @@ touch COMPLETE
                     catalog_cleanup(args,folder)
                     if owned(folder,args.key_file)is not None:raise ValueError('catalog_owned_resource_remains')
                     final_billing=rest(args.key_file,'GET','/v2/billing/balance');debit=max(0,initial['balanceAmount']-final_billing['balanceAmount'])
-                    save(folder,'REMOVED',resourcesRemoved=True,finalObservedDebitUsd=debit,finalBalanceUsd=final_billing['balanceAmount'],failure=failure)
+                    save(folder,'REMOVED',resourcesRemoved=True,finalObservedDebitUsd=debit,observedAttemptDebitUsd=max(0,billing['balanceAmount']-final_billing['balanceAmount']),finalBalanceUsd=final_billing['balanceAmount'],failure=failure)
                 finally:
                     final_state=json.loads((folder/'state.json').read_text())
                     if final_state.get('resourcesRemoved') is True and guard_process and guard_process.poll()is None:guard_process.terminate()

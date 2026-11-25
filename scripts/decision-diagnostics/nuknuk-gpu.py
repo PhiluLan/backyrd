@@ -1309,6 +1309,16 @@ def verify_beta_native(folder, manifest):
     return receipt
 
 
+def catalog_provider_pod_id():
+    """Bind exclusively to the provider-injected PID1 identity, never SSH ENV."""
+    try:
+        fields=Path('/proc/1/environ').read_bytes().split(b'\0')
+        matches=[entry[len(b'RUNPOD_POD_ID='):].decode('ascii')for entry in fields if entry.startswith(b'RUNPOD_POD_ID=')]
+    except (OSError,UnicodeDecodeError):raise ValueError('beta_catalog_provider_pid1_identity_unavailable')
+    if len(matches)!=1 or not re.fullmatch('[a-z0-9]{8,30}',matches[0]):raise ValueError('beta_catalog_provider_pid1_identity_invalid')
+    return matches[0]
+
+
 def beta_execution_admission(folder, manifest, approval):
     import math
     if approval is None:raise ValueError('beta_catalog_explicit_execution_approval_required')
@@ -1325,7 +1335,7 @@ def beta_execution_admission(folder, manifest, approval):
     bound=value['startedEpoch']+available/value['allInHourlyRateUsd']*3600
     if available<=0 or value['startedEpoch']>time.time() or not time.time()<value['deadlineEpoch']<=bound:raise ValueError('beta_catalog_deadline_exceeded')
     heartbeat=json.loads(Path(value['watchdogHeartbeatPath']).read_text())
-    if (heartbeat.get('podId')!=value.get('podId') or value.get('podId')!=os.environ.get('RUNPOD_POD_ID')
+    if (heartbeat.get('podId')!=value.get('podId') or value.get('podId')!=catalog_provider_pod_id()
         or heartbeat.get('deadline')!=value['deadlineEpoch'] or not 0<=time.time()-heartbeat.get('heartbeat',0)<=90):
         raise ValueError('beta_catalog_provider_watchdog_not_armed')
     return value
@@ -1421,7 +1431,7 @@ def beta_framework_smoke(args):
         if not math.isclose(actual,expected,rel_tol=1e-6,abs_tol=1e-6):raise ValueError('beta_smoke_actual_gradient_scaling_changed')
         count+=1
     if count!=2350 or count%5:raise ValueError('beta_smoke_full_inventory_required')
-    write_json(args.output/'result.json',{'status':'PASS','bundleManifestSha256':file_sha(folder/'product-gpu-manifest.json'),'nativeReceiptSha256':file_sha(folder/'native-tokenization.json'),'trainerInputsReceiptSha256':file_sha(args.output/'actual-trainer-inputs.json'),'runtime':versions,'fullAxolotlCliVerified':False,'ociImageIdentityVerified':False,'pluginManagerUsed':True,'actualTrainerUsed':True,'toyScalarGradientChecks':count,'gradientAccumulationSteps':5,'partialWindows':0,'nuknukModelLoaded':False,'nuknukTrainingExecuted':False,'activationAuthorized':False})
+    write_json(args.output/'result.json',{'status':'PASS','bundleManifestSha256':file_sha(folder/'product-gpu-manifest.json'),'nativeReceiptSha256':file_sha(folder/'native-tokenization.json'),'trainerInputsReceiptSha256':file_sha(args.output/'actual-trainer-inputs.json'),'runtime':versions,'providerPodId':catalog_provider_pod_id(),'providerIdentitySource':'PID1_CONTAINER_ENVIRONMENT','fullAxolotlCliVerified':False,'ociImageIdentityVerified':False,'pluginManagerUsed':True,'actualTrainerUsed':True,'toyScalarGradientChecks':count,'gradientAccumulationSteps':5,'partialWindows':0,'nuknukModelLoaded':False,'nuknukTrainingExecuted':False,'activationAuthorized':False})
 
 
 def verify_beta_framework_smoke(folder):

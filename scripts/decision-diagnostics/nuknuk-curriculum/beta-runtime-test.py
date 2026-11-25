@@ -18,6 +18,8 @@ def load(name,file):
  spec=importlib.util.spec_from_file_location(name,ROOT/file);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m
 callback=load('callback','nuknuk-beta-callback.py');gpu=load('gpu','nuknuk-gpu.py');watch=load('watch','nuknuk-runpod-watch.py')
 class Contracts(unittest.TestCase):
+ def setUp(self):
+  self.identity_patch=patch.object(gpu,'catalog_provider_pod_id',return_value='abcdef12345');self.identity_patch.start();self.addCleanup(self.identity_patch.stop)
  def test_real_numpy_batch_mask_and_weight(self):
   ids=[1,2,3];labels=[-100,-100,3];bindings={callback.array_digest(ids):{'labelsSha256':callback.array_digest(labels),'weight':2.5}}
   row={'input_ids':np.array([[1,2,3,0]]),'labels':np.array([[-100,-100,3,-100]]),'attention_mask':np.array([[1,1,1,0]])}
@@ -67,6 +69,14 @@ class Contracts(unittest.TestCase):
    folder=Path(name);(folder/'product-gpu-manifest.json').write_text('{}');heartbeat=folder/'heartbeat.json';approval=folder/'approval.json'
    value={'bundleManifestSha256':gpu.file_sha(folder/'product-gpu-manifest.json'),'parentAdapterSha256':'parent','executionAuthorized':True,'autoPay':False,'ownedPods':1,'totalCeilingUsd':50,'reserveUsd':5,'startedEpoch':100,'deadlineEpoch':50000,'observedSpentUsd':0,'allInHourlyRateUsd':2.9,'storageAllowanceUsd':0,'watchdogHeartbeatPath':str(heartbeat),'podId':'abcdef12345'};approval.write_text(json.dumps(value));heartbeat.write_text(json.dumps({'podId':'abcdef12345','deadline':50000,'heartbeat':200}))
    with patch.dict(os.environ,{'RUNPOD_POD_ID':'abcdef12345'}),patch.object(gpu.time,'time',return_value=200):gpu.beta_execution_admission(folder,{'parent':{'hfAdapterSha256':'parent'}},approval)
+ def test_ssh_identity_uses_real_pid1_and_rejects_conflicting_shell(self):
+  self.identity_patch.stop()
+  with patch.object(gpu.sys,'platform','linux'),patch.dict(os.environ,{},clear=True),patch.object(gpu.Path,'read_bytes',return_value=b'OTHER=x\0RUNPOD_POD_ID=abcdef12345\0'):
+   self.assertEqual(gpu.catalog_provider_pod_id(),'abcdef12345')
+   with patch.dict(os.environ,{'RUNPOD_POD_ID':'otherpod1234'}):
+    self.assertEqual(gpu.catalog_provider_pod_id(),'abcdef12345')
+  with patch.object(gpu.sys,'platform','linux'),patch.dict(os.environ,{'RUNPOD_POD_ID':'abcdef12345'}),patch.object(gpu.Path,'read_bytes',return_value=b'OTHER=x\0'):
+   with self.assertRaisesRegex(ValueError,'pid1_identity_invalid'):gpu.catalog_provider_pod_id()
  def test_bound_probe(self):
   self.assertGreater(callback.catalog_estimate([100]+[2]*9,100,200,578),578*2)
   with self.assertRaises(ValueError):callback.catalog_estimate([float('nan')]*10,100,200,578)
