@@ -1455,7 +1455,7 @@ def train_beta_catalog(args):
     product_base(folder);args.output.mkdir(mode=0o700)
     seconds=min(manifest['recipe']['maxTrainingSeconds'],int(admission['deadlineEpoch']-time.time())-300)
     if seconds<120:raise ValueError('beta_catalog_insufficient_remaining_budget')
-    environment=os.environ.copy();environment.update(PYTHONPATH=str(folder)+os.pathsep+environment.get('PYTHONPATH',''),BACKYRD_TRAINING_RECEIPTS=str(args.output.resolve()),BACKYRD_CATALOG_BUNDLE=str(folder),BACKYRD_EXECUTION_APPROVAL=str(args.execution_approval.resolve()),BACKYRD_TOTAL_UPDATES=str(manifest['recipe']['optimizerUpdates']),BACKYRD_MAX_TRAIN_SECONDS=str(seconds),BACKYRD_MAXIMUM_TRAIN_TOKENS=str(max(r['inputTokens']for r in native['rows']if r['split']=='TRAIN')))
+    environment=os.environ.copy();environment.update(PYTHONDONTWRITEBYTECODE='1',PYTHONPATH=str(folder)+os.pathsep+environment.get('PYTHONPATH',''),BACKYRD_TRAINING_RECEIPTS=str(args.output.resolve()),BACKYRD_CATALOG_BUNDLE=str(folder),BACKYRD_EXECUTION_APPROVAL=str(args.execution_approval.resolve()),BACKYRD_TOTAL_UPDATES=str(manifest['recipe']['optimizerUpdates']),BACKYRD_MAX_TRAIN_SECONDS=str(seconds),BACKYRD_MAXIMUM_TRAIN_TOKENS=str(max(r['inputTokens']for r in native['rows']if r['split']=='TRAIN')))
     process=None
     try:
         with (args.output/'train.log').open('x')as log:
