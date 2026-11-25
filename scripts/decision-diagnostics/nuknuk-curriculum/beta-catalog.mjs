@@ -17,6 +17,8 @@ import {
 } from "../../../packages/decision-vnext-core/dist/nuknuk-dialogue.js";
 import { inspectNuknukTrainingVocabulary } from "../../../packages/decision-vnext-core/dist/nuknuk-training-vocabulary.js";
 import { SPOT_TYPE_CATALOG } from "../../../packages/world-knowledge-core/dist/index.js";
+import {compareBetaMeaning} from '../nuknuk-beta-semantics.mjs';
+import {betaMixture,evaluationPacket} from './beta-mixture.mjs';
 const venueKinds = new Set(SPOT_TYPE_CATALOG.map(item => item.kind));
 import {
   CATALOG_VERSION,
@@ -55,6 +57,23 @@ export const trainingAnswer = (v) =>
           .join(", ") +
         "}"
       : JSON.stringify(v);
+
+/** Serving-compatible compact wire. Canonical gold graphs remain expanded. */
+export function compactWireForSchema(value, schema) {
+  const result = structuredClone(value);
+  for (const key of ["meaning", "additions"]) {
+    const meaning = result[key];
+    if (!meaning) continue;
+    const required = new Set(schema.properties[key]?.required ?? []);
+    for (const [name, item] of Object.entries(meaning))
+      if (!required.has(name) && (Array.isArray(item) && item.length === 0 || name === "logic" && item === null))
+        delete meaning[name];
+    const entityRequired = schema.$defs?.entity?.required ?? [];
+    for (const entity of meaning.entities ?? [])
+      if (!entityRequired.includes("members") && entity.members?.length === 0) delete entity.members;
+  }
+  return result;
+}
 /** Match the serving grammar's object-key order without changing any meaning. */
 export function orderForSchema(value, schema, rootSchema = schema) {
   const resolveSchema = (s) =>
@@ -478,7 +497,7 @@ export function materializeBetaCases() {
             });
             finalMeaning = expected.meaning;
           }
-          expected = orderForSchema(expected, request.outputSchema);
+          expected = orderForSchema(compactWireForSchema(expected, request.outputSchema), request.outputSchema);
           const schemaHash = contentHash(request.outputSchema),
             promptHash = contentHash(request.instructions);
           if (!schemaCache.has(schemaHash))
@@ -659,12 +678,24 @@ export async function buildBetaCatalog(out) {
   if (counts.TRAIN < 1000 || counts.DEV < 100 || counts.TEST < 100)
     throw Error("beta_inadequate_split_coverage");
   const sources = [
+    "docs/operations/NUKNUK_BETA_CATALOG_EXPERIMENT.md",
     "packages/world-knowledge-core/src/spot-catalog.ts",
     "scripts/decision-diagnostics/nuknuk-curriculum/beta-cases.mjs",
     "scripts/decision-diagnostics/nuknuk-curriculum/beta-transfer.mjs",
     "scripts/decision-diagnostics/nuknuk-curriculum/beta-lexicon.mjs",
     "scripts/decision-diagnostics/nuknuk-curriculum/beta-reading.mjs",
     "scripts/decision-diagnostics/nuknuk-curriculum/beta-plan.mjs",
+    "scripts/decision-diagnostics/nuknuk-curriculum/beta-evaluation.test.mjs",
+    "scripts/decision-diagnostics/nuknuk-curriculum/beta-runtime-test.py",
+    "scripts/decision-diagnostics/nuknuk-curriculum/beta-mixture.mjs",
+    "scripts/decision-diagnostics/nuknuk-curriculum/beta-experiment.mjs",
+    "scripts/decision-diagnostics/nuknuk-curriculum/beta-evaluation.mjs",
+    "scripts/decision-diagnostics/nuknuk-beta-evaluation.mjs",
+    "scripts/decision-diagnostics/nuknuk-beta-semantics.mjs",
+    "scripts/decision-diagnostics/nuknuk-gpu-bundle.mjs",
+    "scripts/decision-diagnostics/nuknuk-gpu.py",
+    "scripts/decision-diagnostics/nuknuk-beta-callback.py",
+    "scripts/decision-diagnostics/nuknuk-runpod-watch.py",
     "scripts/decision-diagnostics/nuknuk-curriculum/preflight.py",
     "scripts/decision-diagnostics/nuknuk-curriculum/beta-package.py",
     "scripts/decision-diagnostics/nuknuk-curriculum/beta-catalog.test.mjs",
@@ -716,6 +747,8 @@ export async function buildBetaCatalog(out) {
     },
   });
   const packed = rows.map(pack);
+  await save("training-mixture.json",betaMixture(rows.filter(r=>r.split==='TRAIN')));
+  for(const split of ['DEV','TEST'])await save(split.toLowerCase()+'-inference-inputs.json',evaluationPacket({cases:packed,prompts,schemas},split));
   const requests = (split) => ({
     version: "backyrd.nuknuk-beta-evaluation@2",
     split,
@@ -958,12 +991,12 @@ export async function verifyBetaCatalog(folder) {
         r.expected,
         r.turns,
       );
-      validateCompactTurn(
+      const validatedFinal = validateCompactTurn(
         final,
         { ...source, query: r.query + " Ergänzung: " + r.turns.map((turn) => turn.answer).join(" ") },
         r.turns.map((turn) => turn.answer).join(" "),
       );
-      if (contentHash(final.meaning) !== contentHash(r.finalMeaning))
+      if (!compareBetaMeaning(validatedFinal.output,validateCompactTurn({meaning:r.finalMeaning},source,r.turns.map(turn=>turn.answer).join(" ")).output))
         throw Error("beta_dialogue_changed");
     } else validateNuknukCompactSearch(r.expected, source);
   }

@@ -72,25 +72,25 @@ export async function runBetaRouting(spec,invoke){
 }
 
 const normalizeQuestion=text=>text.normalize('NFKC').trim().toLocaleLowerCase().replace(/\s+/gu,' ');
-function clarificationStatus(actual,target,validated){
+function clarificationStatus(actual,target,validated,questionScope){
  if(validated.clarificationIssue)return 'FAIL';
- if(!target)return actual===undefined&&!validated.clarification?'PASS':'FAIL';
+ if(!target)return actual===undefined&&(questionScope==='MODEL_WIRE'||!validated.clarification)?'PASS':'FAIL';
  if(!actual||actual.dimension!==target.dimension||!validated.clarification)return 'FAIL';
  const sameQuestion=normalizeQuestion(actual.question)===normalizeQuestion(target.question);
  const options=x=>x.options.map(normalizeQuestion).sort().join('\n');
  // An unadjudicated paraphrase is NOT a pass. A reviewer may approve it in a bound receipt.
  return sameQuestion&&options(actual)===options(target)?'PASS':'REVIEW_REQUIRED';
 }
-export function scoreBetaRow(row,raw){
+export function scoreBetaRow(row,raw,{questionScope}={}){
  try{
   const context=row.task==='DIALOGAKTUALISIERUNG_V3'?(row.previousMeaning?{previousMeaning:row.previousMeaning,turns:row.turns}:JSON.parse(row.messages[1].content)):null;
   const actual=context?mergeNuknukDialogueUpdate(context.previousMeaning,raw,context.turns):raw;
   const target=context?mergeNuknukDialogueUpdate(context.previousMeaning,row.expected,context.turns):row.expected;
   const parse=output=>context?validateCompactTurn(output,row,context.turns.map(t=>t.answer).join(' ')):validateNuknukCompactSearch(output,row);
   const validated=parse(actual),gold=parse(target);
-  const question=clarificationStatus(actual.clarification,target.clarification,validated);
+  const question=clarificationStatus(actual.clarification,target.clarification,validated,questionScope);
   const meaning=compareBetaMeaning(validated.output,gold.output)&&compareBetaMeaning(validated.searchMeaning,gold.searchMeaning)&&validated.requestState===gold.requestState;
-  return {id:row.id,locale:row.locale,familyId:row.familyId,critical:row.critical??true,status:meaning?question:'FAIL',caseHash:contentHash({id:row.id,locale:row.locale,query:row.query,reference:row.reference,expected:row.expected,context}),rawOutputHash:contentHash(raw),actualHash:contentHash({meaning:validated.output,clarification:actual.clarification??null}),projectedHash:contentHash({meaning:validated.searchMeaning,clarification:validated.clarification??null,requestState:validated.requestState,clarificationIssue:validated.clarificationIssue,boundary:validated.boundary}),clarificationStatus:question,...(question==='REVIEW_REQUIRED'?{reviewRequest:{candidate:actual.clarification,expected:target.clarification}}:{})};
+  return {id:row.id,locale:row.locale,familyId:row.familyId,critical:row.critical??true,status:meaning?question:'FAIL',caseHash:contentHash({id:row.id,locale:row.locale,query:row.query,reference:row.reference,expected:row.expected,context}),rawOutputHash:contentHash(raw),actualHash:contentHash({meaning:validated.output,clarification:actual.clarification??null}),projectedHash:contentHash({meaning:validated.searchMeaning,clarification:validated.clarification??null,requestState:validated.requestState,clarificationIssue:validated.clarificationIssue,boundary:validated.boundary}),semanticMatch:meaning,modelInteraction:actual.clarification?'CLARIFY':'SEARCH',hostRequestState:validated.requestState,hostInteraction:validated.requestState==='UNSUPPORTED_CAPABILITY'?'HOST_UNSUPPORTED':actual.clarification?'CLARIFY':'SEARCH',actualMeaning:validated.output,projectedMeaning:validated.searchMeaning,clarificationStatus:question,...(question==='REVIEW_REQUIRED'?{reviewRequest:{candidate:actual.clarification,expected:target.clarification}}:{})};
  }catch(error){return {id:row.id,locale:row.locale,familyId:row.familyId,critical:row.critical??true,status:'FAIL',error:error.message};}
 }
 

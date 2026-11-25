@@ -1,5 +1,7 @@
 # NukNuk Beta: bounded execution plan, 24 November 2026
 
+Aktuelle zusätzliche Offline-Katalogvorbereitung: [NukNuk Beta catalogue experiment](NUKNUK_BETA_CATALOG_EXPERIMENT.md). Die unten dokumentierten früheren Läufe und Freigaben bleiben historische Evidenz und autorisieren keinen neuen Lauf.
+
 Status: **Third controlled attempt completed; all three owned Pods deleted. Candidate not Beta-qualified.**
 The reviewed Beta exporter and single-Pod controller are implemented. A complete third-attempt
 candidate is secured; no model activation occurred. Before another allocation, require a new

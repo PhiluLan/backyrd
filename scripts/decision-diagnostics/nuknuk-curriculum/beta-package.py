@@ -52,6 +52,26 @@ def verify(folder):
     preflight = load(folder / "preflight.json")
     if preflight["datasetManifestFileSha256"] != seal["datasetManifestSha256"]:
         raise ValueError("preflight_not_bound")
+    experiment = folder / "experiment"
+    if experiment.exists():
+        binding = load(experiment / "product-gpu-manifest.json")
+        native = load(experiment / "native-tokenization.json")
+        if (binding.get("datasetHash") != manifest["catalogHash"] or binding.get("sourceManifestSha256") != digest(folder / "manifest.json")
+                or binding.get("testLabelsUploaded") is not False or binding.get("resourceCreationAuthorizedByBundle") is not False
+                or native.get("bundleManifestSha256") != digest(experiment / "product-gpu-manifest.json")
+                or native.get("result") != "PASS" or native.get("hfCollatorVerified") is not True
+                or native.get("baseModelLoaded") is not False or native.get("trainerDataloaderVerified") is not False):
+            raise ValueError("experiment_or_native_binding_invalid")
+        for name, expected in binding["files"].items():
+            if Path(name).is_absolute() or ".." in Path(name).parts or digest(experiment / name) != expected["sha256"]:
+                raise ValueError("experiment_file_changed")
+        for name, expected in native["tokenizedFiles"].items():
+            if name not in ("train-tokenized.jsonl", "valid-tokenized.jsonl") or digest(experiment / name) != expected:
+                raise ValueError("actual_native_labels_changed")
+        if len(native["rows"]) != manifest["counts"]["TRAIN"] + manifest["counts"]["DEV"]:
+            raise ValueError("native_row_count_changed")
+        if any("test" in str(path.relative_to(experiment)).lower() for path in experiment.rglob("*") if path.is_file()):
+            raise ValueError("test_file_in_experiment")
     return {"status": "PACKAGE_INTEGRITY_PASS", "counts": manifest["counts"], "files": len(actual), "modelTrained": False}
 
 
@@ -70,7 +90,7 @@ def assemble(folder, repo, preflight_path, test_log, history_path, archive):
             or preflight["caseCount"] != manifest["formulations"]
             or preflight["networkUsed"] is not False or preflight["modelLoaded"] is not False
             or preflight["trainingStarted"] is not False
-            or any(not r["grammarAccepted"] or not r["completionOnlyMaskVerified"] for r in preflight["cases"])
+            or any(not r["grammarAccepted"] or not r["completionBoundaryVerified"] for r in preflight["cases"])
             or preflight["maxTotalTokens"] > 5120):
         raise ValueError("preflight_failed_or_changed")
     log = test_log.read_text()
@@ -118,6 +138,9 @@ def assemble(folder, repo, preflight_path, test_log, history_path, archive):
         "historicalExactTextMatches": len(history["exactSourceMatches"]), "historicalHeldoutExactTextMatches": 0,
         "review": "ASSISTANT_AUTHORED_TARGETS_AND_TECHNICAL_MUTATION_TESTS", "independentHumanGold": False,
         "personaAiReviewPerformed": review is not None,
+        "historicalPersonaReviewContext": "historical-persona-context.json" if (folder / "historical-persona-context.json").exists() else None,
+        "experimentBundle": "experiment/product-gpu-manifest.json" if (folder / "experiment").exists() else None,
+        "actualTrainerDataloaderVerified": False,
         "personaReviewRounds": review["rounds"] if review else 0,
         "personaReviewManifest": "persona-review.json" if review else None,
         "independentModelAdjudication": False, "modelPerformanceMeasured": False, "modelTrainingExecuted": False,
@@ -126,8 +149,9 @@ def assemble(folder, repo, preflight_path, test_log, history_path, archive):
                         "Variants and vocabulary entries are not independent real user situations.",
                         "No complete historical semantic-novelty proof; exact text audit is limited.",
                         "Successful schema/token/grammar tests do not guarantee semantic correctness or model improvement.",
-                        "GPU framework preprocessing, live parent identity, actual quote and account state must be verified before training.",
+                        "Actual HF preprocessing and collation plus local reference adapter identity are verified in experiment/. GPU Axolotl dataloader, current live identity, actual quote and account state remain execution gates.",
                         "No native candidate, phone or live recommendation acceptance was performed."]})
+    shutil.copyfile(repo / "docs/operations/NUKNUK_BETA_CATALOG_EXPERIMENT.md",folder / "TECHNISCHE_ABNAHME.md")
     sources = folder / "sources"
     sources.mkdir()
     for path in (repo / "scripts/decision-diagnostics/nuknuk-curriculum").glob("beta-*"):

@@ -63,7 +63,7 @@ def stop(key_file, pod_id):
     return query(key_file, 'mutation($id: String!) { podStop(input: { podId: $id }) { id desiredStatus } }', {'id':pod_id})
 
 def budget_deadline(started, prior_usd, hourly_usd, ceiling_usd, reserve_usd, budget_profile='legacy-20'):
-    profiles = {'legacy-20': (20, 1), 'beta-10': (10, 1), 'v7-full-200': (200, 20)}
+    profiles = {'legacy-20': (20, 1), 'beta-10': (10, 1), 'v7-full-200': (200, 20), 'beta-catalog-50': (50,5)}
     if budget_profile not in profiles:
         raise ValueError('runpod_budget_profile_invalid')
     maximum, minimum_reserve = profiles[budget_profile]
@@ -113,6 +113,8 @@ def watch(args):
         if not isinstance(compute, (float, int)) or isinstance(compute, bool) or not math.isfinite(compute) or not 0 < compute <= min(2.89, args.hourly_usd) or args.hourly_usd > 3.5:
             raise ValueError('runpod_beta_rate_limits_required')
     deadline = min(args.deadline, budget_deadline(args.started, args.prior_usd, args.hourly_usd, args.ceiling_usd, args.reserve_usd, profile))
+    if profile == 'beta-catalog-50':
+        deadline = min(deadline,args.started+21600)
     if profile == 'beta-10':
         deadline = min(deadline, args.started + 9000)
     if args.log.exists():
@@ -146,6 +148,8 @@ def watch(args):
                 if stopping:
                     stop(args.key_file,args.pod);record('STOP_REQUESTED',otherRunningPods=other_running,quotedHourlyUsd=rate)
                 else:
+                    if getattr(args,'heartbeat',None):
+                        temp=args.heartbeat.with_suffix('.tmp');temp.write_text(json.dumps({'podId':args.pod,'deadline':deadline,'heartbeat':time.time()}));temp.replace(args.heartbeat)
                     record('STATUS',desiredStatus=pod['desiredStatus'],quotedHourlyUsd=rate,
                         estimatedTotalUsd=args.prior_usd+max(0,time.time()-args.started)*args.hourly_usd/3600)
             except Exception as error:
@@ -167,7 +171,8 @@ if __name__=='__main__':
     p.add_argument('--prior-usd',type=float,default=1.75);p.add_argument('--hourly-usd',type=float,default=4.1)
     p.add_argument('--max-compute-hourly-usd',type=float)
     p.add_argument('--ceiling-usd',type=float,default=20);p.add_argument('--reserve-usd',type=float,default=1.5)
-    p.add_argument('--budget-profile',choices=['legacy-20','v7-full-200','beta-10'],default='legacy-20')
+    p.add_argument('--budget-profile',choices=['legacy-20','v7-full-200','beta-10','beta-catalog-50'],default='legacy-20')
+    p.add_argument('--heartbeat',type=Path)
     p.add_argument('--log',type=Path);p.add_argument('--stop-file',type=Path)
     a=p.parse_args()
     if a.command=='status':print(json.dumps(status(a.key_file)))

@@ -370,6 +370,9 @@ function object(value: unknown): value is Record<string, unknown> { return value
  * budgets stay with the full interpreter; its existing bounded repair may
  * retry a rejected handoff, otherwise the request fails honestly. */
 function sourceMoneyBound(text: string) {
+  // A later self-correction can replace the amount or its spending basis.
+  // The narrow source hint must not lock the interpreter to the earlier clause.
+  if (/\b(?:ach\s+nein|ah\s+nei|doch\s+(?:nicht|lieber)|ich\s+korrigiere)\b/iu.test(text)) return null;
   if (/["„“«»]|\b(?:früher|damals|bisher|kostete?|gezahlt|bezahlt|sagte?|meint|findet|wollte|wanted|said|costs)\b/iu.test(text)) return null;
   const soft = String.raw`(?:möglichst|bevorzugt|idealerweise|am liebsten|wenn möglich|preferably|ideally|si possible|de préférence)`;
   const bound = String.raw`(?:weniger als|nicht mehr als|höchstens|maximal|bis zu|mindestens|mehr als|wenigstens|less than|at most|at least|more than|up to|moins de|au plus|au moins|plus de|unter|über|under)`;

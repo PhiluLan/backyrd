@@ -1650,3 +1650,16 @@ test('venue qualifier loss is rejected while personal refusal is not a venue ban
  assert.doesNotThrow(()=>validateNuknukCompactSearch(make('offer.kind','sauna'),{query:'Ich möchte schwimmen gehen. Ein Bad mit Sauna kommt für mich nicht infrage.',reference}));
  assert.doesNotThrow(()=>validateNuknukCompactSearch(make('atmosphere.noise','loud'),{query:'Ich möchte schwimmen gehen. Ein Ort mit Lärm kommt für mich nicht infrage.',reference}),'an atmosphere exclusion is not a facility ban');
 });
+
+test('an explicit monetary self-correction is not locked to an earlier spending basis',()=>{
+ const reference={now:'2026-11-24T10:00:00Z',timezone:'Europe/Zurich'};
+ const query='Morgen mit Freunden essen gehen, maximal 80 Franken zusammen. Ach nein, 80 pro Person, nicht insgesamt.';
+ const raw={meaning:{facts:[
+  {id:'meal',key:'food.meal',value:{text:'meal'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+  {id:'cost',key:'budget.maximum',value:{amount:80,operator:'LTE',currency:'CHF'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+  {id:'scope',key:'budget.scope',value:{scope:'PER_PERSON'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:[]},
+ ]}};
+ assert.doesNotMatch(buildNuknukCompactSearchRequest({query,reference}).instructions,/ORIGINALGEBUNDENE GELDGRENZE/);
+ assert.doesNotThrow(()=>validateNuknukCompactSearch(raw,{query,reference}));
+ assert.throws(()=>validateNuknukCompactSearch(raw,{query:'Essen gehen, maximal 80 Franken zusammen.',reference}),/source_budget_contradicted/);
+});

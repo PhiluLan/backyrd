@@ -96,7 +96,7 @@ def inspect_messages(case_id, split, task, messages, grammar_key=None):
     for token in answer + [eos]:
         assert matcher.consume_token(token), (case_id, "grammar_token_rejected")
     assert not matcher.get_error() and matcher.is_accepting(), (case_id, "grammar_incomplete")
-    return {"id": case_id, "split": split, "task": task, "prefixTokens": len(prefix), "answerTokens": len(answer), "totalTokens": len(ids), "prefixTokenIdsSha256": hashlib.sha256(json.dumps(prefix,separators=(",", ":")).encode()).hexdigest(), "grammarAccepted": True, "completionOnlyMaskVerified": True}
+    return {"id": case_id, "split": split, "task": task, "prefixTokens": len(prefix), "answerTokens": len(answer), "totalTokens": len(ids), "prefixTokenIdsSha256": hashlib.sha256(json.dumps(prefix,separators=(",", ":")).encode()).hexdigest(), "grammarAccepted": True, "completionBoundaryVerified": True, **({"trainerLabelsVerified": False} if catalog_v2 else {"completionOnlyMaskVerified": True})}
 
 if catalog_v2:
     for split, name in [("TRAIN", "train"), ("DEV", "valid"), ("TEST", None)]:
@@ -152,7 +152,7 @@ report = {"version": "backyrd.nuknuk-offline-preflight@2", "datasetManifestFileS
           "transferCases": transfer_report, "transferCaseCount": len(transfer_report), "derivedControls": derived_report, "derivedControlCount": len(derived_report), "taskMixture": mixture,
           "mixtureInterpretation": "Report examples, tokens and scenario groups separately. Grouped variants and derived controls are not independent user situations. Loss aggregation is a later recipe choice.",
           "peakRSSBytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss, "networkUsed": False, "modelLoaded": False, "trainingStarted": False,
-          "limitations": ["Uses the locally saved Qwen tokenizer and exact Jinja template; GPU runner must verify the same file hashes and native runtime parity before training.", "Does not prove semantic correctness or adapter quality."]}
+          "limitations": ["Uses the locally saved Qwen tokenizer and exact Jinja template; GPU runner must verify the same file hashes and native runtime parity before training.", "Does not inspect the actual trainer labels; use native-tokenization.json from the bound trainer preprocessing function.", "Does not prove semantic correctness or adapter quality."]}
 with output.open("x") as file:
     json.dump(report, file, ensure_ascii=False, indent=2)
 print(json.dumps({key: report[key] for key in ["caseCount", "maxTotalTokens", "maxAnswerTokens", "grammarCount", "peakRSSBytes", "modelLoaded"]}))

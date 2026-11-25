@@ -1,5 +1,7 @@
 # NukNuk Beta training program
 
+Aktuelle zusätzliche Offline-Katalogvorbereitung: [NukNuk Beta catalogue experiment](NUKNUK_BETA_CATALOG_EXPERIMENT.md). Die unten dokumentierten früheren Läufe und Freigaben bleiben historische Evidenz und autorisieren keinen neuen Lauf.
+
 Status: **Astra accepted controlled training preparation at review 6; training
 and activation remain blocked pending external adjudication and authorization**.
 The synthetic-curriculum work is FAST_PR. The included two-line change to the

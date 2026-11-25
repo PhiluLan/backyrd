@@ -3,6 +3,14 @@ import {librarianConcept} from '@backyrd/world-knowledge-core';
 export const roleAliases={Onkel:'uncle',oncle:'uncle',Tante:'aunt',tante:'aunt',Vater:'father','père':'father',Mutter:'mother',Mueter:'mother','mère':'mother',Schwester:'sister','Schwöster':'sister','sœur':'sister',Bruder:'brother','Brüeder':'brother','frère':'brother',Tochter:'daughter',fille:'daughter',Sohn:'son',fils:'son',Freund:'male friend','Fründ':'male friend',ami:'male friend',Freundin:'female friend','Fründin':'female friend',amie:'female friend'};
 const sorted=items=>[...items].sort((a,b)=>contentHash(a).localeCompare(contentHash(b)));
 const textValue=value=>roleAliases[value]??librarianConcept(value)??value;
+function completeMeaning(meaning){
+ if(!Array.isArray(meaning.facts))throw Error('beta_semantic_facts_required');
+ const filled={...meaning};
+ for(const key of ['entities','extensions','weatherConditions','bindings','uncertainties'])if(filled[key]===undefined)filled[key]=[];
+ filled.entities=filled.entities.map(entity=>({...entity,members:entity.members===undefined?[]:entity.members}));
+ if(filled.logic===undefined)filled.logic=null;
+ return filled;
+}
 function canonicalMeaning(meaning,entityMap,maskNumbers=false){
  let facts=new Map(),weather=new Map();
  const rewrite=value=>{
@@ -24,6 +32,7 @@ function canonicalMeaning(meaning,entityMap,maskNumbers=false){
 /** Exact semantic graph comparison, allowing ID/fact order changes and catalogued aliases.
  * Enumerates entity bijections by kind; refuses excessive complexity, never guesses. */
 export function compareBetaMeaning(actual,expected){
+ actual=completeMeaning(actual);expected=completeMeaning(expected);
  if(actual.entities.length!==expected.entities.length||actual.facts.length!==expected.facts.length)return false;
  const expectedHash=contentHash(canonicalMeaning(expected,Object.fromEntries(expected.entities.map(e=>[e.id,e.id]))));
  let attempts=0;
@@ -36,6 +45,7 @@ export function compareBetaMeaning(actual,expected){
 }
 
 export function betaGraphHash(meaning,{maskNumbers=false}={}){
+ meaning=completeMeaning(meaning);
  let attempts=0,best=null;
  const slots=meaning.entities.map(e=>e.kind).reduce((result,kind)=>{result[kind]=(result[kind]??0)+1;return result;},{});
  function assign(index,map,used){

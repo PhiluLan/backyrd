@@ -6,6 +6,7 @@ NF4 and MLX affine quantization differ; semantic parity must be evaluated.
 import argparse
 import hashlib
 import importlib.metadata
+import math
 import json
 import os
 from pathlib import Path
@@ -492,6 +493,12 @@ def save_initial_adapter(state, output):
     return receipt
 
 
+def catalog_generation_budget(prefix_tokens,maximum_output_tokens):
+    if not isinstance(prefix_tokens,int) or not 0<prefix_tokens<5120 or not isinstance(maximum_output_tokens,int) or not 1<=maximum_output_tokens<=2048:
+        raise ValueError('catalog_generation_budget_invalid')
+    return min(maximum_output_tokens,5120-prefix_tokens)
+
+
 def generate_structured_batch(state, batch, max_seconds=240, max_output_tokens=2048):
     """One shared constrained generation implementation for phases and live rollouts."""
     import numpy as np
@@ -527,7 +534,7 @@ def generate_structured_batch(state, batch, max_seconds=240, max_output_tokens=2
             return scores.masked_fill(~allowed,float('-inf'))
     prefixes = [tokenizer.apply_chat_template(r['messages'], tokenize=True, add_generation_prompt=True,
                 enable_thinking=False, return_dict=False) for r in batch]
-    product = state['boundary'].get('profile') in ('PRODUCT_SEARCH_V7_CONTINUATION_V1','PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1','PRODUCT_SEARCH_V7_BETA_REMEDIATION_V2')
+    product = state['boundary'].get('profile') in ('PRODUCT_SEARCH_V7_CONTINUATION_V1','PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1','PRODUCT_SEARCH_V7_BETA_REMEDIATION_V2','PRODUCT_SEARCH_V7_BETA_CATALOG_V2')
     maximum_prefix = state['boundary'].get('maxTotalTokens', 4608) if product else 4096
     if product and maximum_prefix not in (4608, 5120):
         raise ValueError('nuknuk_gpu_evaluation_prefix_limit_invalid')
@@ -535,6 +542,7 @@ def generate_structured_batch(state, batch, max_seconds=240, max_output_tokens=2
         raise ValueError('nuknuk_gpu_evaluation_prefix_invalid')
     length = max(map(len, prefixes))
     budget = min(max_output_tokens, maximum_prefix + 2048 - length) if product else min(max_output_tokens, 4096 - length) if state['boundary'].get('nativeParity') else max_output_tokens
+    if state['boundary'].get('profile') == 'PRODUCT_SEARCH_V7_BETA_CATALOG_V2':budget=catalog_generation_budget(length,max_output_tokens)
     ids = torch.full((len(batch), length), tokenizer.eos_token_id, dtype=torch.long, device='cuda')
     attention = torch.zeros_like(ids)
     for index, prefix in enumerate(prefixes):
@@ -899,8 +907,12 @@ def prefer(args):
         'referenceAdapterUnchanged':file_sha(args.adapter/'adapter_model.safetensors')==args.adapter_sha256,'productionActivation':False,'providerBillingStopped':False})
 
 
+BETA_CATALOG_PROFILE = 'PRODUCT_SEARCH_V7_BETA_CATALOG_V2'
+
 def verify_product_gpu_bundle(folder):
     manifest = json.loads((folder/'product-gpu-manifest.json').read_text())
+    if manifest.get('profile') == BETA_CATALOG_PROFILE:
+        return verify_beta_catalog_bundle(folder, manifest)
     if (manifest.get('version') != 'backyrd.nuknuk-product-gpu-bundle@1'
         or manifest.get('profile') not in ('PRODUCT_SEARCH_V7_CONTINUATION_V1','PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1','PRODUCT_SEARCH_V7_BETA_REMEDIATION_V2')
         or manifest.get('recipe',{}).get('testUploaded') is not False
@@ -941,7 +953,8 @@ def prepare_product_native(folder):
     tokenizer=AutoTokenizer.from_pretrained(folder/'tokenizer',local_files_only=True,trust_remote_code=False)
     rows=json.loads((folder/'native-prefixes.json').read_text())
     report=[]
-    for split,name,count in [('TRAIN','train',manifest['recipe']['trainingRows']),('VALIDATION','valid',manifest['recipe']['validationRows'])]:
+    if manifest.get('profile') == BETA_CATALOG_PROFILE and importlib.metadata.version('transformers') != '5.22.0':raise ValueError('beta_catalog_transformers_version_changed')
+    for split,name,count in [('TRAIN','train',manifest['recipe']['trainingRows']),(('DEV' if manifest.get('profile') == BETA_CATALOG_PROFILE else 'VALIDATION'),'valid',manifest['recipe']['validationRows'])]:
         source=[json.loads(line) for line in (folder/(name+'.jsonl')).read_text().splitlines()]
         bindings=[row for row in rows if row['split']==split]
         if len(source)!=count or len(bindings)!=count:
@@ -961,9 +974,23 @@ def prepare_product_native(folder):
                     raise ValueError('product_native_would_truncate')
                 ids=prefix+answer;labels=[-100]*len(prefix)+answer
                 handle.write(json.dumps({'input_ids':ids,'attention_mask':[1]*len(ids),'labels':labels})+'\n')
-                report.append({'id':binding['id'],'split':split,'prefixTokenIdsSha256':prefix_hash,'inputTokens':len(ids),'answerTokens':len(answer),'promptLabelsMasked':True})
-    result={'result':'PASS','datasetHash':manifest['datasetHash'],'rows':report,'testLabelsRead':False,'baseModelLoaded':False,
-        'tokenizedFiles':{name:file_sha(folder/name) for name in ['train-tokenized.jsonl','valid-tokenized.jsonl']}}
+                report.append({'id':binding['id'],'split':split,'prefixTokenIdsSha256':prefix_hash,'inputTokens':len(ids),'answerTokens':len(answer),'promptLabelsMasked':True,
+                    'inputIdsSha256':json_digest(ids),'labelsSha256':json_digest(labels),'attentionMaskSha256':json_digest([1]*len(ids))})
+    collator_verified=False
+    if manifest.get('profile') == BETA_CATALOG_PROFILE:
+        from transformers import DataCollatorForSeq2Seq
+        collator=DataCollatorForSeq2Seq(tokenizer,model=None,label_pad_token_id=-100,pad_to_multiple_of=32,return_tensors='np')
+        for name in ['train-tokenized.jsonl','valid-tokenized.jsonl']:
+            for line in (folder/name).read_text().splitlines():
+                row=json.loads(line);batch=collator([dict(row)])
+                n=len(row['input_ids'])
+                if batch['input_ids'][0,:n].tolist()!=row['input_ids'] or batch['labels'][0,:n].tolist()!=row['labels'] or any(v!=-100 for v in batch['labels'][0,n:].tolist()):raise ValueError('beta_catalog_hf_collator_labels_changed')
+        collator_verified=True
+    result={'hfCollatorVerified':collator_verified,'result':'PASS','datasetHash':manifest['datasetHash'],'rows':report,'testLabelsRead':False,'baseModelLoaded':False,
+        'tokenizedFiles':{name:file_sha(folder/name) for name in ['train-tokenized.jsonl','valid-tokenized.jsonl']},
+        'bundleManifestSha256':file_sha(folder/'product-gpu-manifest.json'),
+        'preprocessingSourceSha256':file_sha(Path(__file__)), 'transformersVersion':importlib.metadata.version('transformers'),
+        'trainerDataloaderVerified':False, 'stage':'BOUND_TRAINER_PREPROCESSING_BEFORE_WEIGHTS'}
     write_json(folder/'native-tokenization.json',result)
     return tokenizer
 
@@ -981,6 +1008,8 @@ def product_base(folder):
 
 
 def product_evaluate(args):
+    if json.loads((args.bundle/'product-gpu-manifest.json').read_text()).get('profile') == BETA_CATALOG_PROFILE:
+        return evaluate_beta_catalog(args)
     import torch
     import llguidance
     from llguidance.hf import from_tokenizer
@@ -1020,6 +1049,8 @@ def product_evaluate(args):
 
 
 def product_train(args):
+    if json.loads((args.bundle/'product-gpu-manifest.json').read_text()).get('profile') == BETA_CATALOG_PROFILE:
+        return train_beta_catalog(args)
     import signal
     folder=args.bundle.resolve(strict=True);manifest=verify_product_gpu_bundle(folder)
     beta=manifest['profile'] in ('PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1','PRODUCT_SEARCH_V7_BETA_REMEDIATION_V2')
@@ -1089,11 +1120,19 @@ def convert_product_candidate(manifest_file, result_file, hf_folder, mlx_parent,
     import shutil
     manifest = json.loads(manifest_file.read_text())
     result = json.loads(result_file.read_text())
+    catalog = manifest.get('profile') == BETA_CATALOG_PROFILE
     remediation = manifest.get('cohort') == 'BETA_REMEDIATION_V2'
     if remediation and (manifest.get('counts',{}).get('TRAIN') != 484 or result.get('sourceManifestSha256') != file_sha(manifest_file)
         or manifest['parent']['hfAdapterSha256'] != '2b620aa7fbec48946c3e8ce25182452f0e4e366bab8e9ea20f1ebb47d02ce271'):
         raise ValueError('product_remediation_candidate_lineage_required')
-    if (not remediation and file_sha(manifest_file) != '58caa68751ff2a779eaaebee519e14db3bf022cdd912302b629856fd65c464ee'
+    if catalog:
+        verify_product_gpu_bundle(manifest_file.parent)
+        if (result.get('sourceManifestSha256')!=file_sha(manifest_file) or result.get('status')!='TRAINED_REQUIRES_COMPARISON'
+            or result.get('datasetHash')!=manifest['datasetHash'] or result.get('model')!=manifest['parent']['trainingBase']
+            or result.get('parentAdapterSha256')!=manifest['parent']['hfAdapterSha256'] or result.get('epochs')!=1
+            or result.get('completedOptimizerUpdates')!=manifest['recipe']['optimizerUpdates'] or result.get('trainingRows')!=manifest['recipe']['trainingRows']
+            or result.get('adapterSha256')!=expected_sha or file_sha(hf_folder/'adapter_model.safetensors')!=expected_sha):raise ValueError('catalog_candidate_lineage_invalid')
+    elif (not remediation and file_sha(manifest_file) != '58caa68751ff2a779eaaebee519e14db3bf022cdd912302b629856fd65c464ee'
         or manifest.get('cohort') not in ('BETA_V1','BETA_REMEDIATION_V2') or result.get('status') != 'TRAINED_REQUIRES_COMPARISON'
         or result.get('model') != manifest['parent']['trainingBase']
         or result.get('completedOptimizerUpdates') != (121 if remediation else 200)
@@ -1145,7 +1184,7 @@ def verify_product_parent(bundle, mlx_folder, hf_folder, output):
     import struct
     import numpy as np
     manifest = json.loads((bundle / 'manifest.json').read_text())
-    if manifest.get('version') != 'backyrd.nuknuk-product-training-manifest@1':
+    if manifest.get('version') not in ('backyrd.nuknuk-product-training-manifest@1','backyrd.nuknuk-beta-parent-binding@1'):
         raise ValueError('product_parent_manifest_invalid')
     parent = manifest['parent']
     if parent['mlxBase'] != {'repo':'mlx-community/Qwen3.6-35B-A3B-4bit','revision':'38740b847e4cb78f352aba30aa41c76e08e6eb46'} or parent['trainingBase'] != {'repo':'Qwen/Qwen3.6-35B-A3B','revision':'995ad96eacd98c81ed38be0c5b274b04031597b0'}:
@@ -1205,6 +1244,226 @@ def verify_product_parent(bundle, mlx_folder, hf_folder, output):
     return result
 
 
+
+def verify_beta_catalog_bundle(folder, manifest):
+    expected = {'train.jsonl','valid.jsonl','seed/adapter_config.json','seed/adapter_model.safetensors',
+        'tokenizer/tokenizer.json','tokenizer/tokenizer_config.json','tokenizer/chat_template.jinja','tokenizer/config.json',
+        'nuknuk-gpu.py','nuknuk-runpod-watch.py','nuknuk_beta_callback.py','development-requests.json',
+        'native-prefixes.json','train.yaml','parent-binding.json','parent-verification.json','training-mixture.json','catalog-manifest.json'}
+    if (manifest.get('version') != 'backyrd.nuknuk-product-gpu-bundle@1' or set(manifest.get('files',{})) != expected
+        or manifest.get('budgetCeilingUsd') != 50 or manifest.get('closingReserveUsd') != 5
+        or manifest.get('maximumOwnedGpuSeconds') != 21600 or manifest.get('testLabelsUploaded') is not False
+        or manifest.get('resourceCreationAuthorizedByBundle') is not False
+        or manifest.get('image') != 'axolotlai/axolotl-cloud-uv@sha256:5a989be77ecfc9ef6f4e578d0addec4e6a6fb882b64abe0b84613666c58afe61'
+        or manifest['parent']['trainingBase'] != {'repo':'Qwen/Qwen3.6-35B-A3B','revision':'995ad96eacd98c81ed38be0c5b274b04031597b0'}):
+        raise ValueError('beta_catalog_bundle_contract_invalid')
+    for name,binding in manifest['files'].items():
+        if Path(name).is_absolute() or '..' in Path(name).parts or file_sha(folder/name) != binding['sha256'] or (folder/name).stat().st_size != binding['bytes']:
+            raise ValueError('beta_catalog_bundle_file_changed')
+    if file_sha(Path(__file__)) != manifest['files']['nuknuk-gpu.py']['sha256']:
+        raise ValueError('beta_catalog_running_source_changed')
+    source=json.loads((folder/'catalog-manifest.json').read_text());recipe=manifest['recipe']
+    if (source['catalogHash']!=manifest['datasetHash'] or file_sha(folder/'catalog-manifest.json')!=manifest['sourceManifestSha256']
+        or any(recipe.get(k)!=v for k,v in {'rank':16,'alpha':32,'epochs':1,'learningRate':0.000002,'seed':42,'trainingRows':source['counts']['TRAIN'],
+            'validationRows':source['counts']['DEV'],'optimizerUpdates':source['counts']['TRAIN']//5,'gradientAccumulationSteps':5,'maxTotalTokens':5120,'maxAnswerTokens':2048,'maxTrainingSeconds':14400,'testUploaded':False}.items())
+        or not re.fullmatch('[a-f0-9]{64}',manifest.get('testRequestPacketSha256',''))):
+        raise ValueError('beta_catalog_recipe_changed')
+    for name,split in [('train','TRAIN'),('valid','DEV')]:
+        if file_sha(folder/(name+'.jsonl'))!=source['files'][name+'.jsonl']:
+            raise ValueError('beta_catalog_split_changed')
+    parent=manifest['parent'];proof=json.loads((folder/'parent-verification.json').read_text());binding=json.loads((folder/'parent-binding.json').read_text())
+    if (binding.get('parent')!=parent or proof.get('parent')!=parent or binding.get('catalogHash')!=manifest['datasetHash']
+        or binding.get('datasetManifestSha256')!=manifest['sourceManifestSha256'] or source['counts']['TRAIN']%5!=0
+        or any(file_sha(folder/'tokenizer'/name)!=digest for name,digest in parent['modelFiles'].items())):raise ValueError('beta_catalog_complete_parent_binding_required')
+    if (proof.get('result')!='PASS' or not proof.get('exactTransposeEquality') or proof.get('baseModelLoaded') is not False
+        or proof['manifestSha256']!=file_sha(folder/'parent-binding.json')
+        or file_sha(folder/'seed/adapter_model.safetensors')!=parent['hfAdapterSha256']
+        or file_sha(folder/'seed/adapter_config.json')!=parent['hfAdapterConfigSha256']):
+        raise ValueError('beta_catalog_parent_binding_invalid')
+    mixture=json.loads((folder/'training-mixture.json').read_text())
+    if (mixture.get('catalogHash')!=manifest['datasetHash'] or mixture.get('stratumMass')!={'LEXICON':.05,'BLUEPRINT':.25,'COMPOSITION':.35,'DIALOGUE':.35}
+        or len(mixture['cases'])!=recipe['trainingRows'] or abs(sum(r['lossWeight']for r in mixture['cases'])-recipe['trainingRows'])>1e-6):
+        raise ValueError('beta_catalog_mixture_changed')
+    rows=(folder/'train.jsonl').read_text().splitlines()
+    if len(rows)!=len(mixture['rowHashes']) or any(hashlib.sha256(line.encode()).hexdigest()!=r['rowSha256'] for line,r in zip(rows,mixture['rowHashes'])):
+        raise ValueError('beta_catalog_mixture_rows_changed')
+    return manifest
+
+
+def verify_beta_native(folder, manifest):
+    receipt=json.loads((folder/'native-tokenization.json').read_text())
+    if (receipt.get('result')!='PASS' or receipt.get('bundleManifestSha256')!=file_sha(folder/'product-gpu-manifest.json')
+        or receipt.get('preprocessingSourceSha256')!=file_sha(Path(__file__))
+        or receipt.get('datasetHash')!=manifest['datasetHash'] or receipt.get('transformersVersion')!='5.22.0'
+        or receipt.get('hfCollatorVerified') is not True
+        or len(receipt.get('rows',[]))!=manifest['recipe']['trainingRows']+manifest['recipe']['validationRows']
+        or set(receipt.get('tokenizedFiles',{}))!={'train-tokenized.jsonl','valid-tokenized.jsonl'}
+        or any(file_sha(folder/name)!=digest for name,digest in receipt['tokenizedFiles'].items())):
+        raise ValueError('beta_catalog_actual_native_labels_required')
+    return receipt
+
+
+def beta_execution_admission(folder, manifest, approval):
+    import math
+    if approval is None:raise ValueError('beta_catalog_explicit_execution_approval_required')
+    value=json.loads(approval.read_text())
+    if (value.get('bundleManifestSha256')!=file_sha(folder/'product-gpu-manifest.json')
+        or value.get('parentAdapterSha256')!=manifest['parent']['hfAdapterSha256']
+        or value.get('executionAuthorized') is not True or value.get('autoPay') is not False
+        or value.get('ownedPods')!=1 or value.get('totalCeilingUsd')!=50 or value.get('reserveUsd')!=5):
+        raise ValueError('beta_catalog_execution_admission_invalid')
+    for key in ['startedEpoch','deadlineEpoch','observedSpentUsd','allInHourlyRateUsd','storageAllowanceUsd']:
+        if isinstance(value.get(key),bool) or not isinstance(value.get(key),(int,float)) or not math.isfinite(value[key]):raise ValueError('beta_catalog_quote_invalid')
+    if value['allInHourlyRateUsd']<=0 or min(value['observedSpentUsd'],value['storageAllowanceUsd'])<0:raise ValueError('beta_catalog_quote_invalid')
+    available=50-value['observedSpentUsd']-value['storageAllowanceUsd']-5
+    bound=min(value['startedEpoch']+21600,value['startedEpoch']+available/value['allInHourlyRateUsd']*3600)
+    if available<=0 or value['startedEpoch']>time.time() or not time.time()<value['deadlineEpoch']<=bound:raise ValueError('beta_catalog_deadline_exceeded')
+    heartbeat=json.loads(Path(value['watchdogHeartbeatPath']).read_text())
+    if (heartbeat.get('podId')!=value.get('podId') or value.get('podId')!=os.environ.get('RUNPOD_POD_ID')
+        or heartbeat.get('deadline')!=value['deadlineEpoch'] or not 0<=time.time()-heartbeat.get('heartbeat',0)<=90):
+        raise ValueError('beta_catalog_provider_watchdog_not_armed')
+    return value
+
+
+def evaluate_beta_catalog(args):
+    folder=args.bundle.resolve(strict=True);manifest=verify_product_gpu_bundle(folder)
+    split=args.split
+    beta_execution_admission(folder,manifest,args.execution_approval)
+    if args.output.exists() or file_sha(args.adapter/'adapter_model.safetensors')!=args.adapter_sha256:raise ValueError('beta_eval_output_or_adapter_invalid')
+    if split=='TEST':
+        if args.requests is None or args.selection_receipt is None:raise ValueError('beta_eval_test_requires_frozen_selection')
+        selection=json.loads(args.selection_receipt.read_text())
+        if (selection.get('status')!='DEV_PASSED_FROZEN_SELECTION' or selection.get('datasetHash')!=manifest['datasetHash'] or selection.get('bundleManifestSha256')!=file_sha(folder/'product-gpu-manifest.json')
+            or args.adapter_sha256 not in [selection.get('parentAdapterSha256'),selection.get('candidateAdapterSha256')]
+            or selection.get('testUsedForSelection') is not False):raise ValueError('beta_eval_selection_not_bound')
+        packet_path=args.requests
+        if file_sha(packet_path)!=manifest['testRequestPacketSha256']:raise ValueError('beta_eval_test_packet_changed')
+    else:
+        packet_path=folder/'development-requests.json'
+    packet=json.loads(packet_path.read_text());requests=packet['cases']
+    source=json.loads((folder/'catalog-manifest.json').read_text())
+    if (packet.get('targetIncluded') is not False or packet.get('split')!=split or len(requests)!=source['counts'][split]
+        or len({r['id']for r in requests})!=len(requests)
+        or any(r['split']!=split or 'expected'in r or 'finalMeaning'in r or [m['role']for m in r['messages']]!=['system','user']for r in requests)):
+        raise ValueError('beta_eval_target_free_roster_required')
+    verify_beta_framework_smoke(folder)
+    # All configuration/identity gates above run before model loading or downloads.
+    import torch
+    import llguidance
+    from llguidance.hf import from_tokenizer
+    from transformers import AutoModelForImageTextToText,AutoTokenizer,BitsAndBytesConfig
+    from peft import PeftModel
+    if importlib.metadata.version('llguidance')!='1.9.1' or importlib.metadata.version('transformers')!='5.22.0':raise ValueError('beta_eval_runtime_changed')
+    args.output.mkdir(mode=0o700)
+    base=product_base(folder);tokenizer=AutoTokenizer.from_pretrained(folder/'tokenizer',local_files_only=True,trust_remote_code=False)
+    torch.cuda.set_per_process_memory_fraction(.90,0)
+    model=AutoModelForImageTextToText.from_pretrained(base,local_files_only=True,trust_remote_code=False,use_safetensors=True,dtype=torch.bfloat16,device_map={'':0},attn_implementation='sdpa',quantization_config=BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_quant_type='nf4',bnb_4bit_use_double_quant=True,bnb_4bit_compute_dtype=torch.bfloat16))
+    model=PeftModel.from_pretrained(model,args.adapter,is_trainable=False);model.requires_grad_(False);model.eval();model.config.use_cache=True
+    state={'model':model,'tokenizer':tokenizer,'ll_tokenizer':from_tokenizer(tokenizer),'boundary':{'profile':BETA_CATALOG_PROFILE,'maxTotalTokens':5120}}
+    compiler=llguidance.JsonCompiler(separators=(', ',': '),whitespace_pattern='');records=[]
+    for row in requests:
+        beta_execution_admission(folder,manifest,args.execution_approval)
+        try:generated=generate_structured(state,row['messages'],compiler.compile(json.dumps(row['outputSchema'])),max_seconds=90,max_output_tokens=2048)
+        except Exception as error:generated={'status':'PROVIDER_ERROR','errorType':type(error).__name__,'raw':None}
+        record={k:row[k]for k in ['id','task','promptHash','inputHash','schemaHash']};record.update(generated,attempt=1)
+        write_json(args.output/(row['id']+'.json'),record);records.append(record)
+    if file_sha(args.adapter/'adapter_model.safetensors')!=args.adapter_sha256:raise ValueError('beta_eval_adapter_mutated')
+    write_json(args.output/'result.json',{'version':'backyrd.nuknuk-beta-inference-results@1','datasetHash':manifest['datasetHash'],'bundleManifestSha256':file_sha(folder/'product-gpu-manifest.json'),'adapterSha256':args.adapter_sha256,'split':split,'requestPacketSha256':file_sha(packet_path),'caseCount':len(records),'cases':records,'firstAttemptOnly':True,'trainingExecuted':False,'modelEvaluated':True,'productionActivation':False})
+
+
+def beta_framework_smoke(args):
+    """Pinned-image CPU integration: toy scalar autograd only; no NukNuk weights."""
+    folder=args.bundle.resolve(strict=True);manifest=verify_product_gpu_bundle(folder)
+    beta_execution_admission(folder,manifest,args.execution_approval);native=verify_beta_native(folder,manifest)
+    if args.output.resolve()!=folder.parent/'framework-smoke' or args.output.exists():raise ValueError('beta_smoke_canonical_new_output_required')
+    versions={name:importlib.metadata.version(name)for name in ['transformers','axolotl','peft','tokenizers','llguidance']}
+    if versions!={'transformers':'5.22.0','axolotl':'0.21.2.dev0','peft':'0.21.2','tokenizers':'0.23.3','llguidance':'1.9.1'}:raise ValueError('beta_smoke_runtime_versions_changed')
+    import torch
+    from transformers import AutoTokenizer,Trainer,TrainingArguments
+    from axolotl.integrations.base import PluginManager
+    from axolotl.utils.dict import DictDefault
+    sys.path.insert(0,str(folder))
+    args.output.mkdir(mode=0o700)
+    os.environ.update(BACKYRD_CATALOG_BUNDLE=str(folder),BACKYRD_EXECUTION_APPROVAL=str(args.execution_approval.resolve()),BACKYRD_TRAINING_RECEIPTS=str(args.output.resolve()))
+    tokenizer=AutoTokenizer.from_pretrained(folder/'tokenizer',local_files_only=True,trust_remote_code=False)
+    if tokenizer.padding_side!='right':raise ValueError('beta_smoke_right_padding_required')
+    manager=PluginManager.get_instance();manager.register('nuknuk_beta_callback.BetaPlugin')
+    if 'nuknuk_beta_callback.BetaPlugin'not in manager.plugins:raise ValueError('beta_smoke_plugin_load_failed')
+    cfg=DictDefault({'sample_packing':False});cls,options=manager.get_collator_cls_and_kwargs(cfg,is_eval=False)
+    collator=cls(tokenizer=tokenizer,**options)
+    dataset=[json.loads(line)for line in (folder/'train-tokenized.jsonl').read_text().splitlines()]
+    class ToyScalar(torch.nn.Module):
+        def __init__(self):super().__init__();self.scalar=torch.nn.Parameter(torch.tensor(1.,dtype=torch.float64))
+        def forward(self,input_ids=None,attention_mask=None,labels=None):return {'loss':self.scalar*labels[labels!=-100].double().mean()}
+    model=ToyScalar()
+    config=TrainingArguments(output_dir=str(args.output/'unused-toy-output'),use_cpu=True,report_to=[],per_device_train_batch_size=1,gradient_accumulation_steps=5,num_train_epochs=1,dataloader_drop_last=False,dataloader_num_workers=0,remove_unused_columns=False)
+    trainer=Trainer(model=model,args=config,train_dataset=dataset,data_collator=collator)
+    manager.post_trainer_create(cfg,trainer)
+    if not getattr(trainer,'backyrd_objective_installed',False):raise ValueError('beta_smoke_hook_not_installed')
+    from nuknuk_beta_callback import batch_weight
+    mix=json.loads((folder/'training-mixture.json').read_text());weights={r['id']:r['lossWeight']for r in mix['cases']}
+    by_id={r['id']:r for r in native['rows']if r['split']=='TRAIN'};groups={}
+    for row in by_id.values():groups.setdefault(row['inputIdsSha256'],[]).append(row)
+    bindings={key:{'labelsSha256':items[0]['labelsSha256'],'weight':sum(weights[r['id']]for r in items)/len(items)}for key,items in groups.items()}
+    trainer.current_gradient_accumulation_steps=5;count=0
+    for row in dataset:
+        beta_execution_admission(folder,manifest,args.execution_approval)
+        batch=collator([dict(row)]);weight=batch_weight(batch,bindings)
+        expected=float(batch['labels'][batch['labels']!=-100].double().mean())*weight/5
+        model.zero_grad(set_to_none=True);trainer.training_step(model,batch,num_items_in_batch=None)
+        actual=float(model.scalar.grad)
+        if not math.isclose(actual,expected,rel_tol=1e-6,abs_tol=1e-6):raise ValueError('beta_smoke_actual_gradient_scaling_changed')
+        count+=1
+    if count!=2350 or count%5:raise ValueError('beta_smoke_full_inventory_required')
+    write_json(args.output/'result.json',{'status':'PASS','bundleManifestSha256':file_sha(folder/'product-gpu-manifest.json'),'nativeReceiptSha256':file_sha(folder/'native-tokenization.json'),'trainerInputsReceiptSha256':file_sha(args.output/'actual-trainer-inputs.json'),'runtime':versions,'fullAxolotlCliVerified':False,'ociImageIdentityVerified':False,'pluginManagerUsed':True,'actualTrainerUsed':True,'toyScalarGradientChecks':count,'gradientAccumulationSteps':5,'partialWindows':0,'nuknukModelLoaded':False,'nuknukTrainingExecuted':False,'activationAuthorized':False})
+
+
+def verify_beta_framework_smoke(folder):
+    receipt=json.loads((folder.parent/'framework-smoke/result.json').read_text())
+    if (receipt.get('status')!='PASS' or receipt.get('bundleManifestSha256')!=file_sha(folder/'product-gpu-manifest.json')
+        or receipt.get('nativeReceiptSha256')!=file_sha(folder/'native-tokenization.json') or receipt.get('toyScalarGradientChecks')!=2350
+        or receipt.get('actualTrainerUsed') is not True or receipt.get('pluginManagerUsed') is not True or receipt.get('partialWindows')!=0
+        or receipt.get('gradientAccumulationSteps')!=5 or receipt.get('runtime')!={'transformers':'5.22.0','axolotl':'0.21.2.dev0','peft':'0.21.2','tokenizers':'0.23.3','llguidance':'1.9.1'}
+        or any(receipt.get(key) is not False for key in ['nuknukModelLoaded','nuknukTrainingExecuted','activationAuthorized','fullAxolotlCliVerified','ociImageIdentityVerified'])
+        or receipt.get('trainerInputsReceiptSha256')!=file_sha(folder.parent/'framework-smoke/actual-trainer-inputs.json')):raise ValueError('beta_actual_framework_smoke_required_before_weights')
+    inputs=json.loads((folder.parent/'framework-smoke/actual-trainer-inputs.json').read_text())
+    if (inputs.get('result')!='PASS' or inputs.get('checkedRows')!=2350 or inputs.get('actualTrainerDatasetVerified') is not True
+        or inputs.get('trainerCollatorVerified') is not True or inputs.get('actualTrainerDataloaderVerified') is not False
+        or inputs.get('gradientAccumulationSteps')!=5 or inputs.get('partialAccumulationWindows')!=0):raise ValueError('beta_smoke_actual_trainer_inputs_required')
+    return receipt
+
+
+def train_beta_catalog(args):
+    import signal
+    folder=args.bundle.resolve(strict=True);manifest=verify_product_gpu_bundle(folder)
+    admission=beta_execution_admission(folder,manifest,args.execution_approval)
+    native=verify_beta_native(folder,manifest)
+    if str(folder) != '/workspace/backyrd-product-training/job':raise ValueError('beta_catalog_canonical_job_path_required')
+    verify_beta_framework_smoke(folder)
+    baseline=json.loads((folder.parent/'parent-development/result.json').read_text())
+    if (baseline.get('datasetHash')!=manifest['datasetHash'] or baseline.get('adapterSha256')!=manifest['parent']['hfAdapterSha256']
+        or baseline.get('caseCount')!=manifest['recipe']['validationRows'] or baseline.get('split')!='DEV' or baseline.get('modelEvaluated') is not True):raise ValueError('beta_catalog_full_parent_baseline_required')
+    if args.output.exists() or (folder.parent/'output').exists():raise ValueError('beta_catalog_new_output_required')
+    cards=subprocess.check_output(['nvidia-smi','--query-gpu=memory.total','--format=csv,noheader,nounits'],text=True,timeout=10).strip().splitlines()
+    if len(cards)!=1 or int(cards[0])<79000:raise ValueError('beta_catalog_one_sufficient_gpu_required')
+    product_base(folder);args.output.mkdir(mode=0o700)
+    seconds=min(manifest['recipe']['maxTrainingSeconds'],int(admission['deadlineEpoch']-time.time())-300)
+    if seconds<120:raise ValueError('beta_catalog_insufficient_remaining_budget')
+    environment=os.environ.copy();environment.update(PYTHONPATH=str(folder)+os.pathsep+environment.get('PYTHONPATH',''),BACKYRD_TRAINING_RECEIPTS=str(args.output.resolve()),BACKYRD_CATALOG_BUNDLE=str(folder),BACKYRD_EXECUTION_APPROVAL=str(args.execution_approval.resolve()),BACKYRD_TOTAL_UPDATES=str(manifest['recipe']['optimizerUpdates']),BACKYRD_MAX_TRAIN_SECONDS=str(seconds),BACKYRD_MAXIMUM_TRAIN_TOKENS=str(max(r['inputTokens']for r in native['rows']if r['split']=='TRAIN')))
+    process=None
+    try:
+        with (args.output/'train.log').open('x')as log:
+            process=subprocess.Popen(['axolotl','train',str(folder/'train.yaml')],stdout=log,stderr=subprocess.STDOUT,start_new_session=True,env=environment)
+            status=process.wait(timeout=seconds)
+        if status!=0:raise ValueError('beta_catalog_trainer_failed')
+    finally:
+        if process is not None and process.poll() is None:os.killpg(process.pid,signal.SIGKILL);process.wait(timeout=15)
+    progress=json.loads((args.output/'beta-progress.json').read_text())
+    if progress.get('status')!='COMPLETE' or progress.get('step')!=manifest['recipe']['optimizerUpdates']:raise ValueError('beta_catalog_incomplete_epoch')
+    adapter=folder.parent/'output'
+    write_json(args.output/'result.json',{'status':'TRAINED_REQUIRES_COMPARISON','datasetHash':manifest['datasetHash'],'sourceManifestSha256':file_sha(folder/'product-gpu-manifest.json'),'parentAdapterSha256':manifest['parent']['hfAdapterSha256'],'adapterSha256':file_sha(adapter/'adapter_model.safetensors'),'model':manifest['parent']['trainingBase'],'trainingRows':manifest['recipe']['trainingRows'],'epochs':1,'completedOptimizerUpdates':progress['step'],'testCalled':False,'providerBillingStopped':False,'productionActivation':False})
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1220,11 +1479,16 @@ if __name__ == "__main__":
     parent_check.add_argument('--source',type=Path,required=True)
     parent_check.add_argument('--adapter',type=Path,required=True)
     parent_check.add_argument('--output',type=Path,required=True)
-    for product_command in ['product-evaluate','product-train']:
+    for product_command in ['product-evaluate','product-train','product-prepare','product-smoke']:
         product_parser=sub.add_parser(product_command)
         product_parser.add_argument('--bundle',type=Path,required=True)
-        product_parser.add_argument('--output',type=Path,required=True)
+        if product_command!='product-prepare':product_parser.add_argument('--output',type=Path,required=True)
+        if product_command in ('product-train','product-evaluate','product-smoke'):
+            product_parser.add_argument('--execution-approval',type=Path)
         if product_command=='product-evaluate':
+            product_parser.add_argument('--split',choices=['DEV','TEST'],default='DEV')
+            product_parser.add_argument('--requests',type=Path)
+            product_parser.add_argument('--selection-receipt',type=Path)
             product_parser.add_argument('--adapter',type=Path,required=True)
             product_parser.add_argument('--adapter-sha256',required=True)
     for command in ("check", "train", "evaluate", "prefer"):
@@ -1271,6 +1535,10 @@ if __name__ == "__main__":
         product_evaluate(args)
     elif args.command == 'product-train':
         product_train(args)
+    elif args.command == 'product-smoke':
+        beta_framework_smoke(args)
+    elif args.command == 'product-prepare':
+        prepare_product_native(args.bundle.resolve(strict=True))
     elif args.command == 'verify-product-parent':
         verify_product_parent(args.bundle,args.source,args.adapter,args.output)
     elif args.command == "convert":
