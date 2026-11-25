@@ -16,6 +16,9 @@ import subprocess
 import sys
 import time
 
+# Bound jobs must not acquire untracked bytecode payloads during runtime checks.
+sys.dont_write_bytecode = True
+
 MODEL_ID = "Qwen/Qwen3.5-27B"
 MODEL_REVISION = "fc05daec18b0a78c049392ed2e771dde82bdf654"
 PARENT_SHA = "cd0735f6cc576df3386ca0254d08d3db7e976f0711a6fad7bf900777a0f180b3"
@@ -1257,6 +1260,9 @@ def verify_beta_catalog_bundle(folder, manifest):
         or manifest.get('image') != 'axolotlai/axolotl-cloud-uv@sha256:5a989be77ecfc9ef6f4e578d0addec4e6a6fb882b64abe0b84613666c58afe61'
         or manifest['parent']['trainingBase'] != {'repo':'Qwen/Qwen3.6-35B-A3B','revision':'995ad96eacd98c81ed38be0c5b274b04031597b0'}):
         raise ValueError('beta_catalog_bundle_contract_invalid')
+    allowed=expected|{'product-gpu-manifest.json','train-tokenized.jsonl','valid-tokenized.jsonl','native-tokenization.json'}
+    actual={str(path.relative_to(folder))for path in folder.rglob('*')if path.is_file()}
+    if actual-allowed:raise ValueError('beta_catalog_unexpected_upload_payload')
     for name,binding in manifest['files'].items():
         if Path(name).is_absolute() or '..' in Path(name).parts or file_sha(folder/name) != binding['sha256'] or (folder/name).stat().st_size != binding['bytes']:
             raise ValueError('beta_catalog_bundle_file_changed')
