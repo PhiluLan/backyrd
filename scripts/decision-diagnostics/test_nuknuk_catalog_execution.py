@@ -182,4 +182,15 @@ class Resume(unittest.TestCase):
   source=Path(gpu.__file__).read_text();expected=gpu.catalog_inference_contract(source)
   for altered in [source.replace('do_sample=False','do_sample=True'),source.replace('max_seconds=90,max_output_tokens=2048','max_seconds=89,max_output_tokens=2048'),source.replace("attn_implementation='sdpa'","attn_implementation='eager'")]:self.assertNotEqual(expected,gpu.catalog_inference_contract(altered))
   self.assertEqual(expected,gpu.catalog_inference_contract(source+'\n# orchestration comment\n'))
+class CrossPythonResume(unittest.TestCase):
+ def test_same_source_has_identical_fingerprint_on_required_python_versions(self):
+  import shutil,subprocess,sys
+  source=Path(__file__).with_name('nuknuk-gpu.py')
+  code="import importlib.util,pathlib,json,sys;p=pathlib.Path("+repr(str(source))+");s=importlib.util.spec_from_file_location('gpu',p);g=importlib.util.module_from_spec(s);s.loader.exec_module(g);print(json.dumps({'python':list(sys.version_info[:2]),'hash':g.catalog_inference_contract(p.read_text())}))"
+  interpreters=[]
+  for name in ['python3.12','python3.13']:
+   interpreter=shutil.which(name);self.assertIsNotNone(interpreter,'cross_python_required_interpreter_missing:'+name);interpreters.append(interpreter)
+  values=[json.loads(subprocess.check_output([py,'-B','-c',code],text=True))for py in interpreters]
+  self.assertEqual({tuple(v['python'])for v in values},{(3,12),(3,13)})
+  self.assertEqual(len({v['hash']for v in values}),1)
 if __name__=='__main__':unittest.main()

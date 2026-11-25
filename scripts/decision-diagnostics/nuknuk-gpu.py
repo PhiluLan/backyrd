@@ -1355,7 +1355,16 @@ def catalog_inference_contract(source):
         elif isinstance(node,ast.Call)and isinstance(node.func,ast.Name)and node.func.id=='generate_structured':selected.append(node)
         elif isinstance(node,ast.Assign)and any(isinstance(t,ast.Name)and t.id=='state'for t in node.targets):selected.append(node)
     if len([n for n in selected if isinstance(n,ast.FunctionDef)])!=4:raise ValueError('beta_resume_generation_contract_missing')
-    return hashlib.sha256('\n'.join(ast.dump(n,include_attributes=False)for n in selected).encode()).hexdigest()
+    # ast.dump changed its empty-field defaults in Python3.13. Provider Python3.12
+    # must produce the same fingerprint as the Mac; locations and empty optional
+    # fields are deliberately excluded, while every nonempty semantic field stays.
+    def canonical(node):
+        if isinstance(node,ast.AST):
+            return {'node':type(node).__name__,'fields':{key:canonical(value)for key,value in ast.iter_fields(node)if value is not None and not(isinstance(value,list)and not value)}}
+        if isinstance(node,list):return [canonical(value)for value in node]
+        return node
+    payload=json.dumps(canonical(selected),sort_keys=True,separators=(',',':'),ensure_ascii=True)
+    return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def catalog_resume_records(path,manifest,packet_path,requests,adapter_sha256):
@@ -1364,8 +1373,9 @@ def catalog_resume_records(path,manifest,packet_path,requests,adapter_sha256):
     expected={'datasetHash':manifest['datasetHash'],'adapterSha256':adapter_sha256,'requestPacketSha256':file_sha(packet_path),
         'inferenceContractSha256':catalog_inference_contract(Path(__file__).read_text()),'image':manifest['image'],
         'tokenizerFiles':manifest['parent']['modelFiles'],'split':'DEV'}
-    if any(binding.get(k)!=v for k,v in expected.items())or binding.get('firstAttemptOnly')is not True:
-        raise ValueError('beta_resume_identity_changed')
+    mismatches=[k for k,v in expected.items()if binding.get(k)!=v]
+    if binding.get('firstAttemptOnly')is not True:mismatches.append('firstAttemptOnly')
+    if mismatches:raise ValueError('beta_resume_identity_changed:'+','.join(mismatches))
     if value.get('sourceSnapshotManifestSha256')is None or value.get('sourceBundleManifestSha256')is None:raise ValueError('beta_resume_provenance_required')
     if set(value.get('runtime',{}))!={'torch','transformers','peft','axolotl','tokenizers','llguidance'}or value.get('gpuName')!='NVIDIA H100 80GB HBM3':raise ValueError('beta_resume_runtime_binding_incomplete')
     rows={r['id']:r for r in requests};records=value.get('records',[])

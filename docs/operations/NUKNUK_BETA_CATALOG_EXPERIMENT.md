@@ -88,3 +88,12 @@ Gezielte Annahmeprüfungen: einzelner und dauerhafter API-Ausfall, Auth-Fehler,
 Tarif-/Identitätswechsel, ursprüngliche Kostenfrist, fehlende Runtime-Angabe,
 veränderte Eingaben/Antworten, doppelte Fälle und Erhalt fehlgeschlagener
 Erstausgaben. CPU-Tests belegen diese Steuerungsregeln, keine Modellqualität.
+
+Die Wiederaufnahme-Fingerprints verwenden eine eigene kanonische AST-Darstellung,
+keine versionsabhängigen `ast.dump`-Defaults. Vor einem kostenpflichtigen Start
+muss der vollständige Resume-Vertrag mit Python3.12 (GPU-Version) und3.13
+(Mac-Vorbereitung) bestehen. Der Cross-Version-Test verlangt beide tatsächlich
+ausgeführten Versionen; ein einzelner vorhandener Interpreter gilt nicht als
+Cross-Version-PASS. Fehlende Interpreter sind ein Testfehler. Alte und neue
+Inferenzquellen müssen denselben Hash ergeben, semantische Mutationen dagegen
+unterschiedliche. Die Runtime verweigert weiterhin jede echte Abweichung.
