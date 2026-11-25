@@ -13,6 +13,18 @@ spec.loader.exec_module(gpu)
 
 
 class GpuPreparationTests(unittest.TestCase):
+    def test_diagnostic_selection_requires_correction_profile_and_all_identity_guards(self):
+        receipt = dict(status='CANDIDATE_FROZEN_FOR_DIAGNOSTIC_TEST', selectionPolicy='ONE_PREREGISTERED_FINAL_CHECKPOINT', semanticQualityApproved=False, activationAuthorized=False, datasetHash='data', bundleManifestSha256='bundle', parentAdapterSha256='p', candidateAdapterSha256='c', testUsedForSelection=False)
+        source = {'catalogVariant':'understanding-correction-v1'}
+        gpu.validate_beta_selection(receipt, source, {'datasetHash':'data'}, 'bundle', 'c')
+        for changed in [{'semanticQualityApproved':True}, {'activationAuthorized':True}, {'selectionPolicy':'BEST_TEST'}, {'datasetHash':'other'}, {'bundleManifestSha256':'other'}, {'testUsedForSelection':True}]:
+            with self.assertRaisesRegex(ValueError, 'selection_not_bound'):
+                gpu.validate_beta_selection({**receipt,**changed}, source, {'datasetHash':'data'}, 'bundle', 'c')
+        for bad_source, adapter in [({'catalogVariant':'general'}, 'c'), (source,'unknown')]:
+            with self.assertRaisesRegex(ValueError,'selection_not_bound'):
+                gpu.validate_beta_selection(receipt, bad_source, {'datasetHash':'data'}, 'bundle', adapter)
+        gpu.validate_beta_selection({**receipt, 'status':'DEV_PASSED_FROZEN_SELECTION'}, {'catalogVariant':'general'}, {'datasetHash':'data'}, 'bundle', 'p')
+
     def test_completed_candidate_conversion_preserves_projection_and_rejects_bad_tensors(self):
         keys=[f'language_model.model.layers.{i}.self_attn.{p}_proj' for i in range(3,40,4) for p in ('k','o','q','v')]
         rng=np.random.default_rng(42)

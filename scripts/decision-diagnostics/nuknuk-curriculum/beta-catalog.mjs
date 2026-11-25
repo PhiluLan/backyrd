@@ -33,6 +33,7 @@ const blueprintFamilies = [
   ...everydayCompositions,
   ...lexiconFamilies,
 ];
+import {correctionFamilies,correctionTrainingSpecs} from "./correction-source.mjs";
 import { wholeReading, dialogueReading } from "./beta-reading.mjs";
 import { betaTrainingPlan, betaStartHere } from "./beta-plan.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -361,13 +362,14 @@ export function checkSourceInvariants(row) {
   }
   return true;
 }
-export function materializeBetaCases() {
+export function materializeBetaCases(correctionSpecs = null) {
+  const families = correctionSpecs ? correctionFamilies(correctionSpecs) : blueprintFamilies;
   const rows = [],
     rejections = [],
     excluded = [],
     schemaCache = new Map(),
     promptCache = new Map();
-  for (const family of blueprintFamilies)
+  for (const family of families)
     for (const profile of family.custom ? profiles.slice(0, 1) : profiles) {
       // Avoid self-contradictory slot combinations. These are exclusions, not hidden training rows.
       const forbidden = {
@@ -450,7 +452,7 @@ export function materializeBetaCases() {
       const text = family.render(profile),
         target = family.target(profile);
       for (const locale of ["de", "de-CH"]) {
-        const id = `beta2-${family.id}-${profile.id}-${locale}`.toLowerCase();
+        const id = `${correctionSpecs ? "correct3" : "beta2"}-${family.id}-${profile.id}-${locale}`.toLowerCase();
         try {
           const query = text[locale],
             reference = family.reference ?? profile.reference;
@@ -536,12 +538,12 @@ export function materializeBetaCases() {
             rubric: family.rubric,
             phenomena: family.tags,
             provenance: {
-              kind:
+              kind: family.provenanceKind ?? (
                 family.theme === "lexicon"
                   ? "CONTROLLED_VOCABULARY_EXERCISE"
                   : family.custom
                     ? "INDIVIDUALLY_AUTHORED_SYNTHETIC_COMPOSITION"
-                    : "AUTHORED_SYNTHETIC_BLUEPRINT_WITH_CONTROLLED_SLOTS",
+                    : "AUTHORED_SYNTHETIC_BLUEPRINT_WITH_CONTROLLED_SLOTS"),
               independentHumanGold: false,
               modelResponsesUsedForTargets: false,
             },
@@ -581,9 +583,9 @@ export function materializeBetaCases() {
   return { rows, rejections, excluded };
 }
 /** Related blueprints are indivisible even when the author initially chose different splits. */
-export function isolateSplits(input) {
+export function isolateSplits(input, families = blueprintFamilies) {
   const rows = structuredClone(input),
-    parent = new Map(blueprintFamilies.map((f) => [f.id, f.id]));
+    parent = new Map(families.map((f) => [f.id, f.id]));
   const find = (id) => (parent.get(id) === id ? id : find(parent.get(id)));
   const union = (a, b) => {
     a = find(a);
@@ -593,7 +595,7 @@ export function isolateSplits(input) {
   const texts = new Map(),
     graphs = new Map(),
     protectedGroups = new Map();
-  for (const f of blueprintFamilies)
+  for (const f of families)
     if (f.protectionGroup) {
       if (protectedGroups.has(f.protectionGroup))
         union(f.id, protectedGroups.get(f.protectionGroup));
@@ -613,7 +615,7 @@ export function isolateSplits(input) {
     }
   }
   const components = new Map();
-  for (const f of blueprintFamilies) {
+  for (const f of families) {
     const k = find(f.id);
     components.set(k, [...(components.get(k) ?? []), f]);
   }
@@ -644,8 +646,9 @@ export function isolateSplits(input) {
   }
   return { rows, adjustments, groups: components.size };
 }
-export async function buildBetaCatalog(out) {
-  const raw = materializeBetaCases();
+export async function buildBetaCatalog(out, {correctionSpecs = null} = {}) {
+  const families = correctionSpecs ? correctionFamilies(correctionSpecs) : blueprintFamilies;
+  const raw = materializeBetaCases(correctionSpecs);
   await mkdir(out, { recursive: true, mode: 0o700 });
   const allFileHashes = {};
   const save = async (name, value) => {
@@ -654,6 +657,7 @@ export async function buildBetaCatalog(out) {
     await writeFile(resolve(out, name), bytes, { flag: "wx", mode: 0o600 });
     allFileHashes[name] = hash(bytes);
   };
+  if (correctionSpecs) await save("correction-source.json", correctionSpecs);
   await save("source-validation.json", {
     version: CATALOG_VERSION,
     accepted: raw.rows.length,
@@ -663,7 +667,8 @@ export async function buildBetaCatalog(out) {
   });
   if (raw.rejections.length)
     throw Error(`beta_source_rejected_${raw.rejections.length}`);
-  const { rows, adjustments, groups } = isolateSplits(raw.rows);
+  const { rows, adjustments, groups } = isolateSplits(raw.rows, families);
+  if (correctionSpecs && adjustments.length) throw Error("correction_split_overlap_requires_reauthoring");
   rows.sort((a, b) =>
     contentHash({ seed: 42, id: a.id }).localeCompare(
       contentHash({ seed: 42, id: b.id }),
@@ -681,6 +686,9 @@ export async function buildBetaCatalog(out) {
     "docs/operations/NUKNUK_BETA_CATALOG_EXPERIMENT.md",
     "packages/world-knowledge-core/src/spot-catalog.ts",
     "scripts/decision-diagnostics/nuknuk-curriculum/beta-cases.mjs",
+    "scripts/decision-diagnostics/nuknuk-curriculum/correction-source.mjs",
+    "scripts/decision-diagnostics/nuknuk-curriculum/correction-evaluation.mjs",
+    "scripts/decision-diagnostics/nuknuk-curriculum/correction-source.test.mjs",
     "scripts/decision-diagnostics/nuknuk-curriculum/beta-transfer.mjs",
     "scripts/decision-diagnostics/nuknuk-curriculum/beta-lexicon.mjs",
     "scripts/decision-diagnostics/nuknuk-curriculum/beta-reading.mjs",
@@ -783,7 +791,7 @@ export async function buildBetaCatalog(out) {
     schemas,
     cases: packed,
   });
-  const coverage = blueprintFamilies.map((f) => ({
+  const coverage = families.map((f) => ({
     family: f.id,
     theme: f.theme,
     label: f.label,
@@ -813,10 +821,11 @@ export async function buildBetaCatalog(out) {
     }).trim(),
     sourceHashes,
     counts,
-    sourceFamilies: blueprintFamilies.length,
-    controlledBlueprints: generatedFamilies.length,
-    individuallyAuthoredSituations: everydayCompositions.length,
-    lexiconEntries: lexiconFamilies.length,
+    catalogVariant: correctionSpecs ? "understanding-correction-v1" : "general",
+    sourceFamilies: families.length,
+    controlledBlueprints: correctionSpecs ? new Set(correctionSpecs.filter(s=>s.stratum==="BLUEPRINT").map(s=>s.protectionGroup)).size : generatedFamilies.length,
+    individuallyAuthoredSituations: correctionSpecs ? correctionSpecs.filter(s=>s.provenanceKind==="INDEPENDENT_REVIEWER_AUTHORED_SYNTHETIC_HOLDOUT").length : everydayCompositions.length,
+    lexiconEntries: correctionSpecs ? correctionSpecs.filter(s=>s.stratum==="LEXICON").length : lexiconFamilies.length,
     protectedScenarioGroups: groups,
     themes: new Set(rows.map((r) => r.theme)).size,
     sourceInstantiations: rows.length / 2,
@@ -866,8 +875,52 @@ export async function buildBetaCatalog(out) {
         )
         .join("\n"),
   );
-  await save("training-plan.json", betaTrainingPlan(manifest));
-  await save("START_HIER.md", betaStartHere(manifest));
+  const plan = betaTrainingPlan(manifest);
+  if (correctionSpecs) {
+    plan.objective = "Correct relevant interpretation errors in explicit user wishes; separate meaning, schema, patch addressing, merge and downstream capabilities.";
+    plan.acceptance = {
+      status: "PREREGISTERED_PROPOSAL_REQUIRES_MIKE_APPROVAL",
+      primaryMetric: "Evidence-bound per-requirement judgement of both original outputs on fresh paired cases",
+      independentHumanGold: false,
+      noAutomaticComprehensionPass: true,
+      everyDeclaredRequirementChecked: true,
+      unknownIsNotPass: true,
+      maximumUnclearFraction: 0.10,
+      maximumIncompleteFraction: 0.02,
+      proposedMinimumRelativeMaterialErrorReduction: 0.30,
+      errorReductionDefinition: "Unit=canonical scenarioGroup, not duplicated locale variants. A group is MISUNDERSTOOD if any locale has an evidence-confirmed violation; UNDERSTOOD only if every locale is understood; otherwise unresolved. Only groups with every expected locale conclusively judged for both adapters enter the shared denominator; confirmed errors in other groups remain separately visible. On those complete groups, reduction=(parent erroneous groups - candidate erroneous groups)/parent erroneous groups. Require at least90percent shared conclusive group coverage and report excluded groups. Parent zero errors makes reduction NOT_APPLICABLE; never claim improvement by division by zero.",
+      qualityDecision: "Diagnostic evidence only. Threshold attainment is separately reviewed and never activates the model. Report per-locale, per-theme, case counts, group counts and all disagreements.",
+      newCriticalRegressionsAllowed: 0,
+      criticalErrors: ["Explicit required or excluded access, allergy, child-age suitability, time, place, budget or main activity changed, invented or omitted"],
+      peerReview: "Two separately authored, identity-bound reviews check every complete compound criterion and audit every original answer for further relevant invented assertions using additionalFactsAudit with evidence. Preserve both reviews. Any verdict or checklist disagreement remains UNCLEAR; no automatic adjudication. Evidence must cover every clause in a compound criterion.",
+      technicalIncompletePolicy: "Incomplete or unscorable outputs are reported separately and never counted as understood; excluded from the shared conclusive denominator and included in coverage and incomplete fractions.",
+      original538AreKnownRegressionOnly: true,
+      strictGraphIsTechnicalDiagnosticOnly: true,
+      noAutomaticActivation: true,
+      excludedTrainingCriteria: ["Own nonattendance and associated self-role coding", "Redundant stroller context when the requested access requirement is preserved", "Small-exhibition size extension"]
+    };
+    plan.costs.alreadySpentByThisPackageUsd = null;
+    plan.costs.cumulativePriorAttemptReceiptsRequired = true;
+    plan.recipe.pilotUses = "First ten updates within the single full TRAIN epoch; log actual loss, mask, weights and throughput without a second optimization pass.";
+    plan.implementation.scorer = 'node scripts/decision-diagnostics/nuknuk-curriculum/correction-evaluation.mjs paired DATA BUNDLE PARENT_RESULTS CANDIDATE_RESULTS OUTPUT [DIAGNOSTIC_FROZEN_SELECTION]';
+    plan.implementation.testInputs = 'TEST questions only uploaded after the sole final checkpoint is hash-frozen; no TEST labels uploaded.';
+    plan.execution = [
+      "Verify source, tokenizer, exact parent projection, grouped split and measured offline preflight hashes.",
+      "Verify cumulative campaign receipts, balance, Auto-Pay off, idle account, tariff and actual all-in hourly rate before allocating one owned pod.",
+      "Run actual-trainer mask/weight/gradient smoke; evaluate all parent DEV inputs before the single complete TRAIN epoch.",
+      "Record first-ten-update pilot diagnostics without a separate training pass; stop only for correctness, health or actual cost-derived limits.",
+      "Secure the final adapter and all raw DEV outputs locally; freeze that one preregistered final checkpoint without claiming semantic acceptance.",
+      "Run paired diagnostic TEST exactly once on GPU. Upload questions only after checkpoint freeze; never use TEST to select or optimize.",
+      "Secure all artifacts and verify hashes; remove the owned pod and paid storage and verify account cleanup.",
+      "Two independent casewise AI reviews check every raw answer against all prewritten requirements; preserve disagreement as unclear.",
+      "Run native Mac critical-path checks under the resource guard, with an independent restoration watchdog and restoration of the prior live service after authorized temporary maintenance.",
+      "Report interpretation, schema, patch addressing, merge and downstream failures separately. No automatic live activation."
+    ];
+    plan.data.sourceNucleiNote = "500 controlled TRAIN instances in two locales. Slot and wrapper variants are not independent situations. Fresh DEV/TEST were authored separately by Mike and remain local-only until candidate identity is frozen.";
+    plan.execution.push("Freeze the single final checkpoint identity after DEV, without claiming semantic quality approval; run diagnostic TEST under that receipt. Review every material requirement and forbidden invention on both raw outputs before reporting any comprehension percentage.");
+  }
+  await save("training-plan.json", plan);
+  await save("START_HIER.md", correctionSpecs ? `# Gezielte NukNuk Korrekturrunde\n\nTRAIN ${counts.TRAIN}, DEV ${counts.DEV}, TEST ${counts.TEST}. Synthetischer KI-Entwurf, keine menschlich unabhängig bestätigte Stichprobe. Die Quellen und Daten werden vor dem ersten Modelllauf eingefroren.\n\nTrainingsziele sind relevante Wünsche: Hauptaktivität, Ort, Datum, Modalität, Negation, explizite Zahlen, Spezifität und relevante Kinderbezüge. Eigene Nichtteilnahme, redundanter Kinderwagenkontext und Ausstellungsgrösse sind keine Korrekturziele. Alle Varianten bleiben in ihrem Bestand; es gab keine automatische Übernahme von Prüffällen ins Training.\n\nBewertung erfolgt nach den vorab festgelegten fallweisen semanticCriteria in correction-source.json. Der Reviewer muss jeden Prüfsatz für beide ursprünglichen Antworten mit Evidenz bewerten. Ungeprüft wird nie als verstanden ausgegeben. Strict-Graph-Ergebnisse bleiben technische Diagnosen. Korrekter Rohinhalt, Patchadressierung und Merge werden getrennt betrachtet.\n\nDer einzige trainierte Endcheckpoint wird vor TEST gebunden, auch wenn der technische Graphvergleich nicht besteht. Diese diagnostische Testfreigabe ist weder Verständnisfreigabe noch Live-Aktivierung. Die vorgeschlagenen Akzeptanzgrenzen stehen in training-plan.json und müssen von Mike vor dem Lauf geprüft werden.\n\nEs gilt weiterhin die ursprüngliche kumulative 50-USD-Grenze einschliesslich aller bisherigen Versuche und 5 USD Abschlussreserve. Keine automatische Aufladung, höchstens ein eigener Pod, kein kostenpflichtiger Rest-Speicher, keine Modellaktivierung.\n` : betaStartHere(manifest));
   await save(
     "FRAGENKATALOG.md",
     "# NukNuk – Fragenkatalog\n\nSynthetische Anfragen, nach Bestand gekennzeichnet.\n\n" +
@@ -927,9 +980,12 @@ export async function verifyBetaCatalog(folder) {
   const d = JSON.parse(await readFile(resolve(folder, "catalog.json"), "utf8"));
   if (contentHash(d.cases) !== manifest.catalogHash)
     throw Error("beta_catalog_changed");
-  const freshRaw = materializeBetaCases();
+  const correctionSpecs = manifest.catalogVariant === "understanding-correction-v1" ? JSON.parse(await readFile(resolve(folder,"correction-source.json"),"utf8")) : null;
+  if (correctionSpecs && contentHash(correctionSpecs.filter(s=>s.split==="TRAIN")) !== contentHash(correctionTrainingSpecs())) throw Error("correction_training_source_changed");
+  const families = correctionSpecs ? correctionFamilies(correctionSpecs) : blueprintFamilies;
+  const freshRaw = materializeBetaCases(correctionSpecs);
   if (freshRaw.rejections.length) throw Error("beta_source_invalid");
-  const fresh = isolateSplits(freshRaw.rows).rows;
+  const fresh = isolateSplits(freshRaw.rows, families).rows;
   const expectedRows = new Map(fresh.map((r) => [r.id, r]));
   if (fresh.length !== d.cases.length) throw Error("beta_roster_changed");
   for (const [k, v] of Object.entries(d.prompts))
@@ -1104,12 +1160,13 @@ if (
       );
       process.exit(0);
     }
-    if (!out || !["build", "verify"].includes(command))
+    if (!out || !["build", "verify", "build-corrections"].includes(command))
       throw Error("beta_usage_build_or_verify_OUTPUT");
     if (command === "verify")
       console.log(JSON.stringify(await verifyBetaCatalog(resolve(out))));
     else {
-      const m = await buildBetaCatalog(resolve(out));
+      const correctionSpecs = command === "build-corrections" ? JSON.parse(await readFile(resolve(history),"utf8")) : null;
+      const m = await buildBetaCatalog(resolve(out), {correctionSpecs});
       console.log(
         JSON.stringify({
           version: m.version,

@@ -166,3 +166,54 @@ Ein Abschlussmanifest bindet Manifest, alle40 Einzelbelege, abgeleitete
 Diagnosen, Annotationen und Berichte. Die spätere Review-Präzisierung
 verändert keine Originaldaten. Der integrierte Prüfer verwirft veränderte
 Ergebnis- oder Annotationsdateien.
+
+## Gezielte Verständniskorrektur (2026-11-25)
+
+Die Variante `understanding-correction-v1` ergänzt denselben Katalog-/GPU-Pfad.
+Build: `beta-catalog.mjs build-corrections AUSGABE QUELLSPECS.json`; anschließend
+`verify AUSGABE` und der vorhandene Offline-Token-/Grammatikpreflight.
+Sie enthält 1.000 TRAIN-Formulierungen aus 500 kontrollierten Instanzen sowie
+je 100 separat verfasste DEV-/TEST-Formulierungen. Sprach-, Slot- und
+Wrappervarianten sind keine unabhängigen Situationen. Überschneidungen führen
+zur Ablehnung; Prüffälle werden niemals automatisch ins Training verschoben.
+Die konkrete Rezeptur umfasst eine Epoche und 200 vollständige Fünferupdates.
+Der Zehn-Update-Pilot ist Bestandteil dieser Epoche, kein weiterer Trainingslauf.
+
+Für diese Variante ersetzt `correction-evaluation.mjs` den strikten Graphscore
+als Entscheidungsgrundlage. Technische Graphdiagnosen bleiben erhalten, sind
+aber keine Verständnisquote. Alle Antworten beginnen als ungeprüft. Zwei
+getrennte, dateigebundene KI-Reviewer bewerten jeden vorab geschriebenen
+Prüfsatz einschließlich sämtlicher Teilklauseln anhand der Originalantworten;
+zusätzlich prüfen sie weitere relevante erfundene Aussagen. Evidenz und beide
+Ersturteile bleiben erhalten. Unterschiede werden als unklar ausgewiesen,
+nicht automatisch aufgelöst. Das ersetzt keine unabhängige menschliche Studie.
+
+Ein bestätigter Gruppenfehler und vollständige Gruppenabdeckung sind getrennt:
+Ein Fehler einer Sprachvariante genügt für einen Fehlerbefund. Für den gemeinsamen
+Reduktionsnenner müssen hingegen alle erwarteten Sprachvarianten beider Adapter
+schlüssig beurteilt sein. Unvollständige oder unklare Varianten zählen nicht als
+verstanden. Vorgeschlagen sind mindestens 90 % vollständige Gruppenabdeckung,
+30 % relative Reduktion der materiellen Gruppenfehler, höchstens 10 % unklare
+und 2 % unvollständige Antworten sowie keine neue kritische Regression.
+Ohne Parentfehler ist die Reduktion nicht anwendbar. DEV und TEST bleiben getrennt.
+Diese internen Diagnosegrenzen bedeuten keine allgemeine Beta- oder Livefreigabe.
+
+Genau ein vorregistrierter finaler Checkpoint wird nach DEV mit dem Status
+`CANDIDATE_FROZEN_FOR_DIAGNOSTIC_TEST` gebunden. Er darf einmal diagnostisch
+auf TEST geprüft werden, ohne vorzutäuschen, DEV habe eine Qualitätsgrenze
+bestanden. Dataset, Bundle, beide Adapter und Auswahlpolicy bleiben gebunden;
+TEST beeinflusst weder Auswahl noch Optimierung. Nach Verwendung ist dieser
+TEST für weitere Iterationen verbraucht. Der allgemeine Katalogpfad behält
+seine bisherigen strengeren Auswahlvoraussetzungen.
+
+Eigene Nichtteilnahme, redundanter Kinderwagenkontext bei erhaltenem
+Zugangswunsch und nicht abbildbare Ausstellungsgröße sind keine Korrekturziele.
+Bekannte frühere 538 Fälle sind nur Regression, kein frischer Test. Das bisherige
+heuristische Nachscoring liefert keine validierte Verständnisquote.
+
+Alle Vorversuche bleiben Teil derselben kumulativen 50-USD-Grenze mit 5 USD
+Abschlussreserve. Der Ausführungsbeleg muss die gesicherten, entfernten
+Vorversuche und den aktuellen Bundlehash binden. Guthaben allein erhöht die
+Grenze nicht. Kein zweiter Pod, keine Aufladung, keine automatische Aktivierung.
+Native Mac-Prüfungen erfolgen isoliert unter dem bestehenden Speicherwächter;
+bei autorisierter Livepause sichert ein unabhängiger Wächter die Wiederherstellung.

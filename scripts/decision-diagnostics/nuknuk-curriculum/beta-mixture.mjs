@@ -1,5 +1,5 @@
 /** Preregistered data objective and target-free packets. No model or network. */
-export function trainingStratum(row){return row.task==='DIALOGAKTUALISIERUNG_V3'?'DIALOGUE':row.theme==='lexicon'?'LEXICON':row.provenance.kind==='INDIVIDUALLY_AUTHORED_SYNTHETIC_COMPOSITION'?'COMPOSITION':'BLUEPRINT';}
+export function trainingStratum(row){return row.task==='DIALOGAKTUALISIERUNG_V3'?'DIALOGUE':row.theme==='lexicon'?'LEXICON':['INDIVIDUALLY_AUTHORED_SYNTHETIC_COMPOSITION','AUTHORED_CORRECTION_WITH_CONTROLLED_REPHRASINGS','INDEPENDENT_REVIEWER_AUTHORED_SYNTHETIC_HOLDOUT'].includes(row.provenance.kind)?'COMPOSITION':'BLUEPRINT';}
 export const STRATUM_MASS=Object.freeze({LEXICON:0.05,BLUEPRINT:0.25,COMPOSITION:0.35,DIALOGUE:0.35});
 export function betaMixture(rows){
  if(!rows.length||rows.some(r=>r.split!=='TRAIN'))throw Error('beta_mixture_train_only');

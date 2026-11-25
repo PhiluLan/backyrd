@@ -672,7 +672,8 @@ def catalog_upload_json(ssh,name,path):
 def catalog_compare(args,folder,target,split,selection=None):
     parent='parent-development'if split=='DEV'else'parent-test';candidate='candidate-development'if split=='DEV'else'candidate-test'
     output=folder/(split.lower()+'-comparison.json')
-    command=['node',str(Path(__file__).with_name('nuknuk-curriculum')/'beta-evaluation.mjs'),'paired',str(args.catalog_package),str(args.bundle),str(target/parent/'result.json'),str(target/candidate/'result.json'),str(output)]
+    scorer='correction-evaluation.mjs' if json.loads((args.catalog_package/'manifest.json').read_text()).get('catalogVariant')=='understanding-correction-v1' else 'beta-evaluation.mjs'
+    command=['node',str(Path(__file__).with_name('nuknuk-curriculum')/scorer),'paired',str(args.catalog_package),str(args.bundle),str(target/parent/'result.json'),str(target/candidate/'result.json'),str(output)]
     if selection:command.append(str(selection))
     subprocess.run(command,cwd=Path(__file__).resolve().parents[2],check=True)
     return json.loads(output.read_text())
@@ -783,11 +784,11 @@ def catalog_run(args,folder):
             process_id=catalog_launch(ssh,catalog_startup_script(manifest,authority['llguidanceWheelSha256'],args.llguidance_wheel.name,resume_path is not None),'development');save(folder,'DEVELOPMENT',remoteProcessId=process_id)
             target=catalog_monitor(args,folder,ssh,'development')
             trained=json.loads((target/'training-receipts/result.json').read_text());adapter=target/'output/adapter_model.safetensors'
-            if trained.get('datasetHash')!=manifest['datasetHash'] or trained.get('completedOptimizerUpdates')!=470 or trained.get('trainingRows')!=2350 or digest(adapter.read_bytes())!=trained.get('adapterSha256'):
+            if trained.get('datasetHash')!=manifest['datasetHash'] or trained.get('completedOptimizerUpdates')!=manifest['recipe']['optimizerUpdates'] or trained.get('trainingRows')!=manifest['recipe']['trainingRows'] or digest(adapter.read_bytes())!=trained.get('adapterSha256'):
                 raise ValueError('catalog_completed_candidate_not_bound')
             save(folder,'TRAINED_SECURED',candidateSha256=trained['adapterSha256'],results=str(target))
             comparison=catalog_compare(args,folder,target,'DEV')
-            if comparison['comparison']['passed']:
+            if comparison['comparison']['passed'] or (source.get('catalogVariant')=='understanding-correction-v1' and comparison['comparison'].get('testExecutionPermitted') is True):
                 frozen=folder/'dev-comparison.json.selection.json';catalog_upload_json(ssh,'frozen-selection.json',frozen);catalog_upload_json(ssh,'test-inference-inputs.json',test)
                 test_script='''#!/bin/bash
 set -euo pipefail

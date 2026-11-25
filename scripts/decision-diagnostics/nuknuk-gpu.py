@@ -1405,6 +1405,18 @@ def catalog_resume_records(path,manifest,packet_path,requests,adapter_sha256):
     return {r['id']:r for r in records},value
 
 
+def validate_beta_selection(selection, source_manifest, manifest, bundle_hash, adapter_hash):
+    correction = source_manifest.get('catalogVariant') == 'understanding-correction-v1'
+    diagnostic = (correction and selection.get('status') == 'CANDIDATE_FROZEN_FOR_DIAGNOSTIC_TEST'
+        and selection.get('selectionPolicy') == 'ONE_PREREGISTERED_FINAL_CHECKPOINT'
+        and selection.get('semanticQualityApproved') is False and selection.get('activationAuthorized') is False)
+    if ((selection.get('status') != 'DEV_PASSED_FROZEN_SELECTION' and not diagnostic)
+        or selection.get('datasetHash') != manifest['datasetHash'] or selection.get('bundleManifestSha256') != bundle_hash
+        or adapter_hash not in [selection.get('parentAdapterSha256'), selection.get('candidateAdapterSha256')]
+        or selection.get('testUsedForSelection') is not False):
+        raise ValueError('beta_eval_selection_not_bound')
+
+
 def evaluate_beta_catalog(args):
     folder=args.bundle.resolve(strict=True);manifest=verify_product_gpu_bundle(folder)
     split=args.split
@@ -1413,9 +1425,8 @@ def evaluate_beta_catalog(args):
     if split=='TEST':
         if args.requests is None or args.selection_receipt is None:raise ValueError('beta_eval_test_requires_frozen_selection')
         selection=json.loads(args.selection_receipt.read_text())
-        if (selection.get('status')!='DEV_PASSED_FROZEN_SELECTION' or selection.get('datasetHash')!=manifest['datasetHash'] or selection.get('bundleManifestSha256')!=file_sha(folder/'product-gpu-manifest.json')
-            or args.adapter_sha256 not in [selection.get('parentAdapterSha256'),selection.get('candidateAdapterSha256')]
-            or selection.get('testUsedForSelection') is not False):raise ValueError('beta_eval_selection_not_bound')
+        source_manifest=json.loads((folder/'catalog-manifest.json').read_text())
+        validate_beta_selection(selection, source_manifest, manifest, file_sha(folder/'product-gpu-manifest.json'), args.adapter_sha256)
         packet_path=args.requests
         if file_sha(packet_path)!=manifest['testRequestPacketSha256']:raise ValueError('beta_eval_test_packet_changed')
     else:
@@ -1504,20 +1515,21 @@ def beta_framework_smoke(args):
         actual=float(model.scalar.grad)
         if not math.isclose(actual,expected,rel_tol=1e-6,abs_tol=1e-6):raise ValueError('beta_smoke_actual_gradient_scaling_changed')
         count+=1
-    if count!=2350 or count%5:raise ValueError('beta_smoke_full_inventory_required')
+    if count!=manifest['recipe']['trainingRows'] or count%5:raise ValueError('beta_smoke_full_inventory_required')
     write_json(args.output/'result.json',{'status':'PASS','bundleManifestSha256':file_sha(folder/'product-gpu-manifest.json'),'nativeReceiptSha256':file_sha(folder/'native-tokenization.json'),'trainerInputsReceiptSha256':file_sha(args.output/'actual-trainer-inputs.json'),'runtime':versions,'providerPodId':catalog_provider_pod_id(),'providerIdentitySource':'PID1_CONTAINER_ENVIRONMENT','fullAxolotlCliVerified':False,'ociImageIdentityVerified':False,'pluginManagerUsed':True,'actualTrainerUsed':True,'toyScalarGradientChecks':count,'gradientAccumulationSteps':5,'partialWindows':0,'nuknukModelLoaded':False,'nuknukTrainingExecuted':False,'activationAuthorized':False})
 
 
 def verify_beta_framework_smoke(folder):
+    expected_rows=verify_product_gpu_bundle(folder)['recipe']['trainingRows']
     receipt=json.loads((folder.parent/'framework-smoke/result.json').read_text())
     if (receipt.get('status')!='PASS' or receipt.get('bundleManifestSha256')!=file_sha(folder/'product-gpu-manifest.json')
-        or receipt.get('nativeReceiptSha256')!=file_sha(folder/'native-tokenization.json') or receipt.get('toyScalarGradientChecks')!=2350
+        or receipt.get('nativeReceiptSha256')!=file_sha(folder/'native-tokenization.json') or receipt.get('toyScalarGradientChecks')!=expected_rows
         or receipt.get('actualTrainerUsed') is not True or receipt.get('pluginManagerUsed') is not True or receipt.get('partialWindows')!=0
         or receipt.get('gradientAccumulationSteps')!=5 or receipt.get('runtime')!={'transformers':'5.22.0','axolotl':'0.21.2.dev0','peft':'0.21.2','tokenizers':'0.23.3','llguidance':'1.9.1'}
         or any(receipt.get(key) is not False for key in ['nuknukModelLoaded','nuknukTrainingExecuted','activationAuthorized','fullAxolotlCliVerified','ociImageIdentityVerified'])
         or receipt.get('trainerInputsReceiptSha256')!=file_sha(folder.parent/'framework-smoke/actual-trainer-inputs.json')):raise ValueError('beta_actual_framework_smoke_required_before_weights')
     inputs=json.loads((folder.parent/'framework-smoke/actual-trainer-inputs.json').read_text())
-    if (inputs.get('result')!='PASS' or inputs.get('checkedRows')!=2350 or inputs.get('actualTrainerDatasetVerified') is not True
+    if (inputs.get('result')!='PASS' or inputs.get('checkedRows')!=expected_rows or inputs.get('actualTrainerDatasetVerified') is not True
         or inputs.get('trainerCollatorVerified') is not True or inputs.get('actualTrainerDataloaderVerified') is not False
         or inputs.get('gradientAccumulationSteps')!=5 or inputs.get('partialAccumulationWindows')!=0):raise ValueError('beta_smoke_actual_trainer_inputs_required')
     return receipt
