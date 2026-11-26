@@ -22,6 +22,7 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parent
+MEMORY_DIAGNOSTIC_KINDS = ('NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1', 'NATIVE_MLX_GATED_DELTA_VJP_COMPARE_V1')
 
 
 def sha(path):
@@ -435,7 +436,7 @@ def execute(args, plan):
     session = args.native_plan.parent / ('trial-' + args.recipe)
     if session.exists():
         raise ValueError('native_trial_already_attempted')
-    diagnostic = plan.get('kind') == 'NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1'
+    diagnostic = plan.get('kind') in MEMORY_DIAGNOSTIC_KINDS
     if diagnostic and args.recipe != 'A':
         raise ValueError('native_memory_diagnostic_has_no_second_recipe')
     if args.recipe == 'B':
@@ -529,13 +530,13 @@ def main():
     if args.native_plan is None or args.manifest_sha256 is None:
         raise ValueError('native_explicit_plan_required')
     if args.worker:
-        if read(args.native_plan).get('kind') == 'NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1':
+        if read(args.native_plan).get('kind') in MEMORY_DIAGNOSTIC_KINDS:
             probe = module('nuknuk-memory-probe')
             plan = probe.verify_gated_plan(args.native_plan, args.manifest_sha256)
             args.gated_plan = args.native_plan
             return probe.gated_sequence(args, plan)
         return worker(args)
-    if read(args.native_plan).get('kind') == 'NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1':
+    if read(args.native_plan).get('kind') in MEMORY_DIAGNOSTIC_KINDS:
         plan = module('nuknuk-memory-probe').verify_gated_plan(args.native_plan, args.manifest_sha256)
     else:
         plan, _ = verify_plan(args.native_plan, args.manifest_sha256)

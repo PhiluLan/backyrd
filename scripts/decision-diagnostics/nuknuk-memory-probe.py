@@ -18,8 +18,13 @@ import plistlib
 import time
 
 GATED_KIND = 'NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1'
+VJP_KIND = 'NATIVE_MLX_GATED_DELTA_VJP_COMPARE_V1'
 GATED_CASES = [('reference', 64)] + [(mode, size) for size in (64, 512, 4134) for mode in ('forward', 'gradient')]
 GATED_SHAPE = {'batch': 1, 'keyHeads': 16, 'valueHeads': 32, 'keyDim': 128, 'valueDim': 128, 'chunk': 64}
+
+
+def case_roster(plan):
+    return [('reference', 64), ('gradient', 4134), ('gradient', 4134)] if plan.get('kind') == VJP_KIND else GATED_CASES
 
 
 def digest(path):
@@ -38,8 +43,8 @@ def verify_gated_plan(path, expected):
     if digest(path) != expected:
         raise ValueError('gated_probe_plan_changed')
     plan = json.loads(path.read_text())
-    if (plan.get('kind') != GATED_KIND or plan.get('shape') != GATED_SHAPE
-            or plan.get('cases') != [list(c) for c in GATED_CASES]
+    if (plan.get('kind') not in (GATED_KIND, VJP_KIND) or plan.get('shape') != GATED_SHAPE
+            or plan.get('cases') != [list(c) for c in case_roster(plan)]
             or plan.get('seed') != 7 or plan.get('childTimeoutSeconds') != 300
             or plan.get('referenceTolerance') != {'rtol': 0.001, 'atol': 0.0001}
             or not {'mlx', 'mlx-vlm'} <= plan.get('runtimeVersions', {}).keys()
@@ -47,6 +52,10 @@ def verify_gated_plan(path, expected):
                     'previous-stop', 'previous-restore'} <= plan.get('files', {}).keys()
             or any(plan.get(k) is not False for k in ('cloudAllowed', 'productionActivation', 'optimizerAllowed', 'modelWeightsLoaded'))):
         raise ValueError('gated_probe_configuration_invalid')
+    if plan['kind'] == VJP_KIND and (plan.get('memoryReductionMinimum') != 0.2
+            or plan.get('algorithms') != ['unit-inverse-vjp', 'original-ad', 'unit-inverse-vjp']
+            or not {'inverse-source', 'component-summary', 'component-review'} <= plan['files'].keys()):
+        raise ValueError('gated_vjp_comparison_scope_invalid')
     for item in plan['files'].values():
         if digest(item['path']) != item['sha256']:
             raise ValueError('gated_probe_bound_file_changed')
@@ -64,7 +73,7 @@ def gated_sequence(args, plan):
             or str(args.session / 'resources.json') not in parent):
         raise ValueError('gated_probe_resource_supervisor_required')
     probe_write(args.session / 'diagnostic-parent.json', {'pid': os.getpid(), 'pgid': os.getpgrp()})
-    for index, (mode, size) in enumerate(GATED_CASES):
+    for index, (mode, size) in enumerate(case_roster(plan)):
         name = f'{index:02d}-{mode}-{size}'
         command = [plan['python'], '-B', str(Path(__file__).resolve()), '--gated-plan', str(args.gated_plan),
                    '--manifest-sha256', args.manifest_sha256, '--session', str(args.session), '--diagnostic-child', str(index)]
@@ -82,7 +91,7 @@ def gated_sequence(args, plan):
             probe_write(args.session / 'diagnostic-stop.json', {'status': 'CHILD_FAILED', 'case': name, 'returncode': done.returncode})
             raise RuntimeError('gated_probe_failed_no_larger_stage:' + name)
     probe_write(args.session / 'result.json', {'status': 'SYNTHETIC_COMPONENT_DIAGNOSTIC_FINISHED',
-        'cases': len(GATED_CASES), 'modelLoaded': False, 'optimizerUpdates': 0,
+        'cases': len(case_roster(plan)), 'modelLoaded': False, 'optimizerUpdates': 0,
         'fullModelTrainabilityProven': False, 'productionActivation': False})
 
 
@@ -94,8 +103,12 @@ def gated_child(args, plan):
     if {k: importlib.metadata.version(k) for k in plan['runtimeVersions']} != plan['runtimeVersions']:
         raise ValueError('gated_probe_runtime_changed')
     os.environ.update(HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', HF_HUB_DISABLE_TELEMETRY='1')
-    result = gated_measure(args)
     import mlx.core as mx
+    mx.set_memory_limit(24 * 1024**3); mx.set_cache_limit(256 * 1024**2); mx.set_wired_limit(24 * 1024**3)
+    args.case = case_roster(plan)[args.diagnostic_child]
+    args.vjp_compare = plan['kind'] == VJP_KIND
+    args.use_inverse_vjp = args.vjp_compare and args.diagnostic_child in (0, 2)
+    result = gated_measure(args)
     gc.collect(); mx.clear_cache(); mx.synchronize()
     result['cleanup'] = {'activeBytes': mx.get_active_memory(), 'cacheBytes': mx.get_cache_memory()}
     result.update(planSha256=args.manifest_sha256, caseIndex=args.diagnostic_child, pid=os.getpid(), pgid=os.getpgrp(),
@@ -141,12 +154,22 @@ def primary_evaluation(mx, values, started, mark):
 
 
 def gated_measure(args):
+    if args.use_inverse_vjp:
+        from mlx_vlm.models.qwen3_5 import gated_delta
+        spec = importlib.util.spec_from_file_location('unit_inverse', Path(__file__).with_name('nuknuk-gated-inverse.py'))
+        inverse = importlib.util.module_from_spec(spec); spec.loader.exec_module(inverse)
+        with inverse.installed_inverse_vjp(gated_delta):
+            return gated_measure_arrays(args)
+    return gated_measure_arrays(args)
+
+
+def gated_measure_arrays(args):
     """Return scalar receipts only, so the caller can measure graph release."""
     import mlx.core as mx
     from mlx_vlm.models.qwen3_5.gated_delta import gated_delta_chunked, gated_delta_ops
     mx.set_memory_limit(24 * 1024**3); mx.set_cache_limit(256 * 1024**2); mx.set_wired_limit(24 * 1024**3)
     mx.random.seed(7)
-    mode, size = GATED_CASES[args.diagnostic_child]
+    mode, size = args.case
     name = f'{args.diagnostic_child:02d}-{mode}-{size}'
     q = mx.random.normal((1, size, 16, 128))
     k = mx.random.normal((1, size, 16, 128))
@@ -207,12 +230,47 @@ def gated_measure(args):
                 'normalizedL2Error': (mx.linalg.norm(a - b) / mx.maximum(mx.linalg.norm(b), 1e-12)).item()}
                 for label, a, b in pairs]
             comparison = details['referenceComparison']
+        if args.vjp_compare and args.diagnostic_child in (1, 2):
+            mark('BUILD_NUMERICAL_ARTIFACT_COMPARISON')
+            y, s = gated_delta_chunked(*inputs, state)
+            mx.eval(y, s); mx.synchronize()
+            tensors = {'output': y, 'endState': s, 'loss': value,
+                       **{f'gradient-{i}': a for i, a in enumerate(gradients)}}
+            finite = finite and all(bool(mx.all(mx.isfinite(a)).item()) for a in tensors.values())
+            artifact = args.session / 'synthetic-reference.safetensors'
+            if args.diagnostic_child == 1:
+                if not finite or artifact.exists():
+                    raise ValueError('gated_vjp_reference_not_finite_or_already_exists')
+                mx.save_safetensors(str(artifact), tensors); artifact.chmod(0o600)
+                if artifact.stat().st_size > 256 * 1024**2:
+                    raise ValueError('gated_vjp_reference_artifact_over_bound')
+                details['numericArtifactSha256'] = digest(artifact)
+            else:
+                baseline_receipt = json.loads((args.session / '01-gradient-4134.json').read_text())
+                if (baseline_receipt.get('status') != 'PASS' or baseline_receipt.get('planSha256') != args.manifest_sha256
+                        or digest(artifact) != baseline_receipt.get('numericArtifactSha256')):
+                    raise ValueError('gated_vjp_reference_receipt_mismatch')
+                reference = mx.load(str(artifact))
+                if set(reference) != set(tensors):
+                    raise ValueError('gated_vjp_reference_keys_changed')
+                reference_finite = all(bool(mx.all(mx.isfinite(a)).item()) for a in reference.values())
+                comparison = [{'name': label, 'allClose': bool(mx.allclose(a, reference[label], rtol=0.001, atol=0.0001).item()),
+                    'maxAbsError': mx.max(mx.abs(a.astype(mx.float32) - reference[label].astype(mx.float32))).item(),
+                    'normalizedL2Error': (mx.linalg.norm(a.astype(mx.float32) - reference[label].astype(mx.float32)) /
+                        mx.maximum(mx.linalg.norm(reference[label].astype(mx.float32)), 1e-12)).item()}
+                    for label, a in tensors.items()]
+                details['referenceComparison'] = comparison
+                details['memoryReductionFraction'] = 1 - primary['peakBytes'] / baseline_receipt['primaryEvaluation']['peakBytes']
     mx.synchronize(); mark('MATERIALIZED')
     result = {**gated_checks(finite, norms, reference_finite, comparison), 'mode': mode, 'tokens': size,
         'shapes': [list(a.shape) for a in inputs], 'dtypes': [str(a.dtype) for a in inputs],
         'inputBufferBytes': mx.get_array_buffer_size(*inputs, state, weight),
         'baseline': baseline, 'primaryEvaluation': primary, 'validationInclusiveMemory': memory(), 'elapsedSeconds': time.monotonic() - started,
         'modelLoaded': False, 'optimizerUpdates': 0, **details}
+    if args.vjp_compare:
+        result['algorithm'] = 'unit-inverse-vjp' if args.use_inverse_vjp else 'original-ad'
+        if args.diagnostic_child == 2 and result['status'] == 'PASS' and details['memoryReductionFraction'] < 0.2:
+            result.update(status='INSUFFICIENT_MEMORY_REDUCTION', allChecksPassed=False)
     return result
 
 

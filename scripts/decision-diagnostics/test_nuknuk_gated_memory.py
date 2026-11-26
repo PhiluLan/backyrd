@@ -62,6 +62,21 @@ class GatedMemoryBoundaries(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'bound_file_changed'):
                 probe.verify_gated_plan(p, digest)
 
+    def test_vjp_comparison_has_one_fixed_candidate_and_reduction_gate(self):
+        with tempfile.TemporaryDirectory() as temp:
+            p, value = self.fixture(Path(temp))
+            value.update(kind=probe.VJP_KIND, cases=[['reference', 64], ['gradient', 4134], ['gradient', 4134]],
+                         algorithms=['unit-inverse-vjp', 'original-ad', 'unit-inverse-vjp'], memoryReductionMinimum=0.2)
+            p.write_text(json.dumps(value))
+            with self.assertRaisesRegex(ValueError, 'comparison_scope_invalid'):
+                probe.verify_gated_plan(p, probe.digest(p))
+            for name in ['inverse-source', 'component-summary', 'component-review']:
+                value['files'][name] = value['files']['probe-source'].copy()
+            p.write_text(json.dumps(value)); probe.verify_gated_plan(p, probe.digest(p))
+            value['algorithms'][2] = 'another-candidate'; p.write_text(json.dumps(value))
+            with self.assertRaisesRegex(ValueError, 'comparison_scope_invalid'):
+                probe.verify_gated_plan(p, probe.digest(p))
+
     def test_no_recipe_model_tolerance_or_shape_expansion(self):
         for key, change in [('optimizerAllowed', True), ('modelWeightsLoaded', True), ('cloudAllowed', True),
                             ('shape', {}), ('cases', [['gradient', 4134]]), ('referenceTolerance', {'rtol': 1, 'atol': 1})]:

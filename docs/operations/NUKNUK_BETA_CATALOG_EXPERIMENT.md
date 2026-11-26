@@ -21,6 +21,21 @@ GPU-Operatorzeitpunkt. Ein einzelner erfolgreicher Scan belegt keine
 Trainierbarkeit des vollständigen Modells; ein gescheiterter Scan grenzt nur
 diesen isolierten Pfad ein. Die SSD-Kapazität ist vom RAM getrennt.
 
+Der separate Plan `NATIVE_MLX_GATED_DELTA_VJP_COMPARE_V1` erlaubt genau einen
+Reparaturkandidaten: unveränderte Vorwärtssubstitution der unit-lower-Inverse
+mit analytischer Ableitung `-Yᵀ·dY·Yᵀ`, auf strikt untere Eingabeeinträge
+beschränkt. Die Transposition betrifft die letzten beiden Achsen. Ein
+prozesslokaler Contextmanager setzt nur diesen Aufruf um und stellt ihn im
+finally wieder her; installierte Runtime-Dateien bleiben unverändert.
+64 FP32-Tokens prüfen Ausgabe/VJP gegen die Referenz. Danach laufen Original-
+und Kandidatenableitung bei4134 BF16-Tokens jeweils in einem frischen Kind.
+Eine höchstens256MiB große synthetische Referenzdatei bindet Output, Endzustand,
+Loss und alle fünf Gradienten per SHA an denselben Plan. Ihre spätere
+Validierung erfolgt nach dem bereits gesicherten primären Messpeak.
+Numerische Toleranzen bleiben1e-3/1e-4; zusätzlich sind mindestens20% geringerer
+MLX-Primärpeak nötig. Scheitert diese Paarprüfung, erfolgt kein weiterer
+Kandidat oder automatischer Modell-/Trainingslauf aus diesem Plan.
+
 ## Nativer Lernpilot auf der tatsächlichen Live-Basis
 
 FAST_PR; betroffen sind nur der bestehende Trainings-Einstieg, dessen nativer
