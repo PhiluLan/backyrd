@@ -43,6 +43,24 @@ Lernrate kein automatischer Reparaturversuch. Kein drittes Rezept oder
 Großtraining aus diesem Pilotplan. Ein späterer unabhängiger Abschlusstest
 und ein eigener Freigabeentscheid bleiben erforderlich.
 
+Nach einem belegten Speicherabbruch ohne gesicherten Kandidaten darf der
+explizite `NATIVE_MLX_MODEL_CHOICE_9B_V1`-Plan genau die bereits ausgewählte
+lokale Qwen3.5-9B-4bit-Revision8b2b98... verwenden. Der vorherige Abbruch und
+der wiederhergestellte ursprüngliche Livezustand sind Pflichtbelege.
+Die Live-Wiederherstellungsidentität bleibt35B; die experimentelle9B-Basis
+erhält einen frischen Seed7-LoRA mit32 gebundenen q/k/v/o-Modulen und64
+F32-Faktoren. Alle B-Faktoren sind vor Training exakt null; kein35B-Adapter
+wird übertragen. Keys, Shapes, Quantisierung, Null-Delta und Metadaten sind
+vor Wartung überprüfbar. Die bestehenden Ressourcenlimits bleiben unverändert.
+
+Originale35B-Liveantworten,9B-Startantworten und9B-Kandidatenantworten sind
+drei getrennte Vergleichszellen. Lerneffekt innerhalb9B und Nutzbarkeit gegen
+die eingefrorene Live-Referenz werden getrennt beurteilt. Ein Unterschied
+zwischen Modellgrößen allein ist kein Lernerfolg. Auch dieser Plan erlaubt
+maximal die zwei festgelegten Lernraten und keine automatische Aktivierung.
+Atomare Phasenbelege unterscheiden Graphaufbau, Gradienten-Auswertung,
+Update-Auswertung und tatsächlich journalisierte Optimizerschritte.
+
 Einordnung: Offline-Katalog und Experimentvorbereitung sind FAST_PR. Der eng begrenzte Budgetkorrektur-Guard im Decision-Core ist nicht ausgerollt; eine spätere Übernahme in die installierte Route benötigt die betroffenen PRODUCT_RELEASE-Gates. Dieses Dokument ersetzt keine frühere Ausführungsfreigabe.
 
 Dieses Paket bereitet ein überprüfbares Training vor. Es enthält keine Behauptung einer bereits gemessenen Modellverbesserung. Es startet keine GPU, überträgt keine Daten, verändert keinen Live-Dienst und aktiviert kein Modell.

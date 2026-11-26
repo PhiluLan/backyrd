@@ -14,6 +14,48 @@ spec.loader.exec_module(native)
 
 
 class NativeBoundaries(unittest.TestCase):
+    def test_model_choice_rejects_another_base_before_loading(self):
+        with self.assertRaisesRegex(ValueError, 'base_not_selected_9b'):
+            native.verify_model_choice_seed({'model': '/synthetic/another-base'})
+
+    def test_model_choice_seed_checks_all64_shapes_and_zero_delta(self):
+        import struct
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            base = root / '8b2b98c00a6b4d291155e4890773ca8f769aee53'
+            base.mkdir()
+            (base / 'config.json').write_text(json.dumps({'text_config': {'hidden_size': 4096, 'num_hidden_layers': 32},
+                'quantization': {'group_size': 64, 'bits': 4, 'mode': 'affine'}}))
+            adapter = root / 'seed'
+            adapter.mkdir()
+            keys = sorted(f'language_model.model.layers.{i}.self_attn.{p}_proj' for i in range(3, 32, 4) for p in ['q', 'k', 'v', 'o'])
+            (adapter / 'adapter_config.json').write_text(json.dumps({'fine_tune_type': 'lora', 'num_layers': -1,
+                'lora_parameters': {'rank': 16, 'scale': 2.0, 'dropout': 0.0, 'keys': keys}}))
+            header, parts, offset = {}, [], 0
+            for key in keys:
+                output = {'q_proj': 8192, 'k_proj': 1024, 'v_proj': 1024, 'o_proj': 4096}[key.split('.')[-1]]
+                for suffix, shape in [('.lora_a', [4096, 16]), ('.lora_b', [16, output])]:
+                    data = (struct.pack('<f', .001) if suffix == '.lora_a' else b'\0' * 4) * (shape[0] * shape[1])
+                    header[key + suffix] = {'dtype': 'F32', 'shape': shape, 'data_offsets': [offset, offset + len(data)]}
+                    parts.append(data)
+                    offset += len(data)
+            raw_header = json.dumps(header).encode()
+            seed = adapter / 'adapters.safetensors'
+            seed.write_bytes(struct.pack('<Q', len(raw_header)) + raw_header + b''.join(parts))
+            previous, session = root / 'previous.json', root / 'session.json'
+            previous.write_text(json.dumps({'stopReason': 'MODEL_GROUP_PHYSICAL_FOOTPRINT_OVER_28_GIB',
+                'candidateProduced': False, 'originalRestored': 'HEALTHY_ORIGINAL_RESTORED'}))
+            session.write_text('{"live":{"model":"original-live"}}')
+            plan = {'model': str(base), 'adapter': str(adapter), 'liveModel': 'original-live',
+                    'files': {'previous-memory-failure': {'path': str(previous)}, 'previous-live-session': {'path': str(session)}}}
+            native.verify_model_choice_seed(plan)
+            with seed.open('r+b') as stream:
+                entry = next(v for k, v in header.items() if k.endswith('.lora_b'))
+                stream.seek(8 + len(raw_header) + entry['data_offsets'][0])
+                stream.write(struct.pack('<f', 1.0))
+            with self.assertRaisesRegex(ValueError, 'not_zero_delta'):
+                native.verify_model_choice_seed(plan)
+
     def test_prefix_observer_restores_method_without_retaining_model(self):
         import weakref
         class Model:

@@ -16,6 +16,7 @@ from pathlib import Path
 import select
 import shutil
 import signal
+import struct
 import subprocess
 import sys
 import time
@@ -53,7 +54,7 @@ def verify_plan(path, digest):
     if sha(path) != digest:
         raise ValueError('native_plan_changed')
     plan = read(path)
-    if (plan.get('kind') != 'NATIVE_MLX_LEARNING_PILOT_V1'
+    if (plan.get('kind') not in ['NATIVE_MLX_LEARNING_PILOT_V1', 'NATIVE_MLX_MODEL_CHOICE_9B_V1']
             or plan.get('cloudAllowed') is not False
             or plan.get('productionActivation') is not False
             or plan.get('maxTotalTokens') != 5120
@@ -65,9 +66,16 @@ def verify_plan(path, digest):
     for binding in plan['files'].values():
         if sha(binding['path']) != binding['sha256']:
             raise ValueError('native_bound_input_changed:' + Path(binding['path']).name)
-    if (sha(Path(plan['adapter']) / 'adapters.safetensors') != plan['liveAdapterSha256']
-            or sha(Path(plan['adapter']) / 'adapter_config.json') != plan['liveAdapterConfigSha256']):
+    initial_sha = plan.get('initialAdapterSha256', plan['liveAdapterSha256'])
+    initial_config_sha = plan.get('initialAdapterConfigSha256', plan['liveAdapterConfigSha256'])
+    if (sha(Path(plan['adapter']) / 'adapters.safetensors') != initial_sha
+            or sha(Path(plan['adapter']) / 'adapter_config.json') != initial_config_sha):
         raise ValueError('native_initial_adapter_is_not_live')
+    if plan['kind'] == 'NATIVE_MLX_LEARNING_PILOT_V1':
+        if initial_sha != plan['liveAdapterSha256'] or initial_config_sha != plan['liveAdapterConfigSha256']:
+            raise ValueError('native_live_initial_identity_changed')
+    else:
+        verify_model_choice_seed(plan)
     payload = read(plan['files']['payload']['path'])
     train, dev, evaluation = payload['train'], payload['dev'], payload['evaluation']
     if len(train) != 40 or len(dev) != 24 or len(evaluation) != 36:
@@ -85,6 +93,54 @@ def verify_plan(path, digest):
                 or not row.get('target') or not row.get('outputSchema')):
             raise ValueError('native_pilot_row_invalid')
     return plan, payload
+
+
+def verify_model_choice_seed(plan):
+    """One explicitly selected local 9B base; never transfer the 35B adapter."""
+    if Path(plan['model']).resolve().name != '8b2b98c00a6b4d291155e4890773ca8f769aee53':
+        raise ValueError('native_model_choice_base_not_selected_9b')
+    config = read(Path(plan['model']) / 'config.json')
+    text = config['text_config']
+    if (text['hidden_size'] != 4096 or text['num_hidden_layers'] != 32
+            or config['quantization'] != {'group_size': 64, 'bits': 4, 'mode': 'affine'}):
+        raise ValueError('native_model_choice_architecture_changed')
+    keys = sorted(f'language_model.model.layers.{i}.self_attn.{p}_proj'
+                  for i in range(3, 32, 4) for p in ['q', 'k', 'v', 'o'])
+    metadata = read(Path(plan['adapter']) / 'adapter_config.json')
+    if (metadata.get('fine_tune_type') != 'lora' or metadata.get('num_layers') != -1
+            or metadata.get('lora_parameters') != {'rank': 16, 'scale': 2.0, 'dropout': 0.0, 'keys': keys}):
+        raise ValueError('native_model_choice_lora_configuration_changed')
+    data = (Path(plan['adapter']) / 'adapters.safetensors').read_bytes()
+    size = struct.unpack('<Q', data[:8])[0]
+    if not 0 < size < 1024**2:
+        raise ValueError('native_model_choice_seed_header_invalid')
+    header = json.loads(data[8:8 + size])
+    header.pop('__metadata__', None)
+    if set(header) != {k + suffix for k in keys for suffix in ['.lora_a', '.lora_b']}:
+        raise ValueError('native_model_choice_seed_keys_invalid')
+    for key, entry in header.items():
+        start, end = entry['data_offsets']
+        projection = key.split('.')[-2]
+        output = {'q_proj': 8192, 'k_proj': 1024, 'v_proj': 1024, 'o_proj': 4096}[projection]
+        shape = [4096, 16] if key.endswith('.lora_a') else [16, output]
+        if (entry['dtype'] != 'F32' or entry['shape'] != shape or end - start != math.prod(shape) * 4
+                or not 0 <= start < end <= len(data) - 8 - size):
+            raise ValueError('native_model_choice_seed_shape_invalid')
+        raw = data[8 + size + start:8 + size + end]
+        if len(raw) != end - start or key.endswith('.lora_b') and any(raw):
+            raise ValueError('native_model_choice_seed_not_zero_delta')
+        if key.endswith('.lora_a') and any(not math.isfinite(v[0]) for v in struct.iter_unpack('<f', raw)):
+            raise ValueError('native_model_choice_seed_nonfinite')
+    spans = sorted(entry['data_offsets'] for entry in header.values())
+    if spans[0][0] != 0 or spans[-1][1] != len(data) - 8 - size or any(a[1] != b[0] for a, b in zip(spans, spans[1:])):
+        raise ValueError('native_model_choice_seed_offsets_invalid')
+    previous = read(plan['files']['previous-memory-failure']['path'])
+    if (previous.get('stopReason') != 'MODEL_GROUP_PHYSICAL_FOOTPRINT_OVER_28_GIB'
+            or previous.get('candidateProduced') is not False
+            or previous.get('originalRestored') != 'HEALTHY_ORIGINAL_RESTORED'):
+        raise ValueError('native_model_choice_previous_run_not_closed')
+    if plan.get('liveModel') != read(plan['files']['previous-live-session']['path'])['live']['model']:
+        raise ValueError('native_model_choice_restore_identity_changed')
 
 
 def encode_row(tokenizer, row):
@@ -162,6 +218,8 @@ def worker(args):
     from mlx_vlm.trainer import grad_checkpoint
 
     mx.random.seed(7)
+    expected_factors = 64 if plan['kind'] == 'NATIVE_MLX_MODEL_CHOICE_9B_V1' else 80
+    expected_modules = expected_factors // 2
     model, processor = load(plan['model'], adapter_path=plan['adapter'])
     tokenizer = getattr(processor, 'tokenizer', processor)
     original = mx.load(str(Path(plan['adapter']) / 'adapters.safetensors'))
@@ -173,17 +231,17 @@ def worker(args):
         return {k: hashlib.sha256(np.asarray(v).tobytes()).hexdigest() for k, v in values.items()}
 
     actual = factors()
-    if len(actual) != 80 or set(actual) != set(original) or hashes(actual) != hashes(original):
+    if len(actual) != expected_factors or set(actual) != set(original) or hashes(actual) != hashes(original):
         raise ValueError('native_effective_live_adapter_mismatch')
     def scales():
         values = {name: {'rank': int(layer.lora_a.shape[-1]), 'scale': float(layer.scale),
             'dropout': float(1 - layer.dropout._p_1)} for name, layer in model.named_modules()
             if hasattr(layer, 'lora_a') and hasattr(layer, 'lora_b')}
-        if len(values) != 40 or any(v != {'rank': 16, 'scale': 2.0, 'dropout': 0.0} for v in values.values()):
+        if len(values) != expected_modules or any(v != {'rank': 16, 'scale': 2.0, 'dropout': 0.0} for v in values.values()):
             raise ValueError('native_loaded_lora_configuration_changed')
         return values
     write(run / 'effective-initial-scales.json', scales())
-    write(run / 'effective-initial-adapter.json', {'all80FactorsEqualLive': True, 'hashes': hashes(actual)})
+    write(run / 'effective-initial-adapter.json', {'allFactorsEqualInitial': True, 'factorCount': expected_factors, 'hashes': hashes(actual)})
     encoded = {r['id']: encode_row(tokenizer, r) for r in payload['train'] + payload['dev']}
     preflight = read(plan['files']['tokenization']['path'])['cases']
     for id, (prefix, target) in encoded.items():
@@ -257,7 +315,7 @@ def worker(args):
     del layer
     trainable = dict(tree_flatten(model.trainable_parameters()))
     if set(trainable) != set(original):
-        raise ValueError('native_only_original80_factors_may_train')
+        raise ValueError('native_only_bound_initial_factors_may_train')
     recipe = plan['recipes'][args.recipe]
     optimizer = optim.AdamW(learning_rate=recipe['learningRate'], weight_decay=0.0)
 
@@ -277,25 +335,40 @@ def worker(args):
                 ids = mx.array([prefix + target[:-1]])
                 labels = mx.array([target])
                 start, stop = response_positions(len(prefix), len(target))
+                # Small atomic phase receipts disambiguate lazy construction,
+                # gradient evaluation, update evaluation and committed steps.
+                def phase(name):
+                    value = {'optimizerStepAttempt': step + 1, 'id': row['id'], 'phase': name, 'atEpoch': time.time(),
+                             'completedOptimizerSteps': step + 1 if name == 'STEP_COMMITTED' else step,
+                             'mlxActiveBytes': mx.get_active_memory()}
+                    temporary = run / 'phase.tmp'
+                    with temporary.open('w') as stream:
+                        json.dump(value, stream); stream.flush(); os.fsync(stream.fileno())
+                    temporary.replace(run / 'phase.json')
+                phase('BUILD_FORWARD_AND_GRADIENT_GRAPH')
                 loss, grads = value_and_grad(model, ids, labels, start, stop)
                 flat = tree_flatten(grads)
                 if {k for k, _ in flat} != set(before):
                     raise ValueError('native_gradient_key_coverage_changed')
                 finite = mx.all(mx.stack([mx.all(mx.isfinite(g)) for _, g in flat]))
                 norm = mx.sqrt(sum(mx.sum(g.astype(mx.float32)**2) for _, g in flat))
+                phase('EVALUATE_FORWARD_AND_GRADIENTS')
                 mx.eval(loss, finite, norm)
                 if not bool(finite.item()) or not math.isfinite(loss.item()) or not math.isfinite(norm.item()) or norm.item() <= 0:
                     raise ValueError('native_nonfinite_or_zero_gradient')
                 grads = tree_map(lambda g: g * mx.minimum(1.0, 1.0 / (norm + 1e-12)), grads)
                 optimizer.learning_rate = recipe['learningRate'] * min(1, (step + 1) / 5)
+                phase('FINITE_GRADIENTS_UPDATE_NOT_EVALUATED')
                 optimizer.update(model, grads)
+                phase('EVALUATE_OPTIMIZER_UPDATE')
                 mx.eval(model.trainable_parameters(), optimizer.state)
                 if not all(bool(mx.all(mx.isfinite(v)).item()) for _, v in tree_flatten(optimizer.state) if isinstance(v, mx.array)):
                     raise ValueError('native_nonfinite_optimizer_state')
                 record = {'optimizerStep': step + 1, 'id': row['id'], 'loss': loss.item(),
-                    'gradientNorm': norm.item(), 'all80GradientsFinite': True,
+                    'gradientNorm': norm.item(), 'allAdapterGradientsFinite': True, 'gradientTensorCount': expected_factors,
                     'elapsedSeconds': time.time() - started, 'mlxPeakBytes': mx.get_peak_memory()}
                 journal.write(json.dumps(record) + '\n'); journal.flush(); os.fsync(journal.fileno())
+                phase('STEP_COMMITTED')
                 print(json.dumps(record), flush=True)
                 del ids, labels, loss, grads, flat, finite, norm
                 mx.clear_cache()
@@ -303,7 +376,7 @@ def worker(args):
         decoder.__call__ = original_call
         model.eval()
     after = factors()
-    if len(after) != 80 or not all(bool(mx.all(mx.isfinite(v)).item()) for v in after.values()):
+    if len(after) != expected_factors or not all(bool(mx.all(mx.isfinite(v)).item()) for v in after.values()):
         raise ValueError('native_end_factors_invalid')
     changed = sum(before[k] != v for k, v in hashes(after).items())
     if changed == 0:
@@ -314,15 +387,15 @@ def worker(args):
     shutil.copyfile(Path(plan['adapter']) / 'adapter_config.json', candidate / 'adapter_config.json')
     write(run / 'training-result.json', {'status': 'OPTIMIZER_FINISHED_REQUIRES_SEMANTIC_REVIEW',
         'optimizerSteps': recipe['steps'], 'changedAdapterTensors': changed,
-        'initialAdapterSha256': plan['liveAdapterSha256'],
+        'initialAdapterSha256': plan.get('initialAdapterSha256', plan['liveAdapterSha256']),
         'candidateSha256': sha(candidate / 'adapters.safetensors'), 'baseFused': False})
     del optimizer, value_and_grad, model, after
     gc.collect()
     mx.clear_cache()
     model, processor = load(plan['model'], adapter_path=str(candidate))
-    if len(factors()) != 80 or hashes(factors()) != hashes(mx.load(str(candidate / 'adapters.safetensors'))):
+    if len(factors()) != expected_factors or hashes(factors()) != hashes(mx.load(str(candidate / 'adapters.safetensors'))):
         raise ValueError('native_reloaded_candidate_mismatch')
-    write(run / 'reload-receipt.json', {'all80SavedFactorsReloadedExactly': True, 'modules': scales()})
+    write(run / 'reload-receipt.json', {'allSavedFactorsReloadedExactly': True, 'factorCount': expected_factors, 'modules': scales()})
     recall_losses('recall-loss-after.json')
     evaluate('candidate-evaluation')
     write(run / 'result.json', {'status': 'NATIVE_LEARNING_FINISHED_REQUIRES_PAIRED_REVIEW',
@@ -365,7 +438,7 @@ def execute(args, plan):
     if comparison.sha(comparison.PLIST) != comparison.PLIST_SHA:
         raise ValueError('native_live_agent_changed')
     live = comparison.health(8088)
-    if (live.get('status') != 'healthy' or live.get('loaded_model') != plan['model']
+    if (live.get('status') != 'healthy' or live.get('loaded_model') != plan.get('liveModel', plan['model'])
             or sha(Path(live.get('loaded_adapter', '')) / 'adapters.safetensors') != plan['liveAdapterSha256']
             or sha(Path(live.get('loaded_adapter', '')) / 'adapter_config.json') != plan['liveAdapterConfigSha256']):
         raise ValueError('native_live_reference_changed')
