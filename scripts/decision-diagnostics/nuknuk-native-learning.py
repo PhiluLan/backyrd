@@ -5,6 +5,8 @@ code owns recovery. All training labels and evaluation inputs are frozen before
 maintenance. A successful optimizer run still requires semantic review.
 """
 import argparse
+from contextlib import contextmanager
+import gc
 import hashlib
 import importlib.util
 import json
@@ -109,6 +111,34 @@ def answer_only_loss(network, ids, labels, start, stop):
     return nn.losses.cross_entropy(logits.astype(mx.float32), labels, reduction='mean')
 
 
+@contextmanager
+def generation_prefix_observer(model, expected, actual):
+    """Restore the original attribute state, without a bound-method cycle."""
+    missing = object()
+    previous = vars(model).get('get_input_embeddings', missing)
+    original = model.get_input_embeddings
+    def observed(*values, **options):
+        if not actual:
+            supplied = options.get('input_ids', values[0] if values else None)
+            ids = supplied.tolist()
+            if ids and isinstance(ids[0], list):
+                if len(ids) != 1:
+                    raise ValueError('native_generation_batch_changed')
+                ids = ids[0]
+            if ids != expected:
+                raise ValueError('native_observed_model_prefix_changed')
+            actual.extend(ids)
+        return original(*values, **options)
+    model.get_input_embeddings = observed
+    try:
+        yield
+    finally:
+        if previous is missing:
+            delattr(model, 'get_input_embeddings')
+        else:
+            model.get_input_embeddings = previous
+
+
 def worker(args):
     plan, payload = verify_plan(args.native_plan, args.manifest_sha256)
     run = args.native_plan.parent / ('trial-' + args.recipe)
@@ -176,21 +206,7 @@ def worker(args):
                 raise ValueError('native_actual_generation_prefix_changed')
             started = time.time()
             text, tokens, finish, actual_prefix = '', [], None, []
-            original_embeddings = model.get_input_embeddings
-            def observed_embeddings(*values, **options):
-                if not actual_prefix:
-                    supplied = options.get('input_ids', values[0] if values else None)
-                    observed = supplied.tolist()
-                    if observed and isinstance(observed[0], list):
-                        if len(observed) != 1:
-                            raise ValueError('native_generation_batch_changed')
-                        observed = observed[0]
-                    if observed != ids:
-                        raise ValueError('native_observed_model_prefix_changed')
-                    actual_prefix.extend(observed)
-                return original_embeddings(*values, **options)
-            model.get_input_embeddings = observed_embeddings
-            try:
+            with generation_prefix_observer(model, ids, actual_prefix):
                 for part in stream_generate(model, processor, prompt,
                         max_tokens=min(2048, 5120 - len(ids)), temperature=0, top_p=1, top_k=0,
                         prefill_step_size=4096,
@@ -202,8 +218,6 @@ def worker(args):
                         finish = part.finish_reason
                         if getattr(part, 'token_ids', None) is not None:
                             tokens = list(part.token_ids)
-            finally:
-                model.get_input_embeddings = original_embeddings
             if not actual_prefix:
                 raise ValueError('native_model_prefix_not_observed')
             try:
@@ -240,6 +254,7 @@ def worker(args):
     for _, layer in model.named_modules():
         if hasattr(layer, 'lora_a') and hasattr(layer, 'lora_b'):
             layer.unfreeze(keys=['lora_a', 'lora_b'], recurse=False)
+    del layer
     trainable = dict(tree_flatten(model.trainable_parameters()))
     if set(trainable) != set(original):
         raise ValueError('native_only_original80_factors_may_train')
@@ -302,6 +317,7 @@ def worker(args):
         'initialAdapterSha256': plan['liveAdapterSha256'],
         'candidateSha256': sha(candidate / 'adapters.safetensors'), 'baseFused': False})
     del optimizer, value_and_grad, model, after
+    gc.collect()
     mx.clear_cache()
     model, processor = load(plan['model'], adapter_path=str(candidate))
     if len(factors()) != 80 or hashes(factors()) != hashes(mx.load(str(candidate / 'adapters.safetensors'))):
@@ -396,21 +412,25 @@ def execute(args, plan):
         if code:
             raise RuntimeError('native_guarded_worker_failed:' + str(code))
     finally:
-        for fd in [start_read, start_write]:
-            if fd is not None:
-                os.close(fd)
-        if process is not None and not admitted and process.poll() is None:
-            process.terminate()
-            process.wait(timeout=5)
         for s in handlers:
             signal.signal(s, signal.SIG_IGN)
         try:
-            comparison.restore(session)
+            try:
+                for fd in [start_read, start_write]:
+                    if fd is not None:
+                        os.close(fd)
+                if process is not None and not admitted and process.poll() is None:
+                    process.terminate()
+                    process.wait(timeout=5)
+            finally:
+                comparison.restore(session)
         finally:
-            os.close(writefd)
-            watchdog.wait(timeout=300)
-            for s, handler in handlers.items():
-                signal.signal(s, handler)
+            try:
+                os.close(writefd)
+                watchdog.wait(timeout=300)
+            finally:
+                for s, handler in handlers.items():
+                    signal.signal(s, handler)
 
 
 def main():

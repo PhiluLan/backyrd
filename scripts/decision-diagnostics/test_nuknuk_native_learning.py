@@ -14,6 +14,23 @@ spec.loader.exec_module(native)
 
 
 class NativeBoundaries(unittest.TestCase):
+    def test_prefix_observer_restores_method_without_retaining_model(self):
+        import weakref
+        class Model:
+            def get_input_embeddings(self, ids):
+                return ids
+        class Ids:
+            def tolist(self):
+                return [[1, 2, 3]]
+        model, actual = Model(), []
+        reference = weakref.ref(model)
+        with native.generation_prefix_observer(model, [1, 2, 3], actual):
+            model.get_input_embeddings(Ids())
+        self.assertNotIn('get_input_embeddings', vars(model))
+        self.assertEqual(actual, [1, 2, 3])
+        del model
+        self.assertIsNone(reference())
+
     def fixture(self, root):
         def row(i, split):
             return {'id': str(i), 'family': str(i), 'scenarioGroup': str(i), 'split': split,
@@ -92,6 +109,12 @@ class NativeBoundaries(unittest.TestCase):
         guard.native_start_admission(reader)
 
     def test_registration_failure_never_admits_worker_and_stops_owned_child(self):
+        self.registration_failure(False)
+
+    def test_registration_cleanup_timeout_still_restores_live(self):
+        self.registration_failure(True)
+
+    def registration_failure(self, wait_timeout):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             adapter = root / 'adapter'
@@ -107,10 +130,12 @@ class NativeBoundaries(unittest.TestCase):
             comparison.put.side_effect = OSError('synthetic journal failure')
             watcher, child = Mock(), Mock(pid=1234)
             child.poll.return_value = None
+            if wait_timeout:
+                child.wait.side_effect = native.subprocess.TimeoutExpired('owned-child', 5)
             plan = {'python': 'synthetic-python', 'model': 'model', 'liveAdapterSha256': native.sha(adapter / 'adapters.safetensors'), 'liveAdapterConfigSha256': native.sha(adapter / 'adapter_config.json')}
             args = SimpleNamespace(native_plan=root / 'plan.json', recipe='A', manifest_sha256='x')
             with patch.object(native, 'module', return_value=comparison), patch.object(native.subprocess, 'Popen', side_effect=[watcher, child]), patch.object(native.os, 'write') as admit:
-                with self.assertRaises(OSError):
+                with self.assertRaises(native.subprocess.TimeoutExpired if wait_timeout else OSError):
                     native.execute(args, plan)
                 admit.assert_not_called()
                 child.terminate.assert_called_once()
