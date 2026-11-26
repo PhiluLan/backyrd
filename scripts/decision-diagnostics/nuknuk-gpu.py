@@ -1440,6 +1440,8 @@ def validate_paired_diagnostic(path,approval,manifest,adapter_sha256):
         or [r.get('id')for r in packet.get('cases',[])]!=expected):raise ValueError('paired_diagnostic_binding_invalid')
     keys={'id','split','task','locale','query','reference','messages','inputHash','promptHash','outputSchema'}
     if any(set(r)!=keys or r['split']!='RECALL_TRANSFER' or [m['role']for m in r['messages']]!=['system','user']for r in packet['cases']):raise ValueError('paired_diagnostic_target_free_roster_required')
+    prefixes=packet.get('expectedPrefixIdSha256',{});runtime=packet.get('expectedRuntime',{})
+    if set(prefixes)!=set(expected) or any(not isinstance(v,str) or not re.fullmatch('[a-f0-9]{64}',v)for v in prefixes.values()) or set(runtime)!={'torch','transformers','peft','axolotl','tokenizers','llguidance'} or any(not isinstance(v,str)or not v for v in runtime.values()):raise ValueError('paired_diagnostic_runtime_prefix_binding_required')
     return packet
 
 
@@ -1502,6 +1504,9 @@ def evaluate_beta_catalog(args):
         if runtime!=resume['runtime']:raise ValueError('beta_resume_runtime_changed')
         gpu_name=subprocess.check_output(['nvidia-smi','--query-gpu=name','--format=csv,noheader'],text=True,timeout=10).strip()
         if gpu_name!=resume['gpuName']:raise ValueError('beta_resume_gpu_changed')
+    if diagnostic:
+        expected_runtime=packet.get('expectedRuntime',{})
+        if set(expected_runtime)!={'torch','transformers','peft','axolotl','tokenizers','llguidance'} or {name:importlib.metadata.version(name)for name in expected_runtime}!=expected_runtime:raise ValueError('paired_runtime_versions_changed')
     args.output.mkdir(mode=0o700)
     if resume is not None:write_json(args.output/'resume-receipt.json',{'resumePacketSha256':file_sha(args.resume),'sourceBundleManifestSha256':resume['sourceBundleManifestSha256'],'sourceSnapshotManifestSha256':resume['sourceSnapshotManifestSha256'],'reusedCases':len(cached),'failedFirstAttemptsRetained':sum(r['status']!='GENERATED_REQUIRES_SEMANTIC_REVIEW'for r in cached.values())})
     base=product_base(folder);tokenizer=AutoTokenizer.from_pretrained(folder/'tokenizer',local_files_only=True,trust_remote_code=False)
@@ -1523,6 +1528,7 @@ def evaluate_beta_catalog(args):
                 if len(prefixes)!=1:raise ValueError('paired_diagnostic_single_prefix_required')
                 prefix_receipt.update(tokenIds=prefixes[0],sha256=hashlib.sha256(json.dumps(prefixes[0],separators=(',',':')).encode()).hexdigest(),enableThinking=False,actualGenerationPrefix=True)
                 write_json(args.output/(row['id']+'.prefix.json'),prefix_receipt)
+                if prefix_receipt['sha256']!=packet['expectedPrefixIdSha256'][row['id']]:raise ValueError('paired_actual_prefix_changed')
             state['prefix_observer']=observe
         try:generated=generate_structured(state,row['messages'],compiler.compile(json.dumps(row['outputSchema'])),max_seconds=90,max_output_tokens=2048)
         except Exception as error:generated={'status':'PROVIDER_ERROR','errorType':type(error).__name__,'raw':None}

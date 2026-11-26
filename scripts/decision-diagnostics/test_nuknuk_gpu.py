@@ -342,7 +342,7 @@ class PairedDiagnosticTests(unittest.TestCase):
     def test_training_recall_cannot_be_relabeled_holdout_or_expanded_or_include_targets(self):
         from copy import deepcopy
         rows=[{'id':'recall-'+str(i).zfill(2)+'-exact-train','split':'RECALL_TRANSFER','task':'parse','locale':'de','query':'test','reference':{},'messages':[{'role':'system','content':'x'},{'role':'user','content':'y'}],'inputHash':'i','promptHash':'p','outputSchema':{}}for i in [5,6,7,10,12,14,15]]
-        packet={'kind':'PAIRED_RUNTIME_RECALL_DIAGNOSTIC','targetIncluded':False,'freshHoldout':False,'requestedHfCalls':14,'split':'RECALL_TRANSFER','parentAdapterSha256':'p','candidateAdapterSha256':'c','cases':rows}
+        packet={'kind':'PAIRED_RUNTIME_RECALL_DIAGNOSTIC','targetIncluded':False,'freshHoldout':False,'requestedHfCalls':14,'split':'RECALL_TRANSFER','parentAdapterSha256':'p','candidateAdapterSha256':'c','cases':rows,'expectedPrefixIdSha256':{r['id']:'a'*64 for r in rows},'expectedRuntime':{n:'test-version'for n in ['torch','transformers','peft','axolotl','tokenizers','llguidance']}}
         with tempfile.TemporaryDirectory()as tmp:
             path=Path(tmp)/'packet.json'
             def check(value):
