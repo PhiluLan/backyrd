@@ -125,6 +125,39 @@ getrennten Deskriptoren in seiner eigenen Prozessgruppe, damit SSH sofort endet.
 Warmups, Primer, Tokenanzahl/EOS und Schema-/Semantikprüfung bleiben getrennt.
 Gewichte, synthetische Eingaben und Betriebsbelege verbleiben außerhalb Git.
 
+### Cloudmessung am26.11.2026
+
+Reparierter Sourcecommit6b455375, Plan4a2019590fa7888c70ec6ac6d20be43e82d5dd6bdfaf61a9ed7df524cfa41b99.
+H10080GBHBM3 mit81559MiB, vLLM0.34.0, Torch2.14.0, Transformers5.22.2 und
+xgrammar0.2.8. Tatsächliche ZeroLoRA-Ladebelege bestätigen alle32Module,
+Formen, BF16, rank16/scale2/nullB und Adapter-ID1.12Modellaufrufe insgesamt:
+1Warmup,6Cold,1Cached-MISS,1Primer und3Tunnel;5Cachedslots ohne Modell übersprungen.
+
+| Anfrage | Cold-Loopbackmedian, je2Läufe | Mac-SSH-Tunnel, je1Lauf | Abschluss |
+| --- | ---: | ---: | --- |
+| Heute Bowling, Zahnarzt morgen | 3,595s | 4,302s | stop, JSON/Schema gültig |
+| Heute Aarau schwimmen, Zahnkontrolle Freitag | 4,192s | 5,005s | stop, JSON/Schema gültig |
+| Drei Erwachsene, Frühstück90CHF insgesamt | 10,124s bis Abbruch | 10,589s bis Abbruch | length1129, unvollständiges JSON |
+
+TTFT-Median der sechs Coldversuche0,525s; vier regulär/schemagültig beendete
+Coldantworten etwa113,3beobachtete Decode-Tokens/s. Frühstück wiederholt
+90CHF-Budgetfakten und erreicht exakt5120−3991=1129Ausgabetokens; kein
+Hardwaretimeout und keine erfolgreiche vollständige Antwort. Alle wiederholten
+AusgabeIDs sind je Fall identisch, auch durch den Tunnel. Keine Semantikfreigabe.
+
+Alle cached_tokens waren0, kein Cloudcachegewinn belegt. Für den ersten
+Transportstart gab es noch keine Generationsmessung: SSH blieb am Hintergrund-
+Shellkanal hängen; der Pod wurde entfernt. Python-Popen entkoppelt den reparierten
+Worker zuverlässig. Der erste Versuch bleibt als Fehlbeleg erhalten und wird
+mit0,20USD Vorlast auf dieselbe5USD-Kampagne angerechnet, ohne Budgetreset.
+Nach dem reparierten Lauf waren beide eigenen Pods absent, alle Compute-
+und Volumenkosten0, der Tunnelport frei und OriginalMacLive35B gesund.
+Nachgelagert beobachtete Belastung0,441474USD, konservativer Ansatz0,555130USD
+inklusive Parent; Providerbilling kann nachlaufen. Kein weiterer Paidstart,
+Training oder Rollout aus dieser Messung. Mike rechnete alle Einzelreceipts
+unabhängig nach; BF16/Engine-/Grammar-/Ausgabeunterschiede zu Mac4bit bleiben
+explizit, kein hardwareisolierter Geschwindigkeitsfaktor oder Beta-Erfolgswert.
+
 ## Begrenzte Speicherdiagnose nach technischem Pilotabbruch
 
 Der neue Plan `NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1` erweitert ausschließlich
