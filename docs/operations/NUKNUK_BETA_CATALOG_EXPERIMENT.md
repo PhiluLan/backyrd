@@ -140,7 +140,7 @@ Formen, BF16, rank16/scale2/nullB und Adapter-ID1.12Modellaufrufe insgesamt:
 | Drei Erwachsene, Frühstück90CHF insgesamt | 10,124s bis Abbruch | 10,589s bis Abbruch | length1129, unvollständiges JSON |
 
 TTFT-Median der sechs Coldversuche0,525s; vier regulär/schemagültig beendete
-Coldantworten etwa113,3beobachtete Decode-Tokens/s. Frühstück wiederholt
+Coldantworten rund113beobachtete Decode-Tokens/s. Frühstück wiederholt
 90CHF-Budgetfakten und erreicht exakt5120−3991=1129Ausgabetokens; kein
 Hardwaretimeout und keine erfolgreiche vollständige Antwort. Alle wiederholten
 AusgabeIDs sind je Fall identisch, auch durch den Tunnel. Keine Semantikfreigabe.
