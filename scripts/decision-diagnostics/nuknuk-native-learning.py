@@ -5,7 +5,7 @@ code owns recovery. All training labels and evaluation inputs are frozen before
 maintenance. A successful optimizer run still requires semantic review.
 """
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 import gc
 import hashlib
 import importlib.util
@@ -26,6 +26,10 @@ MEMORY_DIAGNOSTIC_KINDS = ('NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1', 'NATIVE_MLX_G
 GRADIENT_DIAGNOSTIC_KIND = 'NATIVE_MLX_FULL_GRADIENT_DIAGNOSTIC_V1'
 SPEED_DIAGNOSTIC_KIND = 'NATIVE_MLX_SPEED_DIAGNOSTIC_V1'
 PREFIX_SPEED_KIND = 'NATIVE_MLX_PREFIX_SPEED_DIAGNOSTIC_V1'
+SMALL_LEARNING_KIND = 'NATIVE_MLX_9B_SMALL_LEARNING_PILOT_V1'
+SMALL_CONFIG = {'trainIndices': [0, 2, 3, 7, 8, 11, 14, 15], 'devIndices': [0, 2, 6, 20],
+                'generationTrainIndices': [0, 8], 'warmupSteps': 5, 'steps': 8,
+                'learningRate': 2e-5, 'workerTimeoutSeconds': 1800, 'checkpointEveryStep': True}
 
 
 def sha(path):
@@ -58,14 +62,15 @@ def verify_plan(path, digest):
     if sha(path) != digest:
         raise ValueError('native_plan_changed')
     plan = read(path)
-    if (plan.get('kind') not in ['NATIVE_MLX_LEARNING_PILOT_V1', 'NATIVE_MLX_MODEL_CHOICE_9B_V1', GRADIENT_DIAGNOSTIC_KIND, SPEED_DIAGNOSTIC_KIND, PREFIX_SPEED_KIND]
+    if (plan.get('kind') not in ['NATIVE_MLX_LEARNING_PILOT_V1', 'NATIVE_MLX_MODEL_CHOICE_9B_V1', GRADIENT_DIAGNOSTIC_KIND, SPEED_DIAGNOSTIC_KIND, PREFIX_SPEED_KIND, SMALL_LEARNING_KIND]
             or plan.get('cloudAllowed') is not False
             or plan.get('productionActivation') is not False
             or plan.get('maxTotalTokens') != 5120
             or plan.get('liveAdapterSha256') != module('nuknuk-mac-comparison').LIVE_SHA):
         raise ValueError('native_plan_invalid')
-    if plan.get('recipes') != {'A': {'steps': 80, 'learningRate': 2e-6},
-                               'B': {'steps': 80, 'learningRate': 1e-5}}:
+    recipes = {'A': {'steps': SMALL_CONFIG['steps'], 'learningRate': SMALL_CONFIG['learningRate']}} if plan['kind'] == SMALL_LEARNING_KIND else {
+        'A': {'steps': 80, 'learningRate': 2e-6}, 'B': {'steps': 80, 'learningRate': 1e-5}}
+    if plan.get('recipes') != recipes:
         raise ValueError('native_two_fixed_recipes_required')
     for binding in plan['files'].values():
         if sha(binding['path']) != binding['sha256']:
@@ -111,7 +116,64 @@ def verify_plan(path, digest):
         module('nuknuk-speed-probe').verify(plan, payload)
     if plan['kind'] == PREFIX_SPEED_KIND:
         module('nuknuk-prefix-speed').verify(plan, payload)
+    if plan['kind'] == SMALL_LEARNING_KIND:
+        verify_small_pilot(plan, payload)
     return plan, payload
+
+
+def small_rows(payload):
+    train = [payload['train'][i] for i in SMALL_CONFIG['trainIndices']]
+    dev = [payload['dev'][i] for i in SMALL_CONFIG['devIndices']]
+    generation = [payload['train'][i] for i in SMALL_CONFIG['generationTrainIndices']] + dev
+    return train, dev, generation
+
+
+def verify_small_pilot(plan, payload):
+    required = {'inverse-source', 'speed-source', 'full-gradient-result', 'full-gradient-restore', 'full-gradient-review', 'pilot-tests', 'pilot-label-review'}
+    train, dev, generation = small_rows(payload)
+    if (plan.get('pilotConfig') != SMALL_CONFIG or plan.get('optimizerAllowed') is not True
+            or plan.get('useUnitInverseVjp') is not True or plan.get('workerTimeoutSeconds') != 1800
+            or not required <= plan['files'].keys()
+            or plan.get('pilotRowIds') != {'train': [r['id'] for r in train], 'dev': [r['id'] for r in dev],
+                                           'generation': [r['id'] for r in generation]}):
+        raise ValueError('native_small_pilot_scope_invalid')
+    previous = read(plan['files']['full-gradient-result']['path'])
+    if (previous.get('status') != 'FULL_GRADIENT_FINISHED_NO_UPDATES'
+            or previous.get('gradientTensorCount') != 64 or previous.get('allGradientsFinite') is not True
+            or previous.get('allFactorHashesUnchanged') is not True or previous.get('allModuleScalesUnchanged') is not True
+            or previous.get('optimizerUpdates') != 0
+            or read(plan['files']['full-gradient-restore']['path']).get('status') != 'HEALTHY_ORIGINAL_RESTORED'):
+        raise ValueError('native_small_pilot_gradient_prerequisite_invalid')
+
+
+def checkpoint_adapter(run, step, values, adapter_config):
+    """Immutable committed weights only. No optimizer-state/resume claim."""
+    import mlx.core as mx
+    directory = run / 'checkpoints'
+    directory.mkdir(exist_ok=True)
+    temporary, final = directory / (f'.step-{step:02d}-pending'), directory / (f'step-{step:02d}')
+    if temporary.exists() or final.exists():
+        raise ValueError('native_pilot_checkpoint_already_exists')
+    temporary.mkdir(mode=0o700)
+    if len(values) != 64 or not all(bool(mx.all(mx.isfinite(v)).item()) for v in values.values()):
+        raise ValueError('native_pilot_checkpoint_factors_invalid')
+    weights = temporary / 'adapters.safetensors'
+    mx.save_safetensors(str(weights), values)
+    shutil.copyfile(adapter_config, temporary / 'adapter_config.json')
+    with weights.open('rb') as stream:
+        os.fsync(stream.fileno())
+    write(temporary / 'receipt.json', {'optimizerStep': step, 'factorCount': 64, 'weightsSha256': sha(weights),
+        'optimizerStateSaved': False, 'exactOptimizerResumeAvailable': False, 'productionActivation': False})
+    for path in (temporary / 'adapter_config.json', temporary / 'receipt.json', temporary):
+        fd = os.open(path, os.O_RDONLY)
+        try: os.fsync(fd)
+        finally: os.close(fd)
+    temporary.rename(final)
+    for path in (directory, run):
+        fd = os.open(path, os.O_RDONLY)
+        try: os.fsync(fd)
+        finally: os.close(fd)
+    return {'path': str(final), 'weightsSha256': sha(final / 'adapters.safetensors')}
 
 
 def verify_model_choice_seed(plan):
@@ -365,160 +427,178 @@ def worker(args):
         return module('nuknuk-speed-probe').run(model, processor, payload, encoded, plan, run, generation_prefix_observer)
     if plan['kind'] == PREFIX_SPEED_KIND:
         return module('nuknuk-prefix-speed').run(model, processor, payload, encoded, plan, run, generation_prefix_observer)
-    write(run / 'tokenization.json', {k: {'prefixTokens': len(p), 'targetTokens': len(t),
-        'prefixSha256': hashlib.sha256(json.dumps(p, separators=(',', ':')).encode()).hexdigest()}
-        for k, (p, t) in encoded.items()})
+    with ExitStack() as contexts:
+        if plan['kind'] == SMALL_LEARNING_KIND:
+            from mlx_vlm.models.qwen3_5 import gated_delta
+            from mlx_vlm.generate import dispatch
+            contexts.enter_context(module('nuknuk-gated-inverse').installed_inverse_vjp(gated_delta))
+            speed = module('nuknuk-speed-probe')
+            contexts.enter_context(speed.temporary_attribute(dispatch, 'wired_limit', speed.bounded_wired))
+        write(run / 'tokenization.json', {k: {'prefixTokens': len(p), 'targetTokens': len(t),
+            'prefixSha256': hashlib.sha256(json.dumps(p, separators=(',', ':')).encode()).hexdigest()}
+            for k, (p, t) in encoded.items()})
 
-    def evaluate(name):
-        output = run / name
-        output.mkdir(mode=0o700)
-        model.eval()
-        for row in payload['evaluation']:
-            prompt = tokenizer.apply_chat_template(row['messages'], tokenize=False,
-                add_generation_prompt=True, enable_thinking=False)
-            ids = tokenizer.encode(prompt, add_special_tokens=False)
-            if ids != encoded[row['id']][0]:
-                raise ValueError('native_actual_generation_prefix_changed')
-            started = time.time()
-            text, tokens, finish, actual_prefix = '', [], None, []
-            with generation_prefix_observer(model, ids, actual_prefix):
-                for part in stream_generate(model, processor, prompt,
-                        max_tokens=min(2048, 5120 - len(ids)), temperature=0, top_p=1, top_k=0,
-                        prefill_step_size=4096,
-                        logits_processors=[build_json_schema_logits_processor(tokenizer, row['outputSchema'])]):
-                    text += part.text
-                    if getattr(part, 'token', None) is not None and getattr(part, 'finish_reason', None) is None:
-                        tokens.append(int(part.token))
-                    if getattr(part, 'finish_reason', None) is not None:
-                        finish = part.finish_reason
-                        if getattr(part, 'token_ids', None) is not None:
-                            tokens = list(part.token_ids)
-            if not actual_prefix:
-                raise ValueError('native_model_prefix_not_observed')
-            try:
-                raw = json.loads(text)
-                status = 'GENERATED_REQUIRES_SEMANTIC_REVIEW' if finish == 'stop' else 'GENERATION_NOT_CONFIRMED_COMPLETE'
-            except ValueError:
-                raw, status = None, 'INCOMPLETE_OR_INVALID_JSON'
-            write(output / (row['id'] + '.json'), {'id': row['id'], 'query': row['query'],
-                'split': row['split'], 'raw': raw, 'rawText': text, 'status': status,
-                'tokenIds': tokens, 'prefixSha256': hashlib.sha256(json.dumps(ids, separators=(',', ':')).encode()).hexdigest(),
-                'finishReason': finish,
-                'actualModelPrefixTokenIds': actual_prefix,
-                'durationSeconds': time.time() - started, 'attempt': 1})
-            print(json.dumps({'stage': name, 'id': row['id'], 'status': status}), flush=True)
-            mx.clear_cache()
+        small = plan['kind'] == SMALL_LEARNING_KIND
+        train_rows, dev_rows, evaluation_rows = small_rows(payload) if small else (payload['train'], payload['dev'], payload['evaluation'])
+        loss_rows = train_rows + dev_rows if small else payload['train'][:12]
 
-    evaluate('baseline')
-    def recall_losses(name):
-        model.eval()
-        values = {}
-        for row in payload['train'][:12]:
-            prefix, target = encoded[row['id']]
-            start, stop = response_positions(len(prefix), len(target))
-            loss = answer_only_loss(model, mx.array([prefix + target[:-1]]), mx.array([target]), start, stop)
-            value = float(loss.item())
-            if not math.isfinite(value):
-                raise ValueError('native_nonfinite_eval_loss')
-            values[row['id']] = value
-            del loss
-            mx.clear_cache()
-        write(run / name, {'kind': 'FIXED_TEACHER_FORCED_RECALL_LOSS_NOT_UNDERSTANDING_SCORE', 'losses': values})
-    recall_losses('recall-loss-before.json')
-    model.freeze()
-    for _, layer in model.named_modules():
-        if hasattr(layer, 'lora_a') and hasattr(layer, 'lora_b'):
-            layer.unfreeze(keys=['lora_a', 'lora_b'], recurse=False)
-    del layer
-    trainable = dict(tree_flatten(model.trainable_parameters()))
-    if set(trainable) != set(original):
-        raise ValueError('native_only_bound_initial_factors_may_train')
-    recipe = plan['recipes'][args.recipe]
-    optimizer = optim.AdamW(learning_rate=recipe['learningRate'], weight_decay=0.0)
-
-    decoder = type(model.language_model.model.layers[0])
-    original_call = decoder.__call__
-    grad_checkpoint(model.language_model.model.layers[0])
-    value_and_grad = nn.value_and_grad(model, answer_only_loss)
-    before = hashes(actual)
-    del actual, trainable, original
-    started = time.time()
-    try:
-        model.train()
-        with (run / 'updates.jsonl').open('x') as journal:
-            for step in range(recipe['steps']):
-                row = payload['train'][step % len(payload['train'])]
-                prefix, target = encoded[row['id']]
-                ids = mx.array([prefix + target[:-1]])
-                labels = mx.array([target])
-                start, stop = response_positions(len(prefix), len(target))
-                # Small atomic phase receipts disambiguate lazy construction,
-                # gradient evaluation, update evaluation and committed steps.
-                def phase(name):
-                    value = {'optimizerStepAttempt': step + 1, 'id': row['id'], 'phase': name, 'atEpoch': time.time(),
-                             'completedOptimizerSteps': step + 1 if name == 'STEP_COMMITTED' else step,
-                             'mlxActiveBytes': mx.get_active_memory()}
-                    temporary = run / 'phase.tmp'
-                    with temporary.open('w') as stream:
-                        json.dump(value, stream); stream.flush(); os.fsync(stream.fileno())
-                    temporary.replace(run / 'phase.json')
-                phase('BUILD_FORWARD_AND_GRADIENT_GRAPH')
-                loss, grads = value_and_grad(model, ids, labels, start, stop)
-                flat = tree_flatten(grads)
-                if {k for k, _ in flat} != set(before):
-                    raise ValueError('native_gradient_key_coverage_changed')
-                finite = mx.all(mx.stack([mx.all(mx.isfinite(g)) for _, g in flat]))
-                norm = mx.sqrt(sum(mx.sum(g.astype(mx.float32)**2) for _, g in flat))
-                phase('EVALUATE_FORWARD_AND_GRADIENTS')
-                mx.eval(loss, finite, norm)
-                if not bool(finite.item()) or not math.isfinite(loss.item()) or not math.isfinite(norm.item()) or norm.item() <= 0:
-                    raise ValueError('native_nonfinite_or_zero_gradient')
-                grads = tree_map(lambda g: g * mx.minimum(1.0, 1.0 / (norm + 1e-12)), grads)
-                optimizer.learning_rate = recipe['learningRate'] * min(1, (step + 1) / 5)
-                phase('FINITE_GRADIENTS_UPDATE_NOT_EVALUATED')
-                optimizer.update(model, grads)
-                phase('EVALUATE_OPTIMIZER_UPDATE')
-                mx.eval(model.trainable_parameters(), optimizer.state)
-                if not all(bool(mx.all(mx.isfinite(v)).item()) for _, v in tree_flatten(optimizer.state) if isinstance(v, mx.array)):
-                    raise ValueError('native_nonfinite_optimizer_state')
-                record = {'optimizerStep': step + 1, 'id': row['id'], 'loss': loss.item(),
-                    'gradientNorm': norm.item(), 'allAdapterGradientsFinite': True, 'gradientTensorCount': expected_factors,
-                    'elapsedSeconds': time.time() - started, 'mlxPeakBytes': mx.get_peak_memory()}
-                journal.write(json.dumps(record) + '\n'); journal.flush(); os.fsync(journal.fileno())
-                phase('STEP_COMMITTED')
-                print(json.dumps(record), flush=True)
-                del ids, labels, loss, grads, flat, finite, norm
+        def evaluate(name):
+            output = run / name
+            output.mkdir(mode=0o700)
+            model.eval()
+            for row in evaluation_rows:
+                prompt = tokenizer.apply_chat_template(row['messages'], tokenize=False,
+                    add_generation_prompt=True, enable_thinking=False)
+                ids = tokenizer.encode(prompt, add_special_tokens=False)
+                if ids != encoded[row['id']][0]:
+                    raise ValueError('native_actual_generation_prefix_changed')
+                started = time.time()
+                text, tokens, finish, actual_prefix = '', [], None, []
+                with generation_prefix_observer(model, ids, actual_prefix):
+                    for part in stream_generate(model, processor, prompt,
+                            max_tokens=min(2048, 5120 - len(ids)), temperature=0, top_p=1, top_k=0,
+                            prefill_step_size=4096,
+                            logits_processors=[build_json_schema_logits_processor(tokenizer, row['outputSchema'])]):
+                        text += part.text
+                        if getattr(part, 'token', None) is not None and getattr(part, 'finish_reason', None) is None:
+                            tokens.append(int(part.token))
+                        if getattr(part, 'finish_reason', None) is not None:
+                            finish = part.finish_reason
+                            if getattr(part, 'token_ids', None) is not None:
+                                tokens = list(part.token_ids)
+                if not actual_prefix:
+                    raise ValueError('native_model_prefix_not_observed')
+                try:
+                    raw = json.loads(text)
+                    status = 'GENERATED_REQUIRES_SEMANTIC_REVIEW' if finish == 'stop' else 'GENERATION_NOT_CONFIRMED_COMPLETE'
+                except ValueError:
+                    raw, status = None, 'INCOMPLETE_OR_INVALID_JSON'
+                write(output / (row['id'] + '.json'), {'id': row['id'], 'query': row['query'],
+                    'split': row['split'], 'raw': raw, 'rawText': text, 'status': status,
+                    'tokenIds': tokens, 'prefixSha256': hashlib.sha256(json.dumps(ids, separators=(',', ':')).encode()).hexdigest(),
+                    'finishReason': finish,
+                    'actualModelPrefixTokenIds': actual_prefix,
+                    'durationSeconds': time.time() - started, 'attempt': 1})
+                print(json.dumps({'stage': name, 'id': row['id'], 'status': status}), flush=True)
                 mx.clear_cache()
-    finally:
-        decoder.__call__ = original_call
-        model.eval()
-    after = factors()
-    if len(after) != expected_factors or not all(bool(mx.all(mx.isfinite(v)).item()) for v in after.values()):
-        raise ValueError('native_end_factors_invalid')
-    changed = sum(before[k] != v for k, v in hashes(after).items())
-    if changed == 0:
-        raise ValueError('native_optimizer_did_not_change_weights')
-    candidate = run / 'candidate'
-    candidate.mkdir(mode=0o700)
-    mx.save_safetensors(str(candidate / 'adapters.safetensors'), after)
-    shutil.copyfile(Path(plan['adapter']) / 'adapter_config.json', candidate / 'adapter_config.json')
-    write(run / 'training-result.json', {'status': 'OPTIMIZER_FINISHED_REQUIRES_SEMANTIC_REVIEW',
-        'optimizerSteps': recipe['steps'], 'changedAdapterTensors': changed,
-        'initialAdapterSha256': plan.get('initialAdapterSha256', plan['liveAdapterSha256']),
-        'candidateSha256': sha(candidate / 'adapters.safetensors'), 'baseFused': False})
-    del optimizer, value_and_grad, model, after
-    gc.collect()
-    mx.clear_cache()
-    model, processor = load(plan['model'], adapter_path=str(candidate))
-    if len(factors()) != expected_factors or hashes(factors()) != hashes(mx.load(str(candidate / 'adapters.safetensors'))):
-        raise ValueError('native_reloaded_candidate_mismatch')
-    write(run / 'reload-receipt.json', {'allSavedFactorsReloadedExactly': True, 'factorCount': expected_factors, 'modules': scales()})
-    recall_losses('recall-loss-after.json')
-    evaluate('candidate-evaluation')
-    write(run / 'result.json', {'status': 'NATIVE_LEARNING_FINISHED_REQUIRES_PAIRED_REVIEW',
-        'optimizerSteps': recipe['steps'], 'evaluationCasesPerAdapter': 36,
-        'productionActivation': False, 'cloudResourcesCreated': False})
 
+        evaluate('baseline')
+        def recall_losses(name):
+            model.eval()
+            values = {}
+            for row in loss_rows:
+                prefix, target = encoded[row['id']]
+                start, stop = response_positions(len(prefix), len(target))
+                loss = answer_only_loss(model, mx.array([prefix + target[:-1]]), mx.array([target]), start, stop)
+                value = float(loss.item())
+                if not math.isfinite(value):
+                    raise ValueError('native_nonfinite_eval_loss')
+                values[row['id']] = value
+                del loss
+                mx.clear_cache()
+            write(run / name, {'kind': 'FIXED_TEACHER_FORCED_RECALL_LOSS_NOT_UNDERSTANDING_SCORE', 'losses': values})
+        recall_losses('recall-loss-before.json')
+        model.freeze()
+        for _, layer in model.named_modules():
+            if hasattr(layer, 'lora_a') and hasattr(layer, 'lora_b'):
+                layer.unfreeze(keys=['lora_a', 'lora_b'], recurse=False)
+        del layer
+        trainable = dict(tree_flatten(model.trainable_parameters()))
+        if set(trainable) != set(original):
+            raise ValueError('native_only_bound_initial_factors_may_train')
+        recipe = plan['recipes'][args.recipe]
+        optimizer = optim.AdamW(learning_rate=recipe['learningRate'], weight_decay=0.0)
+
+        decoder = type(model.language_model.model.layers[0])
+        original_call = decoder.__call__
+        grad_checkpoint(model.language_model.model.layers[0])
+        value_and_grad = nn.value_and_grad(model, answer_only_loss)
+        before = hashes(actual)
+        del actual, trainable, original
+        started = time.time()
+        try:
+            model.train()
+            with (run / 'updates.jsonl').open('x') as journal:
+                for step in range(recipe['steps']):
+                    row = train_rows[step % len(train_rows)]
+                    prefix, target = encoded[row['id']]
+                    ids = mx.array([prefix + target[:-1]])
+                    labels = mx.array([target])
+                    start, stop = response_positions(len(prefix), len(target))
+                    # Small atomic phase receipts disambiguate lazy construction,
+                    # gradient evaluation, update evaluation and committed steps.
+                    def phase(name):
+                        value = {'optimizerStepAttempt': step + 1, 'id': row['id'], 'phase': name, 'atEpoch': time.time(),
+                                 'completedOptimizerSteps': step + 1 if name == 'STEP_COMMITTED' else step,
+                                 'mlxActiveBytes': mx.get_active_memory()}
+                        temporary = run / 'phase.tmp'
+                        with temporary.open('w') as stream:
+                            json.dump(value, stream); stream.flush(); os.fsync(stream.fileno())
+                        temporary.replace(run / 'phase.json')
+                    phase('BUILD_FORWARD_AND_GRADIENT_GRAPH')
+                    loss, grads = value_and_grad(model, ids, labels, start, stop)
+                    flat = tree_flatten(grads)
+                    if {k for k, _ in flat} != set(before):
+                        raise ValueError('native_gradient_key_coverage_changed')
+                    finite = mx.all(mx.stack([mx.all(mx.isfinite(g)) for _, g in flat]))
+                    norm = mx.sqrt(sum(mx.sum(g.astype(mx.float32)**2) for _, g in flat))
+                    phase('EVALUATE_FORWARD_AND_GRADIENTS')
+                    mx.eval(loss, grads, finite, norm) if small else mx.eval(loss, finite, norm)
+                    if not bool(finite.item()) or not math.isfinite(loss.item()) or not math.isfinite(norm.item()) or norm.item() <= 0:
+                        raise ValueError('native_nonfinite_or_zero_gradient')
+                    grads = tree_map(lambda g: g * mx.minimum(1.0, 1.0 / (norm + 1e-12)), grads)
+                    optimizer.learning_rate = recipe['learningRate'] * min(1, (step + 1) / (SMALL_CONFIG['warmupSteps'] if small else 5))
+                    phase('FINITE_GRADIENTS_UPDATE_NOT_EVALUATED')
+                    optimizer.update(model, grads)
+                    phase('EVALUATE_OPTIMIZER_UPDATE')
+                    mx.eval(model.trainable_parameters(), optimizer.state)
+                    if not all(bool(mx.all(mx.isfinite(v)).item()) for _, v in tree_flatten(optimizer.state) if isinstance(v, mx.array)):
+                        raise ValueError('native_nonfinite_optimizer_state')
+                    checkpoint = checkpoint_adapter(run, step + 1, factors(), Path(plan['adapter']) / 'adapter_config.json') if small else None
+                    record = {'optimizerStep': step + 1, 'id': row['id'], 'loss': loss.item(),
+                        'checkpoint': checkpoint, 'learningRate': float(optimizer.learning_rate.item()),
+                        'gradientNorm': norm.item(), 'allAdapterGradientsFinite': True, 'gradientTensorCount': expected_factors,
+                        'elapsedSeconds': time.time() - started, 'mlxPeakBytes': mx.get_peak_memory()}
+                    journal.write(json.dumps(record) + '\n'); journal.flush(); os.fsync(journal.fileno())
+                    phase('STEP_COMMITTED')
+                    print(json.dumps(record), flush=True)
+                    del ids, labels, loss, grads, flat, finite, norm
+                    mx.clear_cache()
+        finally:
+            decoder.__call__ = original_call
+            model.eval()
+        after = factors()
+        if len(after) != expected_factors or not all(bool(mx.all(mx.isfinite(v)).item()) for v in after.values()):
+            raise ValueError('native_end_factors_invalid')
+        changed = sum(before[k] != v for k, v in hashes(after).items())
+        if changed == 0:
+            raise ValueError('native_optimizer_did_not_change_weights')
+        candidate = run / 'candidate'
+        candidate.mkdir(mode=0o700)
+        mx.save_safetensors(str(candidate / 'adapters.safetensors'), after)
+        shutil.copyfile(Path(plan['adapter']) / 'adapter_config.json', candidate / 'adapter_config.json')
+        write(run / 'training-result.json', {'status': 'OPTIMIZER_FINISHED_REQUIRES_SEMANTIC_REVIEW',
+            'optimizerSteps': recipe['steps'], 'changedAdapterTensors': changed,
+            'initialAdapterSha256': plan.get('initialAdapterSha256', plan['liveAdapterSha256']),
+            'candidateSha256': sha(candidate / 'adapters.safetensors'), 'baseFused': False})
+        del optimizer, value_and_grad, model, after
+        gc.collect()
+        mx.clear_cache()
+        model, processor = load(plan['model'], adapter_path=str(candidate))
+        tokenizer = getattr(processor, 'tokenizer', processor)
+        if len(factors()) != expected_factors or hashes(factors()) != hashes(mx.load(str(candidate / 'adapters.safetensors'))):
+            raise ValueError('native_reloaded_candidate_mismatch')
+        write(run / 'reload-receipt.json', {'allSavedFactorsReloadedExactly': True, 'factorCount': expected_factors, 'modules': scales()})
+        recall_losses('recall-loss-after.json')
+        evaluate('candidate-evaluation')
+        if (sha(Path(plan['adapter']) / 'adapters.safetensors') != plan.get('initialAdapterSha256', plan['liveAdapterSha256'])
+                or sha(Path(plan['adapter']) / 'adapter_config.json') != plan.get('initialAdapterConfigSha256', plan['liveAdapterConfigSha256'])):
+            raise ValueError('native_initial_adapter_changed_during_training')
+        write(run / 'result.json', {'status': 'NATIVE_LEARNING_FINISHED_REQUIRES_PAIRED_REVIEW',
+            'optimizerSteps': recipe['steps'], 'evaluationCasesPerAdapter': len(evaluation_rows),
+            'teacherForcedLossCases': len(loss_rows), 'seedFileUnchanged': sha(Path(plan['adapter']) / 'adapters.safetensors') == plan.get('initialAdapterSha256', plan['liveAdapterSha256']),
+            'betaUnderstandingQualityProven': False,
+            'productionActivation': False, 'cloudResourcesCreated': False})
 
 def recovery_watch(fd, session):
     comparison = module('nuknuk-mac-comparison')
@@ -552,7 +632,7 @@ def execute(args, plan):
     session = args.native_plan.parent / ('trial-' + args.recipe)
     if session.exists():
         raise ValueError('native_trial_already_attempted')
-    diagnostic = plan.get('kind') in (*MEMORY_DIAGNOSTIC_KINDS, GRADIENT_DIAGNOSTIC_KIND, SPEED_DIAGNOSTIC_KIND, PREFIX_SPEED_KIND)
+    diagnostic = plan.get('kind') in (*MEMORY_DIAGNOSTIC_KINDS, GRADIENT_DIAGNOSTIC_KIND, SPEED_DIAGNOSTIC_KIND, PREFIX_SPEED_KIND, SMALL_LEARNING_KIND)
     if diagnostic and args.recipe != 'A':
         raise ValueError('native_memory_diagnostic_has_no_second_recipe')
     if args.recipe == 'B':
@@ -606,7 +686,7 @@ def execute(args, plan):
             admitted = True
             os.close(start_write)
             start_write = None
-            timeout = {GRADIENT_DIAGNOSTIC_KIND: 300, SPEED_DIAGNOSTIC_KIND: 900, PREFIX_SPEED_KIND: 900}.get(plan.get('kind'))
+            timeout = {GRADIENT_DIAGNOSTIC_KIND: 300, SPEED_DIAGNOSTIC_KIND: 900, PREFIX_SPEED_KIND: 900, SMALL_LEARNING_KIND: 1800}.get(plan.get('kind'))
             code = process.wait(timeout=timeout)
         if code:
             raise RuntimeError('native_guarded_worker_failed:' + str(code))
