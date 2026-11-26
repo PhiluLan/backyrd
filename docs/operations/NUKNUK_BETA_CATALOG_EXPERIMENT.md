@@ -1,5 +1,48 @@
 # NukNuk – technische Überarbeitung nach Mike
 
+## Nativer Lernpilot auf der tatsächlichen Live-Basis
+
+FAST_PR; betroffen sind nur der bestehende Trainings-Einstieg, dessen nativer
+Worker, die minimale Modulzulassung des Ressourcenwächters und CPU-Tests.
+Kein neues Gate, keine Datenbankänderung oder automatische Modellaktivierung.
+
+`nuknuk-train.py --native-plan PLAN --manifest-sha256 HASH` prüft zunächst nur
+die eingefrorenen Eingaben. `--execute --recipe A` führt den ausdrücklich
+autorisierten Wartungslauf aus. Ein unabhängiger Recovery-Prozess stellt den
+ursprünglichen Live-Dienst wieder her. Der Worker erhält die Modellfreigabe
+erst über eine Pipe, nachdem seine Ownershipdatei gespeichert wurde; stirbt
+der Controller davor, beendet EOF den noch modellfreien Child-Prozess.
+
+Beide möglichen Rezepte starten von derselben kopierten Live-LoRA-Datei,
+derselben quantisierten MLX-Basis und derselben installierten, gehashten
+Laufzeit. A: Lernrate2e-6; B:1e-5; je80 echte Mikrobatch1-Updates auf40
+vorhandenen Suchbeispielen. Seed7, AdamW ohne WeightDecay, Clipping1,
+fünf Warmupsteps und feste Reihenfolge. Keine Fusion oder Trunkierung.
+Die Antwortpositionen einschließlich EOS werden vor der Vokabularprojektion
+ausgewählt; der native LanguageModel-/RoPE-Pfad bleibt erhalten.
+
+Der Operationsplan bindet Nachrichten, Schema, Labels, Provenienz,
+Tokenisierung, Modell-/Adapterdateien, Runtime und ausgeführte Quellen.
+Produktive Callerquellen werden lesend gesichert. Reine lokale Aufrufe mit
+gemocktem Transport erfassen die zusätzlichen aktivierten R15-Anweisungen;
+es werden keine echten Nutzeranfragen aufgezeichnet. Alte Zielkonflikte
+werden mit Alt-/Neu-Begründung korrigiert oder quarantänisiert.
+
+12 TRAIN-Recall- und24 bekannte, szenariogetrennte DEV-Fälle werden vor/nach
+dem Training frei generiert. Tatsächliche Modellpräfixe, Stopstatus,80
+Faktoren und40 Modulskalen werden geprüft. Ein frisches Reload des gespeicherten
+Adapters ist Pflicht. Ein fester teacher-forced Recall-Loss wird separat
+gemessen und nie als Verständnisquote ausgegeben.
+
+Pipeline-, Verständnis- und Graphfehler bleiben getrennt. Die unabhängige
+Root-/Mike-Bewertung und die Fortsetzen-/Verwerfen-Grenzen werden vor den
+ersten Ausgaben eingefroren. B ist nur nach dokumentierter Ablehnung von A,
+gebundenem Ergebnis-/Reviewhash und bestätigter Live-Wiederherstellung zulässig.
+Bei technischem Fehlschlag ohne vollständiges A-Ergebnis ist eine andere
+Lernrate kein automatischer Reparaturversuch. Kein drittes Rezept oder
+Großtraining aus diesem Pilotplan. Ein späterer unabhängiger Abschlusstest
+und ein eigener Freigabeentscheid bleiben erforderlich.
+
 Einordnung: Offline-Katalog und Experimentvorbereitung sind FAST_PR. Der eng begrenzte Budgetkorrektur-Guard im Decision-Core ist nicht ausgerollt; eine spätere Übernahme in die installierte Route benötigt die betroffenen PRODUCT_RELEASE-Gates. Dieses Dokument ersetzt keine frühere Ausführungsfreigabe.
 
 Dieses Paket bereitet ein überprüfbares Training vor. Es enthält keine Behauptung einer bereits gemessenen Modellverbesserung. Es startet keine GPU, überträgt keine Daten, verändert keinen Live-Dienst und aktiviert kein Modell.
