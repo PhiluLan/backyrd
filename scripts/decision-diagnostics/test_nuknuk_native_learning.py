@@ -14,6 +14,32 @@ spec.loader.exec_module(native)
 
 
 class NativeBoundaries(unittest.TestCase):
+    def test_full_gradient_diagnostic_requires_passed_pair_and_no_updates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path, payload, plan = self.fixture(root)
+            paired = root/'paired.json'
+            paired.write_text(json.dumps({'status': 'PASS', 'memoryReductionFraction': 0.20058,
+                'referenceWithinTolerance': True, 'referenceFinite': True}))
+            restore = root/'restored.json'; restore.write_text('{"status":"HEALTHY_ORIGINAL_RESTORED"}')
+            for key in ['inverse-source', 'paired-candidate', 'paired-baseline', 'paired-review']:
+                plan['files'][key] = {'path': str(paired), 'sha256': native.sha(paired)}
+            plan['files']['paired-restore'] = {'path': str(restore), 'sha256': native.sha(restore)}
+            plan.update(kind=native.GRADIENT_DIAGNOSTIC_KIND, optimizerAllowed=False, gradientAttempts=1,
+                        workerTimeoutSeconds=300, useUnitInverseVjp=True, probeRowId='0')
+            path.write_text(json.dumps(plan))
+            with patch.object(native, 'verify_model_choice_seed'):
+                native.verify_plan(path, native.sha(path))
+                plan['optimizerAllowed'] = True; path.write_text(json.dumps(plan))
+                with self.assertRaisesRegex(ValueError, 'diagnostic_scope_invalid'):
+                    native.verify_plan(path, native.sha(path))
+
+    def test_full_gradient_diagnostic_rejects_second_recipe_before_live_pause(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, 'has_no_second_recipe'):
+                native.execute(SimpleNamespace(native_plan=Path(tmp)/'plan.json', recipe='B'),
+                               {'kind': native.GRADIENT_DIAGNOSTIC_KIND})
+
     def test_model_choice_rejects_another_base_before_loading(self):
         with self.assertRaisesRegex(ValueError, 'base_not_selected_9b'):
             native.verify_model_choice_seed({'model': '/synthetic/another-base'})
@@ -229,6 +255,45 @@ class NativeBoundaries(unittest.TestCase):
 
 
 class NativeMlxMath(unittest.TestCase):
+    def test_full_gradient_worker_materializes_64_tiny_cpu_factors_without_updates(self):
+        import mlx.core as mx
+        import mlx.nn as nn
+        mx.set_default_device(mx.cpu)
+        class Layer(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.lora_a = mx.ones((2, 1)) * 0.01
+                self.lora_b = mx.zeros((1, 2))
+            def __call__(self, x):
+                return x + x @ self.lora_a @ self.lora_b
+        class Language(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.embed_tokens = nn.Embedding(4, 2)
+                self.lm_head = nn.Linear(2, 4)
+                self.model = nn.Module()
+                self.model.layers = [Layer() for _ in range(32)]
+            def __call__(self, ids, **kwargs):
+                hidden = self.embed_tokens(ids)
+                for layer in self.model.layers:
+                    hidden = layer(hidden)
+                return SimpleNamespace(hidden_states=(hidden,))
+        model = nn.Module(); model.language_model = Language()
+        original_call = Layer.__call__
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            native.full_gradient_diagnostic(model, {'first': ([1] * 3988, [2] * 147)},
+                                            {'train': [{'id': 'first'}]}, root, lambda: {'tinyModules': 'unchanged'})
+            value = json.loads((root/'gradient-result.json').read_text())
+            self.assertEqual(value['gradientTensorCount'], 64)
+            self.assertTrue(value['allGradientsFinite'])
+            self.assertTrue(value['allFactorHashesUnchanged'])
+            self.assertTrue(value['allModuleScalesUnchanged'])
+            self.assertEqual(value['optimizerUpdates'], 0)
+            self.assertEqual(value['inputTokens'], 4134)
+            self.assertFalse((root/'candidate').exists())
+        self.assertIs(Layer.__call__, original_call)
+
     def test_answer_only_projection_matches_full_masked_loss_and_real_updates(self):
         import mlx.core as mx
         import mlx.nn as nn

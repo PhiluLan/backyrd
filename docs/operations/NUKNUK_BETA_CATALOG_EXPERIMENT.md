@@ -36,6 +36,18 @@ Numerische Toleranzen bleiben1e-3/1e-4; zusätzlich sind mindestens20% geringere
 MLX-Primärpeak nötig. Scheitert diese Paarprüfung, erfolgt kein weiterer
 Kandidat oder automatischer Modell-/Trainingslauf aus diesem Plan.
 
+Ein separat gebundener `NATIVE_MLX_FULL_GRADIENT_DIAGNOSTIC_V1` darf erst nach
+bestandener Paarprüfung genau die ursprüngliche erste9B-Trainingszeile mit
+3988 Präfix-/147 Zieltoken vollständig differenzieren. Derselbe ZeroDelta-Seed,
+alle64 Faktoren/32 Skalen, Runtime, Antwortloss und Decodercheckpointing bleiben
+gebunden. Der prozesslokale Inversen-VJP ist die geprüfte Optimierung. Alle
+Gradienten sowie die ursprünglichen Endlichkeits-/Normwurzeln werden ausgewertet;
+die Faktorhashes müssen unverändert bleiben. Keine Generationswiederholung,
+Optimizerupdates, Adapterdatei oder automatischer Trainingsanschluss.
+Ein300s-Timeout im Controller führt über den bestehenden Gruppenstopp in das
+Original-Restore. Ein PASS beweist nur diese einzelne Gesamtgradientenauswertung;
+Optimizer-, Save-/Reload- und Qualitätsnachweise sind damit noch offen.
+
 ## Nativer Lernpilot auf der tatsächlichen Live-Basis
 
 FAST_PR; betroffen sind nur der bestehende Trainings-Einstieg, dessen nativer

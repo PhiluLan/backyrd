@@ -23,6 +23,7 @@ import time
 
 ROOT = Path(__file__).resolve().parent
 MEMORY_DIAGNOSTIC_KINDS = ('NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1', 'NATIVE_MLX_GATED_DELTA_VJP_COMPARE_V1')
+GRADIENT_DIAGNOSTIC_KIND = 'NATIVE_MLX_FULL_GRADIENT_DIAGNOSTIC_V1'
 
 
 def sha(path):
@@ -55,7 +56,7 @@ def verify_plan(path, digest):
     if sha(path) != digest:
         raise ValueError('native_plan_changed')
     plan = read(path)
-    if (plan.get('kind') not in ['NATIVE_MLX_LEARNING_PILOT_V1', 'NATIVE_MLX_MODEL_CHOICE_9B_V1']
+    if (plan.get('kind') not in ['NATIVE_MLX_LEARNING_PILOT_V1', 'NATIVE_MLX_MODEL_CHOICE_9B_V1', GRADIENT_DIAGNOSTIC_KIND]
             or plan.get('cloudAllowed') is not False
             or plan.get('productionActivation') is not False
             or plan.get('maxTotalTokens') != 5120
@@ -93,6 +94,17 @@ def verify_plan(path, digest):
         if ([m['role'] for m in row['messages']] != ['system', 'user']
                 or not row.get('target') or not row.get('outputSchema')):
             raise ValueError('native_pilot_row_invalid')
+    if plan['kind'] == GRADIENT_DIAGNOSTIC_KIND:
+        if (plan.get('optimizerAllowed') is not False or plan.get('gradientAttempts') != 1
+                or plan.get('workerTimeoutSeconds') != 300 or plan.get('useUnitInverseVjp') is not True
+                or plan.get('probeRowId') != train[0]['id']
+                or not {'inverse-source', 'paired-candidate', 'paired-baseline', 'paired-review', 'paired-restore'} <= plan['files'].keys()):
+            raise ValueError('native_gradient_diagnostic_scope_invalid')
+        paired = read(plan['files']['paired-candidate']['path'])
+        if (paired.get('status') != 'PASS' or paired.get('memoryReductionFraction', 0) < 0.2
+                or not paired.get('referenceWithinTolerance') or not paired.get('referenceFinite')
+                or read(plan['files']['paired-restore']['path']).get('status') != 'HEALTHY_ORIGINAL_RESTORED'):
+            raise ValueError('native_gradient_diagnostic_pair_not_passed')
     return plan, payload
 
 
@@ -159,6 +171,93 @@ def response_positions(prefix_length, target_length):
     return prefix_length - 1, prefix_length + target_length - 1
 
 
+def gradient_marker(run, name, **metrics):
+    value = {'phase': name, 'atEpoch': time.time(), 'completedOptimizerSteps': 0, 'gradientAttempt': 1, **metrics}
+    temporary = run / 'phase.tmp'
+    with temporary.open('w') as stream:
+        json.dump(value, stream, allow_nan=False); stream.flush(); os.fsync(stream.fileno())
+    temporary.replace(run/'phase.json')
+    with (run/'gradient-phases.jsonl').open('a') as stream:
+        stream.write(json.dumps(value, allow_nan=False)+'\n'); stream.flush(); os.fsync(stream.fileno())
+    return value
+
+
+def full_gradient_diagnostic(model, encoded, payload, run, scale_reader):
+    """One original loss/gradient evaluation; no optimizer or saved candidate."""
+    import numpy as np
+    import mlx.core as mx
+    import mlx.nn as nn
+    from mlx.utils import tree_flatten
+    from mlx_vlm.trainer import grad_checkpoint
+    from mlx_vlm.models.qwen3_5 import gated_delta
+    def factor_hashes():
+        return {k: hashlib.sha256(np.asarray(v).tobytes()).hexdigest() for k, v in tree_flatten(model.parameters())
+                if k.endswith(('.lora_a', '.lora_b'))}
+    before = factor_hashes()
+    initial_scales = scale_reader()
+    if len(before) != 64:
+        raise ValueError('native_gradient_diagnostic_requires_64_factors')
+    model.freeze()
+    for _, layer in model.named_modules():
+        if hasattr(layer, 'lora_a') and hasattr(layer, 'lora_b'):
+            layer.unfreeze(keys=['lora_a', 'lora_b'], recurse=False)
+    del layer
+    if set(dict(tree_flatten(model.trainable_parameters()))) != set(before):
+        raise ValueError('native_gradient_diagnostic_trainable_keys_changed')
+    row = payload['train'][0]
+    prefix, target = encoded[row['id']]
+    if (len(prefix), len(target)) != (3988, 147):
+        raise ValueError('native_gradient_diagnostic_first_input_changed')
+    start, stop = response_positions(len(prefix), len(target))
+    ids, labels = mx.array([prefix + target[:-1]]), mx.array([target])
+    decoder = type(model.language_model.model.layers[0])
+    original_call = decoder.__call__
+    started = time.monotonic()
+    def mark(name):
+        return gradient_marker(run, name, id=row['id'], elapsedSeconds=time.monotonic() - started,
+            mlxActiveBytes=mx.get_active_memory(), mlxCacheBytes=mx.get_cache_memory(), mlxPeakBytes=mx.get_peak_memory())
+    try:
+        grad_checkpoint(model.language_model.model.layers[0])
+        model.train()
+        mx.eval(ids, labels); mx.synchronize(); gc.collect(); mx.clear_cache(); mx.reset_peak_memory()
+        baseline = mark('INPUTS_AND_MODEL_READY')
+        with module('nuknuk-gated-inverse').installed_inverse_vjp(gated_delta):
+            mark('BUILD_FORWARD_AND_GRADIENT_GRAPH')
+            loss, grads = nn.value_and_grad(model, answer_only_loss)(model, ids, labels, start, stop)
+            flat = tree_flatten(grads)
+            if {k for k, _ in flat} != set(before):
+                raise ValueError('native_gradient_diagnostic_gradient_keys_changed')
+            # Retain original finite/norm roots and explicitly materialize all
+            # gradients as well; this does not reduce the requested task.
+            finite = mx.all(mx.stack([mx.all(mx.isfinite(g)) for _, g in flat]))
+            norm = mx.sqrt(sum(mx.sum(g.astype(mx.float32)**2) for _, g in flat))
+            mark('EVALUATE_FORWARD_AND_GRADIENTS')
+            mx.eval(loss, grads, finite, norm); mx.synchronize()
+            primary = mark('GRADIENTS_MATERIALIZED')
+            if (not bool(finite.item()) or not math.isfinite(loss.item())
+                    or not math.isfinite(norm.item()) or norm.item() <= 0):
+                raise ValueError('native_gradient_diagnostic_nonfinite_or_zero')
+            after = factor_hashes()
+            if after != before or scale_reader() != initial_scales:
+                raise ValueError('native_gradient_diagnostic_changed_weights')
+            write(run/'gradient-result.json', {'status': 'FULL_GRADIENT_FINISHED_NO_UPDATES',
+                'inputTokens': len(prefix) + len(target) - 1, 'targetTokens': len(target), 'rowId': row['id'],
+                'loss': loss.item(), 'gradientNorm': norm.item(), 'gradientTensorCount': len(flat),
+                'allGradientsFinite': True, 'allFactorHashesUnchanged': True, 'factorHashes': after,
+                'allModuleScalesUnchanged': True, 'moduleScales': initial_scales,
+                'prefixSha256': hashlib.sha256(json.dumps(prefix, separators=(',', ':')).encode()).hexdigest(),
+                'targetSha256': hashlib.sha256(json.dumps(target, separators=(',', ':')).encode()).hexdigest(),
+                'baseline': baseline, 'primaryEvaluation': primary, 'optimizerUpdates': 0,
+                'candidateProduced': False, 'productionActivation': False})
+            del loss, grads, flat, finite, norm
+    finally:
+        decoder.__call__ = original_call
+        model.eval()
+    gc.collect(); mx.clear_cache(); mx.synchronize(); mark('DIAGNOSTIC_FINISHED')
+    write(run/'result.json', {'status': 'FULL_GRADIENT_DIAGNOSTIC_FINISHED_REQUIRES_REVIEW',
+          'gradientAttempts': 1, 'optimizerUpdates': 0, 'candidateProduced': False, 'productionActivation': False})
+
+
 def answer_only_loss(network, ids, labels, start, stop):
     """Keep production position handling, project only completion positions."""
     import mlx.core as mx
@@ -219,9 +318,13 @@ def worker(args):
     from mlx_vlm.trainer import grad_checkpoint
 
     mx.random.seed(7)
-    expected_factors = 64 if plan['kind'] == 'NATIVE_MLX_MODEL_CHOICE_9B_V1' else 80
+    expected_factors = 80 if plan['kind'] == 'NATIVE_MLX_LEARNING_PILOT_V1' else 64
     expected_modules = expected_factors // 2
+    if plan['kind'] == GRADIENT_DIAGNOSTIC_KIND:
+        gradient_marker(run, 'BEFORE_MODEL_LOAD', mlxActiveBytes=mx.get_active_memory())
     model, processor = load(plan['model'], adapter_path=plan['adapter'])
+    if plan['kind'] == GRADIENT_DIAGNOSTIC_KIND:
+        gradient_marker(run, 'MODEL_LOADED_PENDING_ADAPTER_VALIDATION', mlxActiveBytes=mx.get_active_memory())
     tokenizer = getattr(processor, 'tokenizer', processor)
     original = mx.load(str(Path(plan['adapter']) / 'adapters.safetensors'))
 
@@ -249,6 +352,9 @@ def worker(args):
         if (hashlib.sha256(json.dumps(prefix, separators=(',', ':')).encode()).hexdigest() != preflight[id]['prefixSha256']
                 or hashlib.sha256(json.dumps(target, separators=(',', ':')).encode()).hexdigest() != preflight[id]['targetSha256']):
             raise ValueError('native_actual_processor_differs_from_preflight')
+    if plan['kind'] == GRADIENT_DIAGNOSTIC_KIND:
+        gradient_marker(run, 'MODEL_AND_INPUTS_VALIDATED', mlxActiveBytes=mx.get_active_memory())
+        return full_gradient_diagnostic(model, encoded, payload, run, scales)
     write(run / 'tokenization.json', {k: {'prefixTokens': len(p), 'targetTokens': len(t),
         'prefixSha256': hashlib.sha256(json.dumps(p, separators=(',', ':')).encode()).hexdigest()}
         for k, (p, t) in encoded.items()})
@@ -436,7 +542,7 @@ def execute(args, plan):
     session = args.native_plan.parent / ('trial-' + args.recipe)
     if session.exists():
         raise ValueError('native_trial_already_attempted')
-    diagnostic = plan.get('kind') in MEMORY_DIAGNOSTIC_KINDS
+    diagnostic = plan.get('kind') in MEMORY_DIAGNOSTIC_KINDS or plan.get('kind') == GRADIENT_DIAGNOSTIC_KIND
     if diagnostic and args.recipe != 'A':
         raise ValueError('native_memory_diagnostic_has_no_second_recipe')
     if args.recipe == 'B':
@@ -490,7 +596,7 @@ def execute(args, plan):
             admitted = True
             os.close(start_write)
             start_write = None
-            code = process.wait()
+            code = process.wait(timeout=300) if plan.get('kind') == GRADIENT_DIAGNOSTIC_KIND else process.wait()
         if code:
             raise RuntimeError('native_guarded_worker_failed:' + str(code))
     finally:
