@@ -60,6 +60,32 @@ gepaarte Differenzen bleiben sichtbar; veränderte oder kürzere Antworten sind
 kein Nachweis gleicher Qualität oder eines entsprechenden Engine-Speedups.
 Keine Trainings-, Host-, Produktions- oder universelle Maximumfreigabe.
 
+### Gemessener Stand am26.11.2026
+
+AppleM4Pro/48GiB, feste9B-4bit-Basis und unveränderter ZeroLoRA. Stage1
+(Commit89419daf,34Requests) erreichte mit kurzem128Token-Prompt45,75Tokens/s
+als höchsten eigenen Decodewert, Median45,67; TTFT0,180s und Gesamtdauer2,972s.
+Das ist ein technischer Rohdurchsatz, keine Backyrd-Antwortzeit. Sechs freie
+R15-Antworten hatten MedianTTFT9,207s, Gesamtdauer16,093–21,360s und42,38DecodeTPS.
+
+Stage2 (Commit03f335ef,Plan e57f0b8374acbdf230eb5965ab15bc9964a3f646fda87917446917aa7be7c8f9)
+beendete21Requests ohne Guardverstoß. Alle neun Messpaare hatten jeweils
+identische AusgabeIDs. Sechs freie Paare sparten im Median4,426s bis zum
+Ersttoken und4,436s insgesamt; CachedTTFT-Median4,674s, freie Cachedgesamtdauer
+12,261–18,664s. Der Systemcheckpoint belegte115.998.720Bytes (110,625MiB),
+alle Warmhits stellten genau1968Tokens wieder her. Original35B wurde gesund
+samt korrektem Adapter und öffentlichem401 wiederhergestellt; nullUpdates.
+
+**Keine pauschale Beschleunigungs- oder Qualitätsfreigabe gegenüber Stage1:**
+Schon Stage2-Cold verändert durch den anderen Prefillpfad freie Ausgabeinhalte
+und -längen (300/518/397→324/563/595Tokens), einschließlich Fakten, Bindings und
+Rückfragen. Die exakte numerische Ursache ist ohne Logitbelege nicht lokalisiert.
+Der gepaarte Cachegewinn gilt für Stage2-Cold gegen Stage2-Cached; er belegt
+keine gleichwertigen Antworten zum bisherigen Pfad. Vor Betriebsübernahme
+sind Host-/Semantikprüfung nötig. Beide Messstufen wurden von Mike anhand
+aller Einzelreceipts unabhängig nachgerechnet; keine Aktivierung oder
+universelle Hardwareobergrenze aus diesem Kleinbenchmark ableiten.
+
 ## Begrenzte Speicherdiagnose nach technischem Pilotabbruch
 
 Der neue Plan `NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1` erweitert ausschließlich
