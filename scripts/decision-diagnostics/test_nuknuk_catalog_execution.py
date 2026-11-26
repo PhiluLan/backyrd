@@ -6,6 +6,18 @@ from types import SimpleNamespace
 from unittest.mock import patch,Mock
 spec=importlib.util.spec_from_file_location('ctl',Path(__file__).with_name('nuknuk-beta-run.py'));ctl=importlib.util.module_from_spec(spec);spec.loader.exec_module(ctl)
 class Contracts(unittest.TestCase):
+ def test_runtime_representation_receipt_is_written_once_and_never_overwritten(self):
+  spec=importlib.util.spec_from_file_location('gpu_receipt',Path(__file__).with_name('nuknuk-gpu.py'));gpu=importlib.util.module_from_spec(spec);spec.loader.exec_module(gpu)
+  for common in [None,{'representation':'MLX_AFFINE_VALUES_DEQUANTIZED_NO_REQUANTIZATION'}]:
+   with tempfile.TemporaryDirectory()as tmp:
+    root=Path(tmp);original={'quantization':'bnb NF4 double-quant bf16','temperature':0}
+    with patch.object(gpu,'write_json',wraps=gpu.write_json)as write:
+     gpu.write_paired_runtime_receipt(root,original,common);self.assertEqual(write.call_count,1)
+    saved=json.loads((root/'runtime.json').read_text());self.assertEqual(saved['temperature'],0);self.assertEqual(original['quantization'],'bnb NF4 double-quant bf16')
+    if common:self.assertFalse(saved['baseQuantizationApplied']);self.assertEqual(saved['baseRepresentation'],common['representation']);self.assertNotIn('NF4',saved['quantization'])
+    else:self.assertEqual(saved,original)
+    with self.assertRaises(FileExistsError):gpu.write_paired_runtime_receipt(root,original,common)
+    self.assertEqual(json.loads((root/'runtime.json').read_text()),saved)
  def test_paired_runtime_script_performs_only_fourteen_selected_generations(self):
   script=ctl.catalog_paired_startup_script({'parent':{'hfAdapterSha256':'a'*64}},'b'*64,'runtime.whl')
   self.assertEqual(script.count(' product-evaluate '),2)

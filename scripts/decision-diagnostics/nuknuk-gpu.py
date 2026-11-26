@@ -1445,6 +1445,14 @@ def validate_paired_diagnostic(path,approval,manifest,adapter_sha256):
     return packet
 
 
+def write_paired_runtime_receipt(output, receipt, common_metadata=None):
+    # Receipts are immutable: complete the representation before the sole write.
+    receipt=dict(receipt)
+    if common_metadata is not None:
+        receipt.update(quantization='MLX affine represented values, BF16 export, no HF quantization',baseRepresentation=common_metadata['representation'],baseQuantizationApplied=False)
+    write_json(output/'runtime.json',receipt)
+
+
 def paired_loaded_adapter_receipt(model,adapter):
     # Inspect effective installed tensors; observations never change model parameters.
     from peft import get_peft_model_state_dict
@@ -1528,10 +1536,9 @@ def evaluate_beta_catalog(args):
     state={'model':model,'tokenizer':tokenizer,'ll_tokenizer':from_tokenizer(tokenizer),'boundary':{'profile':BETA_CATALOG_PROFILE,'maxTotalTokens':5120}}
     if diagnostic:
         write_json(args.output/'effective-adapter.json',paired_loaded_adapter_receipt(model,loaded_adapter))
-        write_json(args.output/'runtime.json',{'versions':{name:importlib.metadata.version(name)for name in ['torch','transformers','peft','axolotl','tokenizers','llguidance','bitsandbytes']},'gpu':subprocess.check_output(['nvidia-smi','--query-gpu=name','--format=csv,noheader'],text=True,timeout=10).strip(),'base':manifest['parent']['trainingBase'],'inferenceContractSha256':catalog_inference_contract(Path(__file__).read_text()),'quantization':'bnb NF4 double-quant bf16','temperature':0,'maxOutputTokens':2048,'maxTotalTokens':5120,'perRequestSeconds':90})
+        write_paired_runtime_receipt(args.output,{'versions':{name:importlib.metadata.version(name)for name in ['torch','transformers','peft','axolotl','tokenizers','llguidance','bitsandbytes']},'gpu':subprocess.check_output(['nvidia-smi','--query-gpu=name','--format=csv,noheader'],text=True,timeout=10).strip(),'base':manifest['parent']['trainingBase'],'inferenceContractSha256':catalog_inference_contract(Path(__file__).read_text()),'quantization':'bnb NF4 double-quant bf16','temperature':0,'maxOutputTokens':2048,'maxTotalTokens':5120,'perRequestSeconds':90},common_metadata)
     if common:
         write_json(args.output/'common-base-runtime.json',common_metadata)
-        runtime_receipt=json.loads((args.output/'runtime.json').read_text());runtime_receipt.update(quantization='MLX affine represented values, BF16 export, no HF quantization',baseRepresentation=common_metadata['representation'],baseQuantizationApplied=False);write_json(args.output/'runtime.json',runtime_receipt)
     compiler=llguidance.JsonCompiler(separators=(', ',': '),whitespace_pattern='');records=[]
     for row in requests:
         beta_execution_admission(folder,manifest,args.execution_approval)
