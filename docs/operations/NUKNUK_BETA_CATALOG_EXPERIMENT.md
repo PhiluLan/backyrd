@@ -28,6 +28,38 @@ Die tatsächliche dispatch.wired_limit-Bindung wird prozesslokal auf höchstens
 24GiB begrenzt und im finally wiederhergestellt. Keine Gewichts-/Librarydatei,
 kein Optimizer, kein automatischer Produkt- oder Trainingsrelease.
 
+## Residente Systempräfix-Wiederverwendung ohne Training
+
+`NATIVE_MLX_PREFIX_SPEED_DIAGNOSTIC_V1` vergleicht ausschließlich den vorhandenen
+hybriden APC-Checkpointpfad. Genau21 Requests: ein vollständiger Primer,
+zwei Trace-Warmups, drei wechselnd angeordnete Cold/Cached-Tracepaare und
+je zwei freie Cold/Cached-Paare für drei unveränderte R15-Anfragen. Der alte
+34er-Lauf bleibt eine separate Referenz; kein erneuter Raw- oder Modellsweep.
+
+Die feste gemeinsame Grenze1968 liegt vor dem dynamischen Referenzzeitpunkt
+im Systemtext. Vollständige aktuelle PromptIDs, Systemende und Präfixhash
+werden vorab und nach Modellladen geprüft. Pro Request führt Guard=P−1968
+bei Intervall0 genau zu einem Checkpoint1968 aller32 Hybridlayer. Cold nutzt
+einen frischen leeren Manager mit derselben Segmentierung; Cached nutzt den
+geprimten joblokalen Manager. Nur0/1968 tatsächliche cached_tokens sind gültig.
+Die volle Kontext-/Antwortbudgetberechnung und der native RoPE-Pfad bleiben
+unverändert. Der Modellobserver prüft bei Hits den wirklich berechneten Suffix;
+die vollständigen logischen IDs und der gespeicherte Präfix werden separat belegt.
+
+Kein Diskcache; höchstens zwei Einträge,1GiB Managerbudget,16er-Blöcke und
+expliziter gebundener Jobnamespace. Nach jedem Request müssen ausschließlich
+1968er-Systemsnapshots vorhanden sein; Nutzer-/Antworttails sind verboten.
+Guard und Generator werden im finally wiederhergestellt/geschlossen. Die
+bestehenden Ressourcenlimits,900s-Workergrenze und Original35B-Restore gelten.
+
+TTFT und Gesamtzeit enthalten Cachelookup/Restore, Grammar, Decode und Parse.
+Managerbau/-inspektion außerhalb des ursprünglichen Requesttimers werden
+separat ausgewiesen. Library-Prompt-TPS zählen wiederverwendete Tokens mit
+und sind kein physischer Prefilldurchsatz. OutputIDs, Längen, Stop/JSON und
+gepaarte Differenzen bleiben sichtbar; veränderte oder kürzere Antworten sind
+kein Nachweis gleicher Qualität oder eines entsprechenden Engine-Speedups.
+Keine Trainings-, Host-, Produktions- oder universelle Maximumfreigabe.
+
 ## Begrenzte Speicherdiagnose nach technischem Pilotabbruch
 
 Der neue Plan `NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1` erweitert ausschließlich
