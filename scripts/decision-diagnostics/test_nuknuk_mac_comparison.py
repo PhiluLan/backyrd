@@ -145,6 +145,20 @@ class EvaluationOrigin(unittest.TestCase):
    with self.assertRaisesRegex(ValueError,'bundle_changed'):m.catalog_training_origin(spec,original,{'evaluationOnly':True})
 
 class RecallProbeChecks(unittest.TestCase):
+ def test_native_http_request_disables_thinking_without_server_default(self):
+  import io
+  with tempfile.TemporaryDirectory()as tmp:
+   root=Path(tmp);adapter=root/'adapter';adapter.mkdir();(adapter/'adapters.safetensors').write_bytes(b'weights');(adapter/'adapter_config.json').write_text('{}')
+   requests=root/'requests.json';requests.write_text(json.dumps({'cases':[{'id':'case','query':'Kaffee','inputHash':'input','messages':[{'role':'user','content':'Kaffee'}],'outputSchema':{}}]}));prefix=root/'prefix.json';prefix.write_text(json.dumps({'cases':[{'id':'case','prefixTokens':10}]}));spec=root/'spec.json';spec.write_text(json.dumps({'caseIds':['case'],'files':{k:{'path':str(p),'sha256':m.sha(p)}for k,p in [('developmentRequests',requests),('preflight',prefix)]}}))
+   cfg={'deadline':time.time()+1200,'candidateMlxSha256':m.sha(adapter/'adapters.safetensors'),'controllerSourceSha256':m.sha(Path(m.__file__)),'catalogComparison':{'spec':str(spec),'specSha256':m.sha(spec),'candidate':{'model':'test-model','adapter':str(adapter)},'candidateConfigSha256':m.sha(adapter/'adapter_config.json')}};(root/'session.json').write_text(json.dumps(cfg));captured=[]
+   def server(request,**kwargs):
+    body=json.loads(request.data);captured.append(body)
+    # The installed local API reads top-level enable_thinking; an omitted
+    # value falls back to the server environment, which may be enabled.
+    if body.get('enable_thinking',True):raise ValueError('server_default_enabled_thinking')
+    return io.BytesIO(json.dumps({'model':'test-model','choices':[{'finish_reason':'stop','message':{'content':'{"meaning":{"facts":[]}}'}}]}).encode())
+   with patch.object(m,'identity',return_value=True),patch.object(m.urllib.request,'urlopen',side_effect=server):m.infer_catalog(root,'candidate')
+   self.assertEqual(len(captured),1);self.assertNotIn('chat_template_kwargs',captured[0]);self.assertEqual(json.loads((root/'candidate-native-summary.json').read_text())['generated'],1)
  def fixture(self,root):
   rows=[];plan=[];training=[]
   for i in range(20):

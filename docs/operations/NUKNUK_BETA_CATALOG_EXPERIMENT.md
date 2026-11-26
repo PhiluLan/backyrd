@@ -272,3 +272,9 @@ protokolliert jeden Probe-Status und wartet begrenzt auf den unverändert geford
 401-Status. Keine Cloud-Allokation, kein Training, keine Candidate-Aktivierung.
 Mac-Ergebnisse beweisen keine numerische HF-/MLX-Parität oder Ursache eines
 früheren GPU-Lernfehlers. Ein unvollständiger Lauf bleibt ausdrücklich unvollständig.
+
+Die lokalen HTTP-Diagnoseclients setzen den von der installierten MLX-VLM-API
+unterstützten Top-Level-Schalter `enable_thinking: false` ausdrücklich. Die dort
+ignorierte verschachtelte Option `chat_template_kwargs` ist keine Absicherung
+gegen einen geänderten Serverdefault. Historische False-Prefixe bleiben eigene
+Ausführungsbelege; die Korrektur begründet keinen nachträglichen Modell-Erfolgsnachweis.

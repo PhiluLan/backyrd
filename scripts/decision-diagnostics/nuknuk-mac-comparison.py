@@ -257,7 +257,7 @@ def infer_catalog(root,label):
         record={'id':case_id,'attempt':1,'adapterSha256':expected,'query':req['query'],'inputHash':req['inputHash']};started=time.monotonic()
         with (folder/(case_id+'.started')).open('x')as f:json.dump({'requestSha256':hashlib.sha256(json.dumps(req,sort_keys=True).encode()).hexdigest()},f)
         try:
-            body={'model':model['model'],'messages':req['messages'],'temperature':0,'max_tokens':min(2048,5120-prefixes[case_id]),'stream':False,'chat_template_kwargs':{'enable_thinking':False},'response_format':{'type':'json_schema','json_schema':{'name':'nuknuk_compact_search','strict':True,'schema':req['outputSchema']}}}
+            body={'model':model['model'],'messages':req['messages'],'temperature':0,'max_tokens':min(2048,5120-prefixes[case_id]),'stream':False,'enable_thinking':False,'response_format':{'type':'json_schema','json_schema':{'name':'nuknuk_compact_search','strict':True,'schema':req['outputSchema']}}}
             if body['max_tokens']<1:raise ValueError('native_context_budget_invalid')
             with urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8089/v1/chat/completions',data=json.dumps(body).encode(),headers={'Content-Type':'application/json'}),timeout=60)as response:value=json.load(response)
             if value.get('model')!=model['model']:raise ValueError('native_response_model_changed')
