@@ -278,3 +278,20 @@ unterstützten Top-Level-Schalter `enable_thinking: false` ausdrücklich. Die do
 ignorierte verschachtelte Option `chat_template_kwargs` ist keine Absicherung
 gegen einen geänderten Serverdefault. Historische False-Prefixe bleiben eigene
 Ausführungsbelege; die Korrektur begründet keinen nachträglichen Modell-Erfolgsnachweis.
+
+### Paired HF runtime recall diagnostic (2026-11-26)
+
+FAST_PR, offline tooling only. An explicit `--evaluate-only --paired-diagnostic`
+mode reuses the existing cost/account/ownership/watchdog/removal controller.
+It generates exactly seven frozen, previously failed TRAIN-recall inputs on
+both secured HF adapters (14 first attempts). The packet remains
+`RECALL_TRANSFER`: it is neither fresh holdout evidence nor a general accuracy
+estimate. No optimizer invocation, DEV/TEST suite, model selection, production
+activation, or Mac Live interruption is permitted. The original cumulative
+USD50 campaign ceiling and USD5 closing reserve remain binding.
+
+The evaluator records actual generation prefix token IDs and validates all 80
+loaded adapter tensors against the uploaded safetensors plus effective rank,
+alpha, scale, activation and merge state for all 40 LoRA modules. Observation
+adds no changes to the existing NF4 loading or constrained greedy generation.
+Historical Mac outputs and training-origin receipts remain immutable.

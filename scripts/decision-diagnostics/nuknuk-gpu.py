@@ -537,6 +537,7 @@ def generate_structured_batch(state, batch, max_seconds=240, max_output_tokens=2
             return scores.masked_fill(~allowed,float('-inf'))
     prefixes = [tokenizer.apply_chat_template(r['messages'], tokenize=True, add_generation_prompt=True,
                 enable_thinking=False, return_dict=False) for r in batch]
+    if 'prefix_observer' in state:state['prefix_observer'](prefixes)
     product = state['boundary'].get('profile') in ('PRODUCT_SEARCH_V7_CONTINUATION_V1','PRODUCT_SEARCH_V7_BETA_CONTINUATION_V1','PRODUCT_SEARCH_V7_BETA_REMEDIATION_V2','PRODUCT_SEARCH_V7_BETA_CATALOG_V2')
     maximum_prefix = state['boundary'].get('maxTotalTokens', 4608) if product else 4096
     if product and maximum_prefix not in (4608, 5120):
@@ -1427,12 +1428,47 @@ def validate_beta_selection(selection, source_manifest, manifest, bundle_hash, a
         raise ValueError('beta_eval_selection_not_bound')
 
 
+def validate_paired_diagnostic(path,approval,manifest,adapter_sha256):
+    packet=json.loads(path.read_text())
+    expected=['recall-'+str(i).zfill(2)+'-exact-train' for i in [5,6,7,10,12,14,15]]
+    if (file_sha(path)!=approval.get('pairedDiagnosticSha256') or approval.get('evaluationOnly')is not True
+        or packet.get('kind')!='PAIRED_RUNTIME_RECALL_DIAGNOSTIC' or packet.get('targetIncluded')is not False
+        or packet.get('freshHoldout')is not False or packet.get('requestedHfCalls')!=14
+        or packet.get('split')!='RECALL_TRANSFER' or packet.get('parentAdapterSha256')!=manifest['parent']['hfAdapterSha256']
+        or packet.get('candidateAdapterSha256')!=approval.get('evaluationCandidateSha256')
+        or adapter_sha256 not in [packet.get('parentAdapterSha256'),packet.get('candidateAdapterSha256')]
+        or [r.get('id')for r in packet.get('cases',[])]!=expected):raise ValueError('paired_diagnostic_binding_invalid')
+    keys={'id','split','task','locale','query','reference','messages','inputHash','promptHash','outputSchema'}
+    if any(set(r)!=keys or r['split']!='RECALL_TRANSFER' or [m['role']for m in r['messages']]!=['system','user']for r in packet['cases']):raise ValueError('paired_diagnostic_target_free_roster_required')
+    return packet
+
+
+def paired_loaded_adapter_receipt(model,adapter):
+    # Inspect effective installed tensors; observations never change model parameters.
+    from peft import get_peft_model_state_dict
+    from safetensors.torch import load_file
+    loaded=get_peft_model_state_dict(model);saved=load_file(str(adapter/'adapter_model.safetensors'))
+    if set(loaded)!=set(saved) or len(saved)!=80:raise ValueError('paired_effective_adapter_keys_changed')
+    def tensor_hash(tensor):
+        return hashlib.sha256(tensor.detach().cpu().contiguous().view(__import__('torch').uint8).numpy().tobytes()).hexdigest()
+    tensors={key:{'loadedSha256':tensor_hash(loaded[key]),'savedSha256':tensor_hash(saved[key]),'shape':list(loaded[key].shape),'dtype':str(loaded[key].dtype)}for key in sorted(saved)}
+    if any(v['loadedSha256']!=v['savedSha256']for v in tensors.values()):raise ValueError('paired_effective_adapter_tensor_changed')
+    scales={name:{'rank':module.r['default'],'alpha':module.lora_alpha['default'],'scale':float(module.scaling['default']),'active':list(module.active_adapters),'disabled':module.disable_adapters,'merged':module.merged}for name,module in model.named_modules()if hasattr(module,'lora_A')and 'default'in module.lora_A}
+    if len(scales)!=40 or any(v!={'rank':16,'alpha':32,'scale':2.0,'active':['default'],'disabled':False,'merged':False}for v in scales.values()):raise ValueError('paired_effective_adapter_scale_changed')
+    return {'tensorCount':len(tensors),'moduleCount':len(scales),'tensors':tensors,'modules':scales,'allEffectiveTensorsEqualSaved':True,'trainingExecuted':False}
+
+
 def evaluate_beta_catalog(args):
     folder=args.bundle.resolve(strict=True);manifest=verify_product_gpu_bundle(folder)
     split=args.split
     approval=beta_execution_admission(folder,manifest,args.execution_approval)
     if args.output.exists() or file_sha(args.adapter/'adapter_model.safetensors')!=args.adapter_sha256:raise ValueError('beta_eval_output_or_adapter_invalid')
-    if split=='TEST':
+    diagnostic=split=='RECALL_TRANSFER'
+    if diagnostic:
+        if args.requests is None or getattr(args,'resume',None)is not None:raise ValueError('paired_diagnostic_requests_no_resume_required')
+        validate_paired_diagnostic(args.requests,approval,manifest,args.adapter_sha256)
+        packet_path=args.requests
+    elif split=='TEST':
         if args.requests is None or args.selection_receipt is None:raise ValueError('beta_eval_test_requires_frozen_selection')
         selection=json.loads(args.selection_receipt.read_text())
         source_manifest=json.loads((folder/'catalog-manifest.json').read_text())
@@ -1443,7 +1479,7 @@ def evaluate_beta_catalog(args):
         packet_path=folder/'development-requests.json'
     packet=json.loads(packet_path.read_text());requests=packet['cases']
     source=json.loads((folder/'catalog-manifest.json').read_text())
-    if (packet.get('targetIncluded') is not False or packet.get('split')!=split or len(requests)!=source['counts'][split]
+    if (packet.get('targetIncluded') is not False or packet.get('split')!=split or len(requests)!=(7 if diagnostic else source['counts'][split])
         or len({r['id']for r in requests})!=len(requests)
         or any(r['split']!=split or 'expected'in r or 'finalMeaning'in r or [m['role']for m in r['messages']]!=['system','user']for r in requests)):
         raise ValueError('beta_eval_target_free_roster_required')
@@ -1473,14 +1509,25 @@ def evaluate_beta_catalog(args):
     model=AutoModelForImageTextToText.from_pretrained(base,local_files_only=True,trust_remote_code=False,use_safetensors=True,dtype=torch.bfloat16,device_map={'':0},attn_implementation='sdpa',quantization_config=BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_quant_type='nf4',bnb_4bit_use_double_quant=True,bnb_4bit_compute_dtype=torch.bfloat16))
     model=PeftModel.from_pretrained(model,args.adapter,is_trainable=False);model.requires_grad_(False);model.eval();model.config.use_cache=True
     state={'model':model,'tokenizer':tokenizer,'ll_tokenizer':from_tokenizer(tokenizer),'boundary':{'profile':BETA_CATALOG_PROFILE,'maxTotalTokens':5120}}
+    if diagnostic:
+        write_json(args.output/'effective-adapter.json',paired_loaded_adapter_receipt(model,args.adapter))
+        write_json(args.output/'runtime.json',{'versions':{name:importlib.metadata.version(name)for name in ['torch','transformers','peft','axolotl','tokenizers','llguidance','bitsandbytes']},'gpu':subprocess.check_output(['nvidia-smi','--query-gpu=name','--format=csv,noheader'],text=True,timeout=10).strip(),'base':manifest['parent']['trainingBase'],'inferenceContractSha256':catalog_inference_contract(Path(__file__).read_text()),'quantization':'bnb NF4 double-quant bf16','temperature':0,'maxOutputTokens':2048,'maxTotalTokens':5120,'perRequestSeconds':90})
     compiler=llguidance.JsonCompiler(separators=(', ',': '),whitespace_pattern='');records=[]
     for row in requests:
         beta_execution_admission(folder,manifest,args.execution_approval)
         if row['id']in cached:
             record=cached[row['id']];write_json(args.output/(row['id']+'.json'),record);records.append(record);continue
+        prefix_receipt={}
+        if diagnostic:
+            def observe(prefixes):
+                if len(prefixes)!=1:raise ValueError('paired_diagnostic_single_prefix_required')
+                prefix_receipt.update(tokenIds=prefixes[0],sha256=hashlib.sha256(json.dumps(prefixes[0],separators=(',',':')).encode()).hexdigest(),enableThinking=False,actualGenerationPrefix=True)
+                write_json(args.output/(row['id']+'.prefix.json'),prefix_receipt)
+            state['prefix_observer']=observe
         try:generated=generate_structured(state,row['messages'],compiler.compile(json.dumps(row['outputSchema'])),max_seconds=90,max_output_tokens=2048)
         except Exception as error:generated={'status':'PROVIDER_ERROR','errorType':type(error).__name__,'raw':None}
-        record={k:row[k]for k in ['id','task','promptHash','inputHash','schemaHash']};record.update(generated,attempt=1)
+        record={k:row[k]for k in ['id','task','promptHash','inputHash']};record['schemaHash']=row.get('schemaHash')or hashlib.sha256(json.dumps(row['outputSchema'],sort_keys=True,separators=(',',':')).encode()).hexdigest();record.update(generated,attempt=1)
+        if diagnostic:record['generationPrefixSha256']=prefix_receipt.get('sha256')
         write_json(args.output/(row['id']+'.json'),record);records.append(record)
     if file_sha(args.adapter/'adapter_model.safetensors')!=args.adapter_sha256:raise ValueError('beta_eval_adapter_mutated')
     write_json(args.output/'result.json',{'version':'backyrd.nuknuk-beta-inference-results@1','datasetHash':manifest['datasetHash'],'bundleManifestSha256':file_sha(folder/'product-gpu-manifest.json'),'adapterSha256':args.adapter_sha256,'split':split,'requestPacketSha256':file_sha(packet_path),'caseCount':len(records),'cases':records,'reusedCases':len(cached),'firstAttemptOnly':True,'trainingExecuted':False,'modelEvaluated':True,'productionActivation':False})
@@ -1603,7 +1650,7 @@ if __name__ == "__main__":
         if product_command in ('product-train','product-evaluate','product-smoke'):
             product_parser.add_argument('--execution-approval',type=Path)
         if product_command=='product-evaluate':
-            product_parser.add_argument('--split',choices=['DEV','TEST'],default='DEV')
+            product_parser.add_argument('--split',choices=['DEV','TEST','RECALL_TRANSFER'],default='DEV')
             product_parser.add_argument('--requests',type=Path)
             product_parser.add_argument('--resume',type=Path)
             product_parser.add_argument('--selection-receipt',type=Path)

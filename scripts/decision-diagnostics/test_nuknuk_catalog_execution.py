@@ -6,6 +6,20 @@ from types import SimpleNamespace
 from unittest.mock import patch,Mock
 spec=importlib.util.spec_from_file_location('ctl',Path(__file__).with_name('nuknuk-beta-run.py'));ctl=importlib.util.module_from_spec(spec);spec.loader.exec_module(ctl)
 class Contracts(unittest.TestCase):
+ def test_paired_runtime_script_performs_only_fourteen_selected_generations(self):
+  script=ctl.catalog_paired_startup_script({'parent':{'hfAdapterSha256':'a'*64}},'b'*64,'runtime.whl')
+  self.assertEqual(script.count(' product-evaluate '),2)
+  self.assertEqual(script.count('--split RECALL_TRANSFER'),2)
+  self.assertNotIn(' product-train ',script);self.assertNotIn('--split TEST',script)
+  self.assertNotIn('--resume ',script);self.assertNotIn('timeout ',script)
+  self.assertLess(script.index('product-smoke'),script.index('product-evaluate'))
+ def test_paired_runtime_packet_must_be_explicitly_authorized(self):
+  with tempfile.TemporaryDirectory()as tmp:
+   root=Path(tmp);bundle=root/'bundle';bundle.mkdir();(bundle/'product-gpu-manifest.json').write_text('{}');packet=root/'packet.json';packet.write_text('{}');auth=root/'auth.json'
+   value={'executionAuthorized':True,'totalCeilingUsd':50,'limitPolicy':'COST_ONLY_50_USD','autoPay':False,'productionActivation':False,'bundleManifestSha256':ctl.digest(b'{}'),'evaluationOnly':True,'pairedDiagnosticSha256':ctl.digest(b'{}')};auth.write_text(json.dumps(value))
+   args=SimpleNamespace(bundle=bundle,execution_authorization=auth,evaluate_only=True,paired_diagnostic=packet);ctl.catalog_authority(args)
+   packet.write_text('changed')
+   with self.assertRaisesRegex(ValueError,'paired_diagnostic_authority'):ctl.catalog_authority(args)
  def test_deadline_is_only_cost_derived_and_exceeds_six_hours(self):
   end=ctl.catalog_budget(100,0,2.9)
   self.assertAlmostEqual(end,100+45/2.9*3600);self.assertGreater(end-100,21600)

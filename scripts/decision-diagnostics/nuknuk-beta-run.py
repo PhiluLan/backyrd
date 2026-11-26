@@ -698,6 +698,8 @@ def catalog_authority(args):
         or value.get('bundleManifestSha256')!=digest((args.bundle/'product-gpu-manifest.json').read_bytes())):
         raise ValueError('catalog_explicit_current_authority_required')
     if value.get('evaluationOnly',False)!=bool(getattr(args,'evaluate_only',False)):raise ValueError('catalog_evaluation_mode_authority_required')
+    diagnostic=getattr(args,'paired_diagnostic',None)
+    if bool(diagnostic)!=bool(value.get('pairedDiagnosticSha256')) or (diagnostic and (not getattr(args,'evaluate_only',False) or digest(diagnostic.read_bytes())!=value['pairedDiagnosticSha256'])):raise ValueError('catalog_paired_diagnostic_authority_required')
     return value
 
 
@@ -875,6 +877,16 @@ def catalog_evaluation_startup_script(manifest,wheel_sha,wheel_name):
     return script
 
 
+def catalog_paired_startup_script(manifest,wheel_sha,wheel_name):
+    # Reuse preparation/framework gates; replace all DEV/train commands explicitly.
+    script=catalog_startup_script(manifest,wheel_sha,wheel_name)
+    lines=[line for line in script.splitlines() if ' product-train ' not in line and ' product-evaluate ' not in line and not line.startswith('CANDIDATE=') and line!='touch COMPLETE']
+    for adapter,sha,output in [('job/seed',manifest['parent']['hfAdapterSha256'],'parent-development'),('output','CANDIDATE','candidate-development')]:
+        lines.append('"$PY" job/nuknuk-gpu.py product-evaluate --bundle job --adapter '+adapter+' --adapter-sha256 '+sha+' --output '+output+' --split RECALL_TRANSFER --requests paired-diagnostic.json --execution-approval execution-approval.json')
+    lines.append('touch COMPLETE')
+    return '\n'.join(lines)+'\n'
+
+
 def catalog_candidate_payload(args,manifest,authority):
     source=getattr(args,'candidate_source',None);result_path=getattr(args,'candidate_result',None)
     if source is None or result_path is None:raise ValueError('catalog_completed_candidate_inputs_required')
@@ -952,16 +964,21 @@ def catalog_run(args,folder):
         if authority.get('parentResumeCaseIdsSha256')!=resume_value['binding'].get('caseIdsSha256')or authority.get('parentResumeCaseCount')!=resume_value['binding'].get('caseCount')or authority.get('parentResumeFailedFirstAttemptCount')!=resume_value['binding'].get('failedFirstAttemptCount'):raise ValueError('catalog_resume_roster_not_authorized')
         packet=json.loads((args.bundle/'development-requests.json').read_text())
         gpu.catalog_resume_records(resume_path,manifest,args.bundle/'development-requests.json',packet['cases'],manifest['parent']['hfAdapterSha256'])
+    diagnostic=getattr(args,'paired_diagnostic',None)
     evaluation_only=bool(getattr(args,'evaluate_only',False));candidate_payload=None
+    if diagnostic:
+        gpu.validate_paired_diagnostic(diagnostic,authority,manifest,authority['evaluationCandidateSha256'])
+        if resume_path is not None or getattr(args,'resume_candidate',None)is not None:raise ValueError('catalog_paired_diagnostic_no_resume')
     if evaluation_only:
-        if resume_path is None or getattr(args,'resume_candidate',None)is None:raise ValueError('catalog_evaluation_both_resume_receipts_required')
+        if not diagnostic and (resume_path is None or getattr(args,'resume_candidate',None)is None):raise ValueError('catalog_evaluation_both_resume_receipts_required')
         candidate_payload=catalog_candidate_payload(args,manifest,authority)
-        candidate_resume=args.resume_candidate
-        if digest(candidate_resume.read_bytes())!=authority.get('candidateResumeSha256'):raise ValueError('catalog_candidate_resume_not_authorized')
-        candidate_value=json.loads(candidate_resume.read_text())
-        if candidate_value.get('sourceComponent')!='candidate-development':raise ValueError('catalog_candidate_resume_component_required')
-        packet=json.loads((args.bundle/'development-requests.json').read_text())
-        gpu.catalog_resume_records(candidate_resume,manifest,args.bundle/'development-requests.json',packet['cases'],authority['evaluationCandidateSha256'])
+        if not diagnostic:
+            candidate_resume=args.resume_candidate
+            if digest(candidate_resume.read_bytes())!=authority.get('candidateResumeSha256'):raise ValueError('catalog_candidate_resume_not_authorized')
+            candidate_value=json.loads(candidate_resume.read_text())
+            if candidate_value.get('sourceComponent')!='candidate-development':raise ValueError('catalog_candidate_resume_component_required')
+            packet=json.loads((args.bundle/'development-requests.json').read_text())
+            gpu.catalog_resume_records(candidate_resume,manifest,args.bundle/'development-requests.json',packet['cases'],authority['evaluationCandidateSha256'])
     payload=package(args.bundle,manifest)
     initial,account=catalog_account(args);catalog_validate_idle(initial,account,50-campaign_prior)
     if campaign_initial is not None:
@@ -1037,7 +1054,9 @@ def catalog_run(args,folder):
                 diagnostic_process=subprocess.Popen([*ssh,'tail -n +1 -F /tmp/backyrd-guard.log'],stdin=subprocess.DEVNULL,stdout=diagnostics,stderr=errors,start_new_session=True)
             approval={'executionAuthorized':True,'bundleManifestSha256':digest((args.bundle/'product-gpu-manifest.json').read_bytes()),'parentAdapterSha256':manifest['parent']['hfAdapterSha256'],'autoPay':False,'ownedPods':1,'totalCeilingUsd':50,'reserveUsd':5,'startedEpoch':started,'deadlineEpoch':deadline,'observedSpentUsd':prior,'allInHourlyRateUsd':rate,'storageAllowanceUsd':0,'watchdogHeartbeatPath':'/tmp/backyrd-guard.ready','podId':pid,'accountId':account_meta['id'],'campaignId':authority.get('campaignId'),'campaignInitialBalanceUsd':initial['balanceAmount'],'campaignPriorCostUsd':prior,'priorReceiptHashes':[r['stateSha256']for r in authority.get('priorAttempts',[])],'storageHourlyUsd':storage_rate,'storageTariffSha256':digest(args.storage_tariff.read_bytes()),'limitPolicy':'COST_ONLY_50_USD','launchedImage':detail['image'],'providerRuntimeLimit':None}
             if resume_path is not None:approval['parentResumeSha256']=authority['parentResumeSha256']
-            if evaluation_only:approval.update(evaluationOnly=True,evaluationCandidateSha256=authority['evaluationCandidateSha256'],candidateResumeSha256=authority['candidateResumeSha256'])
+            if evaluation_only:approval.update(evaluationOnly=True,evaluationCandidateSha256=authority['evaluationCandidateSha256'])
+            if diagnostic:approval.update(pairedDiagnosticSha256=authority['pairedDiagnosticSha256'])
+            elif evaluation_only:approval.update(candidateResumeSha256=authority['candidateResumeSha256'])
             ap=folder/'execution-approval.json';ap.write_text(json.dumps(approval,indent=2)+'\n');ap.chmod(0o600)
             ssh_call(ssh,'mkdir -p '+REMOTE,20);catalog_upload_json(ssh,'execution-approval.json',ap)
             ssh_call(ssh,'cat > '+REMOTE+'/input.tgz',90,payload)
@@ -1046,12 +1065,14 @@ def catalog_run(args,folder):
             ssh_call(ssh,'cat > '+REMOTE+'/'+args.llguidance_wheel.name,60,args.llguidance_wheel.read_bytes())
             if resume_path is not None:catalog_upload_json(ssh,'parent-resume.json',resume_path)
             if evaluation_only:
-                catalog_upload_json(ssh,'candidate-resume.json',args.resume_candidate)
+                if diagnostic:catalog_upload_json(ssh,'paired-diagnostic.json',diagnostic)
+                else:catalog_upload_json(ssh,'candidate-resume.json',args.resume_candidate)
                 ssh_call(ssh,'cat > '+REMOTE+'/secured-candidate.tgz',90,candidate_payload)
                 unpack_candidate="import hashlib,tarfile,pathlib;p=pathlib.Path("+repr(REMOTE+'/secured-candidate.tgz')+");assert hashlib.sha256(p.read_bytes()).hexdigest()=="+repr(digest(candidate_payload))+";tarfile.open(p).extractall("+repr(REMOTE)+",filter='data')"
                 ssh_call(ssh,PY+' -c '+shlex.quote(unpack_candidate),45)
             save(folder,'DEVELOPMENT',providerRequestedImageVerified=True,resolvedRuntimeImageDigestVerified=False,providerRuntimeExpiryConfigured=False)
             startup=catalog_evaluation_startup_script(manifest,authority['llguidanceWheelSha256'],args.llguidance_wheel.name)if evaluation_only else catalog_startup_script(manifest,authority['llguidanceWheelSha256'],args.llguidance_wheel.name,resume_path is not None)
+            if diagnostic:startup=catalog_paired_startup_script(manifest,authority['llguidanceWheelSha256'],args.llguidance_wheel.name).replace('CANDIDATE',authority['evaluationCandidateSha256'])
             process_id=catalog_launch(ssh,startup,'development');save(folder,'DEVELOPMENT',remoteProcessId=process_id)
             target=catalog_monitor(args,folder,ssh,'development')
             trained=json.loads((target/'training-receipts/result.json').read_text());adapter=target/'output/adapter_model.safetensors'
@@ -1059,6 +1080,12 @@ def catalog_run(args,folder):
                 raise ValueError('catalog_completed_candidate_not_bound')
             if evaluation_only and (digest((target/'training-receipts/result.json').read_bytes())!=authority['completedTrainingResultSha256']or trained['adapterSha256']!=authority['evaluationCandidateSha256']):raise ValueError('catalog_evaluation_candidate_changed_after_upload')
             save(folder,'TRAINED_SECURED',candidateSha256=trained['adapterSha256'],results=str(target))
+            if diagnostic:
+                for component,sha in [('parent-development',manifest['parent']['hfAdapterSha256']),('candidate-development',authority['evaluationCandidateSha256'])]:
+                    result=json.loads((target/component/'result.json').read_text())
+                    if result.get('split')!='RECALL_TRANSFER' or result.get('caseCount')!=7 or result.get('adapterSha256')!=sha or result.get('requestPacketSha256')!=authority['pairedDiagnosticSha256'] or result.get('reusedCases')!=0:raise ValueError('catalog_paired_results_not_bound')
+                save(folder,'PAIRED_DIAGNOSTIC_SECURED',results=str(target),newTraining=False,testExecuted=False,diagnosticCalls=14)
+                break
             comparison=catalog_compare(args,folder,target,'DEV')
             if comparison['comparison']['passed'] or (source.get('catalogVariant')=='understanding-correction-v1' and comparison['comparison'].get('testExecutionPermitted') is True):
                 frozen=folder/'dev-comparison.json.selection.json';catalog_upload_json(ssh,'frozen-selection.json',frozen);catalog_upload_json(ssh,'test-inference-inputs.json',test)
@@ -1116,6 +1143,7 @@ if __name__=='__main__':
     parser.add_argument('--catalog-package',type=Path)
     parser.add_argument('--resume-parent',type=Path)
     parser.add_argument('--evaluate-only',action='store_true')
+    parser.add_argument('--paired-diagnostic',type=Path)
     parser.add_argument('--candidate-source',type=Path)
     parser.add_argument('--candidate-result',type=Path)
     parser.add_argument('--resume-candidate',type=Path)

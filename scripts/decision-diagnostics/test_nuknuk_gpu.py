@@ -338,5 +338,23 @@ class GpuPreparationTests(unittest.TestCase):
             gpu.consume_generated(matcher, [99], 0)
 
 
+class PairedDiagnosticTests(unittest.TestCase):
+    def test_training_recall_cannot_be_relabeled_holdout_or_expanded_or_include_targets(self):
+        from copy import deepcopy
+        rows=[{'id':'recall-'+str(i).zfill(2)+'-exact-train','split':'RECALL_TRANSFER','task':'parse','locale':'de','query':'test','reference':{},'messages':[{'role':'system','content':'x'},{'role':'user','content':'y'}],'inputHash':'i','promptHash':'p','outputSchema':{}}for i in [5,6,7,10,12,14,15]]
+        packet={'kind':'PAIRED_RUNTIME_RECALL_DIAGNOSTIC','targetIncluded':False,'freshHoldout':False,'requestedHfCalls':14,'split':'RECALL_TRANSFER','parentAdapterSha256':'p','candidateAdapterSha256':'c','cases':rows}
+        with tempfile.TemporaryDirectory()as tmp:
+            path=Path(tmp)/'packet.json'
+            def check(value):
+                path.write_text(json.dumps(value));approval={'evaluationOnly':True,'pairedDiagnosticSha256':hashlib.sha256(path.read_bytes()).hexdigest(),'evaluationCandidateSha256':'c'}
+                return gpu.validate_paired_diagnostic(path,approval,{'parent':{'hfAdapterSha256':'p'}},'c')
+            check(packet)
+            for key,value in [('freshHoldout',True),('targetIncluded',True),('requestedHfCalls',16),('split','TEST')]:
+                with self.assertRaises(ValueError):check({**packet,key:value})
+            bad=deepcopy(packet);bad['cases'][0]['expected']='hidden gold'
+            with self.assertRaisesRegex(ValueError,'target_free'):check(bad)
+            bad=deepcopy(packet);bad['cases'][0]['id']='replacement'
+            with self.assertRaises(ValueError):check(bad)
+
 if __name__ == '__main__':
     unittest.main()
