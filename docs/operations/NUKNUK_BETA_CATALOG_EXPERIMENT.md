@@ -585,3 +585,57 @@ It invokes no optimizer, performs zero updates and verifies all adapter bytes
 unchanged afterward. Finite gradients and measured memory establish only the
 bounded backward-path check; they are neither a full training run nor evidence
 of semantic improvement. Known recall inputs remain labeled RECALL_TRANSFER.
+
+### Native 9B Mac pilot and training ownership (2026-11-26)
+
+The founder selected the existing Qwen3.5-9B four-bit MLX base as the future
+NukNuk basis. This decision does not activate a production model. Mike's training
+thread is `01a20ec3-7029-7a90-8730-4157968f667c`; subsequent training work belongs
+there, with this pilot's manifest, receipts and independent review as the starting
+point. Diagnostics remain FAST_PR tooling; the frozen R15 inputs do not establish
+a competing Product runtime or contract.
+
+The canonical `nuknuk-train.py --native-plan PLAN --manifest-sha256 SHA` entry
+validates a bound plan without loading a model. `--execute --recipe A` additionally
+runs the explicitly admitted trial, temporarily pauses the original Live service,
+and restores that service through both finally cleanup and an independent
+watchdog. Never execute twice into an existing trial directory. Keep the
+single-model lock, 24-GiB allocator/wired guidelines, 256-MiB cache, footprint,
+swap, heartbeat and disk guards unchanged. The validated inverse VJP and bounded
+generation wired context are process-local and restored afterward; installed
+libraries are not edited.
+
+`NATIVE_MLX_9B_SMALL_LEARNING_PILOT_V1` admits exactly eight distinct TRAIN rows,
+peak learning rate 2e-5 with five warmup updates, AdamW without weight decay,
+clipping norm 1, seed 7, batch 1, full prompts and answer-only loss. Six paired
+free generations (two TRAIN and four known DEV) and twelve paired teacher-forced
+losses surround those updates. Each update commits an immutable, synchronized
+weights checkpoint; the final adapter is loaded afresh and all 64 factor values
+and 32 module scales are verified. A changed seed weights/config file refuses
+successful completion.
+
+The completed pilot source is `66b019af`; its plan SHA256 is
+`5f93ef93acde6325c1f2a2fd836e1da8e1618a6ff3dd8d79db297051f448d9f1`.
+Local operational artifacts live in
+`.local/operations/nuknuk-9b-mac-small-training-20261126/` in the
+`mobile-visual-rebrand/backyrd` workspace. `handoff.json`, `paired-summary.json`,
+`FINAL-PILOT-REVIEW.md` and `trial-A/` identify inputs, candidate, comparisons,
+resource measurements and restoration. Artifacts and model weights stay out of Git.
+
+All eight real updates completed in 316.06 seconds. All gradients were finite;
+save/reload succeeded and the original 35B service was restored healthy with
+unauthenticated public access still returning 401. TRAIN mean answer loss fell
+from 0.50563 to 0.18002 and known DEV from 0.40091 to 0.18811. Complete JSON
+responses increased from five to six out of six. These are learning/completion
+signals, not an understanding percentage: generated answers still omit temporal
+requirements and exhibit other semantic and reference defects. Assess completion,
+contract/host support and material meaning separately. No production activation
+or cloud resources resulted from this run.
+
+The current admission deliberately accepts the zero-delta seed only. Continuing
+from this learned candidate requires an explicit reviewed parent-adapter
+admission; saved step weights contain no Adam state and do not support exact
+optimizer resume. Before broader training, Mike must define representative
+situations, review gold completeness and reserve genuinely held-out semantic
+cases. Known DEV is not a fresh holdout. Additional training, cloud spending and
+Live activation are separate actions; this handoff does not start them.
