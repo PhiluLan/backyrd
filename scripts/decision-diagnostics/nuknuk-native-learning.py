@@ -24,6 +24,7 @@ import time
 ROOT = Path(__file__).resolve().parent
 MEMORY_DIAGNOSTIC_KINDS = ('NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1', 'NATIVE_MLX_GATED_DELTA_VJP_COMPARE_V1')
 GRADIENT_DIAGNOSTIC_KIND = 'NATIVE_MLX_FULL_GRADIENT_DIAGNOSTIC_V1'
+SPEED_DIAGNOSTIC_KIND = 'NATIVE_MLX_SPEED_DIAGNOSTIC_V1'
 
 
 def sha(path):
@@ -56,7 +57,7 @@ def verify_plan(path, digest):
     if sha(path) != digest:
         raise ValueError('native_plan_changed')
     plan = read(path)
-    if (plan.get('kind') not in ['NATIVE_MLX_LEARNING_PILOT_V1', 'NATIVE_MLX_MODEL_CHOICE_9B_V1', GRADIENT_DIAGNOSTIC_KIND]
+    if (plan.get('kind') not in ['NATIVE_MLX_LEARNING_PILOT_V1', 'NATIVE_MLX_MODEL_CHOICE_9B_V1', GRADIENT_DIAGNOSTIC_KIND, SPEED_DIAGNOSTIC_KIND]
             or plan.get('cloudAllowed') is not False
             or plan.get('productionActivation') is not False
             or plan.get('maxTotalTokens') != 5120
@@ -105,6 +106,8 @@ def verify_plan(path, digest):
                 or not paired.get('referenceWithinTolerance') or not paired.get('referenceFinite')
                 or read(plan['files']['paired-restore']['path']).get('status') != 'HEALTHY_ORIGINAL_RESTORED'):
             raise ValueError('native_gradient_diagnostic_pair_not_passed')
+    if plan['kind'] == SPEED_DIAGNOSTIC_KIND:
+        module('nuknuk-speed-probe').verify(plan, payload)
     return plan, payload
 
 
@@ -355,6 +358,8 @@ def worker(args):
     if plan['kind'] == GRADIENT_DIAGNOSTIC_KIND:
         gradient_marker(run, 'MODEL_AND_INPUTS_VALIDATED', mlxActiveBytes=mx.get_active_memory())
         return full_gradient_diagnostic(model, encoded, payload, run, scales)
+    if plan['kind'] == SPEED_DIAGNOSTIC_KIND:
+        return module('nuknuk-speed-probe').run(model, processor, payload, encoded, plan, run, generation_prefix_observer)
     write(run / 'tokenization.json', {k: {'prefixTokens': len(p), 'targetTokens': len(t),
         'prefixSha256': hashlib.sha256(json.dumps(p, separators=(',', ':')).encode()).hexdigest()}
         for k, (p, t) in encoded.items()})
@@ -542,7 +547,7 @@ def execute(args, plan):
     session = args.native_plan.parent / ('trial-' + args.recipe)
     if session.exists():
         raise ValueError('native_trial_already_attempted')
-    diagnostic = plan.get('kind') in MEMORY_DIAGNOSTIC_KINDS or plan.get('kind') == GRADIENT_DIAGNOSTIC_KIND
+    diagnostic = plan.get('kind') in (*MEMORY_DIAGNOSTIC_KINDS, GRADIENT_DIAGNOSTIC_KIND, SPEED_DIAGNOSTIC_KIND)
     if diagnostic and args.recipe != 'A':
         raise ValueError('native_memory_diagnostic_has_no_second_recipe')
     if args.recipe == 'B':
@@ -596,7 +601,8 @@ def execute(args, plan):
             admitted = True
             os.close(start_write)
             start_write = None
-            code = process.wait(timeout=300) if plan.get('kind') == GRADIENT_DIAGNOSTIC_KIND else process.wait()
+            timeout = {GRADIENT_DIAGNOSTIC_KIND: 300, SPEED_DIAGNOSTIC_KIND: 900}.get(plan.get('kind'))
+            code = process.wait(timeout=timeout)
         if code:
             raise RuntimeError('native_guarded_worker_failed:' + str(code))
     finally:

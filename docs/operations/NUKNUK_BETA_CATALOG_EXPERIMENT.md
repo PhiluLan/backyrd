@@ -1,5 +1,33 @@
 # NukNuk – technische Überarbeitung nach Mike
 
+## Inferenzgeschwindigkeit ohne Training
+
+`NATIVE_MLX_SPEED_DIAGNOSTIC_V1` nutzt denselben verifizierten9B-ZeroAdapter,
+Ressourcenwächter und Original35B-Restore. Genau34 vorab gebundene Requests:
+128 rohe Tokens mit einem Warmup und drei Messungen; drei feste R15-Zeilen
+mit je zwei Trace-Warmups und drei gepaarten Messungen mit/ohne Grammatik;
+anschließend je zwei freie JSON-Generierungen. Warm bedeutet hier residenter
+Modell-/Kernelzustand, kein wiederverwendeter Promptcache. Maximal900s für
+den bewachten Worker;60s-Anfrageprüfung zwischen Token-Yields.
+
+Rohe128-Tokenläufe ignorieren EOS nur in ihrem begrenzten Diagnosekontext.
+Scripted Traces sind kein Modellverständnis und keine frei erzeugte Antwort.
+Ihr identischer Verlauf einschließlich EOS wird vor Wartung vom tatsächlichen
+Grammar-Matcher akzeptiert. Beide Tracekontrollen erzwingen bewusst die
+Materialisierung des Head-/optionalen Maskoutputs, damit kein unberechneter
+Lazygraph als Durchsatz gilt. Diese zusätzlichen Barrieren gelten nicht als
+Produkt-/Hardwaremaximum. Freie Antworten bleiben getrennt; length oder
+ungültiges JSON wird nicht als erfolgreiches schnelles Ergebnis aggregiert.
+
+TTFT ab Template-/Grammarvorbereitung, erster sichtbarer Text, vollständige
+Iteration/JSONvalidierung und eigene Decode-Wallrate werden getrennt erfasst.
+Library-TPS bleiben nur Zusatzwerte. Processortimer enthalten Synchronisation
+und sind keine isolierten CPUzeiten. Warmups werden bewahrt, aber nicht in
+Messmediane gemischt. Kein universeller Maximalwert aus drei Wiederholungen.
+Die tatsächliche dispatch.wired_limit-Bindung wird prozesslokal auf höchstens
+24GiB begrenzt und im finally wiederhergestellt. Keine Gewichts-/Librarydatei,
+kein Optimizer, kein automatischer Produkt- oder Trainingsrelease.
+
 ## Begrenzte Speicherdiagnose nach technischem Pilotabbruch
 
 Der neue Plan `NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1` erweitert ausschließlich
