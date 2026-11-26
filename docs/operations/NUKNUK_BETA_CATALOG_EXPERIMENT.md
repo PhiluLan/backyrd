@@ -114,7 +114,11 @@ Cache wird vor jedem Cold und vor Primer+Cached geleert. Echte Restoretokens
 müssen sichtbar und höchstens so lang wie der gemeinsame Präfix sein. Beim
 ersten Cross-Query-Miss bleibt der Miss erhalten; weitere Cachedslots werden
 ohne Modellaufruf übersprungen, die festgelegten Cold-/Tunnelmessungen bleiben.
-Kein Flagsweep oder automatischer Ersatzpod. Loopback und Netzwerklatenzen,
+Kein Flagsweep oder automatischer Ersatzpod. Ein reparierter Folgeversuch
+braucht den SHA-gebundenen REMOVED-Beleg jedes Vorgängers und übernimmt dessen
+konservative Kosten sowie das ursprüngliche Kampagnenguthaben; die5USD werden
+nie zurückgesetzt. Der Remote-Worker startet direkt mit Python-Popen und vollständig
+getrennten Deskriptoren in seiner eigenen Prozessgruppe, damit SSH sofort endet. Loopback und Netzwerklatenzen,
 Warmups, Primer, Tokenanzahl/EOS und Schema-/Semantikprüfung bleiben getrennt.
 Gewichte, synthetische Eingaben und Betriebsbelege verbleiben außerhalb Git.
 

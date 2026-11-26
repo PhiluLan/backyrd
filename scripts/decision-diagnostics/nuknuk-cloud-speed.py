@@ -29,12 +29,14 @@ def load_module(path):
     value=importlib.util.module_from_spec(spec);spec.loader.exec_module(value);return value
 
 
-def deadline(started,rate):
+def deadline(started,rate,prior=0):
     if isinstance(started,bool) or not isinstance(started,(int,float)) or not math.isfinite(started) or started<0:
         raise ValueError('speed_started_time_invalid')
     if isinstance(rate,bool) or not isinstance(rate,(int,float)) or not math.isfinite(rate) or not 0<rate<=4.5:
         raise ValueError('speed_compute_and_storage_rate_invalid')
-    return started+4/rate*3600  # 5 USD ceiling, 1 USD cleanup/billing reserve.
+    if isinstance(prior,bool)or not isinstance(prior,(int,float))or not math.isfinite(prior)or not 0<=prior<4:
+        raise ValueError('speed_prior_cost_invalid')
+    return started+(4-prior)/rate*3600  # 5 USD ceiling, 1 USD cleanup/billing reserve.
 
 
 def verify(plan_path,beta):
@@ -55,7 +57,35 @@ def verify(plan_path,beta):
             or inputs['optimizerAllowed'] is not False or inputs['productionActivation'] is not False
             or [len(c['prefixIds']) for c in inputs['cases']]!=[3988,3999,3991]):
         raise ValueError('cloud_speed_input_scope_invalid')
+    prior_cost(plan)
     return plan,worker
+
+
+def prior_cost(plan):
+    receipts=plan.get('priorAttempts',[]);cost=0;seen=set()
+    for entry in receipts:
+        path=Path(entry['stateFile']);raw=path.read_bytes()
+        if hashlib.sha256(raw).hexdigest()!=entry['stateSha256']:raise ValueError('speed_prior_state_changed')
+        state=json.loads(raw)
+        if (state.get('resourcesRemoved')is not True or state.get('phase')!='REMOVED'
+                or state.get('limitPolicy')!=POLICY or state.get('totalCeilingUsd')!=5
+                or state.get('initialBalanceUsd')!=plan.get('campaignInitialCreditUsd')
+                or state['podId']in seen):raise ValueError('speed_prior_attempt_not_secured')
+        seen.add(state['podId'])
+        cost+=max(state.get('finalObservedDebitUsd',0),max(0,state['heartbeat']-state['started'])*state['allInHourlyRateUsd']/3600)
+    prior=plan.get('priorConservativeUsd',0)
+    deadline(0,1,prior)
+    if prior<cost:raise ValueError('speed_prior_cost_reset_refused')
+    if prior and not receipts:raise ValueError('speed_prior_receipt_required')
+    return prior
+
+
+def launch_code(root):
+    # All child descriptors are disconnected from SSH; the worker itself leads
+    # the new process group, rather than a shell wrapper that outlives the call.
+    return ("import subprocess,pathlib;root=pathlib.Path("+repr(str(root))+");"
+        "log=(root/'worker.log').open('xb');p=subprocess.Popen(['python3','-B','-u',str(root/'worker.py'),'--root',str(root)],"
+        "cwd=root,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True);print(p.pid,flush=True)")
 
 
 def package(plan):
@@ -98,13 +128,15 @@ def run(args,beta):
     storage=120*.1/672;rate=cap+storage
     folder.mkdir(mode=0o700)
     worker.write(folder/'authorization.json',plan)
-    start=time.time();end=deadline(start,rate);name='backyrd-speed9b-'+uuid.uuid4().hex[:12]
+    prior=max(prior_cost(plan),plan.get('campaignInitialCreditUsd',billing['balanceAmount'])-billing['balanceAmount'])
+    campaign_credit=plan.get('campaignInitialCreditUsd',billing['balanceAmount'])
+    start=time.time();end=deadline(start,rate,prior);name='backyrd-speed9b-'+uuid.uuid4().hex[:12]
     state=beta.save(folder,'PREPARED',limitPolicy=POLICY,runName=name,podId=None,started=start,deadline=end,
-        initialBalanceUsd=billing['balanceAmount'],preexistingPodIds=[p['id']for p in account['pods']],
+        initialBalanceUsd=campaign_credit,balanceAtAllocationUsd=billing['balanceAmount'],priorConservativeUsd=prior,preexistingPodIds=[p['id']for p in account['pods']],
         allInHourlyRateUsd=rate,computeRateCap=cap,totalCeilingUsd=5,reserveUsd=1,resourcesRemoved=False,
         optimizerUpdates=0,productionActivation=False)
     worker.write(folder/'quote.json',{'gpu':choices[0],'allInHourlyRateUsd':rate,'storageHourlyUsd':storage,
-        'costDerivedDeadline':end,'noIndependentTimeLimit':True,'totalCeilingUsd':5,'reserveUsd':1,'image':IMAGE})
+        'costDerivedDeadline':end,'noIndependentTimeLimit':True,'totalCeilingUsd':5,'reserveUsd':1,'priorConservativeUsd':prior,'image':IMAGE})
     # The own-Pod guard is armed before network package installation or SSH.
     boot="python3 -u -c \"import os,base64;exec(base64.b64decode(os.environ['BACKYRD_GUARD']))\" > /tmp/backyrd-guard.log 2>&1 & "
     boot+="if ! command -v sshd >/dev/null 2>&1; then apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openssh-server; fi; "
@@ -157,8 +189,8 @@ def run(args,beta):
         beta.ssh_call(ssh,'python3 -c '+shlex.quote(unpack),30)
         authority={'podId':pid,'deadline':end,'totalCeilingUsd':5,'optimizerAllowed':False,'productionActivation':False}
         beta.ssh_call(ssh,'cat > '+REMOTE+'/authority.json',15,json.dumps(authority).encode())
-        command='cd '+REMOTE+' && nohup setsid python3 -B -u '+REMOTE+'/worker.py --root '+REMOTE+' > worker.log 2>&1 < /dev/null &'
-        beta.ssh_call(ssh,command,15)
+        worker_pid=int(beta.ssh_call(ssh,'python3 -c '+shlex.quote(launch_code(REMOTE)),30))
+        beta.save(folder,'WORKER_STARTED',remoteWorkerPid=worker_pid)
         worker.write(folder/'ssh-transport.json',{'host':host,'port':port['publicPort'],'serverApiPubliclyExposed':False})
         beta.save(folder,'BENCHMARK')
         while True:
@@ -215,7 +247,9 @@ def run(args,beta):
             beta.catalog_cleanup(args,folder)
             final=beta.rest(args.key_file,'GET','/v2/billing/balance',cleanup=True)
             beta.save(folder,'REMOVED',resourcesRemoved=True,finalBalanceUsd=final['balanceAmount'],
-                finalObservedDebitUsd=max(0,billing['balanceAmount']-final['balanceAmount']),failure=failure)
+                finalObservedDebitUsd=max(0,campaign_credit-final['balanceAmount']),
+                observedAttemptDebitUsd=max(0,billing['balanceAmount']-final['balanceAmount']),
+                conservativeTotalCostUsd=prior+max(0,time.time()-start)*rate/3600,failure=failure)
         else:beta.save(folder,'NO_ALLOCATION',resourcesRemoved=True)
         if guard and guard.poll() is None:guard.terminate()
     return json.loads((folder/'state.json').read_text())

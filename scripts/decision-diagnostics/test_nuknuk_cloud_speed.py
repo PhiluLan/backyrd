@@ -93,6 +93,36 @@ class CloudBoundaries(unittest.TestCase):
             self.assertEqual(receipt['modules']['target']['bNonzero'],0)
             self.assertEqual(receipt['rank'],16);self.assertFalse(receipt['observerChangesWeights'])
 
+    def test_remote_launcher_returns_while_its_owned_child_is_still_running(self):
+        import os,signal,subprocess,sys,time
+        with TemporaryDirectory()as tmp:
+            root=Path(tmp);(root/'worker.py').write_text('import time; time.sleep(5)')
+            started=time.monotonic();child=None
+            try:
+                result=subprocess.run([sys.executable,'-B','-c',cloud.launch_code(root)],capture_output=True,text=True,timeout=2)
+                self.assertEqual(result.returncode,0);child=int(result.stdout.strip())
+                self.assertLess(time.monotonic()-started,2)
+                self.assertEqual(os.getpgid(child),child)
+            finally:
+                if child is not None:
+                    try:os.killpg(child,signal.SIGTERM)
+                    except ProcessLookupError:pass
+
+    def test_removed_prior_attempt_cost_cannot_be_reset(self):
+        import hashlib
+        with TemporaryDirectory()as tmp:
+            path=Path(tmp)/'prior.json'
+            state={'phase':'REMOVED','resourcesRemoved':True,'limitPolicy':cloud.POLICY,'totalCeilingUsd':5,
+                'initialBalanceUsd':8.75,'podId':'old-owned','started':100,'heartbeat':206,'allInHourlyRateUsd':4.44,'finalObservedDebitUsd':0}
+            path.write_text(json.dumps(state))
+            plan={'campaignInitialCreditUsd':8.75,'priorConservativeUsd':.2,
+                'priorAttempts':[{'stateFile':str(path),'stateSha256':hashlib.sha256(path.read_bytes()).hexdigest()}]}
+            self.assertEqual(cloud.prior_cost(plan),.2)
+            self.assertAlmostEqual((cloud.deadline(0,4.44,.2))*4.44/3600,3.8)
+            with self.assertRaisesRegex(ValueError,'reset_refused'):cloud.prior_cost({**plan,'priorConservativeUsd':0})
+            state['resourcesRemoved']=False;path.write_text(json.dumps(state));plan['priorAttempts'][0]['stateSha256']=hashlib.sha256(path.read_bytes()).hexdigest()
+            with self.assertRaisesRegex(ValueError,'not_secured'):cloud.prior_cost(plan)
+
     def test_upload_path_traversal_or_changed_bytes_rejected(self):
         with self.assertRaisesRegex(ValueError,'path_invalid'):
             cloud.package({'upload':{'../secret':{'path':'unused','sha256':'unused'}}})
