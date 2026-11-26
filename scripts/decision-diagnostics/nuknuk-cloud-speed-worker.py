@@ -127,7 +127,9 @@ def reset(url):
     req=urllib.request.Request(url+'/reset_prefix_cache',method='POST')
     with urllib.request.urlopen(req,timeout=30) as response:
         value=response.read()
-    if value not in (b'true',b'True',b'null',b''): raise ValueError('cloud_speed_reset_not_confirmed')
+    result=json.loads(value)
+    if not isinstance(result,dict) or result.get('success') is not True:
+        raise ValueError('cloud_speed_reset_not_confirmed')
 
 
 def ensure_guard(root):
@@ -183,7 +185,7 @@ def run(root):
         with (root/'results/server.log').open('x') as log:
             process=subprocess.Popen(command,stdout=log,stderr=subprocess.STDOUT,env={**os.environ,
                 'PYTHONPATH':str(root/'instrumentation')+os.pathsep+os.environ.get('PYTHONPATH',''),
-                'BACKYRD_LORA_DIR':str(root/'results')})
+                'BACKYRD_LORA_DIR':str(root/'results'),'VLLM_SERVER_DEV_MODE':'1'})
         while True:
             ensure_guard(root)
             if process.poll() is not None: raise ValueError('cloud_speed_server_start_failed')

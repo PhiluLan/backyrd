@@ -123,6 +123,15 @@ class CloudBoundaries(unittest.TestCase):
             state['resourcesRemoved']=False;path.write_text(json.dumps(state));plan['priorAttempts'][0]['stateSha256']=hashlib.sha256(path.read_bytes()).hexdigest()
             with self.assertRaisesRegex(ValueError,'not_secured'):cloud.prior_cost(plan)
 
+    def test_pinned_cache_reset_requires_explicit_success_object(self):
+        from unittest.mock import MagicMock
+        for payload,success in [(b'{"success":true}',True),(b'{"success":false}',False),(b'true',False),(b'{}',False)]:
+            response=MagicMock();response.__enter__.return_value.read.return_value=payload
+            with patch.object(worker.urllib.request,'urlopen',return_value=response):
+                if success:worker.reset('http://private-test')
+                else:
+                    with self.assertRaisesRegex(ValueError,'not_confirmed'):worker.reset('http://private-test')
+
     def test_upload_path_traversal_or_changed_bytes_rejected(self):
         with self.assertRaisesRegex(ValueError,'path_invalid'):
             cloud.package({'upload':{'../secret':{'path':'unused','sha256':'unused'}}})

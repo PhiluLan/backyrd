@@ -110,7 +110,10 @@ Scaling, ZeroB und positive Adapter-ID; Requests müssen zero9b auswählen.
 Maximal22Generationen:1Warmup,6freie Cold/Cached-Paare,6andersfallige1Tokenprimer
 und3gesonderte Coldmessungen durch einen privaten SSH-Tunnel. Gleiche feste
 1024er-Prefillchunks, B1, Kontext5120, Originalschema und volle Antwortbudgets.
-Cache wird vor jedem Cold und vor Primer+Cached geleert. Echte Restoretokens
+Cache wird vor jedem Cold und vor Primer+Cached geleert. Dafür sind die
+vLLM-Entwicklungsendpunkte ausschließlich auf127.0.0.1 im isolierten Testpod
+aktiv; der Reset verlangt ausdrücklich JSON success=true. Kein öffentlicher
+Modell-/Adminport und keine Übernahme dieser Einstellung in Produktion. Echte Restoretokens
 müssen sichtbar und höchstens so lang wie der gemeinsame Präfix sein. Beim
 ersten Cross-Query-Miss bleibt der Miss erhalten; weitere Cachedslots werden
 ohne Modellaufruf übersprungen, die festgelegten Cold-/Tunnelmessungen bleiben.
