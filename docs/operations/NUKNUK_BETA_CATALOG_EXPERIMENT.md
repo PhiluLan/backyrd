@@ -86,6 +86,38 @@ sind Host-/Semantikprüfung nötig. Beide Messstufen wurden von Mike anhand
 aller Einzelreceipts unabhängig nachgerechnet; keine Aktivierung oder
 universelle Hardwareobergrenze aus diesem Kleinbenchmark ableiten.
 
+## GPU-Migrationsgeschwindigkeit mit eigener5USD-Grenze
+
+Der `speed`-Einstieg im bestehenden `nuknuk-beta-run.py` nutzt ausschließlich
+einen Secure-H100-SXM-Pod für Inferenz. Der neue autorisierte Gesamtrahmen ist
+5USD einschließlich Setup, Download, Compile, Leerlauf und120GB temporärem
+Containerdisk.1USD bleibt Reserve; die Deadline entsteht ausschließlich aus
+4USD nutzbarem Budget und dem konservativen All-in-Stundensatz. Keine erneute
+Erstellung nach mehrdeutiger Providerantwort, keine permanenten Volumes.
+REST-Quota-, Ownership-, lokale und native Budgetwächter sowie die bestätigte
+Löschung werden aus dem bisherigen Controller wiederverwendet. Der Notstopp
+erfasst die separat gestartete Speed-Prozessgruppe einschließlich vLLM.
+Andere Pods und der Mac-Live-Dienst bleiben unberührt.
+
+Festes vLLM0.34.0-Image per Digest und offizielles Qwen3.5-9B BF16 per Revision.
+Dies ist eine Migrationskonfiguration gegenüber MLX4bit, kein identischer
+Hardware-only-Vergleich. CPU-Export prüft alle64ZeroLoRA-Faktoren einschließlich
+Transposition,32Modulen, Formen, rank16/alpha32/dropout0 und unveränderten
+PromptIDs. Joblokales sitecustomize beobachtet ausschließlich den tatsächlichen
+LoRA-Ladevorgang, verändert keine Gewichte und bindet Module, Form, Dtype,
+Scaling, ZeroB und positive Adapter-ID; Requests müssen zero9b auswählen.
+
+Maximal22Generationen:1Warmup,6freie Cold/Cached-Paare,6andersfallige1Tokenprimer
+und3gesonderte Coldmessungen durch einen privaten SSH-Tunnel. Gleiche feste
+1024er-Prefillchunks, B1, Kontext5120, Originalschema und volle Antwortbudgets.
+Cache wird vor jedem Cold und vor Primer+Cached geleert. Echte Restoretokens
+müssen sichtbar und höchstens so lang wie der gemeinsame Präfix sein. Beim
+ersten Cross-Query-Miss bleibt der Miss erhalten; weitere Cachedslots werden
+ohne Modellaufruf übersprungen, die festgelegten Cold-/Tunnelmessungen bleiben.
+Kein Flagsweep oder automatischer Ersatzpod. Loopback und Netzwerklatenzen,
+Warmups, Primer, Tokenanzahl/EOS und Schema-/Semantikprüfung bleiben getrennt.
+Gewichte, synthetische Eingaben und Betriebsbelege verbleiben außerhalb Git.
+
 ## Begrenzte Speicherdiagnose nach technischem Pilotabbruch
 
 Der neue Plan `NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1` erweitert ausschließlich

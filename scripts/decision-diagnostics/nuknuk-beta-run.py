@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import signal
 import subprocess
 import sys
 import tarfile
@@ -30,6 +31,7 @@ spec=importlib.util.spec_from_file_location('watch',Path(__file__).with_name('nu
 watch=importlib.util.module_from_spec(spec);spec.loader.exec_module(watch)
 REMOTE='/workspace/backyrd-product-training'
 PY='/workspace/axolotl-venv/bin/python'
+REST_OWNED_POLICIES=('COST_ONLY_50_USD','COST_ONLY_SPEED_5_USD')
 
 
 def digest(data):return hashlib.sha256(data).hexdigest()
@@ -190,8 +192,8 @@ def retry_after_seconds(error):
 
 
 def owned(folder,key):
-    state=json.loads((folder/'state.json').read_text());rows=catalog_pods(key)if state.get('limitPolicy')=='COST_ONLY_50_USD'else watch.status(key)
-    if state.get('limitPolicy')=='COST_ONLY_50_USD'and quota_cleanup_required(REST_RATE_LIMITS):raise ValueError('catalog_rest_quota_cleanup_required')
+    state=json.loads((folder/'state.json').read_text());rows=catalog_pods(key)if state.get('limitPolicy')in REST_OWNED_POLICIES else watch.status(key)
+    if state.get('limitPolicy')in REST_OWNED_POLICIES and quota_cleanup_required(REST_RATE_LIMITS):raise ValueError('catalog_rest_quota_cleanup_required')
     matches=[row for row in rows if row['name']==state['runName'] and row['id'] not in state['preexistingPodIds']]
     if len(matches)>1:raise ValueError('ambiguous_own_allocation')
     if matches and state.get('podId') and matches[0]['id']!=state['podId']:raise ValueError('owned_identity_changed')
@@ -241,8 +243,8 @@ def legacy_guard(args):
         if state['phase'] in ['REMOVED','NO_ALLOCATION']:return
         try:
             pod=owned(args.operation,args.key_file)
-            if pod and (state.get('stopWhenDiscovered') or time.time()>state['deadline']-(0 if state.get('limitPolicy')=='COST_ONLY_50_USD' else 300) or time.time()-state['heartbeat']>120 or not 0<float(pod['costPerHr'])<=state['computeRateCap']):
-                if state.get('limitPolicy')=='COST_ONLY_50_USD':
+            if pod and (state.get('stopWhenDiscovered') or time.time()>state['deadline']-(0 if state.get('limitPolicy')in REST_OWNED_POLICIES else 300) or time.time()-state['heartbeat']>120 or not 0<float(pod['costPerHr'])<=state['computeRateCap']):
+                if state.get('limitPolicy')in REST_OWNED_POLICIES:
                     if pod is not None and not state.get('podId'):
                         save(args.operation,'LATE_ALLOCATION_DISCOVERED',podId=pod['id']);catalog_attempt_event(args.operation,'POD_DISCOVERED',runName=state['runName'],podId=pod['id'])
                     catalog_cleanup(args,args.operation)
@@ -257,7 +259,7 @@ def legacy_guard(args):
 
 
 def guard(args):
-    if json.loads((args.operation/'state.json').read_text()).get('limitPolicy')!='COST_ONLY_50_USD':return legacy_guard(args)
+    if json.loads((args.operation/'state.json').read_text()).get('limitPolicy')not in REST_OWNED_POLICIES:return legacy_guard(args)
     (args.operation/'guard.ready').write_text(str(os.getpid()))
     last_verified=time.time();next_read=0
     while True:
@@ -280,7 +282,7 @@ def guard(args):
             if error or reason:
                 catalog_attempt_event(args.operation,'LOCAL_GUARD_OBSERVATION',reason=reason,errorType=type(error).__name__ if error else None,podId=state.get('podId'),desiredStatus=pod.get('desiredStatus')if pod else None,costPerHr=pod.get('costPerHr')if pod else None)
             if reason:
-                if state.get('limitPolicy')=='COST_ONLY_50_USD':
+                if state.get('limitPolicy')in REST_OWNED_POLICIES:
                     if pod is not None and not state.get('podId'):
                         save(args.operation,'LATE_ALLOCATION_DISCOVERED',podId=pod['id']);catalog_attempt_event(args.operation,'POD_DISCOVERED',runName=state['runName'],podId=pod['id'])
                     catalog_cleanup(args,args.operation)
@@ -368,7 +370,19 @@ print(hashlib.sha256((root/'results.tgz').read_bytes()).hexdigest())'''
     return target
 
 
-NATIVE_GUARD=(inspect.getsource(rate_limits_from_headers)+'\n'+inspect.getsource(quota_cleanup_required)+'\n'+inspect.getsource(merge_rate_state)+'\n'+inspect.getsource(transient_provider_error)+'\n'+inspect.getsource(guard_stop_reason)+'\n'+r'''import os,json,time,urllib.request,urllib.error,re,math,signal,fcntl
+def stop_owned_speed_group(path,pod):
+    if path!='/tmp/backyrd-speed-owned.json':raise ValueError('speed_stop_file_not_allowlisted')
+    value=json.loads(Path(path).read_text())
+    group=value.get('processGroup')
+    if (value.get('kind')!='BACKYRD_CLOUD_SPEED_OWNED_GROUP_V1' or value.get('podId')!=pod
+        or value.get('root')!='/workspace/backyrd-cloud-speed' or isinstance(group,bool)
+        or not isinstance(group,int) or group<=1 or group==os.getpgrp()):
+        raise ValueError('speed_stop_group_identity_invalid')
+    try:os.killpg(group,signal.SIGTERM)
+    except ProcessLookupError:pass
+
+
+NATIVE_GUARD=(inspect.getsource(rate_limits_from_headers)+'\n'+inspect.getsource(quota_cleanup_required)+'\n'+inspect.getsource(merge_rate_state)+'\n'+inspect.getsource(transient_provider_error)+'\n'+inspect.getsource(guard_stop_reason)+'\n'+inspect.getsource(stop_owned_speed_group)+'\n'+r'''import os,json,time,urllib.request,urllib.error,re,math,signal,fcntl
 from pathlib import Path
 
 def native_main():
@@ -442,6 +456,10 @@ def native_main():
   time.sleep(min(30 if os.environ.get('BACKYRD_PROVIDER_API')=='REST_V2'else 10,max(0,control['deadline']-time.time())))
  Path('/tmp/backyrd-guard.failed').write_text(json.dumps({'podId':pod,'failedReason':reason,'epoch':time.time()}))
  # Stop paid work locally immediately; provider deletion must still honour cooldown.
+ if os.environ.get('BACKYRD_SPEED_GROUP_FILE'):
+  try:stop_owned_speed_group(os.environ['BACKYRD_SPEED_GROUP_FILE'],pod);event('OWNED_SPEED_GROUP_STOPPED')
+  except FileNotFoundError:pass  # No speed model may start before ownership exists.
+  except Exception as error:event('OWNED_SPEED_STOP_FAILED',errorType=type(error).__name__)
  if os.environ.get('BACKYRD_PROVIDER_API')=='REST_V2':
   for proc in Path('/proc').iterdir():
    if proc.name.isdigit():
@@ -1152,7 +1170,7 @@ touch COMPLETE
 
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('command',choices=['run','guard'])
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('command',choices=['run','guard','speed'])
     for name in ['operation','key-file','bundle','quote','quote-admission','private-key','public-key']:parser.add_argument('--'+name,type=Path,required=name in ['operation','key-file'])
     parser.add_argument('--catalog-package',type=Path)
     parser.add_argument('--resume-parent',type=Path)
@@ -1165,8 +1183,13 @@ if __name__=='__main__':
     parser.add_argument('--execution-authorization',type=Path)
     parser.add_argument('--storage-tariff',type=Path)
     parser.add_argument('--llguidance-wheel',type=Path)
+    parser.add_argument('--speed-plan',type=Path)
     args=parser.parse_args()
     if args.command=='guard':guard(args)
+    elif args.command=='speed':
+        if any(v is None for v in [args.speed_plan,args.private_key,args.public_key]):parser.error('speed plan and SSH identity required')
+        spec=importlib.util.spec_from_file_location('cloud_speed',Path(__file__).with_name('nuknuk-cloud-speed.py'));speed=importlib.util.module_from_spec(spec);spec.loader.exec_module(speed)
+        print(json.dumps(speed.run(args,sys.modules[__name__])))
     else:
         if any(getattr(args,n)is None for n in (['bundle','catalog_package','execution_authorization','private_key','public_key','storage_tariff','llguidance_wheel']if args.catalog_package else ['bundle','quote','quote_admission','private_key','public_key'])):parser.error('explicit bundle, quote and SSH identity required')
         run(args)
