@@ -421,6 +421,15 @@ def recovery_watch(fd, session):
             break
 
 
+def guarded_worker_command(args, plan, session, start_read):
+    # The guard's start-pipe admission belongs to the native entry point.
+    # Diagnostic dispatch happens only inside that admitted native worker.
+    return [plan['python'], '-B', str(ROOT / 'nuknuk-resource-guard.py'), '--receipt',
+        str(session / 'resources.json'), '--native-start-fd', str(start_read),
+        'backyrd.nuknuk-native-learning', '--native-plan', str(args.native_plan),
+        '--manifest-sha256', args.manifest_sha256, '--worker', '--recipe', args.recipe, '--session', str(session)]
+
+
 def execute(args, plan):
     comparison = module('nuknuk-mac-comparison')
     session = args.native_plan.parent / ('trial-' + args.recipe)
@@ -467,16 +476,7 @@ def execute(args, plan):
         guard = module('nuknuk-resource-guard')
         comparison.wait_until(lambda: guard.preflight_reason(guard.read_host()) is None,
                               60, 'native_host_not_ready_after_pause')
-        command = [plan['python'], '-B', str(ROOT / 'nuknuk-resource-guard.py'), '--receipt',
-            str(session / 'resources.json'), '--native-start-fd', str(start_read),
-            'backyrd.nuknuk-native-learning', '--native-plan',
-            str(args.native_plan), '--manifest-sha256', args.manifest_sha256, '--worker',
-            '--recipe', args.recipe, '--session', str(session)]
-        if diagnostic:
-            command = [plan['python'], '-B', str(ROOT / 'nuknuk-resource-guard.py'), '--receipt',
-                str(session / 'resources.json'), '--native-start-fd', str(start_read),
-                'backyrd.nuknuk-memory-probe', '--gated-plan', str(args.native_plan),
-                '--manifest-sha256', args.manifest_sha256, '--session', str(session)]
+        command = guarded_worker_command(args, plan, session, start_read)
         with (session / 'worker.log').open('x') as log:
             process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, cwd=ROOT.parents[1], pass_fds=[start_read])
             os.close(start_read)
@@ -529,6 +529,11 @@ def main():
     if args.native_plan is None or args.manifest_sha256 is None:
         raise ValueError('native_explicit_plan_required')
     if args.worker:
+        if read(args.native_plan).get('kind') == 'NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1':
+            probe = module('nuknuk-memory-probe')
+            plan = probe.verify_gated_plan(args.native_plan, args.manifest_sha256)
+            args.gated_plan = args.native_plan
+            return probe.gated_sequence(args, plan)
         return worker(args)
     if read(args.native_plan).get('kind') == 'NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1':
         plan = module('nuknuk-memory-probe').verify_gated_plan(args.native_plan, args.manifest_sha256)

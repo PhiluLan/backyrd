@@ -14,6 +14,31 @@ spec.loader.exec_module(probe)
 
 
 class GatedMemoryBoundaries(unittest.TestCase):
+    def test_diagnostic_command_uses_module_allowed_by_start_pipe(self):
+        spec = importlib.util.spec_from_file_location('native_command', Path(__file__).with_name('nuknuk-native-learning.py'))
+        native = importlib.util.module_from_spec(spec); spec.loader.exec_module(native)
+        args = SimpleNamespace(native_plan=Path('/synthetic/plan.json'), manifest_sha256='bound', recipe='A')
+        command = native.guarded_worker_command(args, {'kind': probe.GATED_KIND, 'python': 'python'}, Path('/synthetic/trial-A'), 42)
+        self.assertIn('backyrd.nuknuk-native-learning', command)
+        self.assertNotIn('backyrd.nuknuk-memory-probe', command)
+        self.assertEqual(command[command.index('--native-start-fd') + 1], '42')
+        self.assertIn('--worker', command)
+
+    def test_native_worker_dispatches_probe_after_native_guard_admission(self):
+        spec = importlib.util.spec_from_file_location('native_diagnostic', Path(__file__).with_name('nuknuk-native-learning.py'))
+        native = importlib.util.module_from_spec(spec); spec.loader.exec_module(native)
+        plan = {'kind': probe.GATED_KIND}
+        fake_probe = SimpleNamespace(verify_gated_plan=Mock(return_value=plan), gated_sequence=Mock())
+        argv = ['native', '--native-plan', '/synthetic/plan.json', '--manifest-sha256', 'bound', '--worker',
+                '--session', '/synthetic/trial-A']
+        with patch.object(native.sys, 'argv', argv), patch.object(native, 'read', return_value=plan), \
+                patch.object(native, 'module', return_value=fake_probe):
+            native.main()
+        fake_probe.verify_gated_plan.assert_called_once_with(Path('/synthetic/plan.json'), 'bound')
+        args, verified = fake_probe.gated_sequence.call_args.args
+        self.assertEqual(args.gated_plan, Path('/synthetic/plan.json'))
+        self.assertIs(verified, plan)
+
     def fixture(self, root):
         files = {}
         for name in ['probe-source', 'native-source', 'guard-source', 'comparison-source', 'gated-delta-source',
