@@ -57,7 +57,7 @@ class StreamedExportTests(unittest.TestCase):
    for name,value in arrays.items():
     raw=value.tobytes();header[name]={'dtype':'U32'if value.dtype==np.uint32 else'BF16','shape':list(value.shape),'data_offsets':[offset,offset+len(raw)]};offset+=len(raw);payload.append(raw)
    raw=json.dumps(header).encode();(source/'model.safetensors').write_bytes(struct.pack('<Q',len(raw))+raw+b''.join(payload));(source/'model.safetensors.index.json').write_text(json.dumps({'weight_map':{k:'model.safetensors'for k in arrays}}));(source/'config.json').write_text(json.dumps({'quantization':{'bits':4,'group_size':64,'mode':'affine'},'text_config':{}}));keys=['model.norm.weight','model.layers.0.linear_attn.conv1d.weight','model.layers.0.mlp.experts.gate_up_proj','model.layers.0.mlp.experts.down_proj'];out=root/'out';receipt=common.export(source,out,keys)
-   self.assertEqual(set(receipt['tensors']),set(keys));self.assertFalse(receipt['requantized']);index=json.loads((out/'model.safetensors.index.json').read_text())['weight_map']
+   self.assertEqual(set(receipt['tensors']),set(keys));self.assertFalse(receipt['requantized']);self.assertEqual(list(receipt['shards']),sorted(receipt['shards']));index=json.loads((out/'model.safetensors.index.json').read_text())['weight_map']
    def read(key):
     with(out/index[key]).open('rb')as f:n=struct.unpack('<Q',f.read(8))[0];h=json.loads(f.read(n));a,b=h[key]['data_offsets'];f.seek(8+n+a);return h[key],f.read(b-a)
    meta,raw=read('model.norm.weight');np.testing.assert_array_equal(np.frombuffer(raw,np.float32),[0,.5]);self.assertEqual(meta['dtype'],'F32')
