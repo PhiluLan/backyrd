@@ -4,15 +4,216 @@ Explicit evaluation barriers alter scheduling: results diagnose allocations,
 not throughput or semantic quality. All runs must use the owned resource guard.
 """
 import argparse
+import gc
 import ctypes
+import hashlib
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import sys
 import subprocess
 import plistlib
 import time
+
+GATED_KIND = 'NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1'
+GATED_CASES = [('reference', 64)] + [(mode, size) for size in (64, 512, 4134) for mode in ('forward', 'gradient')]
+GATED_SHAPE = {'batch': 1, 'keyHeads': 16, 'valueHeads': 32, 'keyDim': 128, 'valueDim': 128, 'chunk': 64}
+
+
+def digest(path):
+    with Path(path).open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def probe_write(path, value):
+    with path.open('x') as stream:
+        os.chmod(path, 0o600)
+        json.dump(value, stream, indent=2, allow_nan=False); stream.write('\n')
+        stream.flush(); os.fsync(stream.fileno())
+
+
+def verify_gated_plan(path, expected):
+    if digest(path) != expected:
+        raise ValueError('gated_probe_plan_changed')
+    plan = json.loads(path.read_text())
+    if (plan.get('kind') != GATED_KIND or plan.get('shape') != GATED_SHAPE
+            or plan.get('cases') != [list(c) for c in GATED_CASES]
+            or plan.get('seed') != 7 or plan.get('childTimeoutSeconds') != 300
+            or plan.get('referenceTolerance') != {'rtol': 0.001, 'atol': 0.0001}
+            or not {'mlx', 'mlx-vlm'} <= plan.get('runtimeVersions', {}).keys()
+            or not {'probe-source', 'native-source', 'guard-source', 'comparison-source', 'gated-delta-source',
+                    'previous-stop', 'previous-restore'} <= plan.get('files', {}).keys()
+            or any(plan.get(k) is not False for k in ('cloudAllowed', 'productionActivation', 'optimizerAllowed', 'modelWeightsLoaded'))):
+        raise ValueError('gated_probe_configuration_invalid')
+    for item in plan['files'].values():
+        if digest(item['path']) != item['sha256']:
+            raise ValueError('gated_probe_bound_file_changed')
+    previous = json.loads(Path(plan['files']['previous-stop']['path']).read_text())
+    restored = json.loads(Path(plan['files']['previous-restore']['path']).read_text())
+    if previous.get('action') != 'STOP_TECHNICAL_FAILURE' or restored.get('status') != 'HEALTHY_ORIGINAL_RESTORED':
+        raise ValueError('gated_probe_previous_run_not_closed')
+    return plan
+
+
+def gated_sequence(args, plan):
+    """Fresh child per condition; all children remain in the guarded PGID."""
+    parent = subprocess.check_output(['/bin/ps', '-p', str(os.getppid()), '-o', 'command='], text=True)
+    if (str(Path(__file__).with_name('nuknuk-resource-guard.py')) not in parent
+            or str(args.session / 'resources.json') not in parent):
+        raise ValueError('gated_probe_resource_supervisor_required')
+    probe_write(args.session / 'diagnostic-parent.json', {'pid': os.getpid(), 'pgid': os.getpgrp()})
+    for index, (mode, size) in enumerate(GATED_CASES):
+        name = f'{index:02d}-{mode}-{size}'
+        command = [plan['python'], '-B', str(Path(__file__).resolve()), '--gated-plan', str(args.gated_plan),
+                   '--manifest-sha256', args.manifest_sha256, '--session', str(args.session), '--diagnostic-child', str(index)]
+        with (args.session / (name + '.log')).open('x') as log:
+            try:
+                done = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, timeout=plan['childTimeoutSeconds'])
+            except subprocess.TimeoutExpired:
+                probe_write(args.session / 'diagnostic-stop.json', {'status': 'TIMEOUT', 'case': name})
+                raise
+        result = args.session / (name + '.json')
+        record = json.loads(result.read_text()) if result.exists() else {}
+        if (done.returncode or record.get('status') != 'PASS' or record.get('caseIndex') != index
+                or record.get('mode') != mode or record.get('tokens') != size
+                or record.get('planSha256') != args.manifest_sha256):
+            probe_write(args.session / 'diagnostic-stop.json', {'status': 'CHILD_FAILED', 'case': name, 'returncode': done.returncode})
+            raise RuntimeError('gated_probe_failed_no_larger_stage:' + name)
+    probe_write(args.session / 'result.json', {'status': 'SYNTHETIC_COMPONENT_DIAGNOSTIC_FINISHED',
+        'cases': len(GATED_CASES), 'modelLoaded': False, 'optimizerUpdates': 0,
+        'fullModelTrainabilityProven': False, 'productionActivation': False})
+
+
+def gated_child(args, plan):
+    parent = json.loads((args.session / 'diagnostic-parent.json').read_text())
+    if parent != {'pid': os.getppid(), 'pgid': os.getpgrp()}:
+        raise ValueError('gated_probe_owned_child_required')
+    import importlib.metadata
+    if {k: importlib.metadata.version(k) for k in plan['runtimeVersions']} != plan['runtimeVersions']:
+        raise ValueError('gated_probe_runtime_changed')
+    os.environ.update(HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1', HF_HUB_DISABLE_TELEMETRY='1')
+    result = gated_measure(args)
+    import mlx.core as mx
+    gc.collect(); mx.clear_cache(); mx.synchronize()
+    result['cleanup'] = {'activeBytes': mx.get_active_memory(), 'cacheBytes': mx.get_cache_memory()}
+    result.update(planSha256=args.manifest_sha256, caseIndex=args.diagnostic_child, pid=os.getpid(), pgid=os.getpgrp(),
+                  actualLimits={'allocatorBytes': 24 * 1024**3, 'wiredBytes': 24 * 1024**3, 'cacheBytes': 256 * 1024**2})
+    name = f'{args.diagnostic_child:02d}-{result["mode"]}-{result["tokens"]}'
+    probe_write(args.session / (name + '.json'), finite_json(result))
+    if result['status'] != 'PASS':
+        raise ValueError('gated_probe_nonfinite_or_reference_failure')
+
+
+def finite_json(value):
+    """Failed receipts remain valid JSON; final checks retain failure reasons."""
+    if isinstance(value, dict):
+        return {k: finite_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [finite_json(v) for v in value]
+    return None if isinstance(value, float) and not math.isfinite(value) else value
+
+
+def gated_checks(primary_finite, norms=None, reference_finite=None, comparison=None):
+    norms_finite = None if norms is None else all(math.isfinite(n) for n in norms)
+    nonzero = None if norms is None else any(n > 0 for n in norms)
+    metrics_finite = None if comparison is None else all(math.isfinite(c[k]) for c in comparison
+        for k in ('maxAbsError', 'normalizedL2Error'))
+    within = None if comparison is None else all(c['allClose'] for c in comparison)
+    status = ('NONFINITE_PRIMARY' if not primary_finite else
+              'NONFINITE_GRADIENT_NORMS' if norms_finite is False else
+              'ZERO_GRADIENT' if nonzero is False else
+              'NONFINITE_REFERENCE' if reference_finite is False or metrics_finite is False else
+              'REFERENCE_TOLERANCE_FAILURE' if within is False else 'PASS')
+    return {'status': status, 'allChecksPassed': status == 'PASS', 'primaryFinite': primary_finite,
+            'gradientNormsFinite': norms_finite, 'nonzeroAggregateGradient': nonzero,
+            'referenceFinite': reference_finite, 'referenceMetricsFinite': metrics_finite,
+            'referenceWithinTolerance': within}
+
+
+def primary_evaluation(mx, values, started, mark):
+    mx.eval(values); mx.synchronize()
+    snapshot = {'activeBytes': mx.get_active_memory(), 'cacheBytes': mx.get_cache_memory(),
+                'peakBytes': mx.get_peak_memory(), 'elapsedSeconds': time.monotonic() - started}
+    mark('PRIMARY_EVAL_COMPLETE')
+    return snapshot
+
+
+def gated_measure(args):
+    """Return scalar receipts only, so the caller can measure graph release."""
+    import mlx.core as mx
+    from mlx_vlm.models.qwen3_5.gated_delta import gated_delta_chunked, gated_delta_ops
+    mx.set_memory_limit(24 * 1024**3); mx.set_cache_limit(256 * 1024**2); mx.set_wired_limit(24 * 1024**3)
+    mx.random.seed(7)
+    mode, size = GATED_CASES[args.diagnostic_child]
+    name = f'{args.diagnostic_child:02d}-{mode}-{size}'
+    q = mx.random.normal((1, size, 16, 128))
+    k = mx.random.normal((1, size, 16, 128))
+    q = mx.fast.rms_norm(q, None, 1e-6) / 128
+    k = mx.fast.rms_norm(k, None, 1e-6) / math.sqrt(128)
+    v = mx.random.normal((1, size, 32, 128))
+    g = mx.random.uniform(low=0.90, high=0.99, shape=(1, size, 32))
+    beta = mx.random.uniform(low=0.2, high=0.8, shape=(1, size, 32))
+    if mode != 'reference':
+        q, k, v, beta = [a.astype(mx.bfloat16) for a in (q, k, v, beta)]
+    state = mx.zeros((1, 32, 128, 128), dtype=mx.float32)
+    weight = mx.random.normal(v.shape) / math.sqrt(math.prod(v.shape))
+    inputs = (q, k, v, g, beta)
+    mx.eval(inputs, state, weight); mx.synchronize(); mx.clear_cache(); mx.reset_peak_memory()
+    def memory():
+        return {'activeBytes': mx.get_active_memory(), 'cacheBytes': mx.get_cache_memory(), 'peakBytes': mx.get_peak_memory()}
+    baseline = memory()
+    phases = args.session / (name + '.phases.jsonl')
+    def mark(phase):
+        with phases.open('a') as stream:
+            stream.write(json.dumps({'phase': phase, 'atEpoch': time.time(), **memory()}) + '\n')
+            stream.flush(); os.fsync(stream.fileno())
+    def scalar(fn, *items):
+        y, _ = fn(*items, state)
+        return mx.sum(y.astype(mx.float32) * weight)
+    started = time.monotonic()
+    reference_finite, comparison, norms = None, None, None
+    mark('BUILD_FORWARD' if mode == 'forward' else 'BUILD_VALUE_AND_GRAD')
+    if mode == 'forward':
+        outputs = gated_delta_chunked(*inputs, state)
+        mark('EVALUATE_FORWARD')
+        primary = primary_evaluation(mx, outputs, started, mark)
+        mark('VALIDATE_PRIMARY')
+        finite = all(bool(mx.all(mx.isfinite(a)).item()) for a in outputs)
+        details = {'outputBufferBytes': mx.get_array_buffer_size(*outputs)}
+    else:
+        value, gradients = mx.value_and_grad(lambda *xs: scalar(gated_delta_chunked, *xs), argnums=tuple(range(5)))(*inputs)
+        mark('EVALUATE_VALUE_AND_GRAD')
+        primary = primary_evaluation(mx, (value, gradients), started, mark)
+        mark('VALIDATE_PRIMARY')
+        finite = bool(mx.isfinite(value).item()) and all(bool(mx.all(mx.isfinite(a)).item()) for a in gradients)
+        norms = [mx.linalg.norm(a.astype(mx.float32)).item() for a in gradients]
+        details = {'loss': value.item(), 'gradientNorms': norms, 'gradientBufferBytes': mx.get_array_buffer_size(*gradients)}
+        if mode == 'reference':
+            mark('BUILD_REFERENCE_FORWARD_AND_VJP')
+            y, s = gated_delta_chunked(*inputs, state)
+            ref_y, ref_s = gated_delta_ops(*inputs, state)
+            ref_loss, ref_grads = mx.value_and_grad(lambda *xs: scalar(gated_delta_ops, *xs), argnums=tuple(range(5)))(*inputs)
+            mark('EVALUATE_REFERENCE_FORWARD_AND_VJP')
+            mx.eval(y, s, ref_y, ref_s, ref_loss, ref_grads)
+            mx.synchronize(); mark('REFERENCE_EVAL_COMPLETE'); mark('VALIDATE_REFERENCE')
+            reference_finite = all(bool(mx.all(mx.isfinite(a)).item()) for a in [y, s, ref_y, ref_s, ref_loss, *ref_grads])
+            pairs = [('output', y, ref_y), ('endState', s, ref_s), ('loss', value, ref_loss)]
+            pairs += [(f'gradient-{i}', a, b) for i, (a, b) in enumerate(zip(gradients, ref_grads))]
+            details['referenceComparison'] = [{'name': label,
+                'allClose': bool(mx.allclose(a, b, rtol=0.001, atol=0.0001).item()),
+                'maxAbsError': mx.max(mx.abs(a - b)).item(),
+                'normalizedL2Error': (mx.linalg.norm(a - b) / mx.maximum(mx.linalg.norm(b), 1e-12)).item()}
+                for label, a, b in pairs]
+            comparison = details['referenceComparison']
+    mx.synchronize(); mark('MATERIALIZED')
+    result = {**gated_checks(finite, norms, reference_finite, comparison), 'mode': mode, 'tokens': size,
+        'shapes': [list(a.shape) for a in inputs], 'dtypes': [str(a.dtype) for a in inputs],
+        'inputBufferBytes': mx.get_array_buffer_size(*inputs, state, weight),
+        'baseline': baseline, 'primaryEvaluation': primary, 'validationInclusiveMemory': memory(), 'elapsedSeconds': time.monotonic() - started,
+        'modelLoaded': False, 'optimizerUpdates': 0, **details}
+    return result
 
 
 def validate_configuration(config_path, events):
@@ -37,11 +238,24 @@ def validate_configuration(config_path, events):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', type=Path, required=True)
-    parser.add_argument('--events', type=Path, required=True)
+    parser.add_argument('--config', type=Path)
+    parser.add_argument('--events', type=Path)
+    parser.add_argument('--gated-plan', type=Path)
+    parser.add_argument('--manifest-sha256')
+    parser.add_argument('--session', type=Path)
+    parser.add_argument('--diagnostic-child', type=int, choices=range(len(GATED_CASES)))
     parser.add_argument('--wired-gib', type=int, default=0, choices=[0, 24])
     parser.add_argument('--capture-maps', action='store_true')
     args = parser.parse_args()
+    if args.gated_plan is not None:
+        if not args.manifest_sha256 or args.session is None or args.config or args.events:
+            raise ValueError('gated_probe_explicit_plan_and_session_required')
+        plan = verify_gated_plan(args.gated_plan, args.manifest_sha256)
+        if args.diagnostic_child is None:
+            return gated_sequence(args, plan)
+        return gated_child(args, plan)
+    if args.config is None or args.events is None or args.diagnostic_child is not None:
+        raise ValueError('memory_probe_config_and_events_required')
     validate_configuration(args.config, args.events)
     os.environ.update(HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1", HF_HUB_DISABLE_TELEMETRY="1", WANDB_DISABLED="true")
     import mlx.core as mx

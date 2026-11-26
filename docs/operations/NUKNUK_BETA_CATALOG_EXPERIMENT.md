@@ -1,5 +1,26 @@
 # NukNuk – technische Überarbeitung nach Mike
 
+## Begrenzte Speicherdiagnose nach technischem Pilotabbruch
+
+Der neue Plan `NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1` erweitert ausschließlich
+den vorhandenen Memory-Probe und nutzt Ownership, Ressourcenwächter und Restore
+des nativen Controllers. Er startet kein Modelltraining: keine Modellgewichte,
+kein Optimizer, kein neuer Kandidat. Alte Pilotbelege bleiben unverändert.
+Zuerst wird der installierte Chunk-Scan bei64 Tokens in FP32 gegen den
+Referenzscan einschließlich tatsächlich ausgewerteter VJPs geprüft
+(rtol1e-3/atol1e-4). Nur danach folgen jeweils frische Forward-/Gradientenprozesse
+für64,512,4134 Tokens mit9B-Headformen, BF16-q/k/v/beta und FP32-Gates/Zustand.
+Jedes Kind hat300 Sekunden Diagnosebudget und bleibt in der bewachten
+Prozessgruppe. Fehler oder fehlende Belege stoppen die Größenfolge.
+Kein Heraufsetzen von Limits, automatischer Modellversuch oder Cloudlauf.
+
+Messungen, Synchronisation und Peakreset erfolgen außerhalb transformierter
+Funktionen. Absolute Allocatorwerte, Eingabebaseline, Buffergrößen und externes
+OS-Sampling werden getrennt berichtet. Python-Graphaufbau ist kein gemessener
+GPU-Operatorzeitpunkt. Ein einzelner erfolgreicher Scan belegt keine
+Trainierbarkeit des vollständigen Modells; ein gescheiterter Scan grenzt nur
+diesen isolierten Pfad ein. Die SSD-Kapazität ist vom RAM getrennt.
+
 ## Nativer Lernpilot auf der tatsächlichen Live-Basis
 
 FAST_PR; betroffen sind nur der bestehende Trainings-Einstieg, dessen nativer

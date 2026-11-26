@@ -426,6 +426,9 @@ def execute(args, plan):
     session = args.native_plan.parent / ('trial-' + args.recipe)
     if session.exists():
         raise ValueError('native_trial_already_attempted')
+    diagnostic = plan.get('kind') == 'NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1'
+    if diagnostic and args.recipe != 'A':
+        raise ValueError('native_memory_diagnostic_has_no_second_recipe')
     if args.recipe == 'B':
         decision = read(args.native_plan.parent / 'decision-A.json')
         if (decision.get('nextAction') != 'TRY_FIXED_RECIPE_B' or not decision.get('mikeReviewSha256')
@@ -469,6 +472,11 @@ def execute(args, plan):
             'backyrd.nuknuk-native-learning', '--native-plan',
             str(args.native_plan), '--manifest-sha256', args.manifest_sha256, '--worker',
             '--recipe', args.recipe, '--session', str(session)]
+        if diagnostic:
+            command = [plan['python'], '-B', str(ROOT / 'nuknuk-resource-guard.py'), '--receipt',
+                str(session / 'resources.json'), '--native-start-fd', str(start_read),
+                'backyrd.nuknuk-memory-probe', '--gated-plan', str(args.native_plan),
+                '--manifest-sha256', args.manifest_sha256, '--session', str(session)]
         with (session / 'worker.log').open('x') as log:
             process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, cwd=ROOT.parents[1], pass_fds=[start_read])
             os.close(start_read)
@@ -522,7 +530,10 @@ def main():
         raise ValueError('native_explicit_plan_required')
     if args.worker:
         return worker(args)
-    plan, _ = verify_plan(args.native_plan, args.manifest_sha256)
+    if read(args.native_plan).get('kind') == 'NATIVE_MLX_GATED_DELTA_DIAGNOSTIC_V1':
+        plan = module('nuknuk-memory-probe').verify_gated_plan(args.native_plan, args.manifest_sha256)
+    else:
+        plan, _ = verify_plan(args.native_plan, args.manifest_sha256)
     if args.execute:
         return execute(args, plan)
     print(json.dumps({'status': 'NATIVE_PLAN_VERIFIED_NO_MODEL_LOADED', 'planSha256': args.manifest_sha256}))
