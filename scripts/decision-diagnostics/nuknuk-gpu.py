@@ -1509,14 +1509,29 @@ def evaluate_beta_catalog(args):
         if set(expected_runtime)!={'torch','transformers','peft','axolotl','tokenizers','llguidance'} or {name:importlib.metadata.version(name)for name in expected_runtime}!=expected_runtime:raise ValueError('paired_runtime_versions_changed')
     args.output.mkdir(mode=0o700)
     if resume is not None:write_json(args.output/'resume-receipt.json',{'resumePacketSha256':file_sha(args.resume),'sourceBundleManifestSha256':resume['sourceBundleManifestSha256'],'sourceSnapshotManifestSha256':resume['sourceSnapshotManifestSha256'],'reusedCases':len(cached),'failedFirstAttemptsRetained':sum(r['status']!='GENERATED_REQUIRES_SEMANTIC_REVIEW'for r in cached.values())})
-    base=product_base(folder);tokenizer=AutoTokenizer.from_pretrained(folder/'tokenizer',local_files_only=True,trust_remote_code=False)
+    common=bool(approval.get('commonBasePilotSha256'));common_metadata=None;loaded_adapter=args.adapter
+    if common and not diagnostic:raise ValueError('common_base_diagnostic_only')
+    base=None if common else product_base(folder);tokenizer=AutoTokenizer.from_pretrained(folder/'tokenizer',local_files_only=True,trust_remote_code=False)
     torch.cuda.set_per_process_memory_fraction(.90,0)
-    model=AutoModelForImageTextToText.from_pretrained(base,local_files_only=True,trust_remote_code=False,use_safetensors=True,dtype=torch.bfloat16,device_map={'':0},attn_implementation='sdpa',quantization_config=BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_quant_type='nf4',bnb_4bit_use_double_quant=True,bnb_4bit_compute_dtype=torch.bfloat16))
-    model=PeftModel.from_pretrained(model,args.adapter,is_trainable=False);model.requires_grad_(False);model.eval();model.config.use_cache=True
+    if common:
+        import importlib.util as common_import
+        common_path=folder.parent/'common-base-runtime.py';common_spec_path=folder.parent/'common-base-spec.json'
+        if file_sha(common_spec_path)!=approval['commonBasePilotSha256']:raise ValueError('common_base_spec_changed_before_import')
+        common_spec=json.loads(common_spec_path.read_text())
+        if file_sha(common_path)!=common_spec.get('runtimeSha256'):raise ValueError('common_base_runtime_source_changed')
+        module_spec=common_import.spec_from_file_location('common_runtime',common_path);common_runtime=common_import.module_from_spec(module_spec);module_spec.loader.exec_module(common_runtime)
+        model,loaded_adapter,common_metadata=common_runtime.load(folder,args.adapter,args.adapter_sha256,approval)
+        base=folder.parent/'common-base'
+    else:
+        model=AutoModelForImageTextToText.from_pretrained(base,local_files_only=True,trust_remote_code=False,use_safetensors=True,dtype=torch.bfloat16,device_map={'':0},attn_implementation='sdpa',quantization_config=BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_quant_type='nf4',bnb_4bit_use_double_quant=True,bnb_4bit_compute_dtype=torch.bfloat16))
+        model=PeftModel.from_pretrained(model,args.adapter,is_trainable=False);model.requires_grad_(False);model.eval();model.config.use_cache=True
     state={'model':model,'tokenizer':tokenizer,'ll_tokenizer':from_tokenizer(tokenizer),'boundary':{'profile':BETA_CATALOG_PROFILE,'maxTotalTokens':5120}}
     if diagnostic:
-        write_json(args.output/'effective-adapter.json',paired_loaded_adapter_receipt(model,args.adapter))
+        write_json(args.output/'effective-adapter.json',paired_loaded_adapter_receipt(model,loaded_adapter))
         write_json(args.output/'runtime.json',{'versions':{name:importlib.metadata.version(name)for name in ['torch','transformers','peft','axolotl','tokenizers','llguidance','bitsandbytes']},'gpu':subprocess.check_output(['nvidia-smi','--query-gpu=name','--format=csv,noheader'],text=True,timeout=10).strip(),'base':manifest['parent']['trainingBase'],'inferenceContractSha256':catalog_inference_contract(Path(__file__).read_text()),'quantization':'bnb NF4 double-quant bf16','temperature':0,'maxOutputTokens':2048,'maxTotalTokens':5120,'perRequestSeconds':90})
+    if common:
+        write_json(args.output/'common-base-runtime.json',common_metadata)
+        runtime_receipt=json.loads((args.output/'runtime.json').read_text());runtime_receipt.update(quantization='MLX affine represented values, BF16 export, no HF quantization',baseRepresentation=common_metadata['representation'],baseQuantizationApplied=False);write_json(args.output/'runtime.json',runtime_receipt)
     compiler=llguidance.JsonCompiler(separators=(', ',': '),whitespace_pattern='');records=[]
     for row in requests:
         beta_execution_admission(folder,manifest,args.execution_approval)
@@ -1537,6 +1552,7 @@ def evaluate_beta_catalog(args):
         write_json(args.output/(row['id']+'.json'),record);records.append(record)
     if file_sha(args.adapter/'adapter_model.safetensors')!=args.adapter_sha256:raise ValueError('beta_eval_adapter_mutated')
     write_json(args.output/'result.json',{'version':'backyrd.nuknuk-beta-inference-results@1','datasetHash':manifest['datasetHash'],'bundleManifestSha256':file_sha(folder/'product-gpu-manifest.json'),'adapterSha256':args.adapter_sha256,'split':split,'requestPacketSha256':file_sha(packet_path),'caseCount':len(records),'cases':records,'reusedCases':len(cached),'firstAttemptOnly':True,'trainingExecuted':False,'modelEvaluated':True,'productionActivation':False})
+    if common and args.adapter_sha256==approval.get('evaluationCandidateSha256'):common_runtime.backward_probe(model,tokenizer,folder,requests,args.output,loaded_adapter,approval)
 
 
 def beta_framework_smoke(args):

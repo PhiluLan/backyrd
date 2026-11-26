@@ -345,7 +345,7 @@ for name in ['output','training-receipts','parent-development','candidate-develo
  for f in (root/name).rglob('*'):
   if f.is_file() and f.suffix in ['.json','.log','.jsonl','.safetensors'] and f.stat().st_size<128*1024*1024:
    payload[str(f.relative_to(root))]=f.read_bytes()
-for name in ['EXIT','COMPLETE','workflow.log','runtime.json','development-EXIT','test-EXIT','development.log','test.log']:
+for name in ['EXIT','COMPLETE','workflow.log','runtime.json','development-EXIT','test-EXIT','development.log','test.log','common-base-prepared.json']:
  f=root/name
  if f.is_file():payload[name]=f.read_bytes()[-2000000:]
 guard=pathlib.Path('/tmp/backyrd-guard.log')
@@ -700,6 +700,13 @@ def catalog_authority(args):
     if value.get('evaluationOnly',False)!=bool(getattr(args,'evaluate_only',False)):raise ValueError('catalog_evaluation_mode_authority_required')
     diagnostic=getattr(args,'paired_diagnostic',None)
     if bool(diagnostic)!=bool(value.get('pairedDiagnosticSha256')) or (diagnostic and (not getattr(args,'evaluate_only',False) or digest(diagnostic.read_bytes())!=value['pairedDiagnosticSha256'])):raise ValueError('catalog_paired_diagnostic_authority_required')
+    common=getattr(args,'common_base_pilot',None)
+    if bool(common)!=bool(value.get('commonBasePilotSha256'))or(common and (not diagnostic or digest(common.read_bytes())!=value['commonBasePilotSha256']or value.get('allowedGpuIds')!=['NVIDIA H200'])):raise ValueError('catalog_common_base_pilot_authority_required')
+    if common:
+        spec=json.loads(common.read_text())
+        for name,key in [('nuknuk-common-base.py','converterSha256'),('nuknuk-common-base-runtime.py','runtimeSha256')]:
+            if digest(Path(__file__).with_name(name).read_bytes())!=spec.get(key):raise ValueError('catalog_common_base_source_changed')
+        runtime_spec=importlib.util.spec_from_file_location('common_admission',Path(__file__).with_name('nuknuk-common-base-runtime.py'));runtime=importlib.util.module_from_spec(runtime_spec);runtime_spec.loader.exec_module(runtime);runtime.verify_spec(common,value)
     return value
 
 
@@ -877,10 +884,11 @@ def catalog_evaluation_startup_script(manifest,wheel_sha,wheel_name):
     return script
 
 
-def catalog_paired_startup_script(manifest,wheel_sha,wheel_name):
+def catalog_paired_startup_script(manifest,wheel_sha,wheel_name,common=False):
     # Reuse preparation/framework gates; replace all DEV/train commands explicitly.
     script=catalog_startup_script(manifest,wheel_sha,wheel_name)
     lines=[line for line in script.splitlines() if ' product-train ' not in line and ' product-evaluate ' not in line and not line.startswith('CANDIDATE=') and line!='touch COMPLETE']
+    if common:lines.append('"$PY" common-base-runtime.py --bundle job --approval execution-approval.json --spec common-base-spec.json')
     for adapter,sha,output in [('job/seed',manifest['parent']['hfAdapterSha256'],'parent-development'),('output','CANDIDATE','candidate-development')]:
         lines.append('"$PY" job/nuknuk-gpu.py product-evaluate --bundle job --adapter '+adapter+' --adapter-sha256 '+sha+' --output '+output+' --split RECALL_TRANSFER --requests paired-diagnostic.json --execution-approval execution-approval.json')
     lines.append('touch COMPLETE')
@@ -979,6 +987,7 @@ def catalog_run(args,folder):
             if candidate_value.get('sourceComponent')!='candidate-development':raise ValueError('catalog_candidate_resume_component_required')
             packet=json.loads((args.bundle/'development-requests.json').read_text())
             gpu.catalog_resume_records(candidate_resume,manifest,args.bundle/'development-requests.json',packet['cases'],authority['evaluationCandidateSha256'])
+    common=getattr(args,'common_base_pilot',None)
     payload=package(args.bundle,manifest)
     initial,account=catalog_account(args);catalog_validate_idle(initial,account,50-campaign_prior)
     if campaign_initial is not None:
@@ -992,6 +1001,7 @@ def catalog_run(args,folder):
     allocated=False;ssh=None;failure=None
     while not allocated:
         response=rest(args.key_file,'GET','/v2/catalog/gpus?include=AVAILABILITY&product=POD&cloud=SECURE&count=1');rows=response if isinstance(response,list)else response['gpus'];choices=catalog_candidates(rows)
+        if authority.get('allowedGpuIds'):choices=[q for q in choices if q['id']in authority['allowedGpuIds']]
         if not choices:
             print(json.dumps({'phase':'WAITING_FOR_H100_CAPACITY','billablePodCreated':False}),flush=True);time.sleep(30);continue
         billing,account=catalog_account(args);catalog_validate_idle(billing,account,50-campaign_prior)
@@ -1057,6 +1067,7 @@ def catalog_run(args,folder):
             if evaluation_only:approval.update(evaluationOnly=True,evaluationCandidateSha256=authority['evaluationCandidateSha256'])
             if diagnostic:approval.update(pairedDiagnosticSha256=authority['pairedDiagnosticSha256'])
             elif evaluation_only:approval.update(candidateResumeSha256=authority['candidateResumeSha256'])
+            if common:approval.update(commonBasePilotSha256=authority['commonBasePilotSha256'])
             ap=folder/'execution-approval.json';ap.write_text(json.dumps(approval,indent=2)+'\n');ap.chmod(0o600)
             ssh_call(ssh,'mkdir -p '+REMOTE,20);catalog_upload_json(ssh,'execution-approval.json',ap)
             ssh_call(ssh,'cat > '+REMOTE+'/input.tgz',90,payload)
@@ -1070,9 +1081,12 @@ def catalog_run(args,folder):
                 ssh_call(ssh,'cat > '+REMOTE+'/secured-candidate.tgz',90,candidate_payload)
                 unpack_candidate="import hashlib,tarfile,pathlib;p=pathlib.Path("+repr(REMOTE+'/secured-candidate.tgz')+");assert hashlib.sha256(p.read_bytes()).hexdigest()=="+repr(digest(candidate_payload))+";tarfile.open(p).extractall("+repr(REMOTE)+",filter='data')"
                 ssh_call(ssh,PY+' -c '+shlex.quote(unpack_candidate),45)
+            if common:
+                catalog_upload_json(ssh,'common-base-spec.json',common)
+                for local,remote in [('nuknuk-common-base.py','common-base.py'),('nuknuk-common-base-runtime.py','common-base-runtime.py')]:ssh_call(ssh,'cat > '+REMOTE+'/'+remote,45,Path(__file__).with_name(local).read_bytes())
             save(folder,'DEVELOPMENT',providerRequestedImageVerified=True,resolvedRuntimeImageDigestVerified=False,providerRuntimeExpiryConfigured=False)
             startup=catalog_evaluation_startup_script(manifest,authority['llguidanceWheelSha256'],args.llguidance_wheel.name)if evaluation_only else catalog_startup_script(manifest,authority['llguidanceWheelSha256'],args.llguidance_wheel.name,resume_path is not None)
-            if diagnostic:startup=catalog_paired_startup_script(manifest,authority['llguidanceWheelSha256'],args.llguidance_wheel.name).replace('CANDIDATE',authority['evaluationCandidateSha256'])
+            if diagnostic:startup=catalog_paired_startup_script(manifest,authority['llguidanceWheelSha256'],args.llguidance_wheel.name,bool(common)).replace('CANDIDATE',authority['evaluationCandidateSha256'])
             process_id=catalog_launch(ssh,startup,'development');save(folder,'DEVELOPMENT',remoteProcessId=process_id)
             target=catalog_monitor(args,folder,ssh,'development')
             trained=json.loads((target/'training-receipts/result.json').read_text());adapter=target/'output/adapter_model.safetensors'
@@ -1144,6 +1158,7 @@ if __name__=='__main__':
     parser.add_argument('--resume-parent',type=Path)
     parser.add_argument('--evaluate-only',action='store_true')
     parser.add_argument('--paired-diagnostic',type=Path)
+    parser.add_argument('--common-base-pilot',type=Path)
     parser.add_argument('--candidate-source',type=Path)
     parser.add_argument('--candidate-result',type=Path)
     parser.add_argument('--resume-candidate',type=Path)

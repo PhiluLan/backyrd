@@ -20,6 +20,10 @@ class Contracts(unittest.TestCase):
    args=SimpleNamespace(bundle=bundle,execution_authorization=auth,evaluate_only=True,paired_diagnostic=packet);ctl.catalog_authority(args)
    packet.write_text('changed')
    with self.assertRaisesRegex(ValueError,'paired_diagnostic_authority'):ctl.catalog_authority(args)
+ def test_common_base_preparation_is_before_exactly_two_inference_processes(self):
+  script=ctl.catalog_paired_startup_script({'parent':{'hfAdapterSha256':'a'*64}},'b'*64,'runtime.whl',True)
+  self.assertEqual(script.count('common-base-runtime.py'),1);self.assertEqual(script.count(' product-evaluate '),2)
+  self.assertLess(script.index('common-base-runtime.py'),script.index(' product-evaluate '));self.assertNotIn(' product-train ',script)
  def test_deadline_is_only_cost_derived_and_exceeds_six_hours(self):
   end=ctl.catalog_budget(100,0,2.9)
   self.assertAlmostEqual(end,100+45/2.9*3600);self.assertGreater(end-100,21600)

@@ -295,3 +295,26 @@ loaded adapter tensors against the uploaded safetensors plus effective rank,
 alpha, scale, activation and merge state for all 40 LoRA modules. Observation
 adds no changes to the existing NF4 loading or constrained greedy generation.
 Historical Mac outputs and training-origin receipts remain immutable.
+
+### Common-base compatibility pilot
+
+FAST_PR, offline diagnostics only. An explicit common-base pilot exports the
+represented values of the frozen MLX affine base into the HF text-model
+layout. It performs no re-quantization. CPU reconstruction is checked against
+MLX for every quantized matrix; expert gate/up ordering, convolution axes and
+zero-centered norm offsets have separate conversion checks. Norm offsets stay
+FP32 so their reconstructed scale remains exact.
+
+GPU execution is separately hash-bound to the converter, runtime helper, source
+files and exact locally produced shard hashes. All 693 effective base tensors
+and all 80 translated LoRA tensors are verified before generation. The existing
+paired controller retains the original cumulative USD50 ceiling, USD5 reserve,
+prior-attempt accounting and independent cleanup guards. Only the explicit
+pilot may select H200 for the 65-GiB dequantized text base.
+
+The optional candidate feasibility check computes gradients for one already
+known TRAIN example, with activation checkpointing and CPU activation offload.
+It invokes no optimizer, performs zero updates and verifies all adapter bytes
+unchanged afterward. Finite gradients and measured memory establish only the
+bounded backward-path check; they are neither a full training run nor evidence
+of semantic improvement. Known recall inputs remain labeled RECALL_TRANSFER.
