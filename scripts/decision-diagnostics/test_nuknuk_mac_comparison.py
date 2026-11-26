@@ -144,4 +144,39 @@ class EvaluationOrigin(unittest.TestCase):
    (new/'nuknuk-gpu.py').write_text(source+'\n# changed after seal')
    with self.assertRaisesRegex(ValueError,'bundle_changed'):m.catalog_training_origin(spec,original,{'evaluationOnly':True})
 
+class RecallProbeChecks(unittest.TestCase):
+ def fixture(self,root):
+  rows=[];plan=[];training=[]
+  for i in range(20):
+   for variant in ['EXACT_TRAIN','PARAPHRASE','CONTRAST']:
+    messages=[{'role':'system','content':'unchanged'},{'role':'user','content':str(i)+variant}]
+    item={'id':str(i)+variant,'messages':messages};rows.append(item);plan.append({**item,'seedId':str(i),'variant':variant})
+    if variant=='EXACT_TRAIN':training.append({'messages':messages+[{'role':'assistant','content':'training target never inferred'}]})
+  train=root/'train.jsonl';train.write_text('\n'.join(json.dumps(r)for r in training));p=root/'plan.json';p.write_text(json.dumps({'cases':plan}))
+  spec={'caseIds':[r['id']for r in rows],'files':{'probePlan':{'path':str(p)},'originalTrainingBundleManifest':{'path':str(root/'original.json')}}};return spec,{'cases':rows},{'files':{'train.jsonl':{'sha256':m.sha(train)}}}
+ def test_exact_training_inputs_and_two_genuinely_new_inputs_per_seed(self):
+  with tempfile.TemporaryDirectory()as tmp:
+   spec,packet,bundle=self.fixture(Path(tmp));m.validate_recall_probe(spec,packet,bundle)
+ def test_assistant_target_leak_rejected(self):
+  with tempfile.TemporaryDirectory()as tmp:
+   root=Path(tmp);spec,packet,bundle=self.fixture(root);packet['cases'][0]['messages'].append({'role':'assistant','content':'answer'})
+   with self.assertRaisesRegex(ValueError,'target_leak_or_input_changed'):m.validate_recall_probe(spec,packet,bundle)
+ def test_known_training_example_cannot_be_called_novel(self):
+  with tempfile.TemporaryDirectory()as tmp:
+   root=Path(tmp);spec,packet,bundle=self.fixture(root);packet['cases'][1]['messages']=packet['cases'][0]['messages'];p=root/'plan.json';plan=json.loads(p.read_text());plan['cases'][1]['messages']=packet['cases'][1]['messages'];p.write_text(json.dumps(plan))
+   with self.assertRaisesRegex(ValueError,'transfer_not_new'):m.validate_recall_probe(spec,packet,bundle)
+ def test_untrained_seed_and_prompt_change_rejected(self):
+  with tempfile.TemporaryDirectory()as tmp:
+   root=Path(tmp);spec,packet,bundle=self.fixture(root);packet['cases'][0]['messages'][1]['content']='not trained';p=root/'plan.json';plan=json.loads(p.read_text());plan['cases'][0]['messages']=packet['cases'][0]['messages'];p.write_text(json.dumps(plan))
+   with self.assertRaisesRegex(ValueError,'seed_not_in_training'):m.validate_recall_probe(spec,packet,bundle)
+ def test_restore_records_transient_public_status_and_retries_readiness(self):
+  with tempfile.TemporaryDirectory()as tmp:
+   root=Path(tmp);(root/'session.json').write_text(json.dumps({'plistSha256':'same','live':{'model':'m','adapter':'a'},'gatewayDomain':'https://example.test'}));probes=iter([401,503,401])
+   def wait(predicate,*args):
+    for _ in range(3):
+     if predicate():return
+    raise AssertionError('readiness failed')
+   with patch.object(m,'stop_owned'),patch.object(m,'sha',return_value='same'),patch.object(m,'LIVE_SHA','same'),patch.object(m,'agent',return_value=Mock(returncode=0)),patch.object(m,'identity',return_value=True),patch.object(m,'health',return_value={}),patch.object(m,'http_status',side_effect=lambda *_:next(probes)),patch.object(m,'wait_until',side_effect=wait):m.restore(root)
+   events=[json.loads(x)for x in(root/'events.jsonl').read_text().splitlines()];self.assertEqual([x['status']for x in events if x['event']=='PUBLIC_RESTORE_PROBE'],[503,401]);self.assertEqual(json.loads((root/'restored.json').read_text())['publicUnauthenticatedStatus'],401)
+
 if __name__=='__main__':unittest.main()

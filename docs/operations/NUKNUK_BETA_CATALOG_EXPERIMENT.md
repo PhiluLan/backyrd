@@ -245,3 +245,30 @@ GPU-Abrechnung und beweist keine Ressourcenlöschung. Die gebundene Kostengrenze
 wird nicht verlängert. Bei unerreichbarer Providerverwaltung ist sofortige
 Löschung nicht garantiert; der Zustand bleibt offen, bis DELETE-/404- und
 Inventurbelege vorliegen. Keine neue Allokation bei unbestätigter Bereinigung.
+
+### Lokale Abruf- und Übertragungsdiagnose
+
+Vor weiterem Training kann der bestehende Mac-Controller einen ausdrücklich
+als `TRAIN_RECALL_AND_TRANSFER` / `RECALL_TRANSFER` markierten Diagnoseplan
+ausführen. 20 tatsächlich trainierte Nachrichtenpaare werden unverändert ohne
+Assistant-Ziel wiederverwendet. Je eine neue bedeutungsgleiche Formulierung und
+ein gezielter Bedeutungskontrast ergeben 60 Eingaben je Adapter. Die vollständigen
+neuen Eingaben dürfen nicht bereits in der gebundenen Trainingsdatei vorkommen;
+dies beweist keine Themenneuheit. Systemprompt und Referenz bleiben je Tripel
+unverändert. Bekannte Beispiele, Paraphrasen und Kontraste werden getrennt beurteilt.
+
+Der Plan und die zieldatenfreien Requests sind separat gehasht; lokale native
+Prefixbelege binden genau diese Requests. Alte Trainings-, DEV- und TEST-Belege
+bleiben unverändert. Die 20 abhängigen Tripel sind kein neuer Holdout und keine
+allgemeine Verständnisquote. Historische Assistant-Ziele sind überprüfbare
+Trainingsevidenz, kein automatisch richtiges semantisches Gold. Feld-/ID- und
+Mergefehler werden getrennt von materiellen Bedeutungsfehlern dokumentiert.
+
+Der autorisierte lokale Vergleich verwendet nacheinander dieselbe gebundene
+Mac-Basis und beide Adapter ausschließlich auf localhost:8089, mit 35 Minuten
+Wartungsfenster und 7 Minuten Wiederherstellungsreserve. Watchdog, Speicherwächter
+und Finally-Wiederherstellung bleiben aktiv. Die öffentliche Wiederherstellung
+protokolliert jeden Probe-Status und wartet begrenzt auf den unverändert geforderten
+401-Status. Keine Cloud-Allokation, kein Training, keine Candidate-Aktivierung.
+Mac-Ergebnisse beweisen keine numerische HF-/MLX-Parität oder Ursache eines
+früheren GPU-Lernfehlers. Ein unvollständiger Lauf bleibt ausdrücklich unvollständig.

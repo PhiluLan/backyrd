@@ -95,8 +95,13 @@ def restore(root):
         wait_until(lambda:identity(8088,cfg['live']),180,'original_health_restore_timeout')
         if sha(Path(cfg['live']['adapter'])/'adapters.safetensors')!=LIVE_SHA:raise RuntimeError('restored_adapter_changed')
         wait_until(lambda:http_status('http://127.0.0.1:8092/v1/chat/completions')==401,40,'original_gateway_not_ready')
-        public_status=http_status(cfg['gatewayDomain']+'/v1/chat/completions')
-        if public_status!=401:raise RuntimeError('original_public_gateway_not_ready')
+        public_status=None
+        def public_ready():
+            nonlocal public_status
+            public_status=http_status(cfg['gatewayDomain']+'/v1/chat/completions')
+            event(root,'PUBLIC_RESTORE_PROBE',status=public_status)
+            return public_status==401
+        wait_until(public_ready,40,'original_public_gateway_not_ready')
         put(root,'restored.json',{'status':'HEALTHY_ORIGINAL_RESTORED','at':time.time(),'adapterSha256':LIVE_SHA,'publicUnauthenticatedStatus':public_status,'candidatePortStopped':not bool(health(8089))})
         event(root,'HEALTHY_ORIGINAL_RESTORED')
 
@@ -154,10 +159,12 @@ def catalog_training_origin(spec,bundle,state):
 
 
 def preflight_catalog(root,candidate,completion,python,spec_path):
-    """Bound a small native DEV parity check to secured GPU evidence; no model load."""
+    """Bind local DEV or recall diagnostics to secured training; no model load."""
     if (root/'session.json').exists():raise ValueError('maintenance_already_used')
     spec=read(spec_path)
-    if spec.get('version')!='backyrd.nuknuk-native-catalog-check@1' or spec.get('split')!='DEV':raise ValueError('native_catalog_scope_invalid')
+    probe=spec.get('diagnosticKind')=='TRAIN_RECALL_AND_TRANSFER'
+    split='RECALL_TRANSFER'if probe else'DEV'
+    if spec.get('version')!='backyrd.nuknuk-native-catalog-check@1' or spec.get('split')!=split:raise ValueError('native_catalog_scope_invalid')
     for name,binding in spec['files'].items():
         if sha(Path(binding['path']))!=binding['sha256']:raise ValueError('native_catalog_bound_file_changed:'+name)
     if sha(completion)!=spec['files']['trainingResult']['sha256']:raise ValueError('native_completion_changed')
@@ -170,15 +177,21 @@ def preflight_catalog(root,candidate,completion,python,spec_path):
     if conversion.get('tensors')!=80 or conversion.get('rank')!=16 or conversion.get('scale')!=2:raise ValueError('native_conversion_architecture_invalid')
     parent=Path(spec['parentAdapter'])
     if sha(parent/'adapters.safetensors')!=bundle['parent']['mlxAdapterSha256'] or sha(parent/'adapter_config.json')!=bundle['parent']['mlxAdapterConfigSha256']:raise ValueError('native_parent_changed')
-    packet=read(Path(spec['files']['developmentRequests']['path']));selected=spec['caseIds']
+    request_key='probeRequests'if probe else'developmentRequests'
+    prefix_key='probePreflight'if probe else'preflight'
+    packet=read(Path(spec['files'][request_key]['path']));selected=spec['caseIds']
     if read(Path(spec['files']['preflight']['path'])).get('datasetManifestFileSha256')!=spec['files']['catalogManifest']['sha256']:raise ValueError('native_preflight_unbound')
-    if not 1<=len(selected)<=20 or any(not isinstance(i,str)or not re.fullmatch(r'[a-zA-Z0-9_-]+',i)for i in selected) or len(set(selected))!=len(selected) or any(i not in {r['id']for r in packet['cases']}for i in selected):raise ValueError('native_subset_invalid')
-    if len({r['id']for r in packet['cases']})!=len(packet['cases']) or any(r.get('split')!='DEV'for r in packet['cases']):raise ValueError('native_packet_roster_invalid')
-    prefix_rows=read(Path(spec['files']['preflight']['path']))['cases']
+    if not 1<=len(selected)<=(60 if probe else 20) or any(not isinstance(i,str)or not re.fullmatch(r'[a-zA-Z0-9_-]+',i)for i in selected) or len(set(selected))!=len(selected) or any(i not in {r['id']for r in packet['cases']}for i in selected):raise ValueError('native_subset_invalid')
+    if len({r['id']for r in packet['cases']})!=len(packet['cases']) or any(r.get('split')!=split for r in packet['cases']):raise ValueError('native_packet_roster_invalid')
+    prefix_rows=read(Path(spec['files'][prefix_key]['path']))['cases']
     for case_id in selected:
         matching=[r for r in prefix_rows if r['id']==case_id]
-        if len(matching)!=1 or matching[0].get('split')!='DEV' or type(matching[0].get('prefixTokens'))is not int or not 0<matching[0]['prefixTokens']<5120:raise ValueError('native_prefix_invalid')
-    if packet.get('split')!='DEV' or packet.get('targetIncluded')is not False or sha(Path(spec['files']['developmentRequests']['path']))!=bundle['files']['development-requests.json']['sha256']:raise ValueError('native_requests_changed')
+        if len(matching)!=1 or matching[0].get('split')!=split or type(matching[0].get('prefixTokens'))is not int or not 0<matching[0]['prefixTokens']<5120:raise ValueError('native_prefix_invalid')
+    if packet.get('split')!=split or packet.get('targetIncluded')is not False:raise ValueError('native_requests_changed')
+    if probe:
+        if read(Path(spec['files']['probePreflight']['path'])).get('requestSha256')!=spec['files']['probeRequests']['sha256']:raise ValueError('probe_prefix_source_changed')
+        validate_recall_probe(spec,packet,bundle)
+    elif sha(Path(spec['files']['developmentRequests']['path']))!=bundle['files']['development-requests.json']['sha256']:raise ValueError('native_requests_changed')
     h=health(8088)
     if h.get('status')!='healthy' or not h.get('loaded_adapter') or sha(Path(h['loaded_adapter'])/'adapters.safetensors')!=LIVE_SHA or sha(PLIST)!=PLIST_SHA or health(8089):raise ValueError('original_live_identity_invalid')
     model_spec=spec['model']
@@ -192,16 +205,44 @@ def preflight_catalog(root,candidate,completion,python,spec_path):
         if name!=Path(name).name or sha(Path(model_spec['path'])/name)!=expected:raise ValueError('native_base_file_changed')
     domain=DOMAIN_FILE.read_text().strip()
     if not re.fullmatch(r'https://[a-z0-9][a-z0-9.-]+',domain):raise ValueError('original_domain_invalid')
-    return {'deadline':time.time()+1200,'python':str(python),'live':{'model':h['loaded_model'],'adapter':h['loaded_adapter']},'plistSha256':PLIST_SHA,'gatewayDomain':domain,'candidate':str(candidate),'candidateMlxSha256':conversion['mlxAdapterSha256'],'candidateHfSha256':conversion['hfAdapterSha256'],'resourceGuardSha256':sha(GUARD),'publicCandidate':False,'maxSeconds':1200,'nativeScope':'SERVING_SMOKE_NOT_GPU_NUMERICAL_OR_TOKEN_PARITY','controllerSourceSha256':sha(Path(__file__)), 'catalogComparison':{'spec':str(spec_path),'specSha256':sha(spec_path),'parent':{'model':h['loaded_model'],'adapter':str(parent)},'candidate':{'model':h['loaded_model'],'adapter':str(candidate)},'parentMlxSha256':bundle['parent']['mlxAdapterSha256'],'parentConfigSha256':bundle['parent']['mlxAdapterConfigSha256'],'candidateConfigSha256':conversion['mlxConfigSha256'],'caseCount':len(selected)}}
+    cfg={'deadline':time.time()+1200,'python':str(python),'live':{'model':h['loaded_model'],'adapter':h['loaded_adapter']},'plistSha256':PLIST_SHA,'gatewayDomain':domain,'candidate':str(candidate),'candidateMlxSha256':conversion['mlxAdapterSha256'],'candidateHfSha256':conversion['hfAdapterSha256'],'resourceGuardSha256':sha(GUARD),'publicCandidate':False,'maxSeconds':1200,'nativeScope':'SERVING_SMOKE_NOT_GPU_NUMERICAL_OR_TOKEN_PARITY','controllerSourceSha256':sha(Path(__file__)), 'catalogComparison':{'spec':str(spec_path),'specSha256':sha(spec_path),'parent':{'model':h['loaded_model'],'adapter':str(parent)},'candidate':{'model':h['loaded_model'],'adapter':str(candidate)},'parentMlxSha256':bundle['parent']['mlxAdapterSha256'],'parentConfigSha256':bundle['parent']['mlxAdapterConfigSha256'],'candidateConfigSha256':conversion['mlxConfigSha256'],'caseCount':len(selected)}}
+    if probe:cfg.update(deadline=time.time()+2100,maxSeconds=2100,nativeScope='LOCAL_TRAIN_RECALL_AND_TRANSFER_NOT_HF_PARITY')
+    return cfg
+
+def validate_recall_probe(spec,packet,bundle):
+    """A diagnostic may reuse TRAIN inputs, never assistant answers or holdout claims."""
+    plan=read(Path(spec['files']['probePlan']['path']))
+    train_path=Path(spec['files']['originalTrainingBundleManifest']['path']).parent/'train.jsonl'
+    if sha(train_path)!=bundle['files']['train.jsonl']['sha256']:raise ValueError('probe_training_source_changed')
+    train=[read_row['messages'][:-1]for read_row in (json.loads(line)for line in train_path.read_text().splitlines())]
+    roster=packet['cases']
+    if len(roster)!=60 or [r['id']for r in roster]!=spec['caseIds'] or [r['id']for r in plan['cases']]!=spec['caseIds']:raise ValueError('probe_roster_invalid')
+    groups={}
+    for row,entry in zip(roster,plan['cases']):
+        if row['messages']!=entry['messages']or any(m['role']not in ['system','user']for m in row['messages'])or len(row['messages'])!=2:raise ValueError('probe_target_leak_or_input_changed')
+        groups.setdefault(entry['seedId'],{})[entry['variant']]=row
+    if len(groups)!=20:raise ValueError('probe_seed_count_invalid')
+    seen=[]
+    for group in groups.values():
+        if set(group)!=set(['EXACT_TRAIN','PARAPHRASE','CONTRAST']):raise ValueError('probe_variants_invalid')
+        exact=group['EXACT_TRAIN']['messages']
+        if exact not in train:raise ValueError('probe_seed_not_in_training')
+        for kind in ['PARAPHRASE','CONTRAST']:
+            other=group[kind]['messages']
+            if other in train or other==exact or other[0]!=exact[0]:raise ValueError('probe_transfer_not_new_or_prompt_changed')
+        seen.extend(json.dumps(x['messages'],sort_keys=True)for x in group.values())
+    if len(set(seen))!=60:raise ValueError('probe_duplicate_inputs')
 
 def infer_catalog(root,label):
     cfg=read(root/'session.json');bound=cfg['catalogComparison'];spec_path=Path(bound['spec'])
     if sha(spec_path)!=bound['specSha256']:raise ValueError('native_spec_changed')
     spec=read(spec_path)
-    for name in ['developmentRequests','preflight']:
+    probe=spec.get('diagnosticKind')=='TRAIN_RECALL_AND_TRANSFER'
+    request_key='probeRequests'if probe else'developmentRequests';prefix_key='probePreflight'if probe else'preflight'
+    for name in [request_key,prefix_key]:
         item=spec['files'][name]
         if sha(Path(item['path']))!=item['sha256']:raise ValueError('native_request_source_changed')
-    packet=read(Path(spec['files']['developmentRequests']['path']));prefixes={r['id']:r['prefixTokens']for r in read(Path(spec['files']['preflight']['path']))['cases']}
+    packet=read(Path(spec['files'][request_key]['path']));prefixes={r['id']:r['prefixTokens']for r in read(Path(spec['files'][prefix_key]['path']))['cases']}
     model=bound[label];expected=bound['parentMlxSha256']if label=='parent'else cfg['candidateMlxSha256']
     if sha(Path(model['adapter'])/'adapters.safetensors')!=expected:raise ValueError('native_adapter_changed')
     if sha(Path(__file__))!=cfg['controllerSourceSha256']:raise ValueError('native_controller_changed')
@@ -226,7 +267,7 @@ def infer_catalog(root,label):
         except Exception as error:record.update(status='FAILED',error=type(error).__name__+': '+str(error))
         record['durationMs']=round((time.monotonic()-started)*1000);records.append(record);put(folder,case_id+'.json',record);event(root,'NATIVE_CASE_SECURED',label=label,id=case_id,status=record['status'])
 
-    put(root,label+'-native-summary.json',{'attempted':len(records),'generated':sum(r['status']=='GENERATED_REQUIRES_SEMANTIC_REVIEW'for r in records),'failed':sum(r['status']=='FAILED'for r in records),'semanticsApproved':False,'scope':'SERVING_SMOKE_ONLY'})
+    put(root,label+'-native-summary.json',{'attempted':len(records),'generated':sum(r['status']=='GENERATED_REQUIRES_SEMANTIC_REVIEW'for r in records),'failed':sum(r['status']=='FAILED'for r in records),'semanticsApproved':False,'scope':'LOCAL_RECALL_TRANSFER'if probe else'SERVING_SMOKE_ONLY'})
 
 def run(root,candidate,completion,python,comparison_spec=None):
     cfg=preflight(root,candidate,completion,python,comparison_spec) if comparison_spec is not None else preflight(root,candidate,completion,python);put(root,'session.json',cfg)
