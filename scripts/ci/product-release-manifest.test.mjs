@@ -396,3 +396,15 @@ test('regional context timeout PRODUCT recovery proof is bound to exact SQL, arc
  assert.equal(verifiedArchiveRecovery({...plan,authConfig:{deploy:true}},additive,[migration]),false);
  assert.equal(verifiedArchiveRecovery(plan,{...additive,restoreDrillReceipt:{...proof,artifactId:3}},[migration]),false);
 });
+
+test('workshop archive recovery is bound to exact SQL, proof and only its Admin function', async()=>{
+ const {verifiedArchiveRecovery}=await import('./product-release-manifest.mjs');
+ const {NUKNUK_LEARNING_SCOPE:contractVersion,NUKNUK_LEARNING_MIGRATION:migration}=await import('../deployment/isolated-research-migration.mjs');
+ const proof={runId:1,artifactId:2,artifactDigest:'sha256:'+'a'.repeat(64)};
+ const plan={isolatedResearchScope:{contractVersion,executionAuthorized:false,migrations:[migration],restoreDrill:proof},deployFunctions:['nuknuk-learning']};
+ const additive={restoreDrillStatus:'ISOLATED_DATABASE_AND_MEDIA_RESTORE_PASS',restoreDrillReceipt:proof};
+ assert.equal(verifiedArchiveRecovery(plan,additive,[migration]),true);
+ for(const patch of [{deployFunctions:[]},{deployFunctions:['decision-v13']},{deployFunctions:['nuknuk-learning','decision-v13']},{authConfig:{deploy:true}}])assert.equal(verifiedArchiveRecovery({...plan,...patch},additive,[migration]),false);
+ assert.equal(verifiedArchiveRecovery(plan,additive,[{...migration,sha256:'f'.repeat(64)}]),false);
+ assert.equal(verifiedArchiveRecovery(plan,{...additive,restoreDrillReceipt:{...proof,artifactId:3}},[migration]),false);
+});

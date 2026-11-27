@@ -118,6 +118,12 @@ jobs:
         with: { node-version: 20, cache: npm, cache-dependency-path: admin-dashboard/package-lock.json }
       - run: npm ci
       - run: npm run test:contracts
+      - name: Verify reviewed learning export against canonical interpretation
+        working-directory: .
+        run: |
+          npm ci --ignore-scripts
+          npm run build --workspace @backyrd/decision-vnext-core
+          node --test scripts/decision-diagnostics/test_nuknuk_learning_workshop.mjs
       - run: npm run typecheck
       - run: npm run build
 

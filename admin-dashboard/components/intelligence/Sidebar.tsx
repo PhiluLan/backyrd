@@ -36,6 +36,7 @@ const navigationItems: NavigationItem[] = [
   { href: "/privacy", label: "Datenschutz", icon: "▣" },
   { href: "/decision", label: "Decisions", icon: "✦", groupLabel: "System" },
   { href: "/nuknuk", label: "NukNuk", icon: "◈" },
+  { href: "/nuknuk/lernen", label: "NukNuk-Lernwerkstatt", icon: "◇" },
   { href: "/reference-locations", label: "Referenzorte", icon: "⌖" },
   { href: "/moments", label: "Moments", icon: "◉" },
   { href: "/errors", label: "Fehler", icon: "!" },
@@ -46,7 +47,7 @@ const navigationItems: NavigationItem[] = [
 ];
 
 function isActivePath(pathname: string, href: string): boolean {
-  if (href === "/founder") {
+  if (href === "/founder" || href === "/nuknuk") {
     return pathname === href;
   }
   if (href === "/dashboard") {

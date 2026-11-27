@@ -1,0 +1,244 @@
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.tabs button[aria-selected="true"] {
+  background: var(--accent, #ed478a);
+  color: #fff;
+}
+.toolbar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: end;
+  margin: 18px 0;
+}
+.toolbar label {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+  min-width: 130px;
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.5fr);
+  gap: 22px;
+  align-items: start;
+}
+.list {
+  display: grid;
+  gap: 10px;
+}
+.item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 18px;
+  border: 1px solid #ffffff1f;
+  border-radius: 18px;
+  background: #ffffff04;
+  color: inherit;
+  cursor: pointer;
+}
+.item:hover,
+.item[aria-current="true"] {
+  border-color: #ed478a;
+}
+.item strong {
+  display: block;
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 8px 0;
+}
+.meta {
+  color: var(--muted, #aeb4c2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.form {
+  display: grid;
+  gap: 18px;
+}
+.form label {
+  display: grid;
+  gap: 8px;
+}
+.form input,
+.form textarea,
+.form select {
+  width: 100%;
+}
+.form textarea {
+  min-height: 100px;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 15px 0;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+.meaning {
+  border: 1px solid #ffffff1c;
+  background: #ffffff04;
+  border-radius: 16px;
+  padding: 16px;
+  overflow-wrap: anywhere;
+}
+.meaning strong {
+  display: block;
+  margin-bottom: 8px;
+}
+.meaning p {
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 4px 0;
+}
+.checks label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 0;
+}
+.checks input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.notice {
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid #7fd5ae55;
+  background: #7fd5ae0b;
+  line-height: 1.6;
+}
+.split {
+  padding: 14px;
+  border-radius: 12px;
+  background: #ed478a0b;
+  line-height: 1.6;
+}
+.history {
+  border-top: 1px solid #ffffff1a;
+  padding: 14px 0;
+}
+.queue {
+  padding: 16px;
+  border: 1px solid #ed478a55;
+  border-radius: 16px;
+  margin-bottom: 20px;
+}
+.empty {
+  padding: 28px;
+  text-align: center;
+}
+.danger {
+  color: #ff8c9e;
+}
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border: 1px solid #ffffff26;
+  border-radius: 20px;
+  font-size: 12px;
+}
+.badge[data-state="approved"] {
+  color: #8cddbc;
+  border-color: #8cddbc66;
+}
+.badge[data-state="blocked"] {
+  color: #ffc47b;
+  border-color: #ffc47b66;
+}
+.run {
+  padding: 22px;
+  margin: 14px 0;
+  border: 1px solid #ffffff20;
+  border-radius: 18px;
+}
+.run h3 {
+  margin: 0 0 10px;
+}
+.advanced {
+  margin-top: 18px;
+}
+.advanced pre {
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+.help {
+  max-width: 780px;
+  line-height: 1.75;
+}
+.comment {
+  white-space: pre-wrap;
+}
+.file {
+  max-width: 320px;
+}
+@media (max-width: 1000px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+  .toolbar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .toolbar label {
+    min-width: 0;
+  }
+  .actions > * {
+    flex: 1;
+  }
+  .topline {
+    align-items: start;
+    flex-direction: column;
+  }
+}
+
+.fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+}
+
+.tabs button:not([aria-selected="true"]),
+.secondary {
+  background: #ffffff05;
+  color: var(--muted, #c1c4cf);
+  border: 1px solid #ffffff24;
+}
+.tabs button:focus-visible,
+.item:focus-visible {
+  outline: 2px solid #ed478a;
+  outline-offset: 3px;
+}

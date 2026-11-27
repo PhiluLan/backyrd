@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "nuknuk-learning-workshop-v1",
+  "previousEvidence": "admin-product-feedback-inbox",
+  "previousFingerprints": {
+    "publicAclSha256": "9d7f1ffa69f4a0e127f1a4fa719170473c5da1cb4e60ad847b3b3967cb227856",
+    "applicationSchemaSha256": "e565bf113ba1f2005a49ab5e7bcf1429f9a5c59ccaad827261adf1a3dd991b0f"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261124163610_nuknuk_learning_workshop_v1.sql",
+      "sha256": "f2e01ac5e88091b8feef6c05afc94071105fe88e531e1a332808d86b3104c800"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/nuknuk_learning_workshop_v1.sql",
+      "sha256": "de852d2f16cedf297bf5dde2aff520cbbc6c2ac1bdaaae29c285aa4b06218b68"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "721f9d0383bbe08e9124debd057647201af9ba26b0d7510bb3ddc7dad5209472",
+    "applicationSchemaSha256": "15bc730df24ac03b48f96d173349b536c70639a8dfb99dc3adde8169da68f69f"
+  }
+}

@@ -227,6 +227,7 @@ class TrainingBoundaryTests(unittest.TestCase):
                 (model / "config.json").write_text(json.dumps({"text_config": {"layer_types": ["full_attention"]}}))
                 data = root / "data"
                 data.mkdir()
+                (data / "manifest.json").write_text(json.dumps({"version":"backyrd.nuknuk-understanding-dataset@1"}))
                 output = root / "output"
                 argv = ["trainer", "--model", str(model), "--data", str(data), "--manifest-sha256", "synthetic", "--output", str(output), "--last-attention-layers", "1", "--execute"]
                 if full_epoch:
