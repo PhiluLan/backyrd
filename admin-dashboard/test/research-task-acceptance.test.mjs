@@ -5,7 +5,7 @@ const dir=await mkdtemp(join(tmpdir(),"research-accept-"));
 const files={researchInbox:"../lib/researchInbox.ts",nuknukDraftImport:"../lib/nuknukDraftImport.ts",researchSaveFeedback:"../lib/researchSaveFeedback.ts",worldResearchExport:"../lib/server/worldResearchExport.ts",researchFieldEdit:"../lib/server/researchFieldEdit.ts",researchTaskAcceptance:"../lib/server/researchTaskAcceptance.ts"};
 for(const [name,file] of Object.entries(files)){
  const raw=await readFile(new URL(file,import.meta.url),"utf8");
- let code=ts.transpileModule(raw,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText.replace('import "server-only";','').replaceAll('"@backyrd/world-knowledge-core"',JSON.stringify(new URL('../../packages/world-knowledge-core/dist/index.js',import.meta.url).href));
+ let code=ts.transpileModule(raw,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText.replace('import "server-only";','').replaceAll('"@backyrd/world-knowledge-core/browser"',JSON.stringify(new URL('../../packages/world-knowledge-core/dist/browser-runtime.js',import.meta.url).href)).replaceAll('"@backyrd/world-knowledge-core"',JSON.stringify(new URL('../../packages/world-knowledge-core/dist/index.js',import.meta.url).href));
  for(const dependency of Object.keys(files))for(const prefix of ["../","./"])code=code.replaceAll(JSON.stringify(prefix+dependency),JSON.stringify(pathToFileURL(join(dir,dependency+'.mjs')).href));
  await writeFile(join(dir,name+'.mjs'),code);
 }

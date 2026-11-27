@@ -11,7 +11,7 @@ import * as browserHash from '../dist/canonical.browser.js';
 const root = fileURLToPath(new URL('..', import.meta.url));
 
 test('browser entry exposes the same canonical UI contracts without server entrypoints', () => {
-  for (const key of ['REGISTRY_HASH','AUTHORING_CATALOG_HASH','AUTHORING_FIELDS','AUTHORING_STEPS','SPOT_TYPE_CATALOG','OFFER_CATALOG','AREA_CATALOG','validateAuthoringSubmission','parseExperienceProfile']) {
+  for (const key of ['REGISTRY_HASH','AUTHORING_CATALOG_HASH','AUTHORING_FIELDS','AUTHORING_STEPS','SPOT_TYPE_CATALOG','OFFER_CATALOG','AREA_CATALOG','validateAuthoringSubmission','parseExperienceProfile','parseWorldResearchBatch','planWorldResearchSpot','canonicalJson']) {
     assert.deepEqual(browser[key], server[key], key);
   }
   for (const key of ['createFounderWorldCohortHandoff','createFounderWorldKnowledgeReader','createWorldResearchBatch','createDiscoveryPreparationHttpHandler','PHILIPPS_CASA_CLAIMS']) {
@@ -39,7 +39,7 @@ test('browser mapping has no node imports or server HTTP/fixture modules in its 
   }
   visit(resolve(root,'dist/browser-runtime.js'));
   assert.ok(visited.has(resolve(root,'dist/canonical.browser.js')));
-  for(const name of ['canonical.js','index.js','founder-handoff.js','fixtures.js','discovery-http.js','discovery-preparation.js','research-batch.js']) {
+  for(const name of ['canonical.js','index.js','founder-handoff.js','fixtures.js','discovery-http.js','discovery-preparation.js']) {
     assert.ok(!visited.has(resolve(root,'dist',name)),name);
   }
 });

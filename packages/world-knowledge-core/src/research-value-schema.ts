@@ -1,5 +1,5 @@
 import { EXPERIENCE_PROFILE_SCHEMA } from "./experience-schema.js";
-import { discoveryPreparationSchema } from "./discovery-preparation.js";
+import { discoveryPreparationSchema } from "./discovery-preparation-schema.js";
 import { WEEKDAYS } from "./contracts.js";
 import { getAttributeDefinition, DAYPARTS, ONSITE_OFFERING_RELATIONSHIPS, RESERVATION_MODES, CONSUMPTION_POLICIES, PET_ACCESS_STATES, PRICE_PURPOSES, PRICE_BASES } from "./registry.js";
 

@@ -10,7 +10,7 @@ const href=name=>pathToFileURL(join(dir,name+'.mjs')).href;
 const core=new URL('../../packages/world-knowledge-core/dist/index.js',import.meta.url).href;
 for(const [name,path] of [['draft','../lib/nuknukResearchDraft.ts'],['import','../lib/nuknukDraftImport.ts']]){
  const source=await readFile(new URL(path,import.meta.url),'utf8');
- await writeFile(join(dir,name+'.mjs'),ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText.replace('"@backyrd/world-knowledge-core"',JSON.stringify(core)));
+ await writeFile(join(dir,name+'.mjs'),ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText.replaceAll('"@backyrd/world-knowledge-core/browser"',JSON.stringify(new URL('../../packages/world-knowledge-core/dist/browser-runtime.js',import.meta.url).href)).replace('"@backyrd/world-knowledge-core"',JSON.stringify(core)));
 }
 await writeFile(join(dir,'mock.mjs'),`export let f;export const installFixture=x=>f=x;export const authorizeAdminRequest=async()=>f.authorization;export const createClient=(_url,key)=>key==='service'?f.service:f.actor;export const readWorldResearchDetail=async()=>f.detail;`);
 const source=await readFile(new URL('../app/api/world-knowledge/research-drafts/route.ts',import.meta.url),'utf8');

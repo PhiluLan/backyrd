@@ -19,8 +19,8 @@ function KnowledgeButtons({label,state,onChange}:{label:string;state:ExperienceP
  return <div className="wk-knowledge-buttons" role="group" aria-label={`${label} Wissensstand`}>{(["UNKNOWN","NOT_APPLICABLE"] as const).map(value=><button type="button" className={state===value?"selected":"wk-secondary"} aria-pressed={state===value} key={value} onClick={()=>onChange(value)}>{value==="UNKNOWN"?"Noch unbekannt":"Nicht relevant"}</button>)}</div>;
 }
 const unconditional=(p:ExperienceProperty)=>!p.conditions.weekdays.length&&!p.conditions.dayparts.length&&!p.conditions.event&&!p.conditions.validFrom&&!p.conditions.validUntil;
-export function Properties({category,scope,offerKind,areaKind,group,values,onChange,existingAnswers={}}:{existingAnswers?:Readonly<Record<string,unknown>>;category:ExperienceCategory;scope:ExperienceScope;offerKind?:string;areaKind?:string;group:string;values:readonly ExperienceProperty[];onChange:(value:readonly ExperienceProperty[])=>void}){
- const questions=getExperienceAuthoringQuestions(category,scope,offerKind,areaKind,existingAnswers);
+export function Properties({category,scope,offerKind,areaKind,group,values,onChange,existingAnswers={},sharedFacilitiesManaged=false}:{sharedFacilitiesManaged?:boolean;existingAnswers?:Readonly<Record<string,unknown>>;category:ExperienceCategory;scope:ExperienceScope;offerKind?:string;areaKind?:string;group:string;values:readonly ExperienceProperty[];onChange:(value:readonly ExperienceProperty[])=>void}){
+ const questions=getExperienceAuthoringQuestions(category,scope,offerKind,areaKind,existingAnswers,sharedFacilitiesManaged);
  const update=(index:number,patch:Partial<ExperienceProperty>,key:string)=>onChange(index<0?[...values,{key,label:null,state:"UNKNOWN",value:null,conditions:emptyExperienceConditions(),...patch}]:values.map((v,i)=>i===index?{...v,...patch}:v));
  const row=(p:ExperienceProperty,index:number,q?:ExperienceQuestion)=>{
   const spec=q?experienceAnswerGuidance(p.key,category,offerKind,areaKind,existingAnswers):null;
