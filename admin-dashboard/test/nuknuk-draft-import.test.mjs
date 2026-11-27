@@ -9,7 +9,7 @@ import test from "node:test";
 const dir=await mkdtemp(join(tmpdir(),"nuknuk-import-"));
 const source=await readFile(new URL('../lib/nuknukDraftImport.ts',import.meta.url),'utf8');
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText
- .replace('"@backyrd/world-knowledge-core"',JSON.stringify(new URL('../../packages/world-knowledge-core/dist/index.js',import.meta.url).href));
+ .replaceAll('"@backyrd/world-knowledge-core/browser"',JSON.stringify(new URL('../../packages/world-knowledge-core/dist/browser-runtime.js',import.meta.url).href)).replace('"@backyrd/world-knowledge-core"',JSON.stringify(new URL('../../packages/world-knowledge-core/dist/index.js',import.meta.url).href));
 await writeFile(join(dir,'import.mjs'),compiled);
 const {mergeResearchProfile,prepareNuknukDraftImport,planAdminResearchReview,supplementResearchValue}=await import(pathToFileURL(join(dir,'import.mjs')).href);
 const id='174cfd79-d10d-434d-be8f-1a7e39047e82';

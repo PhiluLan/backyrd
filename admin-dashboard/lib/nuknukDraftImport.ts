@@ -2,7 +2,7 @@ import {
   canonicalJson, parseExperienceProfile, parseWorldResearchBatch, planWorldResearchSpot, validateAuthoringSubmission,
   type ExperienceProfile, type ExperienceProperty, type WorldResearchBatchDocument,
   type WorldResearchClaim, type WorldResearchSource, type WorldResearchExistingValue, type ResearchReview,
-} from "@backyrd/world-knowledge-core";
+} from "@backyrd/world-knowledge-core/browser";
 import type { NuknukDraft, ResearchResult } from "./nuknukResearchDraft";
 
 const sameName = (value: string) => value.normalize("NFKC").trim().toLocaleLowerCase("de-CH");
