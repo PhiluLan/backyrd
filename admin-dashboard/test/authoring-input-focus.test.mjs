@@ -73,3 +73,13 @@ test('free notes keep their label, value and conditions editable without replaci
  controls.find(item=>item.props['aria-label']==='Hinweis 1 Bezeichnung').props.onChange({target:{value:'Eingang'}});
  assert.deepEqual(changed,[{...original[0],label:'Eingang'},original[1]]);
 });
+
+test('conditional formulations can be corrected without losing their exact validity',()=>{
+ const original=[{...property('offer.feature','Beamer'),conditions:{...conditions,weekdays:[6],event:'Workshop',validFrom:'2026-11-01',validUntil:'2026-12-01'}}];
+ let changed;
+ const root=Properties({category:'MUSEUM',scope:'OFFER',offerKind:'WORKSHOP',group:'Besondere Ausstattung',values:original,onChange(value){changed=value;}});
+ const input=inputs(root).find(item=>item.props['aria-label']==='Besondere Ausstattung bedingte Formulierung 1');
+ assert.ok(input);
+ input.props.onChange({target:{value:'Beamer mit Leinwand'}});
+ assert.deepEqual(changed,[{...original[0],value:'Beamer mit Leinwand'}]);
+});
