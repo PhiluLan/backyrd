@@ -62,3 +62,32 @@ mobile overflow and unsaved navigation.
 The research import uses the explicit browser entry point. Research parsing and
 planning expose only pure code; discovery schema definitions are shared without
 importing provider, HTTP or privileged server modules into the client bundle.
+
+## Complete entry paths and retained formulations
+
+Every supported experience question has a new-entry path in a relevant offer,
+area or common context. The normal questionnaire remains category/module-driven.
+“Weitere passende Angabe ergänzen” exposes deliberate scoped exceptions without
+requiring duplicate common answers. Newly added questions start UNKNOWN with no
+value; adding one does not copy a shared fact, confirm suitability or broaden its
+scope. No stored facts are automatically migrated.
+
+A stored supported question always keeps a typed editor at its original scope,
+even if the current category or preferred place of entry no longer suggests it.
+Nonstandard textual answers are editable next to the corresponding question;
+selecting a supported answer supplements rather than replaces those texts.
+Custom notes have editable labels, text and conditions and can also be created
+for new spots. A note is not evidence that every phrase is understood by search.
+
+Room care shows indoor/outdoor, step-free and stroller access directly. Secondary
+properties remain under “Weitere Bereichsdetails & Ausnahmen”; they are optional
+to enter but may be decisive for a request. Empty means unknown. An entrance fact
+never automatically confirms access to a room. Existing prices, offer times,
+conditional rules and original offer/area/spot attachments remain unchanged.
+
+Coverage regression: `spot-authoring-scope.test.mjs` enumerates every supported
+question and every stored permitted scope, verifies a new-entry path for each
+question and keeps repeated common questions out of the default questionnaire.
+`authoring-input-focus.test.mjs` verifies text/label editing preserves conditions
+and unrelated values. Targeted browser journeys verify both newly entered facts
+and existing nonstandard/conditional information through the real save contract.

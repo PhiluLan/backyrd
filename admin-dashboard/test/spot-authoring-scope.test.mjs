@@ -5,14 +5,14 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import ts from 'typescript';
-import {AUTHORING_STEPS, emptyExperienceProfile, emptyExperienceConditions, getAuthoringFieldsForContext, parseExperienceProfile} from '../../packages/world-knowledge-core/dist/browser-runtime.js';
+import {AREA_CATALOG, OFFER_CATALOG, EXPERIENCE_QUESTIONS, AUTHORING_STEPS, emptyExperienceProfile, emptyExperienceConditions, getAuthoringFieldsForContext, parseExperienceProfile} from '../../packages/world-knowledge-core/dist/browser-runtime.js';
 
 const dir=await mkdtemp(join(tmpdir(),'spot-authoring-scope-'));
 const runtime=new URL('../../packages/world-knowledge-core/dist/browser-runtime.js',import.meta.url).href;
 const source=await readFile(new URL('../../packages/world-knowledge-authoring-ui/src/experience-authoring.ts',import.meta.url),'utf8');
 const path=join(dir,'scope.mjs');
 await writeFile(path,ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText.replaceAll('"@backyrd/world-knowledge-core/browser"',JSON.stringify(runtime)));
-const {getSpotCareSteps,categoryOfferChoices,experienceQuestionSections,simpleOfferSetting,setSimpleOfferSetting}=await import(pathToFileURL(path).href);
+const {getSpotCareSteps,categoryOfferChoices,getExperienceCareQuestions,getExperienceAdditionalQuestions,experienceQuestionSections,simpleOfferSetting,setSimpleOfferSetting}=await import(pathToFileURL(path).href);
 const property=(key,value)=>({key,value,label:null,state:'KNOWN',conditions:emptyExperienceConditions()});
 const fixture=()=>({...emptyExperienceProfile('MUSEUM'),reviewed:true,properties:[],areas:[{id:'old-room',kind:'EXHIBITION',name:'Bestehender Ausstellungsraum',properties:[property('amenity.step_free',false)]}],offers:[{id:'visit',kind:'PERMANENT_EXHIBITION',name:'Sammlung',areaIds:[],properties:[property('custom.detail','Besondere Sammlung')].map(p=>({...p,label:'Sammlungshinweis'})),prices:[{label:'Eintritt',min:12,max:12,currency:'CHF',basis:'PER_PERSON',includes:'Eintritt',mandatoryFeesIncluded:true,minimumAge:null,maximumAge:null,conditions:emptyExperienceConditions()}],schedule:[{weekday:1,start:'10:00',end:'17:00'}],validFrom:null,validUntil:null},{id:'tour',kind:'GUIDED_TOUR',name:'Führung',areaIds:['old-room'],properties:[],prices:[],schedule:[],validFrom:null,validUntil:null}]});
 
@@ -37,10 +37,10 @@ test('category choices do not suggest private celebrations at a museum; existing
  assert.equal(parseExperienceProfile(profile).offers.length,3);
 });
 
-test('room first screen only asks setting; existing access and other details remain available',()=>{
+test('room first screen includes setting and access; secondary details remain available',()=>{
  const sections=experienceQuestionSections('SPORT','AREA',undefined,'BOULDER_AREA');
- assert.deepEqual(sections.primary.map(q=>q.key),['location.setting']);
- assert.ok(sections.additional.some(q=>q.key==='amenity.step_free'));
+ assert.deepEqual(sections.primary.map(q=>q.key),['location.setting','amenity.stroller','amenity.step_free']);
+ assert.ok(sections.primary.some(q=>q.key==='amenity.step_free'));
  assert.ok(!sections.primary.some(q=>q.key==='amenity.toilet'));
  const celebration=experienceQuestionSections('ACTIVITIES_PLAY','OFFER','PRIVATE_CELEBRATION');
  assert.ok(celebration.primary.some(q=>q.key==='participation.age_suitability'));
@@ -96,4 +96,37 @@ test('central facility writer removes duplicate WC questions only where that wri
  const {getExperienceAuthoringQuestions}=await import(pathToFileURL(path).href);
  assert.ok(!getExperienceAuthoringQuestions('MUSEUM','SPOT',undefined,undefined,{},true).some(q=>q.key==='amenity.toilet'));
  assert.ok(getExperienceAuthoringQuestions('MUSEUM','SPOT',undefined,undefined,{},false).some(q=>q.key==='amenity.toilet'),'Basic owners keep their existing profile-scoped facility editor');
+});
+
+
+test('every stored structured fact retains a typed editor at its exact original scope',()=>{
+ for(const question of EXPERIENCE_QUESTIONS)for(const scope of question.scopes){
+  const values=[property(question.key,question.control==='NUMBER'?4:question.control==='YES_NO'?false:'Bisherige Formulierung')];
+  const before=structuredClone(values);
+  const shown=getExperienceCareQuestions('MUSEUM',scope,'CAFE','INDOOR',{},true,values);
+  assert.equal(shown.filter(item=>item.key===question.key).length,1,`${scope}:${question.key}`);
+  assert.equal(shown.find(item=>item.key===question.key).control,question.control);
+  assert.deepEqual(values,before);
+ }
+});
+
+test('every supported question has a new-entry path without requiring an old saved value',()=>{
+ const reachable=new Set();
+ const contexts=[['SPOT',undefined,undefined],...OFFER_CATALOG.map(o=>['OFFER',o.kind,undefined]),...AREA_CATALOG.map(a=>['AREA',undefined,a.kind])];
+ for(const [scope,offerKind,areaKind] of contexts){
+  for(const question of [...getExperienceCareQuestions('OTHER',scope,offerKind,areaKind,{},true),...getExperienceAdditionalQuestions('OTHER',scope,offerKind,areaKind,{},true)])reachable.add(question.key);
+ }
+ for(const question of EXPERIENCE_QUESTIONS)assert.ok(reachable.has(question.key),`${question.key} lacks a new-entry path`);
+});
+
+test('deliberate scoped exceptions start unknown and do not copy common facts or become mandatory duplicates',()=>{
+ const shared={'amenity.features':{knowledgeState:'KNOWN_VALUE',value:['TOILET']}};
+ const visible=getExperienceCareQuestions('MUSEUM','AREA',undefined,'EXHIBITION',shared,true);
+ const extra=getExperienceAdditionalQuestions('MUSEUM','AREA',undefined,'EXHIBITION',shared,true);
+ assert.ok(!visible.some(q=>q.key==='amenity.toilet'));
+ assert.ok(extra.some(q=>q.key==='amenity.toilet'));
+ const values=[{key:'amenity.toilet',label:null,state:'UNKNOWN',value:null,conditions:emptyExperienceConditions()}];
+ assert.equal(getExperienceCareQuestions('MUSEUM','AREA',undefined,'EXHIBITION',shared,true,values).filter(q=>q.key==='amenity.toilet').length,1);
+ assert.ok(!getExperienceAdditionalQuestions('MUSEUM','AREA',undefined,'EXHIBITION',shared,true,values).some(q=>q.key==='amenity.toilet'));
+ assert.equal(values[0].value,null);
 });

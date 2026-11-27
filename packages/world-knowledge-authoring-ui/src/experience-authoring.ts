@@ -1,4 +1,4 @@
-import { AUTHORING_STEPS, EXPERIENCE_QUESTIONS, EXPERIENCE_TEMPLATES, emptyExperienceConditions, getAuthoringFieldsForContext, getExperienceQuestions, hasOfferModule, type ExperienceArea, type ExperienceCategory, type ExperienceProfile, type ExperienceQuestion, type ExperienceScope } from "@backyrd/world-knowledge-core/browser";
+import { AUTHORING_STEPS, EXPERIENCE_QUESTIONS, EXPERIENCE_TEMPLATES, emptyExperienceConditions, getAuthoringFieldsForContext, getExperienceQuestions, hasOfferModule, type ExperienceArea, type ExperienceCategory, type ExperienceProfile, type ExperienceProperty, type ExperienceQuestion, type ExperienceScope } from "@backyrd/world-knowledge-core/browser";
 
 export type ExperienceWorkspace = "OFFERS" | "AREAS" | "SPOT";
 
@@ -45,6 +45,27 @@ export function getExperienceAuthoringQuestions(category: ExperienceCategory, sc
     }));
 }
 
+/** Existing structured facts keep their original scope and a real editor even
+ * when their category or the preferred place of entry has changed. */
+export function getExperienceCareQuestions(category: ExperienceCategory, scope: ExperienceScope, offerKind?: string, areaKind?: string, existingAnswers: Readonly<Record<string,unknown>> = {}, sharedFacilitiesManaged = false, properties: readonly ExperienceProperty[] = []): readonly ExperienceQuestion[] {
+  const questions = getExperienceAuthoringQuestions(category, scope, offerKind, areaKind, existingAnswers, sharedFacilitiesManaged);
+  const stored = EXPERIENCE_QUESTIONS.filter(question => question.scopes.includes(scope)
+    && properties.some(property => property.key === question.key)
+    && !questions.some(current => current.key === question.key));
+  return [...questions, ...stored];
+}
+
+/** Deliberate exceptions, not another compulsory questionnaire. These are
+ * supported scoped fields; adding one never copies or widens a shared fact. */
+export function getExperienceAdditionalQuestions(category: ExperienceCategory, scope: ExperienceScope, offerKind?: string, areaKind?: string, existingAnswers: Readonly<Record<string,unknown>> = {}, sharedFacilitiesManaged = false, properties: readonly ExperienceProperty[] = []): readonly ExperienceQuestion[] {
+  const visible = getExperienceCareQuestions(category, scope, offerKind, areaKind, existingAnswers, sharedFacilitiesManaged, properties);
+  const candidates = [...getExperienceQuestions(category, scope, offerKind, areaKind),
+    ...EXPERIENCE_QUESTIONS.filter(question => question.scopes.includes(scope)
+      && (question.key === "participation.permission" || question.key === "participation.minimum_age"))];
+  return candidates.filter((question, index) => candidates.findIndex(item => item.key === question.key) === index
+    && !visible.some(item => item.key === question.key));
+}
+
 /** Presentation only: original fields, permissions and append-only writers stay
  * authoritative. Every non-profile key has exactly one navigation destination. */
 export const SHARED_AUTHORING_STEPS = ["hours", "price", "offering", "context", "objective", "amenities"] as const;
@@ -62,7 +83,7 @@ export function getSpotCareSteps(category: unknown, guidance?: Parameters<typeof
  * details and all historical answers remain editable in a disclosure. */
 export function experienceQuestionSections(category: ExperienceCategory, scope: ExperienceScope, offerKind?: string, areaKind?: string, existingAnswers: Readonly<Record<string,unknown>> = {}) {
   const questions = getExperienceAuthoringQuestions(category, scope, offerKind, areaKind, existingAnswers);
-  const primaryKeys = new Set(scope === "AREA" ? ["location.setting"] : scope === "SPOT" ? questions.map(question => question.key) : [
+  const primaryKeys = new Set(scope === "AREA" ? ["location.setting", "amenity.step_free", "amenity.stroller"] : scope === "SPOT" ? questions.map(question => question.key) : [
     "participation.booking", "participation.age_suitability", "participation.minimum_age",
     ...(offerKind === "OTHER" ? ["experience.activity"] : []),
     ...(hasOfferModule(offerKind ?? "", "instructed") ? ["participation.language", "time.duration", "offer.capacity"] : []),
