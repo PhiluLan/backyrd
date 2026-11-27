@@ -48,6 +48,8 @@ test('category choices do not suggest private celebrations at a museum; existing
  assert.ok(categoryOfferChoices('MUSEUM').some(offer=>offer.kind==='WORKSHOP'));
  assert.ok(!categoryOfferChoices('MUSEUM').some(offer=>offer.kind==='PRIVATE_CELEBRATION'));
  assert.ok(categoryOfferChoices('RESTAURANT').some(offer=>offer.kind==='PRIVATE_CELEBRATION'));
+ assert.ok(categoryOfferChoices('ACTIVITIES_PLAY').some(offer=>offer.kind==='PRIVATE_CELEBRATION'));
+ assert.ok(categoryOfferChoices('SPORT').some(offer=>offer.kind==='PRIVATE_CELEBRATION'));
  const profile=fixture();profile.offers.push({...profile.offers[1],id:'existing-party',kind:'PRIVATE_CELEBRATION',name:'Bereits belegte Feier'});
  assert.equal(parseExperienceProfile(profile).offers.length,3);
 });

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "spot-knowledge-searchable-offer-details",
+  "previousEvidence": "admin-product-feedback-inbox",
+  "previousFingerprints": {
+    "publicAclSha256": "9d7f1ffa69f4a0e127f1a4fa719170473c5da1cb4e60ad847b3b3967cb227856",
+    "applicationSchemaSha256": "e565bf113ba1f2005a49ab5e7bcf1429f9a5c59ccaad827261adf1a3dd991b0f"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261127214029_spot_knowledge_searchable_offer_details.sql",
+      "sha256": "c33b2bf7e1b1fa94c000f843046e67eb4ac59b95dfe3986d61554d19acff5a64"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/spot_knowledge_searchable_offer_details.sql",
+      "sha256": "6e388259653910614b950c0eb76a867bfb18e4ab1b2b363a7540f43b0630780b"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "9d7f1ffa69f4a0e127f1a4fa719170473c5da1cb4e60ad847b3b3967cb227856",
+    "applicationSchemaSha256": "e565bf113ba1f2005a49ab5e7bcf1429f9a5c59ccaad827261adf1a3dd991b0f"
+  }
+}

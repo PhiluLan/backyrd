@@ -99,7 +99,11 @@ export function experienceQuestionSections(category: ExperienceCategory, scope: 
 }
 
 export function categoryOfferChoices(category: ExperienceCategory) {
-  return EXPERIENCE_TEMPLATES[category].offers.filter(offer => offer.kind !== "GASTRONOMY");
+  const offers = EXPERIENCE_TEMPLATES[category].offers.filter(offer => offer.kind !== "GASTRONOMY");
+  // Play parks and sports venues can sell a distinct birthday package without
+  // suggesting celebration services at every museum or unrelated venue type.
+  return ["ACTIVITIES_PLAY", "SPORT", "SPORT_MOVEMENT"].includes(category) && !offers.some(offer => offer.kind === "PRIVATE_CELEBRATION")
+    ? [...offers, {kind:"PRIVATE_CELEBRATION",label:"Private Feier"}] : offers;
 }
 
 export type SimpleOfferSetting = "UNKNOWN" | "INDOOR" | "OUTDOOR" | "BOTH";
