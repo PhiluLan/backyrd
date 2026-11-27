@@ -15,6 +15,8 @@ const guidance: Readonly<Record<string, ExperienceAnswerGuidance>> = {
   "sport.level": choice(["Anfänger", "Fortgeschrittene", "Alle Erfahrungsstufen"]),
   "sport.equipment": choice(["Kletterschuhe", "Sportkleidung", "Klettergurt", "Sicherungsgerät", "Eigene Ausrüstung erforderlich"], "Wähle nur die Ausrüstung, die für dieses konkrete Angebot benötigt wird. Leihmaterial und dessen Preis pflegst du separat."),
   "participation.format": choice(["Selbstständig", "Geführt", "Betreut"]),
+  "participation.group_access": choice(["Einzelanmeldung möglich", "Nur Gruppenanmeldung"], "Einzelanmeldung bedeutet nicht Einzelunterricht. Die maximale Gruppengrösse wird separat gepflegt."),
+  "participation.subscription": choice(["Ohne Mitgliedschaft oder Abo", "Mitgliedschaft oder Abo erforderlich"], "Einzelne Buchungen und Eintritte sind keine Mitgliedschaft. Bedingte Ausnahmen getrennt erfassen."),
   "participation.language": choice(["Deutsch", "Englisch", "Französisch", "Italienisch", "Spanisch", "Portugiesisch"]),
   "participation.age_suitability": choice(["Kinder", "Jugendliche", "Erwachsene", "Alle Altersgruppen"], "Dies ist eine Altersempfehlung. Zutrittsgrenzen werden dadurch nicht festgelegt."),
   "participation.prerequisite": choice(["Keine Vorkenntnisse", "Vorkenntnisse erforderlich", "Begleitung erforderlich"]),
@@ -28,7 +30,7 @@ const guidance: Readonly<Record<string, ExperienceAnswerGuidance>> = {
   "condition.children": choice(["Kindermenü", "Kinderangebote", "Kinderbetreuung"]),
   "offer.service": choice(["Bedienung am Tisch", "Selbstbedienung"]),
   "condition.terrain": choice(["Ebener Weg", "Steigung", "Treppen", "Unebener Weg"]),
-  "participation.accessibility": choice(["stufenfrei", "mit Kinderwagen zugänglich", "Zugang mit Stufen"]),
+  "participation.accessibility": choice(["stufenfrei", "Ebenerdiger Zugang", "mit Kinderwagen zugänglich", "Zugang mit Stufen"]),
   "location.setting": choice(["drinnen", "draussen", "Innenstadt", "Park", "Wald", "Ländlich", "Am Wasser"]),
   "location.view": choice(["Wasserblick", "Stadtblick", "Parkblick", "Bergblick", "Waldblick"], "Wähle die tatsächlich sichtbare Aussicht. Die Nähe zu Wasser allein ist kein Wasserblick."),
   "atmosphere.privacy": choice(["Öffentlich", "Separater Bereich", "Privat buchbar"]),
@@ -48,6 +50,8 @@ const activitiesByCategory: Readonly<Partial<Record<ExperienceCategory, readonly
   MUSEUM: ["Ausstellung besuchen", "Museum besuchen", "Führung", "Workshop", "Kaffee"],
 };
 export function experienceAnswerGuidance(key: string, category: ExperienceCategory, offerKind?: string, areaKind?: string, existingAnswers: Readonly<Record<string,unknown>> = {}): ExperienceAnswerGuidance | null {
+  if (key === "participation.permission") return {...choice(["Zutritt erlaubt", "Zutritt nicht erlaubt", "Hunde erlaubt", "Hunde nicht erlaubt", "Eigene Speisen erlaubt", "Eigene Speisen nicht erlaubt"], "Allgemeine Regeln einmal am Spot pflegen. Abweichungen nur am betroffenen Angebot oder Bereich erfassen."), exclusiveGroups:[["Zutritt erlaubt","Zutritt nicht erlaubt"],["Hunde erlaubt","Hunde nicht erlaubt"],["Eigene Speisen erlaubt","Eigene Speisen nicht erlaubt"]]};
+  if (key === "offer.temperature" && areaKind === "POOL_AREA") return {...choice(["Warmes Wasser", "Kühles Wasser"], "Nur bestätigte Wasserbedingungen auswählen. Ein beheizter Innenraum bestätigt keine Wassertemperatur."), multiple:false};
   if (key === "participation.audience") {
     const stored=existingAnswers["classification.place_types"];
     const types=stored && typeof stored === "object" && "knowledgeState" in stored && stored.knowledgeState === "KNOWN_VALUE" && "value" in stored && Array.isArray(stored.value) ? stored.value : [];
@@ -62,14 +66,17 @@ export function experienceAnswerGuidance(key: string, category: ExperienceCatego
   if (key === "offer.feature") return choice(category === "SPORT" ? ["Schliessfächer", "Garderobe", "Umkleide", "Trainingsgeräte", "WLAN", "Steckdosen"] : category === "ZOO" ? ["Schliessfächer", "Garderobe", "WLAN", "Spielbereich"] : category === "MUSEUM" ? ["Schliessfächer", "Garderobe", "Audioguide", "WLAN", "Steckdosen"] : ["WLAN", "Steckdosen", "Garderobe", "Spielbereich", "Billardtisch", "Dartscheibe"]);
   if (key === "experience.theme") return named(category === "ZOO" || offerKind === "ANIMAL_OBSERVATION" ? "Zum Beispiel Pinguine" : "Zum Beispiel Naturgeschichte", category === "ZOO" || offerKind === "ANIMAL_OBSERVATION" ? "Eine Tierart oder ein Thema dieses Angebots. Weitere Tierarten getrennt ergänzen." : "Ein Thema oder eine Sammlung dieser Ausstellung. Weitere Themen getrennt ergänzen.");
   if(key==="experience.activity"){
+    if (offerKind === "OTHER") return named("Zum Beispiel Töpferkurs", "Eine konkrete Tätigkeit pro Eintrag. Altersgruppen, Preise und Zugangsregeln separat erfassen.");
+    if (["COURSE", "WORKSHOP"].includes(offerKind ?? "")) return choice(["Kurs", "Workshop", "Töpferkurs", "Kochkurs"], "Nur Tätigkeiten auswählen, die dieses Angebot tatsächlich umfasst. Unterschiedliche Kurse mit eigenen Zeiten oder Preisen als getrennte Angebote pflegen.");
+    if (offerKind === "PRIVATE_CELEBRATION") return choice(["private Feier", "Geburtstagsfeier", "Kindergeburtstag feiern"], "Nur tatsächlich buchbare Feiern auswählen. Kindergeburtstage ausdrücklich bestätigen; eine allgemeine private Feier reicht dafür nicht. Altersgruppen und Bedingungen separat pflegen.");
     const item=OFFER_CATALOG.find(o=>o.kind===offerKind);
     const activities=offerKind === "EVENT" ? ["Veranstaltung besuchen", "Tanzen"] : hasOfferModule(offerKind??"","sport")||hasOfferModule(offerKind??"","movement") ? OFFER_CATALOG.filter(o=>o.modules.some(m=>m==="sport"||m==="movement")).flatMap(o=>o.activities) : item?.activities ?? activitiesByCategory[category] ?? [];
     return choice([...new Set([...(item?.activities??[]), ...activities])],"Wähle alle Tätigkeiten, die in diesem konkreten Angebot tatsächlich möglich sind. Tätigkeiten mit anderen Altersgrenzen, Preisen oder Bedingungen gehören in ein separates Angebot.");
   }
   const existing = EXPERIENCE_VALUE_CHOICES[key];
   const spec = existing ? choice(existing) : guidance[key] ?? null;
-  const single = ["participation.booking", "participation.permission", "participation.entry_mode", "participation.consumption_obligation", "food.meal_extent", "atmosphere.noise", "atmosphere.conversation", "atmosphere.privacy", "sport.level", "participation.audience", "stay.meal_inclusion"];
-  return spec?.kind === "CHOICES" ? { ...spec, multiple: !single.includes(key), help: single.includes(key) ? spec.help : "Mehrfachauswahl möglich. Wähle alle zutreffenden Antworten." } : spec;
+  const single = ["participation.booking", "participation.group_access", "participation.subscription", "participation.entry_mode", "participation.consumption_obligation", "food.meal_extent", "atmosphere.noise", "atmosphere.conversation", "atmosphere.privacy", "sport.level", "participation.audience", "stay.meal_inclusion"];
+  return spec?.kind === "CHOICES" ? { ...spec, multiple: !single.includes(key) } : spec;
 }
 
 export function experiencePriceIncludes(category: ExperienceCategory, offerKind: string): readonly string[] {

@@ -25,6 +25,8 @@ export const EXPERIENCE_QUESTIONS: readonly ExperienceQuestion[] = Object.freeze
   q("experience.activity", "Was kann man hier machen?", "Erlebnis", "TEXT", ["OFFER"]),
   q("experience.theme", "Themen, Tiere oder Sammlungen", "Erlebnis", "TEXT", ["OFFER"], ["ZOO", "MUSEUM"]),
   q("participation.format", "Selbstständig, geführt oder betreut?", "Teilnahme", "TEXT", ["OFFER"]),
+  q("participation.group_access", "Einzeln oder als Gruppe anmelden?", "Teilnahme", "TEXT", ["OFFER"]),
+  q("participation.subscription", "Mitgliedschaft oder Abo nötig?", "Teilnahme", "TEXT", ["OFFER"]),
   q("participation.language", "Verfügbare Sprachen", "Teilnahme", "TEXT", ["OFFER"]),
   q("participation.age_suitability", "Empfohlene Altersgruppen (keine Zutrittsgrenze)", "Teilnahme", "TEXT", ["OFFER"]),
   q("participation.prerequisite", "Voraussetzungen und nötige Begleitung", "Teilnahme", "TEXT", ["OFFER"]),
@@ -97,7 +99,8 @@ export function getExperienceQuestions(_category: ExperienceCategory, scope: Exp
   if(k==="experience.theme")return hasOfferModule(offerKind??"","visit") || instructed || route;
   if(k.startsWith("food.") || k==="offer.service" || k==="participation.consumption_obligation")return scope==="OFFER" && food;
   if(k.startsWith("stay."))return scope==="OFFER"?stay:hasAreaModule(areaKind??"","stay");
-  if(k.startsWith("sport."))return sport && offerKind!=="MOVEMENT_PLAY" || k==="sport.registration" && offerKind==="MOVEMENT_PLAY";
+  if(k.startsWith("sport."))return sport && offerKind!=="MOVEMENT_PLAY" || k==="sport.registration" && offerKind==="MOVEMENT_PLAY" || k==="sport.level" && (instructed || hasOfferModule(offerKind??"","play"));
+  if(k==="participation.group_access")return instructed || sport || hasOfferModule(offerKind??"","play") || event;
   if(k==="participation.format" || k==="participation.language")return instructed;
   if(k==="participation.age_suitability")return !food && !event && !stay;
   if(k==="participation.prerequisite")return sport || instructed || hasOfferModule(offerKind??"","wellness");

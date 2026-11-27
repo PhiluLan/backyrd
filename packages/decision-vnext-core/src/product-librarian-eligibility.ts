@@ -135,7 +135,8 @@ export function librarianGlobalEligibility(input: {
                 && (!f.subjectIds.some(id => request.entities.some(e => e.id === id && ["ACTIVITY", "OFFER", "AREA"].includes(e.kind)))
                     || f.subjectIds.some(id => subjects.includes(id))));
             const sameOccasion = (f: LibrarianFact, occasion: OfferOccasion) => f.value.kind === "TEXT" && (occasionsIn(f.value.text).includes(occasion)
-                || occasion === "PRIVATE" && (occasionsIn(f.value.text).length > 0 || librarianConcept(f.value.text) === "party"));
+                || occasion === "BIRTHDAY" && ["birthday_party", "children_birthday"].includes(librarianConcept(f.value.text) ?? "")
+                || occasion === "PRIVATE" && (occasionsIn(f.value.text).length > 0 || ["party", "birthday_party", "children_birthday"].includes(librarianConcept(f.value.text) ?? "")));
             const remaining = occasions.filter(occasion => !relevant.some(f => f.modality === "EXCLUDED" && sameOccasion(f, occasion)));
             if (!remaining.length)
                 results.push({state:"FAILED",reason:"OFFER_OCCASION_EXCLUDED",hashes:[profileRow.entryHash],offerIds:[offer.id]});

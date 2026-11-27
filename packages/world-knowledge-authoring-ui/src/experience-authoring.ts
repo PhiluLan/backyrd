@@ -20,6 +20,7 @@ const primaryScope: Readonly<Record<string, ExperienceScope | null>> = {
   "offer.feature": "AREA",
   "amenity.toilet": "SPOT",
   "amenity.changing_table": "SPOT",
+  "participation.permission": "SPOT",
 };
 
 export function getExperienceAuthoringQuestions(category: ExperienceCategory, scope: ExperienceScope, offerKind?: string, areaKind?: string, existingAnswers: Readonly<Record<string,unknown>> = {}, sharedFacilitiesManaged = false): readonly ExperienceQuestion[] {
@@ -40,6 +41,7 @@ export function getExperienceAuthoringQuestions(category: ExperienceCategory, sc
       question.key === "amenity.step_free" ? "Ist dieser Bereich stufenlos erreichbar?" :
       question.key === "amenity.stroller" ? "Ist dieser Bereich mit Kinderwagen zugänglich?" :
       question.key === "offer.feature" ? "Ausstattung in diesem Bereich" :
+      question.key === "offer.temperature" && areaKind === "POOL_AREA" ? "Wassertemperatur" :
       question.key === "amenity.toilet" ? "Gibt es ein WC am Spot?" :
       question.key === "amenity.changing_table" ? "Gibt es einen Wickeltisch am Spot?" : question.label,
     }));
@@ -61,7 +63,7 @@ export function getExperienceAdditionalQuestions(category: ExperienceCategory, s
   const visible = getExperienceCareQuestions(category, scope, offerKind, areaKind, existingAnswers, sharedFacilitiesManaged, properties);
   const candidates = [...getExperienceQuestions(category, scope, offerKind, areaKind),
     ...EXPERIENCE_QUESTIONS.filter(question => question.scopes.includes(scope)
-      && (question.key === "participation.permission" || question.key === "participation.minimum_age"))];
+      && (question.key === "participation.permission" || question.key === "participation.minimum_age" || question.key === "participation.accessibility"))];
   return candidates.filter((question, index) => candidates.findIndex(item => item.key === question.key) === index
     && !visible.some(item => item.key === question.key));
 }
@@ -83,14 +85,15 @@ export function getSpotCareSteps(category: unknown, guidance?: Parameters<typeof
  * details and all historical answers remain editable in a disclosure. */
 export function experienceQuestionSections(category: ExperienceCategory, scope: ExperienceScope, offerKind?: string, areaKind?: string, existingAnswers: Readonly<Record<string,unknown>> = {}) {
   const questions = getExperienceAuthoringQuestions(category, scope, offerKind, areaKind, existingAnswers);
-  const primaryKeys = new Set(scope === "AREA" ? ["location.setting", "amenity.step_free", "amenity.stroller"] : scope === "SPOT" ? questions.map(question => question.key) : [
+  const primaryKeys = new Set(scope === "AREA" ? ["location.setting", "amenity.step_free", "amenity.stroller", ...(areaKind === "POOL_AREA" ? ["offer.temperature"] : [])] : scope === "SPOT" ? questions.map(question => question.key) : [
     "participation.booking", "participation.age_suitability", "participation.minimum_age",
     ...(offerKind === "OTHER" ? ["experience.activity"] : []),
-    ...(hasOfferModule(offerKind ?? "", "instructed") ? ["participation.language", "time.duration", "offer.capacity"] : []),
+    ...(hasOfferModule(offerKind ?? "", "instructed") ? ["participation.language", "participation.group_access", "time.duration", "offer.capacity"] : []),
     ...(hasOfferModule(offerKind ?? "", "sport") ? ["sport.level", "sport.equipment", "sport.rental", "sport.induction", "participation.prerequisite"] : []),
-    ...(offerKind === "PRIVATE_CELEBRATION" ? ["offer.capacity", "time.duration"] : []),
+    ...(hasOfferModule(offerKind ?? "", "play") ? ["sport.level"] : []),
+    ...(offerKind === "PRIVATE_CELEBRATION" ? ["experience.activity", "offer.capacity", "time.duration"] : []),
     ...(hasOfferModule(offerKind ?? "", "food") && offerKind !== "PRIVATE_CELEBRATION" ? ["food.diet", "food.meal_extent"] : []),
-    ...(hasOfferModule(offerKind ?? "", "stay") ? ["stay.check_in", "stay.check_out", "stay.maximum_occupancy", "stay.meal_inclusion"] : []),
+    ...(hasOfferModule(offerKind ?? "", "stay") ? ["stay.check_in", "stay.check_out", "stay.minimum_nights", "stay.maximum_occupancy", "stay.meal_inclusion"] : []),
   ]);
   return {primary:questions.filter(question => primaryKeys.has(question.key)), additional:questions.filter(question => !primaryKeys.has(question.key))};
 }

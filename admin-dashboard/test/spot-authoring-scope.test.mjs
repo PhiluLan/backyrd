@@ -16,6 +16,21 @@ const {getSpotCareSteps,categoryOfferChoices,getExperienceCareQuestions,getExper
 const property=(key,value)=>({key,value,label:null,state:'KNOWN',conditions:emptyExperienceConditions()});
 const fixture=()=>({...emptyExperienceProfile('MUSEUM'),reviewed:true,properties:[],areas:[{id:'old-room',kind:'EXHIBITION',name:'Bestehender Ausstellungsraum',properties:[property('amenity.step_free',false)]}],offers:[{id:'visit',kind:'PERMANENT_EXHIBITION',name:'Sammlung',areaIds:[],properties:[property('custom.detail','Besondere Sammlung')].map(p=>({...p,label:'Sammlungshinweis'})),prices:[{label:'Eintritt',min:12,max:12,currency:'CHF',basis:'PER_PERSON',includes:'Eintritt',mandatoryFeesIncluded:true,minimumAge:null,maximumAge:null,conditions:emptyExperienceConditions()}],schedule:[{weekday:1,start:'10:00',end:'17:00'}],validFrom:null,validUntil:null},{id:'tour',kind:'GUIDED_TOUR',name:'Führung',areaIds:['old-room'],properties:[],prices:[],schedule:[],validFrom:null,validUntil:null}]});
 
+test('new care fields match the offer and common permission is authored once',()=>{
+ const keys=(scope,kind)=>getExperienceCareQuestions('MUSEUM',scope,scope==='OFFER'?kind:undefined,scope==='AREA'?kind:undefined).map(q=>q.key);
+ assert.ok(keys('OFFER','BOWLING').includes('sport.level'));
+ assert.ok(keys('OFFER','WORKSHOP').includes('participation.group_access'));
+ assert.ok(!keys('OFFER','CAFE').includes('participation.group_access'));
+ assert.ok(keys('OFFER','BOWLING').includes('participation.subscription'));
+ assert.ok(!keys('SPOT').includes('participation.permission'),'canonical pet/food rules already have a common editor');
+ assert.ok(getExperienceAdditionalQuestions('MUSEUM','SPOT').some(q=>q.key==='participation.permission'),'deliberate exceptions remain available');
+ assert.ok(!keys('OFFER','WORKSHOP').includes('participation.permission'));
+ assert.ok(experienceQuestionSections('STAY','OFFER','OVERNIGHT_STAY').primary.some(q=>q.key==='stay.minimum_nights'));
+ const previous=fixture();previous.offers[0].properties.push(property('participation.permission','Bestehende Ausnahme'));
+ assert.ok(getExperienceCareQuestions('MUSEUM','OFFER','PERMANENT_EXHIBITION',undefined,{},true,previous.offers[0].properties).some(q=>q.key==='participation.permission'));
+ assert.deepEqual(parseExperienceProfile(previous),previous);
+});
+
 test('general navigation preserves every applicable canonical field exactly once',()=>{
  for(const category of ['EAT','CULTURE_ARTS','ACTIVITIES_PLAY','STAY','SPORT_MOVEMENT']){
   const steps=getSpotCareSteps(category);
