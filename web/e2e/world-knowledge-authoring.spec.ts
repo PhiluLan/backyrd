@@ -793,8 +793,8 @@ test('Spotpflege: Museum behält Daten und bietet passende Leistungen',async({pa
  await guided(page).getByLabel('Drinnen oder draussen',{exact:true}).selectOption('INDOOR');await saveProfile(page);await expect(guided(page).getByRole('status')).toContainText('gespeichert');
  const saved=owner.submissions.at(-1)!.p_value as typeof profile;expect(saved.offers[0].prices).toEqual(oldOffer.prices);expect(saved.offers[0].schedule).toEqual(oldOffer.schedule);expect(saved.offers[0].properties).toEqual(oldOffer.properties);expect(saved.areas[0]).toEqual(oldArea);expect(saved.offers[0].areaIds).toHaveLength(1);
  await overview(page);await mainStep(page,1);await guided(page).getByRole('button',{name:'Bereich Bestehender Saal bearbeiten',exact:true}).click();
- await expect(guided(page).getByRole('heading',{name:'Drinnen oder draussen?',exact:true})).toBeVisible();await expect(guided(page).getByRole('heading',{name:'Ist dieser Bereich stufenlos erreichbar?',exact:true})).not.toBeVisible();
- await guided(page).getByText('Weitere Eigenschaften & bisherige Angaben',{exact:true}).click();await expect(guided(page).getByRole('heading',{name:'Ist dieser Bereich stufenlos erreichbar?',exact:true})).toBeVisible();await page.screenshot({path:info.outputPath('preserved-area.png'),fullPage:true});
+ await expect(guided(page).getByRole('heading',{name:'Drinnen oder draussen?',exact:true})).toBeVisible();await expect(guided(page).getByRole('heading',{name:'Ist dieser Bereich stufenlos erreichbar?',exact:true})).toBeVisible();
+ await guided(page).getByText('Weitere Bereichsdetails & Ausnahmen',{exact:true}).click();await expect(guided(page).getByRole('heading',{name:'Ist dieser Bereich stufenlos erreichbar?',exact:true})).toBeVisible();await page.screenshot({path:info.outputPath('preserved-area.png'),fullPage:true});
 });
 
 test('Spotpflege: gemeinsame Preise und Owner-Rechte bleiben erhalten',async({page},info)=>{
@@ -810,4 +810,39 @@ test('Spotpflege: ungespeicherte Angaben bleiben beim Bereichswechsel geschützt
  await openEditor(page);await addFromCatalogue(page,'Workshop');await guided(page).getByLabel('Name des Angebots',{exact:true}).fill('Kinderatelier');
  await page.getByRole('button',{name:/04 Räume & Bereiche/}).click();await expect(guided(page)).toHaveAttribute('data-workspace','OFFERS');await expect(guided(page).getByLabel('Name des Angebots',{exact:true})).toHaveValue('Kinderatelier');expect(owner.submissions).toHaveLength(0);
  await guided(page).getByRole('button',{name:'Speichern & weiter',exact:true}).click();await expect(guided(page)).toHaveAttribute('data-workspace','AREAS');expect(owner.submissions).toHaveLength(1);expect((owner.submissions[0].p_value as typeof profile).offers[0].name).toBe('Kinderatelier');
+});
+
+
+test('Spotpflege: neue Spots erfassen zusätzliche strukturierte Angaben und freie Hinweise',async({page})=>{
+ const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'classification.primary_category':{knowledgeState:'KNOWN_VALUE',value:'CULTURE_ARTS'},'classification.place_types':{knowledgeState:'KNOWN_VALUE',value:['MUSEUM']}});
+ await openEditor(page);await addFromCatalogue(page,'Workshop');
+ await guided(page).getByText('Weitere passende Angabe ergänzen',{exact:true}).click();
+ await guided(page).getByLabel('Weitere Eigenschaft auswählen',{exact:true}).selectOption('participation.permission');
+ const permission=guided(page).getByRole('region',{name:'Zutrittsregeln und Ausnahmen',exact:true});
+ await expect(permission.getByRole('button',{name:'Zutritt erlaubt',exact:true})).toHaveAttribute('aria-pressed','false');
+ await permission.getByRole('button',{name:'Zutritt erlaubt',exact:true}).click();
+ await guided(page).getByRole('button',{name:'Freien Hinweis ergänzen',exact:true}).click();
+ await guided(page).getByLabel('Hinweis 1 Bezeichnung',{exact:true}).fill('Treffpunkt');
+ await guided(page).getByLabel('Treffpunkt Formulierung',{exact:true}).fill('Beim Seiteneingang');
+ await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
+ const saved=owner.submissions[0].p_value as {properties:unknown[];areas:unknown[];offers:Array<{properties:Array<{key:string;label:string|null;state:string;value:unknown}>}>};
+ expect(saved.properties).toEqual([]);expect(saved.areas).toEqual([]);
+ expect(saved.offers[0].properties).toEqual(expect.arrayContaining([expect.objectContaining({key:'participation.permission',state:'KNOWN',value:'Zutritt erlaubt'}),expect.objectContaining({key:'custom.detail',label:'Treffpunkt',value:'Beim Seiteneingang'})]));
+ await reloadEditor(page);await guided(page).getByRole('button',{name:'Angebot Workshop bearbeiten',exact:true}).click();
+ await guided(page).getByText('Weitere Angebotsdetails & Ausnahmen',{exact:true}).click();
+ await expect(guided(page).getByLabel('Treffpunkt Formulierung',{exact:true})).toHaveValue('Beim Seiteneingang');
+});
+
+test('Spotpflege: bestehende Angaben bleiben ohne Altangaben-Sammelbereich bearbeitbar',async({page})=>{
+ const condition={...emptyExperienceConditions(),weekdays:[6],event:'Spezialtermin'};
+ const profile={...emptyExperienceProfile('MUSEUM'),reviewed:true,offers:[{id:'collection',kind:'PERMANENT_EXHIBITION',name:'Sammlung',areaIds:[],prices:[],schedule:[],validFrom:null,validUntil:null,properties:[{key:'offer.feature',label:null,state:'KNOWN',value:'Besonderer Tisch',conditions:emptyExperienceConditions()},{key:'custom.detail',label:'Treffpunkt',state:'KNOWN',value:'Eingang rechts',conditions:condition}]}]};
+ const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'classification.primary_category':{knowledgeState:'KNOWN_VALUE',value:'CULTURE_ARTS'},'classification.place_types':{knowledgeState:'KNOWN_VALUE',value:['MUSEUM']},'experience.profile':{knowledgeState:'KNOWN_VALUE',value:profile}});
+ await openEditor(page);await guided(page).getByRole('button',{name:'Angebot Sammlung bearbeiten',exact:true}).click();await guided(page).getByText('Weitere Angebotsdetails & Ausnahmen',{exact:true}).click();
+ await guided(page).getByLabel('Besondere Ausstattung zusätzliche Formulierung 1',{exact:true}).fill('Grosser Arbeitstisch');
+ await guided(page).getByLabel('Treffpunkt Formulierung',{exact:true}).fill('Seiteneingang rechts');
+ await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
+ const saved=owner.submissions[0].p_value as typeof profile;
+ expect(saved.offers[0].properties).toEqual([{...profile.offers[0].properties[0],value:'Grosser Arbeitstisch'},{...profile.offers[0].properties[1],value:'Seiteneingang rechts'}]);
+ expect(saved.properties).toEqual([]);expect(saved.areas).toEqual([]);
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });

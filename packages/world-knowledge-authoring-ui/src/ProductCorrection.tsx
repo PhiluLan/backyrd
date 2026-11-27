@@ -568,7 +568,7 @@ export function WorldProductCorrection({ client, prepareDiscovery, search, addre
         {locked?<section className="wk-note"><strong>Mit Owner Pro verfügbar</strong><p>Die bisherigen Zugriffsgrenzen bleiben erhalten. Pro garantiert keine Platzierung in Empfehlungen.</p><a href={`/owner/billing?spot=${encodeURIComponent(detail!.spotId)}`}>Owner Pro entdecken</a></section>:renderFieldGroups(items)}
       </details>;
     })}
-    {fields.some(field=>field.attributeKey==="experience.profile")&&<details className="wk-shared-section"><summary>Gemeinsame Ausstattung & bisherige Angaben</summary>{renderFieldGroups(fields.filter(field=>field.attributeKey==="experience.profile"))}</details>}
+    {fields.some(field=>field.attributeKey==="experience.profile")&&<details className="wk-shared-section"><summary>Gemeinsame Ausstattung & Besonderheiten</summary>{renderFieldGroups(fields.filter(field=>field.attributeKey==="experience.profile"))}</details>}
   </div>;
 
 

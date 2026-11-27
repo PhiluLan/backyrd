@@ -43,3 +43,33 @@ test('multiple answers have distinct identities independent of unrelated global 
  assert.equal(new Set(keys).size,2);
  assert.deepEqual(rows([other,first,second],'Gerichte und Spezialitäten','LUNCH').map(row=>row.key),keys);
 });
+
+function inputs(node,result=[]){
+ if(!node||typeof node!=='object')return result;
+ if(Array.isArray(node)){node.forEach(item=>inputs(item,result));return result;}
+ if(node.type==='input')result.push(node);
+ inputs(node.props?.children,result);return result;
+}
+test('editing an existing nonstandard formulation retains scope, conditions and every unrelated value',()=>{
+ const scoped={...property('offer.feature','Besonderer Tisch'),conditions:{...conditions,weekdays:[6],event:'Workshop'}};
+ // Conditional rows use the same editor; an unconditional legacy formulation
+ // gets a directly editable input instead of a read-only blockquote.
+ const original=[property('offer.feature','Besonderer Tisch'),property('participation.booking','Empfohlen'),{key:'custom.detail',label:'Hinweis',state:'KNOWN',value:'Unverändert',conditions:scoped.conditions}];
+ let changed;
+ const root=Properties({category:'MUSEUM',scope:'OFFER',offerKind:'PERMANENT_EXHIBITION',group:'Besondere Ausstattung',values:original,onChange(value){changed=value;}});
+ const input=inputs(root).find(item=>item.props['aria-label']==='Besondere Ausstattung zusätzliche Formulierung 1');
+ assert.ok(input,'stored structured fields remain editable outside their preferred new-entry scope');
+ input.props.onChange({target:{value:'Besonderer Arbeitstisch'}});
+ assert.deepEqual(changed,[{...original[0],value:'Besonderer Arbeitstisch'},...original.slice(1)]);
+ assert.equal(original[0].value,'Besonderer Tisch');
+});
+test('free notes keep their label, value and conditions editable without replacing other facts',()=>{
+ const original=[{key:'custom.detail',label:'Treffpunkt',state:'KNOWN',value:'Seiteneingang',conditions:{...conditions,weekdays:[2]}},property('participation.booking','Erforderlich')];
+ let changed;
+ const root=Properties({category:'MUSEUM',scope:'OFFER',offerKind:'WORKSHOP',group:'Zusätzliche Hinweise',values:original,onChange(value){changed=value;}});
+ const controls=inputs(root);
+ controls.find(item=>item.props['aria-label']==='Treffpunkt Formulierung').props.onChange({target:{value:'Linker Seiteneingang'}});
+ assert.deepEqual(changed,[{...original[0],value:'Linker Seiteneingang'},original[1]]);
+ controls.find(item=>item.props['aria-label']==='Hinweis 1 Bezeichnung').props.onChange({target:{value:'Eingang'}});
+ assert.deepEqual(changed,[{...original[0],label:'Eingang'},original[1]]);
+});

@@ -1,5 +1,5 @@
 "use client";
-import { getExperienceAuthoringQuestions } from "./experience-authoring";
+import { getExperienceCareQuestions } from "./experience-authoring";
 import { experienceAnswerGuidance } from "./experience-answer-guidance";
 import { emptyExperienceConditions, EXPERIENCE_QUESTIONS, sameLibrarianText, type ExperienceCategory, type ExperienceConditions, type ExperienceProperty, type ExperienceQuestion, type ExperienceScope } from "@backyrd/world-knowledge-core/browser";
 const weekdays=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
@@ -20,7 +20,7 @@ function KnowledgeButtons({label,state,onChange}:{label:string;state:ExperienceP
 }
 const unconditional=(p:ExperienceProperty)=>!p.conditions.weekdays.length&&!p.conditions.dayparts.length&&!p.conditions.event&&!p.conditions.validFrom&&!p.conditions.validUntil;
 export function Properties({category,scope,offerKind,areaKind,group,values,onChange,existingAnswers={},sharedFacilitiesManaged=false}:{sharedFacilitiesManaged?:boolean;existingAnswers?:Readonly<Record<string,unknown>>;category:ExperienceCategory;scope:ExperienceScope;offerKind?:string;areaKind?:string;group:string;values:readonly ExperienceProperty[];onChange:(value:readonly ExperienceProperty[])=>void}){
- const questions=getExperienceAuthoringQuestions(category,scope,offerKind,areaKind,existingAnswers,sharedFacilitiesManaged);
+ const questions=getExperienceCareQuestions(category,scope,offerKind,areaKind,existingAnswers,sharedFacilitiesManaged,values);
  const update=(index:number,patch:Partial<ExperienceProperty>,key:string)=>onChange(index<0?[...values,{key,label:null,state:"UNKNOWN",value:null,conditions:emptyExperienceConditions(),...patch}]:values.map((v,i)=>i===index?{...v,...patch}:v));
  const row=(p:ExperienceProperty,index:number,q?:ExperienceQuestion)=>{
   const spec=q?experienceAnswerGuidance(p.key,category,offerKind,areaKind,existingAnswers):null;
@@ -33,12 +33,13 @@ export function Properties({category,scope,offerKind,areaKind,group,values,onCha
    {q?.control==="YES_NO"&&<div className="wk-choices" aria-label={`${q.label} Antworten`}>{[true,false].map(v=><button type="button" key={String(v)} aria-pressed={p.state==="KNOWN"&&p.value===v} className={p.state==="KNOWN"&&p.value===v?"selected":"wk-secondary"} onClick={()=>update(index,{state:"KNOWN",value:v},p.key)}>{v?"Ja":"Nein"}</button>)}</div>}
    {q?.control==="NUMBER"&&<label>{q.unit}<input aria-label={`${q.label} Wert`} className="wk-input" type="number" min={0} max={q.unit==="Jahre"?130:100000} placeholder={q.unit==="Minuten"?"Zum Beispiel 60":q.unit==="Jahre"?"Zum Beispiel 6":"Zum Beispiel 20"} value={typeof p.value==="number"?p.value:""} onChange={e=>update(index,{state:e.target.value?"KNOWN":"UNKNOWN",value:e.target.value===""?null:Number(e.target.value)},p.key)}/></label>}
    {spec?.kind==="NAME"&&<input aria-label={`${q?.label} Wert`} className="wk-input" maxLength={1000} placeholder={spec.placeholder} value={typeof p.value==="string"?p.value:""} onChange={e=>update(index,{state:e.target.value?"KNOWN":"UNKNOWN",value:e.target.value||null},p.key)}/>}
-   {typeof p.value==="string"&&<blockquote>{p.value}</blockquote>}
+   {!q&&<label>Bezeichnung des Hinweises<input aria-label={`Hinweis ${occurrence+1} Bezeichnung`} className="wk-input" maxLength={160} value={p.label??""} onChange={e=>update(index,{label:e.target.value},p.key)}/></label>}
+   {(!q||q.control==="TEXT"&&spec?.kind!=="NAME")&&<label>Formulierung<input aria-label={`${q?.label??p.label??"Zusätzlicher Hinweis"} Formulierung`} className="wk-input" maxLength={1000} value={typeof p.value==="string"?p.value:""} onChange={e=>update(index,{state:e.target.value?"KNOWN":"UNKNOWN",value:e.target.value||null},p.key)}/></label>}
    <KnowledgeButtons label={q?.label??p.label??"Bisherige Angabe"} state={index>=0?p.state:undefined} onChange={state=>update(index,{state,value:null},p.key)}/>
    {index>=0&&<><Conditions value={p.conditions} onChange={conditions=>update(index,{conditions},p.key)}/><button type="button" className="wk-secondary" onClick={()=>onChange(values.filter((_,i)=>i!==index))}>Angabe entfernen</button></>}
   </section>;
  };
- if(group==="Bisherige Angaben")return <div className="wk-stack"><p>Diese Angaben gehören nicht zur aktuellen Fragenauswahl. Sie bleiben erhalten, bis du sie bewusst entfernst.</p>{values.map((v,i)=>({v,i})).filter(({v})=>!questions.some(q=>q.key===v.key)).map(({v,i})=>row(v,i,EXPERIENCE_QUESTIONS.find(q=>q.key===v.key)))}</div>;
+ if(group==="Zusätzliche Hinweise")return <div className="wk-stack"><p>Freie Hinweise bleiben am bisherigen Angebot, Bereich oder gesamten Spot erhalten. Für gezielte Suchkriterien verwende die passenden auswählbaren Eigenschaften; ein freier Text bestätigt sie nicht automatisch.</p>{values.map((v,i)=>({v,i})).filter(({v})=>!questions.some(q=>q.key===v.key)).map(({v,i})=>row(v,i,EXPERIENCE_QUESTIONS.find(q=>q.key===v.key)))}</div>;
  return <div className="wk-stack">{questions.filter(q=>q.label===group).map(q=>{
   const spec=experienceAnswerGuidance(q.key,category,offerKind,areaKind,existingAnswers);
   const entries=values.map((v,i)=>({v,i})).filter(({v})=>v.key===q.key);
@@ -57,7 +58,7 @@ export function Properties({category,scope,offerKind,areaKind,group,values,onCha
    <h4>{q.label}</h4>{q.key==="participation.prerequisite"&&selected("Keine Vorkenntnisse")&&selected("Vorkenntnisse erforderlich")&&<p role="alert">Widerspruch: Wähle entweder keine Vorkenntnisse oder Vorkenntnisse erforderlich. Begleitung kannst du zusätzlich auswählen.</p>}<p className="wk-answer-help">{q.key==="experience.activity"?spec.help:spec.multiple?"Mehrfachauswahl möglich. Wähle alle zutreffenden Antworten.":"Wähle eine passende Antwort."}</p>
    <div className="wk-choices" aria-label={`${q.label} Antworten`}>{spec.choices.map(c=><button type="button" key={c} aria-pressed={selected(c)} className={selected(c)?"selected":"wk-secondary"} disabled={!selected(c)&&values.length>=100} onClick={()=>toggle(c)}>{c==="lebhaft"?"lebendig":c}</button>)}</div>
    <KnowledgeButtons label={q.label} state={direct.some(({v})=>v.state==="KNOWN")?"KNOWN":direct[0]?.v.state} onChange={state=>onChange([...values.filter((_,i)=>!direct.some(entry=>entry.i===i)),{...blank,state}])}/>
-   {historical.map(({v,i})=><aside className="wk-answer-history" key={i}><strong>Bisherige gespeicherte Angabe</strong><blockquote>{String(v.value)}</blockquote><p>Bleibt zusätzlich erhalten. Neue Antworten überschreiben diesen Text nicht.</p><button type="button" className="wk-secondary" onClick={()=>onChange(values.filter((_,j)=>j!==i))}>Bisherige Angabe entfernen</button></aside>)}
+   {historical.map(({v,i})=><aside className="wk-answer-history" key={i}><strong>Zusätzliche Formulierung</strong><input aria-label={`${q.label} zusätzliche Formulierung ${i+1}`} className="wk-input" maxLength={1000} value={String(v.value)} onChange={e=>update(i,{state:"KNOWN",value:e.target.value},q.key)}/><p>Bleibt erhalten. Eine passende Auswahl ergänzt den Text und verbessert seine eindeutige Zuordnung; sie ersetzt ihn nicht.</p><button type="button" className="wk-secondary" onClick={()=>onChange(values.filter((_,j)=>j!==i))}>Zusätzliche Formulierung entfernen</button></aside>)}
    {entries.some(({v})=>v.state==="KNOWN")&&<details className="wk-answer-conditions"><summary>Zeiten oder Ausnahmen ({entries.filter(({v})=>!unconditional(v)).length})</summary>{entries.filter(({v})=>v.state==="KNOWN").map(({v,i})=><section key={i}><h5>{v.value===true?"Ja":v.value===false?"Nein":String(v.value)}{!unconditional(v)?" · eingeschränkt gültig":""}</h5><Conditions inline value={v.conditions} onChange={conditions=>update(i,{conditions},q.key)}/>{!unconditional(v)&&<button type="button" className="wk-secondary" onClick={()=>onChange(values.filter((_,j)=>j!==i))}>Bedingte Antwort entfernen</button>}</section>)}</details>}
   </section>;
  })}</div>;
