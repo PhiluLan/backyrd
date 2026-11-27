@@ -10,7 +10,7 @@ test("Product spot care reuses the typed category-relevant World editor, not JSO
     source("../../packages/world-knowledge-authoring-ui/src/index.tsx"),
   ]);
   assert.match(product, /wk-app wk-product-app wk-studio/);
-  assert.match(product, /visibleSteps = AUTHORING_STEPS\.filter/);
+  assert.match(product, /visibleSteps = careSteps\.filter/);
   assert.match(product, /visibleSteps\.map/);
   assert.match(product, /getAuthoringFieldsForContext/);
   assert.match(product, /<FieldEditor/);

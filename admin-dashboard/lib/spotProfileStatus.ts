@@ -95,7 +95,7 @@ function coverage(answers: Record<string, Answer>, allowed: string[], conflicts:
       // Count the same questions (and labels) the editor actually presents.
       // The storage catalogue also permits historical and differently scoped
       // answers; those must not create duplicate, unanswerable admin tasks.
-      addProperties("spot", "Allgemein", getExperienceAuthoringQuestions(profile.category, "SPOT", undefined, undefined, answers), profile.properties);
+      addProperties("spot", "Allgemein", getExperienceAuthoringQuestions(profile.category, "SPOT", undefined, undefined, answers, allowed.includes("amenity.features")), profile.properties);
       for (const offer of profile.offers) addProperties(`offer:${offer.id}`, offer.name, getExperienceAuthoringQuestions(profile.category, "OFFER", offer.kind, undefined, answers), offer.properties);
       for (const area of profile.areas) addProperties(`area:${area.id}`, area.name, getExperienceAuthoringQuestions(profile.category, "AREA", undefined, area.kind, answers), area.properties);
     }

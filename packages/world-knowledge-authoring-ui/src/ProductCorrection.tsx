@@ -7,7 +7,7 @@ import {
   validateAuthoringSubmission, parseDiscoveryProfile, parseExperienceProfile, evaluateAuthoringReadiness, type DiscoveryProfile, type AuthoringField,
 } from "@backyrd/world-knowledge-core/browser";
 import { sectionStatus } from "./section-status";
-import type { ExperienceWorkspace } from "./experience-authoring";
+import { getSpotCareSteps, SHARED_AUTHORING_STEPS, type ExperienceWorkspace } from "./experience-authoring";
 import type { RpcResult, WorldAuthoringClient } from "./session";
 
 type Answer = {
@@ -108,6 +108,7 @@ export type ProductFieldInputProps = {
   onDraftChange?(dirty:boolean):void;
   onContinue?():void;
   experienceWorkspace?:ExperienceWorkspace;
+  sharedFacilitiesManaged?:boolean;
   onPrepareDiscovery?(sourceText:string):Promise<DiscoveryProfile>;
   onSave(state: string, value: unknown, validUntil?: string): Promise<void>;
   onSaveCandidate?(value: readonly string[]): Promise<void>;
@@ -185,14 +186,14 @@ const sectionCopy: Record<string, {title:string;description:string;icon:string}>
     classification:{title:"Spottyp & Kategorie",description:"Restaurant, Hotel, Zoo oder mehrere passende Ortstypen auswählen.",icon:"02"},
     discovery:{title:"Angebote",description:"Leistungen wie Essen, Übernachten oder Aktivitäten – mit eigenen Preisen und Zeiten.",icon:"03"},
     areas:{title:"Räume & Bereiche",description:"Innenräume und Aussenflächen beschreiben und den Angeboten zuordnen.",icon:"04"},
-    shared:{title:"Gemeinsame Ausstattung & Anreise",description:"Anreise, Parkplätze und Einrichtungen, die für den gesamten Spot gelten.",icon:"05"},
+    shared:{title:"Gemeinsame Angaben",description:"Öffnungs- und Küchenzeiten, allgemeine Preise, Ausstattung und Regeln einmal für den gesamten Spot pflegen.",icon:"05"},
     hours:{title:"Öffnungszeiten",description:"Reguläre Öffnung, Feiertage und abweichende Küchenzeiten.",icon:"06"},
     offering:{title:"Küche & Service",description:"Küchenrichtungen, Spezialitäten, Bedienung und Take-away.",icon:"07"},
     context:{title:"Atmosphäre & Besuch",description:"Stimmung des Spots, Besuchsanlässe und typische Tageszeiten.",icon:"08"},
     price:{title:"Allgemeine Preise & Zahlung",description:"Akzeptierte Zahlungsmittel und allgemeine Preisangaben.",icon:"09"},
     objective:{title:"Platz & Reservierung",description:"Sitzplätze, Gruppengrössen, Reservierungen und Aufenthaltsregeln.",icon:"10"},
     amenities:{title:"Ausstattung & Zugang",description:"Stufenloser Zugang, barrierefreie Einrichtungen, Haustiere und Altersregeln.",icon:"11"},
-    review:{title:"Gespeichertes Profil prüfen",description:"Gespeicherte Angaben ansehen und konkrete Prüfhinweise bearbeiten.",icon:"12"},
+    review:{title:"Gespeichertes Profil prüfen",description:"Gespeicherte Angaben ansehen und konkrete Prüfhinweise bearbeiten.",icon:"06"},
   };
 
 /** Product authoring uses the same typed editors as the local Founder workflow,
@@ -215,21 +216,26 @@ export function WorldProductCorrection({ client, prepareDiscovery, search, addre
     element.focus({preventScroll:true});
     element.scrollIntoView({block:"start"});
   }, [fieldTarget,overview,step]);
-  const scopedDraftDirty = useRef(false);
-  const fieldDrafts = useRef<Record<string,boolean>>({});
+  const [fieldDrafts,setFieldDrafts] = useState<Record<string,boolean>>({});
+  const scopedDraftDirty = Object.values(fieldDrafts).some(Boolean);
+  const markFieldDraft = useCallback((key:string,dirty:boolean)=>{
+    setFieldDrafts(current=>current[key]===dirty?current:{...current,[key]:dirty});
+  },[]);
   useEffect(() => {
-    const guard=(event:BeforeUnloadEvent)=>{if(scopedDraftDirty.current){event.preventDefault();}};
+    const guard=(event:BeforeUnloadEvent)=>{if(scopedDraftDirty){event.preventDefault();}};
     window.addEventListener("beforeunload",guard);
     return ()=>window.removeEventListener("beforeunload",guard);
-  }, []);
+  }, [scopedDraftDirty]);
   const [message, setMessage] = useState("");
   const [messageIsError, setMessageIsError] = useState(false);
-  const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (successTimer.current) clearTimeout(successTimer.current); }, []);
+  const [saveNotice,setSaveNotice] = useState<{text:string}|null>(null);
+  useEffect(()=>{
+    if(!saveNotice)return;
+    const timer=window.setTimeout(()=>setMessage(current=>current===saveNotice.text?"":current),2000);
+    return ()=>window.clearTimeout(timer);
+  },[saveNotice]);
   const showSaveSuccess = (text: string) => {
-    if (successTimer.current) clearTimeout(successTimer.current);
-    setMessage(text); setMessageIsError(false);
-    successTimer.current = setTimeout(() => { setMessage(current => current === text ? "" : current); }, 2000);
+    setMessage(text);setMessageIsError(false);setSaveNotice({text});
   };
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
@@ -344,7 +350,7 @@ export function WorldProductCorrection({ client, prepareDiscovery, search, addre
     return data;
   };
   const selectSpot = async (id: string) => {
-    if(scopedDraftDirty.current){setMessage("Bitte speichere den Angebotsentwurf oder verwirf ihn bewusst, bevor du den Spot wechselst.");setMessageIsError(false);return;}
+    if(scopedDraftDirty){setMessage("Bitte speichere den Angebotsentwurf oder verwirf ihn bewusst, bevor du den Spot wechselst.");setMessageIsError(false);return;}
     const sequence = ++loadSequence.current;
     setBusy(true);
     setMessage("");
@@ -475,7 +481,7 @@ export function WorldProductCorrection({ client, prepareDiscovery, search, addre
     }
   };
   const primaryCategory = detail?.answers["classification.primary_category"]?.value;
-  const guidance = {placeTypes: detail?.answers["classification.place_types"]?.value, onsiteOfferings: detail?.answers["context.onsite_offerings"]?.value};
+  const guidance = {placeTypes: detail?.answers["classification.place_types"]?.value, onsiteOfferings: detail?.answers["offering.onsite"]?.value};
   const profileSummary = (id:string):string|null => {
     if (!["discovery","areas","shared"].includes(id)) return null;
     const saved=detail?.answers["experience.profile"];
@@ -487,10 +493,12 @@ export function WorldProductCorrection({ client, prepareDiscovery, search, addre
       return `${new Set(profile.properties.map(property=>property.key)).size} gemeinsame Angaben gespeichert`;
     } catch { return "Gespeichertes Profil prüfen"; }
   };
-  const fieldsForStep = (id: string) => getAuthoringFieldsForContext(id === "areas" || id === "shared" ? "discovery" : id, typeof primaryCategory === "string" ? primaryCategory : undefined, guidance).filter(field => !["areas","shared"].includes(id) || field.attributeKey === "experience.profile");
-  const visibleSteps = AUTHORING_STEPS.filter(item=>["review","objective","amenities"].includes(item.id)||!detail||fieldsForStep(item.id).length>0)
-    .flatMap(item => item.id === "discovery" ? [item, {...item,id:"areas",attributeKeys:["experience.profile"]}, {...item,id:"shared",attributeKeys:["experience.profile"]}] : [item])
-    .sort((a,b)=>Number(sectionCopy[a.id]?.icon)-Number(sectionCopy[b.id]?.icon));
+  const careSteps = getSpotCareSteps(primaryCategory, guidance);
+  const fieldsForStep = (id: string) => {
+    if (id === "shared") return careSteps.find(item=>item.id===id)!.attributeKeys.flatMap(key=>AUTHORING_FIELDS.filter(field=>field.attributeKey===key));
+    return getAuthoringFieldsForContext(id === "areas" ? "discovery" : id, typeof primaryCategory === "string" ? primaryCategory : undefined, guidance).filter(field => id !== "areas" || field.attributeKey === "experience.profile");
+  };
+  const visibleSteps = careSteps.filter(item=>item.id==="review"||!detail||fieldsForStep(item.id).some(field=>detail.actor.allowedAttributeKeys.includes(field.attributeKey))).sort((a,b)=>Number(sectionCopy[a.id]?.icon)-Number(sectionCopy[b.id]?.icon));
   const current = visibleSteps[Math.min(step,visibleSteps.length-1)]!;
   const experienceWorkspace:ExperienceWorkspace = current.id === "areas" ? "AREAS" : current.id === "shared" ? "SPOT" : "OFFERS";
   const proLocked = surface === "OWNER" && detail?.actor.role === "VERIFIED_OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities");
@@ -501,24 +509,22 @@ export function WorldProductCorrection({ client, prepareDiscovery, search, addre
   const unknown = Object.values(detail?.answers ?? {}).filter((answer) => answer.knowledgeState === "UNKNOWN").length;
   const unresolved = snapshotConflicts(detail).filter((conflict) => conflict.severity === "BLOCKING").length;
   const reviewNotices = detail?.openConflicts.length ?? 0;
-  const goToStep = (index: number) => {
-    const sameProfile = ["discovery","areas","shared"].includes(current.id) && ["discovery","areas","shared"].includes(visibleSteps[index]?.id ?? "");
-    const onlyProfileDraft = Object.entries(fieldDrafts.current).every(([key,dirty]) => !dirty || key === "experience.profile");
-    if(scopedDraftDirty.current && !(sameProfile && onlyProfileDraft)){setMessage("Du hast noch ungespeicherte Änderungen. Speichere die bearbeitete Angabe zuerst. Nutze im Angebotsbereich „Änderungen speichern“.");setMessageIsError(false);return;}
+  const goToStep = (index: number, savedField?:string) => {
+    if(Object.entries(fieldDrafts).some(([key,dirty])=>dirty&&key!==savedField)){setMessage("Du hast noch ungespeicherte Änderungen. Speichere die bearbeitete Angabe zuerst oder verwirf den Entwurf bewusst.");setMessageIsError(false);return;}
     setFieldTarget(null);
     setOverview(false);
     setStep(Math.max(0, Math.min(visibleSteps.length - 1, index)));
     document.querySelector(".wk-product-app .wk-main")?.scrollIntoView({ behavior: surface === "OWNER" ? "auto" : "smooth", block: "start" });
   };
   const openField = (key:string) => {
-    if(scopedDraftDirty.current){setMessage("Dein Entwurf ist noch nicht gespeichert. Speichere ihn zuerst oder verwirf ihn bewusst.");setMessageIsError(false);return;}
+    if(scopedDraftDirty){setMessage("Dein Entwurf ist noch nicht gespeichert. Speichere ihn zuerst oder verwirf ihn bewusst.");setMessageIsError(false);return;}
     const index=visibleSteps.findIndex(item=>item.attributeKeys.includes(key));
     if(index<0)return;
     goToStep(index);
     setFieldTarget({key});
   };
   const showOverview = () => {
-    if(scopedDraftDirty.current){setMessage("Dein Entwurf ist noch nicht gespeichert. Speichere ihn zuerst oder verwirf ihn bewusst.");setMessageIsError(false);return;}
+    if(scopedDraftDirty){setMessage("Dein Entwurf ist noch nicht gespeichert. Speichere ihn zuerst oder verwirf ihn bewusst.");setMessageIsError(false);return;}
     setOverview(true);
     document.querySelector(".wk-product-app")?.scrollIntoView({block:"start"});
   };
@@ -526,9 +532,10 @@ export function WorldProductCorrection({ client, prepareDiscovery, search, addre
     <section className="wk-group" key={group}><h3>{group}</h3>{items.filter((field) => field.group === group).map((field) => {
       const editor = <FieldEditor field={field} answer={detail?.answers[field.attributeKey]}
         existingAnswers={detail?.answers}
-        onDraftChange={dirty=>{fieldDrafts.current[field.attributeKey]=dirty;scopedDraftDirty.current=Object.values(fieldDrafts.current).some(Boolean);}}
-        onContinue={()=>goToStep(step+1)}
+        onDraftChange={dirty=>markFieldDraft(field.attributeKey,dirty)}
+        onContinue={()=>goToStep(step+1,field.attributeKey)}
         experienceWorkspace={experienceWorkspace}
+        sharedFacilitiesManaged={detail?.actor.allowedAttributeKeys.includes("amenity.features")}
         referenceValue={field.attributeKey === "hours.kitchen" ? detail?.answers["hours.regular"]?.value : undefined}
         disabled={busy}
         disabledReason={busy ? "Ein anderer Spot wird gerade geladen." : undefined}
@@ -548,6 +555,21 @@ export function WorldProductCorrection({ client, prepareDiscovery, search, addre
         {field.control === "DISCOVERY_PROFILE" ? <section className="wk-source-preparation" aria-label="KI-Ausfüllhilfe">{editor}</section> : editor}
       </div>;
     })}</section>);
+
+
+  const sharedContent = <div className="wk-shared-sections">
+    <aside className="wk-scope-notice"><strong>Einmal für den gesamten Spot</strong><p>Diese Angaben bleiben allgemein gespeichert. Tatsächliche Abweichungen pflegst du beim Angebot oder Bereich; vorhandene Einzelangaben werden nicht automatisch überschrieben.</p></aside>
+    {SHARED_AUTHORING_STEPS.map(id=>{
+      const items=fields.filter(field=>getAuthoringFieldsForContext(id,primaryCategory,guidance).some(original=>original.attributeKey===field.attributeKey));
+      const locked=surface==="OWNER"&&detail?.actor.role==="VERIFIED_OWNER"&&detail.actor.entitlement==="OWNER_BASIC"&&["objective","amenities"].includes(id);
+      if(!items.length&&!locked)return null;
+      return <details className="wk-shared-section" key={id}><summary>{sectionCopy[id].title}{locked?" · Owner Pro":""}</summary>
+        <p>{sectionCopy[id].description}</p>
+        {locked?<section className="wk-note"><strong>Mit Owner Pro verfügbar</strong><p>Die bisherigen Zugriffsgrenzen bleiben erhalten. Pro garantiert keine Platzierung in Empfehlungen.</p><a href={`/owner/billing?spot=${encodeURIComponent(detail!.spotId)}`}>Owner Pro entdecken</a></section>:renderFieldGroups(items)}
+      </details>;
+    })}
+    {fields.some(field=>field.attributeKey==="experience.profile")&&<details className="wk-shared-section"><summary>Gemeinsame Ausstattung & bisherige Angaben</summary>{renderFieldGroups(fields.filter(field=>field.attributeKey==="experience.profile"))}</details>}
+  </div>;
 
 
   return <div className={`wk-app wk-product-app wk-studio${overview?" is-overview":""}`}>
@@ -672,7 +694,7 @@ export function WorldProductCorrection({ client, prepareDiscovery, search, addre
             })}</div></section>
           <section className="wk-note"><strong>{detail.manifest ? "Spot-Ansicht aktuell" : "Spot-Ansicht noch nicht aktualisiert"}</strong>
             <p>{detail.manifest ? "Jede gespeicherte Änderung wird mit dem aktuellen Spot-Wissen abgeglichen." : "Speichere eine Angabe. Danach wird die Spot-Ansicht geprüft."}</p></section>
-        </div> : fields.length ? <div className="wk-fields">{["offering","context","price","objective","amenities"].includes(current.id)&&<aside className="wk-scope-notice"><strong>Diese Angaben gelten für den gesamten Spot</strong><p>Gilt etwas nur für eine bestimmte Leistung oder einen Raum? Pflege es unter „Angebote“ oder „Räume & Bereiche“. Hier bleiben deine allgemeinen Angaben erhalten.</p></aside>}{renderFieldGroups(fields)}</div>
+        </div> : current.id === "shared" ? sharedContent : fields.length ? <div className="wk-fields">{["offering","context","price","objective","amenities"].includes(current.id)&&<aside className="wk-scope-notice"><strong>Diese Angaben gelten für den gesamten Spot</strong><p>Gilt etwas nur für eine bestimmte Leistung oder einen Raum? Pflege es unter „Angebote“ oder „Räume & Bereiche“. Hier bleiben deine allgemeinen Angaben erhalten.</p></aside>}{renderFieldGroups(fields)}</div>
           : <div className="wk-note"><strong>Für diesen Spot keine bearbeitbaren Angaben in diesem Bereich.</strong><p>Du kannst zum nächsten Bereich wechseln.</p></div>}
         {!fields.some(field=>field.control==="EXPERIENCE_PROFILE")&&<footer className="wk-footer"><button type="button" className="wk-secondary" disabled={step === 0} onClick={() => goToStep(step - 1)}>Zurück</button>
           <span>{surface === "OWNER" ? "Jede Änderung wird einzeln gespeichert und geprüft." : "Jede Änderung wird einzeln gespeichert und danach im World-Reader geprüft."}</span>

@@ -322,6 +322,11 @@
 
 /* Open question lists: normal facts stay visible; only special conditions disclose more inputs. */
 .wk-studio .wk-open-topic{border-top:1px solid var(--line);padding-top:20px;margin-top:20px}
+.wk-studio .wk-shared-sections{display:grid;gap:16px}
+.wk-studio .wk-shared-section,.wk-studio .wk-extra-questions,.wk-studio .wk-area-assignment{border:1px solid var(--line);border-radius:14px;padding:16px;margin:16px 0}
+.wk-studio .wk-shared-section>summary,.wk-studio .wk-extra-questions>summary,.wk-studio .wk-area-assignment>summary{cursor:pointer;font-weight:600;line-height:1.6}
+.wk-studio .wk-shared-section[open]>summary,.wk-studio .wk-extra-questions[open]>summary,.wk-studio .wk-area-assignment[open]>summary{margin-bottom:16px}
+.wk-studio .wk-shared-section>.wk-group{margin-top:20px}
 .wk-studio .wk-knowledge-buttons{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
 .wk-studio .wk-knowledge-buttons button{min-height:44px;white-space:normal;font-size:13px}
 .wk-studio .wk-experience-property{border:0;border-bottom:1px solid var(--line);border-radius:0;padding:18px 0;margin:0}

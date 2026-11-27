@@ -58,7 +58,7 @@ async function mockOwner(page: Page, tier: "OWNER_BASIC" | "OWNER_PRO", role: "V
     submissions.push(body);
     answers[String(body.p_attribute_key)] = {
       claimId: "41000000-0000-4000-8000-000000000011",
-      knowledgeState: body.p_knowledge_state, value: body.p_value,
+      knowledgeState: body.p_knowledge_state, value: body.p_value, visibility: "PUBLIC",
     };
     manifest = { manifestHash: "a".repeat(64), worldSnapshot: { spotId, conflicts: [] } };
     await route.fulfill({ json: { manifestHash: manifest.manifestHash } });
@@ -779,4 +779,35 @@ for(const offer of [{kind:'BRUNCH',label:'Brunch'},{kind:'TASTING',label:'Degust
  await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
  const saved=owner.submissions[0].p_value as {offers:Array<{kind:string;prices:Array<{includes:string}>}>};expect(saved.offers.find(o=>o.kind===offer.kind)?.prices[0].includes).toBe('Essen');
  await reloadEditor(page);await guided(page).getByRole('button',{name:`Angebot ${offer.label} bearbeiten`,exact:true}).click();await part(page,'Preise');await expect(guided(page).getByRole('combobox',{name:'Preis gilt für',exact:true})).toHaveValue('Essen');
+});
+
+test('Spotpflege: Museum behält Daten und bietet passende Leistungen',async({page},info)=>{
+ const condition=emptyExperienceConditions();
+ const oldArea={id:'old-room',kind:'EXHIBITION',name:'Bestehender Saal',properties:[{key:'amenity.step_free',label:null,state:'KNOWN',value:false,conditions:condition}]};
+ const oldOffer={id:'collection',kind:'PERMANENT_EXHIBITION',name:'Sammlung',areaIds:[],properties:[{key:'custom.detail',label:'Hinweis',state:'KNOWN',value:'Bestehender Hinweis',conditions:condition}],prices:[{label:'Eintritt',min:12,max:12,currency:'CHF',basis:'PER_PERSON',minimumAge:null,maximumAge:null,mandatoryFeesIncluded:true,includes:'Eintritt',conditions:condition}],schedule:[{weekday:2,start:'10:00',end:'17:00'}],validFrom:null,validUntil:null};
+ const profile={...emptyExperienceProfile('MUSEUM'),reviewed:true,areas:[oldArea],offers:[oldOffer]};
+ const owner=await mockOwner(page,'OWNER_PRO','ADMIN',{'classification.primary_category':{claimId:'c',knowledgeState:'KNOWN_VALUE',value:'CULTURE_ARTS'},'classification.place_types':{claimId:'t',knowledgeState:'KNOWN_VALUE',value:['MUSEUM']},'experience.profile':{claimId:'p',knowledgeState:'KNOWN_VALUE',value:profile}});
+ await openEditor(page);await guided(page).getByRole('button',{name:'Weiteres Angebot hinzufügen',exact:true}).click();
+ await expect(guided(page).getByRole('button',{name:'+ Workshop',exact:true})).toBeVisible();await expect(guided(page).getByRole('button',{name:'+ Private Feier',exact:true})).toHaveCount(0);
+ await guided(page).getByRole('button',{name:'Abbrechen',exact:true}).click();await guided(page).getByRole('button',{name:'Angebot Sammlung bearbeiten',exact:true}).click();
+ await guided(page).getByLabel('Drinnen oder draussen',{exact:true}).selectOption('INDOOR');await saveProfile(page);await expect(guided(page).getByRole('status')).toContainText('gespeichert');
+ const saved=owner.submissions.at(-1)!.p_value as typeof profile;expect(saved.offers[0].prices).toEqual(oldOffer.prices);expect(saved.offers[0].schedule).toEqual(oldOffer.schedule);expect(saved.offers[0].properties).toEqual(oldOffer.properties);expect(saved.areas[0]).toEqual(oldArea);expect(saved.offers[0].areaIds).toHaveLength(1);
+ await overview(page);await mainStep(page,1);await guided(page).getByRole('button',{name:'Bereich Bestehender Saal bearbeiten',exact:true}).click();
+ await expect(guided(page).getByRole('heading',{name:'Drinnen oder draussen?',exact:true})).toBeVisible();await expect(guided(page).getByRole('heading',{name:'Ist dieser Bereich stufenlos erreichbar?',exact:true})).not.toBeVisible();
+ await guided(page).getByText('Weitere Eigenschaften & bisherige Angaben',{exact:true}).click();await expect(guided(page).getByRole('heading',{name:'Ist dieser Bereich stufenlos erreichbar?',exact:true})).toBeVisible();await page.screenshot({path:info.outputPath('preserved-area.png'),fullPage:true});
+});
+
+test('Spotpflege: gemeinsame Preise und Owner-Rechte bleiben erhalten',async({page},info)=>{
+ const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);await page.getByRole('button',{name:/05 Gemeinsame Angaben/}).click();
+ const price=page.locator('.wk-shared-section').filter({has:page.locator('summary').filter({hasText:'Allgemeine Preise & Zahlung'})});await price.locator('summary').first().click();await price.getByLabel('Preislevel',{exact:true}).selectOption('MEDIUM');await expect.poll(()=>owner.submissions.length).toBe(1);expect(owner.submissions[0].p_attribute_key).toBe('operation.price_level');
+ const amenities=page.locator('.wk-shared-section').filter({has:page.locator('summary').filter({hasText:'Ausstattung & Zugang'})});await amenities.locator('summary').first().click();await expect(amenities.getByText('Mit Owner Pro verfügbar',{exact:true})).toBeVisible();await expect(amenities.getByRole('checkbox')).toHaveCount(0);
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:info.outputPath('shared-mobile.png'),fullPage:true});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+test('Spotpflege: ungespeicherte Angaben bleiben beim Bereichswechsel geschützt',async({page})=>{
+ const profile={...emptyExperienceProfile('MUSEUM'),reviewed:true};
+ const owner=await mockOwner(page,'OWNER_PRO','ADMIN',{'classification.primary_category':{claimId:'c',knowledgeState:'KNOWN_VALUE',value:'CULTURE_ARTS'},'classification.place_types':{claimId:'t',knowledgeState:'KNOWN_VALUE',value:['MUSEUM']},'experience.profile':{claimId:'p',knowledgeState:'KNOWN_VALUE',value:profile}});
+ await openEditor(page);await addFromCatalogue(page,'Workshop');await guided(page).getByLabel('Name des Angebots',{exact:true}).fill('Kinderatelier');
+ await page.getByRole('button',{name:/04 Räume & Bereiche/}).click();await expect(guided(page)).toHaveAttribute('data-workspace','OFFERS');await expect(guided(page).getByLabel('Name des Angebots',{exact:true})).toHaveValue('Kinderatelier');expect(owner.submissions).toHaveLength(0);
+ await guided(page).getByRole('button',{name:'Speichern & weiter',exact:true}).click();await expect(guided(page)).toHaveAttribute('data-workspace','AREAS');expect(owner.submissions).toHaveLength(1);expect((owner.submissions[0].p_value as typeof profile).offers[0].name).toBe('Kinderatelier');
 });

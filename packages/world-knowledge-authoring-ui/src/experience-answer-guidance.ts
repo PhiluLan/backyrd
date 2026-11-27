@@ -54,6 +54,7 @@ export function experienceAnswerGuidance(key: string, category: ExperienceCatego
     const stay=category === "STAY" || hasOfferModule(offerKind ?? "", "stay") || types.some(kind => SPOT_TYPE_CATALOG.some(type=>type.kind===kind && type.group === "STAY"));
     return {...choice(["Öffentlich zugänglich", ...(stay ? ["Nur für Hotelgäste"] : []), "Nur für Mitglieder", "Nur mit separater Buchung"], "Wähle, wer dieses konkrete Angebot nutzen darf."), multiple:false};
   }
+  if (key === "location.setting" && areaKind) return choice(["drinnen", "draussen"], "Wähle, wo dieser Bereich liegt. Weitere bestehende Lageangaben bleiben erhalten.");
   if (key === "food.dish") return named("Zum Beispiel Pad Thai", "Ein konkreter Gerichtname pro Eintrag, zum Beispiel Pad Thai. Weitere Gerichte einzeln ergänzen. Gespeichert wird der Name; längere Beschreibungen werden hier nicht automatisch in Eigenschaften wie vegan, günstig oder hochwertig übersetzt.");
   if (key === "participation.prerequisite") return { ...choice(["Keine Vorkenntnisse", "Vorkenntnisse erforderlich", "Begleitung erforderlich"]), kind: "CHOICES", multiple: true, exclusiveGroups: [["Keine Vorkenntnisse", "Vorkenntnisse erforderlich"]] };
   if (key === "sport.equipment" && offerKind === "BOULDERING") return choice(["Kletterschuhe", "Sportkleidung", "Eigene Ausrüstung erforderlich"], "Für das Bouldern benötigte Ausrüstung auswählen. Leihschuhe und ihren Preis pflegst du separat.");
