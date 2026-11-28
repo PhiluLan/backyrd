@@ -274,7 +274,7 @@
       "deferredMigrationCount": 4,
       "authChanged": false,
       "adminDiagnosticQuotaApplied": false,
-      "note": "Audited code-only release of Decision v218 and Admin diagnostic v13. Global shipped SQL baseline stays unchanged because four Booking migrations remain deferred. Real authenticated diagnostic confirms Volta Br\u00e4u and Alchemist with no unknown or failed mandatory facts. No learning or Spot writes. Admin test quota and calendar expiry removed; JWT/Admin/runtime controls remain. Presentation follow-up: selected-offer reason labels Volta offer as F\u00fchrung, which is not a suitable bar recommendation explanation."
+      "note": "Audited code-only release of Decision v218 and Admin diagnostic v13. Global shipped SQL baseline stays unchanged because four Booking migrations remain deferred. Real authenticated diagnostic confirms Volta Bräu and Alchemist with no unknown or failed mandatory facts. No learning or Spot writes. Admin test quota and calendar expiry removed; JWT/Admin/runtime controls remain. Presentation follow-up: selected-offer reason labels Volta offer as Führung, which is not a suitable bar recommendation explanation."
     },
     "regionalDecisionRelease": {
       "status": "APPLIED_AND_VERIFIED",
@@ -922,6 +922,30 @@
         "physicalIphoneAcceptanceVerified": false
       },
       "note": "Founder-authorized PR 802 publication: source-bound typed monetary limits, atomic cited dialogue updates, expressly retained dates and activity exclusions evaluated against the selected offer. Main Risk Gate and manual PRODUCT certification passed. Published the same immutable artifact; recomputed deployment audit hash matches, independent live listing matches both bundles and confirms ACTIVE with JWT verification. Only the two bound functions changed; anonymous probes return 401. Twenty known development cases were input-bound and replayed with the final provider; final affected budget cases and a changed-budget dialogue used real inference. This is not authenticated Production inference, physical-iPhone acceptance, independent blind evaluation or model training. Existing model weights are unchanged. Preserve previous receipts, SQL baseline and four deferred Booking migrations."
+    },
+    "spotKnowledgeRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "migration": {
+        "path": "supabase/migrations/20261127214029_spot_knowledge_searchable_offer_details.sql",
+        "sha256": "c33b2bf7e1b1fa94c000f843046e67eb4ac59b95dfe3986d61554d19acff5a64"
+      },
+      "sourceSha": "95782d7a379996f52dc3ee5e78009bd89a9bd55c",
+      "deploymentRunId": 46147124402,
+      "certificationRunId": 46146456201,
+      "manifestHash": "fd03a546df22ab138dd72059efc3c0b82ed5bd06ee7b17e1f82e23411673a5e7",
+      "auditHash": "560da6afa22fedcd44464414cc47b71b189eef6149b2f38eda28b5598fd64476",
+      "planHash": "fce11bef700240ba927b0e99a857a7f0e514a62f44208feb2eb48cea40a3da49",
+      "backupRunId": 46134833366,
+      "verification": {
+        "exactSingleMigrationApplied": true,
+        "privateValidatorExecuteDenied": true,
+        "dispatchUsesV4": true,
+        "onlyPlannedFunctionsChanged": true,
+        "jwtVerificationPreserved": true,
+        "authConfigurationUnchanged": true,
+        "bookingMigrationsDeferred": 4
+      },
+      "note": "One additive private validator migration and two authenticated Decision functions. No content backfill, model/adapter change, Auth deployment or Booking SQL. Baseline remains intentionally unchanged across four deferred migrations. Exact birthday query diagnostic returned zero confirmed recommendations; release success does not certify retrieval success. See docs/operations/SPOT_KNOWLEDGE_RELEASE_20261128.md."
     }
   },
   "mobile": {
@@ -949,6 +973,45 @@
       "servedBundleMatchesCertifiedArtifact": true,
       "productionPublicConfigurationVerified": true,
       "note": "Beta security dependency corrections and clear compromised-password errors. The production Expo manifest serves the exact certified Hermes bundle and expected public configuration. Physical-device installation is not claimed; Android identity remains historical."
+    },
+    "spotKnowledgeIosRelease": {
+      "sourceSha": "95782d7a379996f52dc3ee5e78009bd89a9bd55c",
+      "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
+      "cohorts": [
+        {
+          "status": "PASS",
+          "runtimeVersion": "1.1.0",
+          "channel": "production",
+          "sourceSha": "95782d7a379996f52dc3ee5e78009bd89a9bd55c",
+          "otaGroupId": "5d394aa1-b755-4d8a-97fa-d2b0d86bc36c",
+          "iosUpdateId": "01a22243-95e4-7847-a391-333eaa1be2e9",
+          "certifiedBundleSha256": "c1aa6413def36b3bc1bb5757fbbed85059223536a9683144a163b631d5c2f34e",
+          "servedManifestBundleHashMatchesCertifiedArtifact": true,
+          "servedBundleDownloadedAndVerified": true,
+          "assetHttpStatus": 200,
+          "productionPublicConfigurationVerified": true,
+          "installedDeviceVerified": false,
+          "certificationRunId": 46146481943,
+          "manifestHash": "2e3657509e4ebc6d2ad27fd2b129042517d44fad2077a9a4ca602372ac0782d6"
+        },
+        {
+          "status": "PASS",
+          "runtimeVersion": "1.1.1",
+          "channel": "production",
+          "sourceSha": "95782d7a379996f52dc3ee5e78009bd89a9bd55c",
+          "otaGroupId": "c4115fc9-be4c-400a-826f-c04870585d3e",
+          "iosUpdateId": "01a22244-5226-7fbc-a192-0dfe1bb82187",
+          "certifiedBundleSha256": "7229cbba9d43708b88132c0204d3818ad86db968470cbe50d134f6af114185b6",
+          "servedManifestBundleHashMatchesCertifiedArtifact": true,
+          "servedBundleDownloadedAndVerified": true,
+          "assetHttpStatus": 200,
+          "productionPublicConfigurationVerified": true,
+          "installedDeviceVerified": false,
+          "certificationRunId": 46146502764,
+          "manifestHash": "254f43c800e6988829fe4679ea5a37c49863219ac765a8cb42b8c1011303942e"
+        }
+      ],
+      "note": "Production manifests, public configuration and downloaded Hermes bytes verified for both runtimes. Historical installed-device/Android identities above remain historical; no physical-device installation is claimed."
     }
   },
   "reviewMediaIncident": {
