@@ -39,6 +39,16 @@ No extra bespoke consumer screen or independent Owner form is introduced.
 
 ## Delivery
 
+Founder requested publication on 2026-11-28. The release proposal uses the
+existing isolated SQL/artifact pipeline with an exact Spot Knowledge scope:
+one hash-bound validator migration, only decision-v13 and
+decision-admin-diagnostic, the unchanged four Booking exclusions, fresh backup
+46134833366 and the existing verified database/media restore receipt. Auth,
+retirements, other migrations and other functions remain excluded. The proposal
+keeps executionAuthorized=false; manual exact-Main certification and deployment
+are the execution authority. The new applied receipt may only be recorded after
+live migration/validator/ACL and function verification.
+
 The forward migration installs validator v4 and routes the existing v7 claim
 validator to it. It preserves validators v1–v3, old claims, profile version,
 public RPC signatures and entitlements. The new validator remains private with

@@ -8,6 +8,15 @@ import {RESEARCH_MIGRATION as target,VOLTA_MIGRATIONS as volta,DEFERRED_BOOKING_
 const base='a'.repeat(40);
 const scope={contractVersion:'backyrd.isolated-research-migration-scope@1.0',baseSha:base,migrations:[target],deferredMigrations:deferred,backupRunId:1,executionAuthorized:false};
 const input=()=>({pending:[...deferred,target],scope:structuredClone(scope),baseSha:base,deployFunctions:[],authDeploy:false,applied:null});
+test('Spot Knowledge release binds one validator, two functions, recovery and unchanged Booking exclusions', async()=>{
+ const {SPOT_KNOWLEDGE_SCOPE,SPOT_KNOWLEDGE_MIGRATION,scopeNuknukActivityMigrations}=await import('./isolated-research-migration.mjs');
+ const functions=['decision-admin-diagnostic','decision-v13'];
+ const proof={runId:2,artifactId:3,artifactDigest:'sha256:'+'a'.repeat(64)};
+ const request={pending:[...deferred,SPOT_KNOWLEDGE_MIGRATION],baseSha:base,deployFunctions:functions,authDeploy:false,retiredFunctions:[],appliedAdminFeedbackInbox:{verified:true},scope:{contractVersion:SPOT_KNOWLEDGE_SCOPE,executionAuthorized:false,baseSha:base,migrations:[SPOT_KNOWLEDGE_MIGRATION],deferredMigrations:deferred,functions,backupRunId:1,restoreDrill:proof}};
+ assert.deepEqual(scopeNuknukActivityMigrations(request).pendingMigrations,[SPOT_KNOWLEDGE_MIGRATION]);
+ assert.deepEqual(scopeNuknukActivityMigrations({...request,pending:deferred,appliedSpotKnowledge:{verified:true}}).pendingMigrations,[]);
+ for(const patch of [{pending:[...request.pending,target]},{pending:[...deferred,{...SPOT_KNOWLEDGE_MIGRATION,sha256:'b'.repeat(64)}]},{authDeploy:true},{retiredFunctions:['old']},{deployFunctions:[...functions,'weather-context']},{appliedAdminFeedbackInbox:null},{scope:{...request.scope,restoreDrill:null}},{scope:{...request.scope,executionAuthorized:true}},{scope:{...request.scope,deferredMigrations:[]}}])assert.throws(()=>scopeNuknukActivityMigrations({...request,...patch}));
+});
 test('safety correction uses the exact approved SQL and its own receipt without losing research history', async()=>{
  const {RESEARCH_SAFETY_MIGRATION:safety,RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES:bindings,SAFETY_DEFERRED_MIGRATIONS:safetyDeferred}=await import('./isolated-research-migration.mjs');
  const request={...input(),scope:{...scope,migrations:[safety],deferredMigrations:safetyDeferred},pending:[...safetyDeferred,safety],applied:{migration:target},appliedSafety:null};
