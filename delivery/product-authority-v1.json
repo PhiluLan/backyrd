@@ -959,6 +959,18 @@
         }
       ]
     },
-    "source": "Founder explicitly requested publishing the prepared Spot Knowledge extension and then testing the Basel children birthday search on 2026-11-28. Scope: this one additive private validator migration, the two authenticated Decision functions and matching clients. Existing tested restore evidence remains bound; no guaranteed database rollback, Booking SQL, Auth or other function deployment is authorized."
+    "source": "Founder explicitly requested publishing the prepared Spot Knowledge extension and then testing the Basel children birthday search on 2026-11-28. Scope: this one additive private validator migration, the two authenticated Decision functions and matching clients. Existing tested restore evidence remains bound; no guaranteed database rollback, Booking SQL, Auth or other function deployment is authorized.",
+    "researchWorkerReceipt": {
+      "sourceSha": "cc72fc4aab30d4900a5125d004f72f8b3df2f4cd",
+      "deploymentRunId": 44291765953,
+      "functions": [
+        {
+          "slug": "decision-engine-worker",
+          "version": 183,
+          "bundleHash": "7834afce51a99c2d5efe74e8df12eb5d307a9baf76186954f1aaa7060cf326d9",
+          "sourceSetHash": "5ea6897d8786c5b424b41e6e73cf3bdf4819958e951615632a9f499abddd7a3f"
+        }
+      ]
+    }
   }
 }
