@@ -1,5 +1,97 @@
 # NukNuk als Backyrd-Verständnis-KI
 
+## Aktiver Product-Trainingsauftrag vom 23. November 2026
+
+Der Founder beauftragte nach der Sichtung von 20 Entwicklungsbeispielen eine
+gezielte Trainingsrunde und den anschliessenden Vergleich. Die Softwarekorrektur
+aus PR 802 ist bereits separat veröffentlicht; Modelltraining und eine spätere
+Aktivierung neuer Gewichte bleiben davon getrennt.
+
+Der Lauf und die native Mac-Auswertung einschliesslich der 16 TEST-Fälle sind
+abgeschlossen. Der Kandidat wird wegen einer neuen Teilgruppen-Regression nicht
+aktiviert. Belege und verbleibende Mängel stehen in `NUKNUK_UNDERSTANDING_REVIEW.md`
+unter „Mac-Prüfung und einmaliger 16er-TEST“. Das bisherige Live-Modell ist wieder aktiv.
+
+Für später vorgemerkt (Founder, 23. November): Einen begrenzten lokalen
+Trainings-Probelauf auf dem M4 Pro mit 48 GB prüfen, bevor weitere Cloud-Runden
+geplant werden. Speicherbedarf, Laufzeit und die Verfügbarkeit des lokalen
+Live-Dienstes müssen gemessen werden. Der aktuelle Mac-Auftrag umfasst nur
+Kandidateninferenz und Testauswertung, kein lokales Training.
+
+Der aktuelle Export ist eine Erweiterung der bestehenden Trainingswerkzeuge:
+
+```sh
+node scripts/decision-diagnostics/nuknuk-training-bundle.mjs --product-search-v7 OUTPUT MODEL_DIR CURRENT_MLX_ADAPTER CURRENT_HF_ADAPTER
+python scripts/decision-diagnostics/nuknuk-curriculum/preflight.py OUTPUT MODEL_DIR OUTPUT/preflight.json
+python scripts/decision-diagnostics/nuknuk-gpu.py verify-product-parent --bundle OUTPUT --source CURRENT_MLX_ADAPTER --adapter CURRENT_HF_ADAPTER --output OUTPUT/parent-verification.json
+node scripts/decision-diagnostics/nuknuk-gpu-bundle.mjs --product-search-v7 OUTPUT CURRENT_HF_ADAPTER MODEL_DIR GPU_OUTPUT
+```
+
+Er verwendet die kanonischen Aufträge `COMPACT_SEARCH_V7` und
+`DIALOGAKTUALISIERUNG_V3`, einschliesslich der Provider-Anweisungen zur Absicht.
+Der 27B-V7-Vieraufgabenbestand und seine historischen Rezepte werden unverändert
+erhalten; sie sind kein Ersatz für den aktuellen Product-Auftrag.
+
+Der korrigierte Vorbereitungsbestand enthält 152 synthetische Assistenzziele:
+121 TRAIN in 19 Familien, 15 ursprüngliche VALIDATION und 16 ursprüngliche TEST.
+96 Trainingsfälle adressieren bekannte Schwächen einschliesslich acht zusätzlicher
+Teilgruppenvarianten; 24 erhalten einfache Suchzwecke und einer die bekannte
+Pizza-/Pasta-Alternative. Die Evaluation dieses Bestands wurde bereits beobachtet
+und ist ausdrücklich KNOWN_REGRESSION_ONLY. Alte Splitnamen bleiben zur
+Reproduzierbarkeit erhalten; diese Beispiele sind kein neuer Blindtest.
+Die neue Beta-Runde benötigt einen separat erstellten unberührten Holdout.
+Die archivierten Trainings- und Mac-Belege des vorherigen 144er-Bestands bleiben
+unverändert. Die Vorbereitung führt noch kein neues Training aus.
+
+Die folgenden historischen Werkstattabschnitte bleiben als damaliger Stand
+erhalten; dieser Abschnitt beschreibt den aktiven Product-Trainingsauftrag.
+
+Der Live-Parent ist Qwen3.6-35B-A3B mit dem vorhandenen rank-16-Adapter `round-3`,
+nicht der historische 27B-/rank-8-Ansatz. Gepinnte Basisrevisionen:
+
+- MLX: `mlx-community/Qwen3.6-35B-A3B-4bit`,
+  `38740b847e4cb78f352aba30aa41c76e08e6eb46`.
+- HF: `Qwen/Qwen3.6-35B-A3B`,
+  `995ad96eacd98c81ed38be0c5b274b04031597b0`.
+
+Der Export bindet Parent-Dateien, Tokenizer, Prompt, Schema und Quellcode durch
+Hashes. `verify-product-parent` prüft alle 40 Projektionen/80 Tensoren auf exakte
+Transpositionsgleichheit und dieselbe Adapter-Skalierung. Das ist keine Behauptung
+numerischer Gleichheit unterschiedlich quantisierter Basismodelle: vor dem
+Training wird derselbe HF-Parent zusätzlich auf VALIDATION aufgerufen.
+
+Offline-Prüfung: jede Zielantwort passiert den Product-Validator, jede Änderung
+den zitatgebundenen Merge; jeder Fall wird mit seinem eigenen Schema gegen die
+Server-Grammatik geprüft. Die korrigierte Vorbereitung verwendet ein ausdrücklich gebundenes
+5'120-Token-Limit (gemessen höchstens 4'743). Der archivierte Product-Lauf
+behält 4'608; historische Profile behalten 4'096. Es wird nicht gekürzt.
+Native GPU-Tokenisierung muss dieselben vollständigen Präfix-Token-IDs erzeugen.
+Nur Antwort und EOS erhalten Trainingslabels; die System- und Nutzereingabe wird
+mit `-100` maskiert. Dafür wird Axolotls dokumentierter
+[vorab tokenisierter Datensatz](https://docs.axolotl.ai/docs/dataset-formats/tokenized.html)
+verwendet. Die bisherige Chat-Template-Verarbeitung wird nicht still umgedeutet.
+
+Das GPU-Paket enthält TRAIN, VALIDATION und zieldatenfreie VALIDATION-Anfragen.
+TEST-Texte und -Ziele werden nicht hochgeladen. Der temporäre Kandidat setzt den
+vorhandenen Adapter fort (rank 16/alpha 32, zwei Epochen, LR 0.000006). Das
+Container-Image ist per AMD64-Digest gepinnt. Technischer Kostenrahmen: maximal
+4 USD, davon 1 USD Schlussreserve, maximal 3.70 USD/Stunde einschliesslich
+konservativer Nebenkosten. Ein Paket ist keine Ressourcen- oder
+Aktivierungsberechtigung. Jeder konkrete Lauf braucht einen lokalen und einen
+unabhängigen serverseitigen Provider-Stopp; ein Prozess-Timeout beendet keine
+GPU-Abrechnung. Nach Sicherung der Ergebnisse wird die eigene temporäre Ressource
+gestoppt und überprüft. Der laufende Mac-Inferenzdienst wird nicht unterbrochen.
+
+Auswahl nur auf VALIDATION; danach Checkpoint samt Vergleich einfrieren und
+TEST einmal auswerten. Gleicher Prompt, Schema, Referenzzeit und Katalog für
+Parent/Kandidat. Bedeutung, ausführbare Bedingungen, tatsächliche Angebote,
+Ranking, sichtbare Gründe, Reparaturen und Laufzeit getrennt beurteilen. Ein
+HTTP-200-Ergebnis oder gültiges JSON ist keine semantische Freigabe. Fehlende
+Preise, Öffnungszeiten und Angebote bleiben Daten-/Matchingprobleme; sie werden
+nicht als Spotwissen in Gewichte geschrieben. Simple-Route und Dialog-Routing
+benötigen vor Aktivierung eigene Retentionskontrollen. Neue Gewichte werden
+nicht durch Export oder Training automatisch produktiv.
+
 Stand: 7. November 2026. Entwicklungsauftrag, kein Produktrelease.
 Die erste Implementierung ist eine lokale Lern- und Evaluationswerkstatt,
 kein Ersatz der veröffentlichten Decision und kein neues Foundation Model.
@@ -3331,3 +3423,115 @@ Unter **System → NukNuk** prüft die Statusansicht den konfigurierten Endpunkt
 Die Anfragestatistik umfasst abgeschlossene Backend-Versuche, die tatsächlich an den NukNuk-Verständnisdienst geroutet wurden. Sie misst die Operationen für Verständnis und Bibliothekar getrennt. Die Gesamtdauer enthält die übrige Backend-Verarbeitung. Ein Backend-Ergebnis mit provisorischen Spots erscheint als «Orte zum Abklären». Clientseitige Ausweichvorschläge sind darin nicht messbar. Die Kennzahl für Rückfragen kann sich mit Vorschlägen überschneiden.
 
 Die Erfassung beginnt mit der bereitgestellten Decision-Version und schreibt Betriebsmetadaten im Hintergrund. Der tägliche Überblick liest ein rollendes 24-Stunden-Fenster. Die Migration richtet eine stündliche Bereinigung für Einträge älter als sieben Tage ein. Suchtexte, Kontokennungen, Spot-IDs und Modellantworten gehören nicht in diese Tabelle.
+
+## 24. November 2026: eigenständiger Beta-Gesamtkatalog v2
+
+Der aktuelle Auftrag ist ein eigenständiges Vorbereitungs- und Datenpaket. Die
+Admin-Werkstatt ist dafür keine Voraussetzung. Der beauftragte Assistenzprozess
+verfasst und prüft synthetische Alltagssituationen und ihre strukturierten Ziele;
+Founder muss keine tausend Einzelannotationstätigkeiten übernehmen. Eine
+Assistenzprüfung wird nicht als unabhängige menschliche Goldbewertung ausgegeben.
+
+Die versionierten Quellen erweitern die bestehende Offline-Kuration unter
+`scripts/decision-diagnostics/nuknuk-curriculum/beta-*.mjs`. Sie verwenden den
+aktuellen kompakten Suchvertrag und die bestehende atomare Dialogaktualisierung.
+Sie importieren keinen alten Moment-, Founder- oder Shadow-Runtime und ändern
+keine Produktzulassung. Die bestehenden Syntax-, Vertrags- und Bibliothekar-
+Grenzen bleiben unverändert. Unbekannte aktuelle Öffnung, Preis, Verfügbarkeit
+und Angebotsberechtigung werden nicht in Modellgewichte hineinerfunden.
+
+```sh
+npm run decision-vnext:build
+node --test scripts/decision-diagnostics/nuknuk-curriculum/beta-catalog.test.mjs
+node scripts/decision-diagnostics/nuknuk-curriculum/beta-catalog.mjs build AUSGABE
+node scripts/decision-diagnostics/nuknuk-curriculum/beta-catalog.mjs verify AUSGABE
+```
+
+Die Ausgabe enthält vollständige Lesefassung und Fragenkatalog, Begriffs-
+zuordnungen, TRAIN/DEV-JSONL, getrennte TEST-Eingaben, lokale Soll-Ziele,
+Abdeckungsmatrix, versionierte Quell- und Dateihashes sowie einen Trainingsplan.
+Es wird keine TEST-Trainingsdatei erzeugt. Referenzzeiten sind fest, numerische
+Werte quellengebunden und verwandte Formulierungen gruppiert. Das Graph-Audit
+ignoriert Feldreihenfolge, neutrale IDs und Zahlenvarianten, erhält aber Rollen,
+Bezüge, Bedingungen, Modalitäten und Bindungen. Es ist ein konservativer
+Überlappungscheck, kein Beweis semantischer Unabhängigkeit. Ein gesonderter
+historischer Textabgleich weist bekannte frühere Eingaben aus.
+
+Der vorhandene `preflight.py` unterstützt dieses Format zusätzlich zum bisherigen
+Format. Er prüft mit dem lokalen Qwen-Tokenizer, der echten Chatvorlage und
+llguidance 1.9.1 alle Antworten einschliesslich Grammatik, Feldreihenfolge,
+Abschluss-Token, Completion-Maskierung und 5.120-Token-Grenze. Es werden keine
+Gewichte geladen, keine Netzwerkverbindungen aufgebaut und kein Modell trainiert.
+Der spätere GPU-Runner muss dieselben Tokenizer-/Template-Hashes und die tatsächliche
+SFT-Maskierung erneut gegen seine installierte Implementierung verifizieren.
+
+Der Plan begrenzt den vorgeschlagenen gesamten Cloud-Lebenszyklus auf 50 USD,
+einschliesslich Anlauf, Fehlversuchen, Pilot, Training, Prüfungen und Speicher
+bis zur bestätigten Löschung. Fünf USD bleiben als Reserve. Ein eigener Pod,
+Auto-Pay aus, kein automatischer Ersatz-Pod. Die reine Budget-Zulassungsfunktion
+muss eine konservative Prognose aus dem gemessenen Pilot verwerfen, wenn sie
+nicht in das Restbudget und die vorgesehene Laufzeit passt. Das Paket kann keine
+Ressourcen anlegen und autorisiert weder einen Trainingsstart noch eine
+Produktivaktivierung. Aus einem synthetischen Katalog folgt kein Beta-Qualitätssiegel.
+
+### Alltagsreview mit zwei Rollen (24. November 2026)
+
+Der eigenständige Beta-Katalog wird durch die vom Nutzer benannten Chats mit den
+Rollen Philipp (Familie, gemeinsame Eltern-Kind-Erlebnisse, ruhige Solo-Zeit) und
+Tobi (Entdecken, Ausgehen, Food und Wellness) iterativ gegengelesen. Das sind
+KI-Rollenreviews, keine menschlichen Testpersonen und keine Modellmessungen.
+Originalberichte, Quellenbezug und angenommene beziehungsweise abgewogene
+Vorschläge gehören in das versiegelte Paket unter `reviews/`,
+`persona-review.json` und `REVIEW_UND_AENDERUNGEN.md`.
+
+Die Revision repariert grammatische Vorlagen und kanonische Ortstypen, begrenzt
+unplausible Profilkreuzungen und ergänzt 50 einzeln autorierte Situationen,
+darunter zwölf Dialogfamilien mit tatsächlichen Rückfragen, Vorschlagsreaktionen
+und aufeinanderfolgenden Korrekturen. Ganze neue Familien werden vor dem
+Modellvergleich für DEV/TEST reserviert; Sprache und formale Szenariogruppen
+werden weiterhin nicht über Bestände verteilt. Die vollständigen Lesefassungen
+zeigen alle Dialogturns, während das Training den bestehenden kompakten
+Such-/Dialogvertrag verwendet. Es entsteht kein neuer Laufzeitparser.
+
+Unbegleitete Kinder werden nicht allein wegen eines technisch verarbeitbaren
+Graphen freigegeben: Ungeklärte Aufsicht und Anbieterzulassung bleiben erhalten
+und verlangen eine Rückfrage. `EXECUTABLE` ist nur der technische
+Extraktionszustand, keine Sicherheits-, Alters-, Öffnungs- oder
+Verfügbarkeitsfreigabe. Deterministische Anbieterprüfung und die tatsächliche
+Empfehlungskette bleiben gesonderte Produktabnahmen; diese Datenrevision ändert
+keinen Live-Dienst und implementiert keine solche Freigabe im Backend.
+
+Mehrere Suchstädte, Betreuungsregeln, gemeinsame Eltern-Kind-Teilnahme,
+Küchenverfügbarkeit, Bekleidungsregeln und weitere nicht belegbare Merkmale
+werden als ehrliche Rückfrage beziehungsweise Hostgrenze erhalten. Ein klares
+Nutzerziel darf nicht zur scheinbar ausführbaren Anfrage werden, indem eine
+unbequeme Bedingung entfernt wird. Zusammengesetzte Ausschlüsse wie ein
+luxuriöses Dinner werden nicht zu einem Verbot aller Mahlzeiten verallgemeinert.
+
+Die elf fokussierten Katalogtests prüfen zusätzlich die Rückfrage bei
+ungeklärter Kinderaufsicht, Restaurant statt Hotel, kanonische Ortstypen,
+entfernte Kreuzproduktfehler, neue zurückgehaltene Familien und die vollständige
+Verarbeitung mehrerer Dialogturns. Abschliessend werden Quellen, Artefakte,
+Token-/Grammatikprüfung und Reviewnachweise auf dieselbe Datenfassung gebunden.
+Sichtbare synthetische TEST-Fälle bleiben Regressionsevidenz; nach Einsicht in
+Kandidatenergebnisse dürfen sie nicht zur unangesehenen Endabnahme umetikettiert
+werden. Eine Gesamtquote allein genügt nicht: Szenariogruppen, Sprachen und
+individuell autorierte Alltagsfälle müssen getrennt ausgewiesen werden.
+
+Die abschliessende Token-Grammatikprüfung fand zusätzlich zwei neue Rückfragen
+mit leeren Optionslisten. Der tatsächlich verwendete Ausgabevertrag verlangt
+zwei bis drei Optionen. Die beiden Listen nennen nun Eingabemöglichkeiten für
+Name/Lage beziehungsweise Beispielort/Link, ohne Ortsdaten zu erfinden. Ein
+negativer Katalogtest und die Quellenprüfung weisen leere Listen bereits vor
+der Tokenprüfung zurück. Die geänderten vier Sprachzeilen werden gezielt erneut
+von beiden Rollen geprüft; Bedeutungsgraph, Rückfragebedarf und Splits bleiben
+unverändert.
+
+Die Dialog-Lehrziele müssen ausserdem die striktere Modell-Ausgabegrammatik
+erfüllen: partielle `additions` sind für die Mergefunktion zulässig, im
+Modelvertrag sind aber alle Meaning-Felder erforderlich. Der Autorensource
+füllt fehlende leere Arrays und `logic: null` ausdrücklich auf. Die vorhandenen
+Angaben und gemergten Bedeutungen ändern sich dadurch nicht. Der Serializer
+weist fehlende Pflichtfelder nun früh zurück; ein negativer Test deckt diese
+Abweichung zwischen Merge- und Ausgabevertrag ab. Beide Rollen prüfen diese
+reine Formatkorrektur gezielt nach.

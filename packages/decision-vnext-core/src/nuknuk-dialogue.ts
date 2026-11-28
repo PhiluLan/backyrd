@@ -55,6 +55,11 @@ Aufhebung ist fact:null. Mehrere Änderungen brauchen mehrere changes mit je eig
 Unveränderte Fakten NICHT ausgeben: der Host behält sie samt Entitäten und Bindungen.
 additions enthält nur wirklich neue Fakten/Entitäten/Bindungen mit neuen eindeutigen IDs.
 Die bestehende Angebots-, Personen- oder Gruppenzuordnung beibehalten; id und subjectIds angeben.
+Bei Änderungen an einer Zahl den bekannten Umfang erhalten: Budget pro Person/gesamt und
+verfügbare Gesamtdauer dürfen nicht zu unbestimmtem Umfang werden. Ernährung einzelner Personen
+oder Teilgruppen nicht auf alle übertragen. Neue Teilgruppen mit eigener GROUP und Zahl erhalten.
+Eine Antwort über die verfügbare Zeit (ich/wir haben ... Minuten Zeit) konkretisiert time.duration
+als AVAILABLE_TOTAL, auch wenn der Umfang im bisherigen Fakt noch UNSPECIFIED war.
 Keine frühere Angabe nur deshalb aufheben, weil sie nicht wiederholt wird. Keine singleActivity.
 Ohne Suchänderung changes:[] ausgeben. Keine bereits beantwortete Rückfrage wiederholen.
 protectedFactIds sind ausdrücklich beibehaltene Zeitangaben: nicht ändern oder neu datieren.
@@ -206,6 +211,19 @@ export function mergeNuknukDialogueUpdate(previous: LunaMeaningOutput, raw: unkn
     throw Error('nuknuk_dialogue_replacement_without_removal');
   }
   const newExtensions = withoutEchoes(append.extensions??[]);
+  for (const row of newFacts) {
+    if (!row || typeof row !== 'object' || !('id' in row) || typeof row.id !== 'string'
+        || !('key' in row) || row.key !== 'time.duration' || !('value' in row)
+        || !row.value || typeof row.value !== 'object') continue;
+    const prior = removedFacts.get(row.id);
+    if (prior?.key === 'time.duration' && 'measurementScope' in prior.value
+        && prior.value.measurementScope !== 'UNSPECIFIED'
+        && (!('measurementScope' in row.value) || row.value.measurementScope === 'UNSPECIFIED')) {
+      // Losing known structure is not a user-requested scope change. Do not
+      // silently fill in an interpretation the replacement failed to retain.
+      throw Error('nuknuk_dialogue_duration_scope_lost');
+    }
+  }
   const replacementIds = new Set([...newFacts,...newExtensions].flatMap(fact=>
     fact && typeof fact==='object' && 'id' in fact && typeof fact.id==='string' ? [fact.id] : []));
   const deleted = new Set([...removed].filter(id=>!replacementIds.has(id)));

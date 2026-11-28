@@ -233,3 +233,87 @@ test('a programme with matching access is admitted when both facts are actually 
   const http=await exercise({text:'Live-Jazz, stufenlos zugänglich',meaning,catalog:[b]});assert.equal(http.status,200);assert.equal(http.body.primaryCandidateId,b.decisionProjection.spotId);assert.equal(http.body.candidates[0].tier,'ELIGIBLE_CONFIRMED');
  }
 });
+
+test('new facility aliases block known presence without treating missing or unrelated data as absence',()=>{
+ for(const text of ['Spa','Spielautomaten']){
+  const q=request([meal(),fact('ban','offer.kind',text,'EXCLUDED')]);
+  const present=profile();present.properties=[prop('offer.feature',text)];
+  const other=profile();other.properties=[prop('offer.feature','WLAN')];
+  const absent=profile();
+  const rows=[binding(8201,present),binding(8202,other),binding(8203,absent)];
+  const result=search(q,rows);
+  assert(result.excluded.some(c=>c.spotId===rows[0].decisionProjection.spotId&&c.failedFactIds.includes('ban')),text);
+  assert.equal(result.ranked.length,0,'no facility data or a different feature is not proof of absence');
+  for(const id of [rows[1].decisionProjection.spotId,rows[2].decisionProjection.spotId])assert(result.unresolved.some(c=>c.spotId===id));
+ }
+});
+
+test('an explicit ceramics course can satisfy a course request while generic ceramics cannot',()=>{
+ const q=request([fact('course','experience.activity','ceramics_course')]);
+ const make=(id,name)=>binding(id,profile([{...offer('work','WORKSHOP'),name}]));
+ const good=make(8211,'Keramikkurs'),generic=make(8212,'Workshop'),material=make(8213,'Keramik');
+ const result=search(q,[good,generic,material]);
+ assert(result.ranked.some(c=>c.spotId===good.decisionProjection.spotId));
+ assert(!result.ranked.some(c=>c.spotId===generic.decisionProjection.spotId));
+ assert(!result.ranked.some(c=>c.spotId===material.decisionProjection.spotId));
+});
+
+test('group-total pricing uses an explicit whole-party hierarchy without adding the subgroup twice',()=>{
+ const whole={id:'gTotal',kind:'GROUP',label:'Gesamtgruppe',members:['gPart']};
+ const part={id:'gPart',kind:'GROUP',label:'Teilgruppe',members:[]};
+ const entities=[{id:'a1',kind:'ACTIVITY',label:'Essen',members:[]},whole,part];
+ const facts=[meal(),fact('total','people.count',{amount:4,operator:'EQ',unit:'PEOPLE'},'CONTEXT',['gTotal']),
+  fact('part','people.count',{amount:2,operator:'EQ',unit:'PEOPLE'},'CONTEXT',['gPart']),
+  fact('price','budget.maximum',{amount:80,operator:'LTE',currency:'CHF'}),fact('scope','budget.scope',{scope:'GROUP_TOTAL'},'CONTEXT')];
+ const b=binding(8221,profile([offer('meal','FULL_MEAL',['inside'],[],[{...offer().prices[0],min:20,max:20}])]));
+ assert.equal(search(request(facts,{entities}),[b]).ranked.length,1,'four times CHF 20, not six');
+ const lower=structuredClone(facts);lower.find(f=>f.id==='price').value.amount=65;
+ assert(search(request(lower,{entities}),[b]).excluded.some(c=>c.failedFactIds.includes('price')));
+ const unrelated=structuredClone(entities);unrelated.find(e=>e.id==='gTotal').members=[];
+ assert.equal(search(request(facts,{entities:unrelated}),[b]).ranked.length,0,'no guessing that the largest count is the total');
+ const impossible=structuredClone(facts);impossible.find(f=>f.id==='part').value.amount=5;
+ assert.equal(search(request(impossible,{entities}),[b]).ranked.length,0,'subgroup cannot exceed the stated whole party');
+ const scoped=structuredClone(facts);scoped.find(f=>f.id==='price').subjectIds=['a1','gPart'];
+ assert.equal(search(request(scoped,{entities}),[b]).ranked.length,0,'whole-party count cannot price a subgroup-only component');
+ assert.equal(search(request(facts,{entities:[...entities,{id:'a2',kind:'ACTIVITY',label:'Zweiter Besuch',members:[]}]}),[b]).ranked.length,0,'a hierarchy cannot assign people across several activities');
+ const contradictory=structuredClone(entities);contradictory.find(e=>e.id==='gPart').members=['p1','p2','p3'];contradictory.push(...['p1','p2','p3'].map(id=>({id,kind:'PERSON',label:id,members:[]})));
+ assert.equal(search(request(facts,{entities:contradictory}),[b]).ranked.length,0,'named members cannot exceed a subgroup count');
+});
+
+test('a person-bound meal excludes only their selected activity; venue bans stay global',()=>{
+ const mixed=binding(8090,profile([offer('meal','LUNCH'),offer('swim','SWIMMING')],[area()]));
+ mixed.decisionProjection.facts=mixed.decisionProjection.facts.map(f=>f.key==='classification.place_types'?worldFact(f.key,['RESTAURANT','SWIMMING_POOL']):f);
+ const own=request([fact('meal','food.meal','meal','REQUIRED',['a1','p1']),fact('ban','experience.activity','swimming','EXCLUDED',['p1'])]);
+ const result=search(own,[mixed]);assert.equal(result.ranked.length,1);
+ assert.deepEqual(result.ranked[0].facts.find(f=>f.factId==='ban').offerIds,['meal']);
+ const venue=request([fact('meal','food.meal','meal','REQUIRED',['a1','p1']),fact('ban','offer.kind','swimming','EXCLUDED')]);
+ assert.equal(search(venue,[mixed]).ranked.length,0);
+ assert(search(venue,[mixed]).excluded[0].failedFactIds.includes('ban'));
+ const conflict=request([fact('swim','experience.activity','swimming','REQUIRED',['a1','p1']),fact('ban','experience.activity','swimming','EXCLUDED',['p1'])]);
+ assert.equal(search(conflict,[mixed]).ranked.length,0);
+ const unbound=request([fact('meal','food.meal','meal'),fact('ban','experience.activity','swimming','EXCLUDED',['p1'])]);
+ assert.equal(search(unbound,[mixed]).ranked.length,0,'unbound participant ownership remains unknown');
+ const combined=structuredClone(mixed);combined.decisionProjection.facts.find(f=>f.key==='experience.profile').value.offers[0].properties.push(prop('experience.activity','swimming'));
+ assert.equal(search(own,[combined]).ranked.length,0,'a meal that actually includes the refused activity stays ineligible');
+});
+
+test('Spa venue identity uses authorized classification without borrowing facility or absence evidence',()=>{
+ const venue=binding(8095,profile());
+ venue.decisionProjection.facts=venue.decisionProjection.facts.map(f=>f.key==='classification.place_types'?worldFact(f.key,['SPA']):f);
+ const q=request([fact('spa','offer.kind','Spa')]);
+ assert.equal(search(q,[venue]).ranked.length,1);
+ assert.equal(search(q,[venue]).ranked[0].facts.find(f=>f.factId==='spa').reason,'VERIFIED_SPOT_TYPE');
+ const hotel=binding(8096,profile([offer()],[area()],'STAY'));
+ hotel.decisionProjection.facts=hotel.decisionProjection.facts.map(f=>f.key==='classification.place_types'?worldFact(f.key,['HOTEL']):f);
+ assert.equal(search(q,[hotel]).ranked.length,0,'hotel classification is not a Spa');
+ const hotelWithSpa=structuredClone(hotel);hotelWithSpa.decisionProjection.facts.find(f=>f.key==='experience.profile').value.properties.push(prop('offer.feature','Spa'));
+ assert.equal(search(q,[hotelWithSpa]).ranked.length,1,'verified embedded Spa evidence still works when classification is HOTEL');
+ const feature=request([meal(),fact('spa','offer.facility','Spa')]);
+ assert.equal(search(feature,[venue]).ranked.length,0,'venue identity alone is not facility evidence');
+ const scoped=request([meal(),fact('spa','offer.kind','Spa','REQUIRED',['room'])],{entities:[{id:'a1',kind:'ACTIVITY',label:'visit',members:[]},{id:'room',kind:'AREA',label:'room',members:[]}]});
+ assert.equal(search(scoped,[venue]).ranked.length,0,'a requested room cannot borrow site classification');
+ const excluded=request([meal(),fact('ban','offer.kind','Spa','EXCLUDED')]);
+ assert.equal(search(excluded,[hotel]).ranked.length,0,'missing SPA classification is not proof of absence');
+ const stale=structuredClone(venue);stale.decisionProjection.facts.find(f=>f.key==='classification.place_types').freshness='STALE';
+ assert.throws(()=>search(q,[stale]),/product_world_fact_not_current_verified/,'stale classification is rejected at the canonical input boundary');
+});

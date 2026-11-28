@@ -1,4 +1,12 @@
 #!/usr/bin/env node
+if(process.argv[2]==='--beta-catalog-v2'){
+ console.log(JSON.stringify(await (await import('./nuknuk-curriculum/beta-experiment.mjs')).exportBetaCatalogGpuBundle(process.argv.slice(3))));
+ process.exit(0);
+}
+if(['--product-search-v7','--product-search-v7-beta'].includes(process.argv[2])){
+  await (await import('./nuknuk-product-training.mjs')).exportProductGpuBundle(process.argv[2]==='--product-search-v7-beta'?process.argv.slice(3,7):process.argv.slice(3),process.argv[2]==='--product-search-v7-beta'?{betaAdmissionFile:process.argv[7]}:{});
+  process.exit(0);
+}
 // Explicit allowlist export, no project checkout, .env, credentials or private key.
 import {readFile,writeFile,mkdir,copyFile,readdir} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';

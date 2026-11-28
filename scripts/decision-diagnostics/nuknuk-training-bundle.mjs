@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+if(['--product-search-v7','--product-search-v7-beta'].includes(process.argv[2])){
+  await (await import('./nuknuk-product-training.mjs')).exportProductTraining(process.argv.slice(3),process.argv[2]==='--product-search-v7-beta'?{cohort:'BETA_V1'}:{});
+  process.exit(0);
+}
 // Explicitly commissioned assisted review, not fabricated founder/gold approval.
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {resolve} from 'node:path';

@@ -1504,3 +1504,162 @@ test('an opt-in compact repair retries invalid meaning once and preserves the or
     }
   }
 });
+
+test('an explicit group budget keeps its amount and the scope of that same activity',()=>{
+ const reference={now:'2026-11-23T09:00:00Z',timezone:'Europe/Zurich'};
+ const money={id:'money',key:'budget.maximum',value:{amount:65,operator:'LTE',currency:'CHF'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]};
+ const raw=scope=>({meaning:{facts:[{id:'meal',key:'food.meal',value:{text:'brunch'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},money,
+  ...(scope?[{id:'scope',key:'budget.scope',value:{scope},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:[]}]:[])]}});
+ for(const query of ['Zu zweit brunchen, zusammen höchstens 65 Franken.','Brunch für höchstens CHF 65 insgesamt.','Brunch, in total at most CHF 65.']){
+  assert.equal(validateNuknukCompactSearch(raw('GROUP_TOTAL'),{query,reference}).requestState,'EXECUTABLE');
+  for(const scope of [null,'PER_PERSON'])assert.throws(()=>validateNuknukCompactSearch(raw(scope),{query,reference}),/source_budget_contradicted/);
+ }
+ const query='Insgesamt 35 Minuten Zeit zum Brunch, höchstens CHF 65.';
+ assert.doesNotThrow(()=>validateNuknukCompactSearch(raw(null),{query,reference}),'duration wording cannot invent group-budget scope');
+ const scoped=raw('GROUP_TOTAL');scoped.meaning.entities=[{id:'a1',kind:'ACTIVITY',label:'Brunch',members:[]},{id:'a2',kind:'ACTIVITY',label:'Museum',members:[]}];
+ scoped.meaning.facts[1].subjectIds=['a1'];scoped.meaning.facts[2].subjectIds=['a2'];
+ assert.throws(()=>validateNuknukCompactSearch(scoped,{query:'Zusammen höchstens CHF 65 brunchen, danach Museum.',reference}),/source_budget_contradicted/);
+});
+
+test('a dialogue amount replacement cannot erase known duration scope',()=>{
+ const reference={now:'2026-11-23T09:00:00Z',timezone:'Europe/Zurich'};
+ const initial=validateNuknukCompactSearch({meaning:{entities:[{id:'a1',kind:'ACTIVITY',label:'Besuch',members:[]}],facts:[
+  {id:'activity',key:'experience.activity',value:{text:'Ausstellung besuchen'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a1']},
+  {id:'duration',key:'time.duration',value:{amount:60,operator:'LTE',unit:'MINUTES',measurementScope:'AVAILABLE_TOTAL',includes:[]},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a1']},
+ ]}},{query:'Ausstellung besuchen, ich habe insgesamt höchstens 60 Minuten.',reference}).searchMeaning;
+ const answer='Ich habe nur noch höchstens 40 Minuten.';
+ const patch=scope=>({changes:[{id:'duration',quote:answer,fact:{...initial.facts.find(f=>f.id==='duration'),value:{amount:40,operator:'LTE',unit:'MINUTES',measurementScope:scope,includes:[]}}}]});
+ assert.throws(()=>mergeNuknukDialogueUpdate(initial,patch('UNSPECIFIED'),[{answer,question:null}]),/duration_scope_lost/);
+ const changed=mergeNuknukDialogueUpdate(initial,patch('AVAILABLE_TOTAL'),[{answer,question:null}]);
+ assert.equal(changed.meaning.facts.find(f=>f.id==='duration').value.amount,40);
+ assert(changed.meaning.facts.some(f=>f.id==='activity'));
+ assert.doesNotThrow(()=>mergeNuknukDialogueUpdate(initial,patch('ACTIVITY'),[{answer,question:null}]),'a stated new scope remains representable');
+ assert.doesNotThrow(()=>mergeNuknukDialogueUpdate(initial,{changes:[{id:'duration',quote:'Die Zeitgrenze entfällt.',fact:null}]},[{answer:'Die Zeitgrenze entfällt.',question:null}]));
+});
+
+test('compact group context does not inherit the contradictory V6 capacity default',()=>{
+ const input={query:'Wir sind fünf, zwei davon brauchen stufenlosen Zugang.',reference:{now:'2026-11-25T09:00:00Z',timezone:'Europe/Zurich'}};
+ const compact=buildNuknukCompactSearchRequest(input).instructions;
+ assert(!compact.includes('Explizite vollständige Besucherzahl als people.count REQUIRED'));
+ assert(compact.includes('Eine reine Beschreibung der Besuchsgruppe ist people.count CONTEXT'));
+ assert(compact.includes('ausdrücklich verlangte Angebotskapazität'));
+ const historical=buildNuknukUnderstandingRequest({...input,instructionProfile:'SPOT_GROUNDED_V6'}).instructions;
+ assert(historical.includes('Explizite vollständige Besucherzahl als people.count REQUIRED'));
+});
+
+test('positive required group budget without basis asks instead of guessing, without rewriting meaning',()=>{
+ const reference={now:'2026-11-25T09:00:00Z',timezone:'Europe/Zurich'};
+ const raw=(count,amount,scope,modality='REQUIRED')=>({meaning:{entities:[{id:'a',kind:'ACTIVITY',label:'Schwimmen',members:[]},{id:'g',kind:'GROUP',label:'Gruppe',members:[]}],facts:[
+  {id:'swim',key:'experience.activity',value:{text:'swimming'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a']},
+  {id:'count',key:'people.count',value:{amount:count,operator:'EQ',unit:'PEOPLE'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:['g']},
+  {id:'money',key:'budget.maximum',value:{amount,operator:'LTE',currency:'CHF'},modality,basis:'EXPLICIT',subjectIds:['a']},
+  ...(scope?[{id:'scope',key:'budget.scope',value:{scope},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:['a']}]:[]),
+ ]}});
+ const first=raw(4,38,null),frozen=structuredClone(first);
+ const unknown=validateNuknukCompactSearch(first,{query:'Wir sind vier und möchten schwimmen gehen. Höchstens 38 Franken.',reference});
+ assert.equal(unknown.clarification.dimension,'BUDGET');assert.deepEqual(unknown.clarification.options,['Pro Person','Für die ganze Gruppe']);
+ assert.deepEqual(first,frozen);assert(!unknown.searchMeaning.facts.some(f=>f.key==='budget.scope'));
+ for(const [count,amount,scope,modality,query]of [
+  [4,80,'GROUP_TOTAL','REQUIRED','Wir sind vier und möchten schwimmen gehen. Zusammen höchstens 80 Franken.'],
+  [4,38,'PER_PERSON','REQUIRED','Wir sind vier und möchten schwimmen gehen. Höchstens 38 Franken pro Person.'],
+  [1,38,null,'REQUIRED','Ich möchte schwimmen gehen, höchstens 38 Franken.'],
+  [4,0,null,'REQUIRED','Wir sind vier und möchten kostenlos schwimmen gehen.'],
+  [4,38,null,'PREFERRED','Wir sind vier und möchten schwimmen gehen, möglichst höchstens 38 Franken.'],
+ ])assert.equal(validateNuknukCompactSearch(raw(count,amount,scope,modality),{query,reference}).clarification,null,query);
+ assert.throws(()=>validateNuknukCompactSearch(raw(4,38,null),{query:'Wir sind vier und möchten schwimmen gehen. Höchstens 38 Franken pro Person.',reference}),/source_budget_contradicted/);
+});
+
+test('single-visit group budget annotation reaches matching without a redundant basis question',()=>{
+ const reference={now:'2026-11-25T09:00:00Z',timezone:'Europe/Zurich'};
+ const raw={meaning:{entities:[{id:'a',kind:'ACTIVITY',label:'Essen',members:[]},{id:'g',kind:'GROUP',label:'Gruppe',members:[]}],facts:[
+  {id:'meal',key:'food.meal',value:{text:'meal'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a']},
+  {id:'count',key:'people.count',value:{amount:2,operator:'EQ',unit:'PEOPLE'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:['g']},
+  {id:'money',key:'budget.maximum',value:{amount:30,operator:'LTE',currency:'CHF'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a']},
+  {id:'scope',key:'budget.scope',value:{scope:'PER_PERSON'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:['g']},
+ ]}};
+ const before=structuredClone(raw),query='Wir möchten essen. Pro Person höchstens 30 Franken.';
+ const parsed=validateNuknukCompactSearch(raw,{query,reference});assert.equal(parsed.clarification,null);
+ assert.deepEqual(parsed.searchMeaning.facts.find(f=>f.id==='scope').subjectIds,['a']);assert.deepEqual(raw,before);
+ const multi=structuredClone(raw);multi.meaning.entities.push({id:'b',kind:'ACTIVITY',label:'Kaffee',members:[]});
+ multi.meaning.facts.push({id:'coffee',key:'food.drink',value:{text:'coffee'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['b']});
+ assert.throws(()=>validateNuknukCompactSearch(multi,{query,reference}),/source_budget_contradicted/,'never guess across visits');
+ const conflict=structuredClone(raw);conflict.meaning.facts.find(f=>f.id==='scope').value.scope='GROUP_TOTAL';
+ assert.throws(()=>validateNuknukCompactSearch(conflict,{query,reference}),/source_budget_contradicted/);
+});
+
+test('fronted activity refusal and qualified venue ban cannot silently disappear',()=>{
+ const reference={now:'2026-11-25T09:00:00Z',timezone:'Europe/Zurich'};
+ const base={id:'swim',key:'experience.activity',value:{text:'swimming'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]};
+ const raw=(key,text)=>({meaning:{facts:[base,...(key?[{id:'no',key,value:{text},modality:'EXCLUDED',basis:'EXPLICIT',subjectIds:[]}]:[])]}});
+ const own='Ich möchte schwimmen gehen. Sauna möchte ich dabei nicht machen.';
+ assert.throws(()=>validateNuknukCompactSearch(raw(),{query:own,reference}),/activity_exclusion_misscoped/);
+ assert.doesNotThrow(()=>validateNuknukCompactSearch(raw('experience.activity','sauna'),{query:own,reference}));
+ const venue='Ich möchte schwimmen gehen. Ein Bad mit Sauna kommt für mich nicht infrage.';
+ assert.throws(()=>validateNuknukCompactSearch(raw('offer.kind','Badeanlage'),{query:venue,reference}),/venue_exclusion_qualifier_lost/);
+ assert.doesNotThrow(()=>validateNuknukCompactSearch(raw('offer.kind','sauna'),{query:venue,reference}));
+ assert.doesNotThrow(()=>validateNuknukCompactSearch(raw(),{query:'Ich möchte schwimmen gehen. Früher wollte ich Sauna nicht machen.',reference}));
+});
+
+test('one person cannot be both the requester and their own companion or represent two people',()=>{
+ const reference={now:'2026-11-25T09:00:00Z',timezone:'Europe/Zurich'};
+ const raw={meaning:{entities:[{id:'a',kind:'ACTIVITY',label:'Museum',members:[]},{id:'p',kind:'PERSON',label:'Tochter',members:[]}],facts:[
+  {id:'intent',key:'offer.kind',value:{text:'MUSEUM'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a']},
+  {id:'kin',key:'people.relationship',value:{text:'daughter'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:['p']},
+  {id:'self',key:'people.role',value:{text:'self'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:['p']},
+ ]}};
+ assert.throws(()=>validateNuknukCompactSearch(raw,{query:'Ich möchte mit meiner Tochter ins Museum.',reference}),/self_companion_role_conflict/);
+ const ownRole=structuredClone(raw);ownRole.meaning.facts.find(f=>f.key==='people.relationship').value.text='father';
+ assert.doesNotThrow(()=>validateNuknukCompactSearch(ownRole,{query:'Ich bin Vater und möchte ins Museum.',reference}),'own family role is not a separate companion');
+ const count=structuredClone(raw);count.meaning.facts.pop();count.meaning.facts.push({id:'n',key:'people.count',value:{amount:2,operator:'EQ',unit:'PEOPLE'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:['p']});
+ assert.throws(()=>validateNuknukCompactSearch(count,{query:'Zwei Personen ins Museum.',reference}),/person_count_requires_group/);
+});
+
+test('a direct requested visit daypart cannot vanish or become optional context',()=>{
+ const reference={now:'2027-02-03T09:00:00Z',timezone:'Europe/Zurich'};
+ const raw={meaning:{facts:[{id:'meal',key:'food.meal',value:{text:'dinner'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]}]}};
+ assert.throws(()=>validateNuknukCompactSearch(raw,{query:'Wir wollen heute Abend essen gehen.',reference}),/source_visit_time_not_retained/);
+ raw.meaning.facts.push({id:'date',key:'time.date',value:{date:'2027-02-03',operator:'EQ',timezone:'Europe/Zurich'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},{id:'phase',key:'time.day_phase',value:{phase:'EVENING',timezone:'Europe/Zurich'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]});
+ assert.equal(validateNuknukCompactSearch(raw,{query:'Wir wollen heute Abend essen gehen.',reference}).requestState,'EXECUTABLE');
+ raw.meaning.facts[2].modality='CONTEXT';
+ assert.throws(()=>validateNuknukCompactSearch(raw,{query:'Wir wollen heute Abend essen gehen.',reference}),/source_visit_time_not_retained/);
+ assert.doesNotThrow(()=>validateNuknukCompactSearch({meaning:{facts:[raw.meaning.facts[0]]}},{query:'Ich möchte essen gehen. Morgen Abend habe ich einen anderen Termin.',reference}));
+});
+
+test('explicit subgroups require membership without inventing unnamed members',()=>{
+ const reference={now:'2027-02-03T09:00:00Z',timezone:'Europe/Zurich'};
+ const raw={meaning:{entities:[{id:'a',kind:'ACTIVITY',label:'Essen',members:[]},{id:'all',kind:'GROUP',label:'Alle',members:[]},{id:'some',kind:'GROUP',label:'Teil',members:[]}],facts:[
+  {id:'meal',key:'food.meal',value:{text:'meal'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a']},
+  {id:'n',key:'people.count',value:{amount:8,operator:'EQ',unit:'PEOPLE'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:['all']},
+  {id:'k',key:'people.count',value:{amount:3,operator:'EQ',unit:'PEOPLE'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:['some']},
+  {id:'diet',key:'food.diet',value:{text:'vegan'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['some']},
+ ]}};
+ const input={query:'Wir sind acht. Drei von uns brauchen vegane Gerichte. Wir möchten essen.',reference};
+ assert.throws(()=>validateNuknukCompactSearch(raw,input),/subgroup_membership_not_retained/);
+ assert.doesNotThrow(()=>validateNuknukCompactSearch(raw,{...input,query:'Wir sind zwei Gruppen mit acht und drei Personen. Drei von uns brauchen vegane Gerichte.'}),'do not invent membership between separate groups');
+ raw.meaning.entities[1].members=['some'];assert.equal(validateNuknukCompactSearch(raw,input).requestState,'EXECUTABLE');
+ assert.equal(raw.meaning.entities.length,3,'remaining people are not fabricated');
+});
+
+test('venue qualifier loss is rejected while personal refusal is not a venue ban',()=>{
+ const reference={now:'2027-02-03T09:00:00Z',timezone:'Europe/Zurich'};
+ const make=(key,value)=>({meaning:{facts:[{id:'swim',key:'experience.activity',value:{text:'swimming'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},...(key?[{id:'no',key,value:{text:value},modality:'EXCLUDED',basis:'EXPLICIT',subjectIds:[]}]:[])]}});
+ assert.throws(()=>validateNuknukCompactSearch(make(null,null),{query:'Ich möchte schwimmen gehen. Sauna möchte ich dabei nicht machen.',reference}),/source_activity_exclusion_misscoped/);
+ assert.doesNotThrow(()=>validateNuknukCompactSearch(make('experience.activity','sauna'),{query:'Ich möchte schwimmen gehen. Sauna möchte ich dabei nicht machen.',reference}));
+ assert.throws(()=>validateNuknukCompactSearch(make('offer.kind','Badeanlage'),{query:'Ich möchte schwimmen gehen. Ein Bad mit Sauna kommt für mich nicht infrage.',reference}),/venue_exclusion_qualifier_lost/);
+ assert.throws(()=>validateNuknukCompactSearch(make('offer.kind','Bad ohne Sauna'),{query:'Ich möchte schwimmen gehen. Ein Bad mit Sauna kommt für mich nicht infrage.',reference}),/venue_exclusion_qualifier_lost/);
+ assert.doesNotThrow(()=>validateNuknukCompactSearch(make('offer.kind','sauna'),{query:'Ich möchte schwimmen gehen. Ein Bad mit Sauna kommt für mich nicht infrage.',reference}));
+ assert.doesNotThrow(()=>validateNuknukCompactSearch(make('atmosphere.noise','loud'),{query:'Ich möchte schwimmen gehen. Ein Ort mit Lärm kommt für mich nicht infrage.',reference}),'an atmosphere exclusion is not a facility ban');
+});
+
+test('an explicit monetary self-correction is not locked to an earlier spending basis',()=>{
+ const reference={now:'2026-11-24T10:00:00Z',timezone:'Europe/Zurich'};
+ const query='Morgen mit Freunden essen gehen, maximal 80 Franken zusammen. Ach nein, 80 pro Person, nicht insgesamt.';
+ const raw={meaning:{facts:[
+  {id:'meal',key:'food.meal',value:{text:'meal'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+  {id:'cost',key:'budget.maximum',value:{amount:80,operator:'LTE',currency:'CHF'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+  {id:'scope',key:'budget.scope',value:{scope:'PER_PERSON'},modality:'CONTEXT',basis:'EXPLICIT',subjectIds:[]},
+ ]}};
+ assert.doesNotMatch(buildNuknukCompactSearchRequest({query,reference}).instructions,/ORIGINALGEBUNDENE GELDGRENZE/);
+ assert.doesNotThrow(()=>validateNuknukCompactSearch(raw,{query,reference}));
+ assert.throws(()=>validateNuknukCompactSearch(raw,{query:'Essen gehen, maximal 80 Franken zusammen.',reference}),/source_budget_contradicted/);
+});

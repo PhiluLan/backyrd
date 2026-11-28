@@ -201,7 +201,7 @@ def supervisor_lock():
 
 
 def supervise(module, arguments, receipt, *, persistent_serving=False):
-    if module not in ("mlx_vlm.train", "mlx_vlm.server", "backyrd.nuknuk-memory-probe", "backyrd.nuknuk-fit-score") or sys.platform != "darwin":
+    if module not in ("mlx_vlm.train", "mlx_vlm.server", "backyrd.nuknuk-memory-probe", "backyrd.nuknuk-fit-score", "backyrd.nuknuk-native-learning") or sys.platform != "darwin":
         raise ValueError("nuknuk_guard_platform_or_module_invalid")
     if persistent_serving and module != "mlx_vlm.server":
         raise ValueError("nuknuk_persistent_mode_requires_server")
@@ -210,6 +210,19 @@ def supervise(module, arguments, receipt, *, persistent_serving=False):
         return supervise_locked(module, arguments, receipt.resolve(), persistent_serving=persistent_serving)
     finally:
         os.close(lock_fd)
+
+
+def native_start_admission(fd):
+    """No supervisor lock or model before durable controller ownership.
+
+    Only the controller owns the pipe writer. Its death before admission closes
+    the pipe, so an unregistered child exits without taking the serving lock.
+    """
+    try:
+        if os.read(fd, 1) != b'1':
+            raise ValueError('nuknuk_native_start_not_admitted')
+    finally:
+        os.close(fd)
 
 
 def supervise_locked(module, arguments, receipt, *, persistent_serving=False):
@@ -260,7 +273,7 @@ def supervise_locked(module, arguments, receipt, *, persistent_serving=False):
             record(initial)
             previous = {s: signal.signal(s, interrupted) for s in (signal.SIGTERM, signal.SIGINT)}
             bootstrap = BOOTSTRAP
-            if module in ("backyrd.nuknuk-memory-probe", "backyrd.nuknuk-fit-score"):
+            if module in ("backyrd.nuknuk-memory-probe", "backyrd.nuknuk-fit-score", "backyrd.nuknuk-native-learning"):
                 probe_path = str(Path(__file__).with_name(module.split(".")[-1] + ".py").resolve())
                 bootstrap = bootstrap.replace("runpy.run_module(sys.argv[0],run_name='__main__')",
                                               f"runpy.run_path({probe_path!r},run_name='__main__')")
@@ -347,10 +360,17 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description=__doc__)
         parser.add_argument("--receipt", type=Path, required=True)
         parser.add_argument("--persistent-serving", action="store_true")
-        parser.add_argument("module", choices=["mlx_vlm.train", "mlx_vlm.server", "backyrd.nuknuk-memory-probe", "backyrd.nuknuk-fit-score"])
+        parser.add_argument("--native-start-fd", type=int)
+        parser.add_argument("module", choices=["mlx_vlm.train", "mlx_vlm.server", "backyrd.nuknuk-memory-probe", "backyrd.nuknuk-fit-score", "backyrd.nuknuk-native-learning"])
         parser.add_argument("arguments", nargs=argparse.REMAINDER)
         args = parser.parse_args()
         try:
+            if args.module == 'backyrd.nuknuk-native-learning':
+                if args.native_start_fd is None:
+                    raise ValueError('nuknuk_native_start_pipe_required')
+                native_start_admission(args.native_start_fd)
+            elif args.native_start_fd is not None:
+                raise ValueError('nuknuk_native_start_pipe_wrong_module')
             sys.exit(supervise(args.module, args.arguments, args.receipt,
                                persistent_serving=args.persistent_serving))
         except (OSError, ValueError, subprocess.SubprocessError) as error:

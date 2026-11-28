@@ -74,7 +74,12 @@ export function createLibrarianVisitWindow(facts: readonly LibrarianFact[], time
             }
             else if (op === "EQ") {
                 start = Math.max(start, n);
-                if (fact.key === "time.clock")
+                // An exact arrival/start alone does not request a stay until
+                // midnight. Preserve interval coverage when an end or duration
+                // is supplied; this is the same point check as time.clock.
+                const isolatedStart = fact.key === "time.clock_start" && clocks.length === 1
+                    && !facts.some(f => f.value.kind === "DURATION" && f.modality !== "EXCLUDED" && f.modality !== "NOT_REQUIRED");
+                if (fact.key === "time.clock" || isolatedStart)
                     end = Math.min(end, n + 1);
                 exact = true;
             }

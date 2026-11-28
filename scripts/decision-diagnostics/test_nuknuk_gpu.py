@@ -13,6 +13,77 @@ spec.loader.exec_module(gpu)
 
 
 class GpuPreparationTests(unittest.TestCase):
+    def test_diagnostic_selection_requires_correction_profile_and_all_identity_guards(self):
+        receipt = dict(status='CANDIDATE_FROZEN_FOR_DIAGNOSTIC_TEST', selectionPolicy='ONE_PREREGISTERED_FINAL_CHECKPOINT', semanticQualityApproved=False, activationAuthorized=False, datasetHash='data', bundleManifestSha256='bundle', parentAdapterSha256='p', candidateAdapterSha256='c', testUsedForSelection=False)
+        source = {'catalogVariant':'understanding-correction-v1'}
+        gpu.validate_beta_selection(receipt, source, {'datasetHash':'data'}, 'bundle', 'c')
+        for changed in [{'semanticQualityApproved':True}, {'activationAuthorized':True}, {'selectionPolicy':'BEST_TEST'}, {'datasetHash':'other'}, {'bundleManifestSha256':'other'}, {'testUsedForSelection':True}]:
+            with self.assertRaisesRegex(ValueError, 'selection_not_bound'):
+                gpu.validate_beta_selection({**receipt,**changed}, source, {'datasetHash':'data'}, 'bundle', 'c')
+        for bad_source, adapter in [({'catalogVariant':'general'}, 'c'), (source,'unknown')]:
+            with self.assertRaisesRegex(ValueError,'selection_not_bound'):
+                gpu.validate_beta_selection(receipt, bad_source, {'datasetHash':'data'}, 'bundle', adapter)
+        gpu.validate_beta_selection({**receipt, 'status':'DEV_PASSED_FROZEN_SELECTION'}, {'catalogVariant':'general'}, {'datasetHash':'data'}, 'bundle', 'p')
+
+    def test_evaluation_only_execution_rejects_model_training_before_weights_or_native_preparation(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory()as name:
+            folder=Path(name);args=SimpleNamespace(bundle=folder,execution_approval=folder/'auth')
+            with patch.object(gpu,'verify_product_gpu_bundle',return_value={}),patch.object(gpu,'beta_execution_admission',return_value={'evaluationOnly':True}),patch.object(gpu,'verify_beta_native')as native,patch.object(gpu,'product_base')as base:
+                with self.assertRaisesRegex(ValueError,'evaluation_only_training_forbidden'):gpu.train_beta_catalog(args)
+                native.assert_not_called();base.assert_not_called()
+
+    def test_completed_candidate_conversion_preserves_projection_and_rejects_bad_tensors(self):
+        keys=[f'language_model.model.layers.{i}.self_attn.{p}_proj' for i in range(3,40,4) for p in ('k','o','q','v')]
+        rng=np.random.default_rng(42)
+        parent={k+'.lora_'+s:np.zeros((3,16) if s=='a' else (16,5),dtype=np.float32) for k in keys for s in ('a','b')}
+        arrays={k.replace('language_model.model.layers.','base_model.model.model.language_model.layers.').replace('.lora_a','.lora_A.weight').replace('.lora_b','.lora_B.weight'):rng.normal(size=v.T.shape).astype(np.float32) for k,v in parent.items()}
+        result=gpu.transpose_product_candidate(arrays,parent,keys)
+        for key in keys:
+            hk=key.replace('language_model.model.layers.','base_model.model.model.language_model.layers.')
+            np.testing.assert_array_equal(result[key+'.lora_a'].T,arrays[hk+'.lora_A.weight'])
+            np.testing.assert_allclose(result[key+'.lora_a']@result[key+'.lora_b'],(arrays[hk+'.lora_B.weight']@arrays[hk+'.lora_A.weight']).T,atol=1e-5)
+        first=next(iter(arrays))
+        for replacement in [np.full(arrays[first].shape,np.nan,dtype=np.float32),arrays[first].astype(np.float16),np.ones((1,1),dtype=np.float32)]:
+            with self.assertRaisesRegex(ValueError,'projection_invalid'):gpu.transpose_product_candidate(dict(arrays,**{first:replacement}),parent,keys)
+        with self.assertRaisesRegex(ValueError,'projection_invalid'):gpu.transpose_product_candidate({k:v for k,v in arrays.items() if k!=first},parent,keys)
+        with self.assertRaisesRegex(ValueError,'unexpected_tensors'):gpu.transpose_product_candidate(dict(arrays,unexpected=np.ones((1,1),dtype=np.float32)),parent,keys)
+
+    def test_current_product_parent_requires_exact_adapters_not_just_matching_names(self):
+        import struct
+        def save(path, arrays):
+            header,parts,offset = {},[],0
+            for key,array in arrays.items():
+                raw=np.asarray(array,dtype='<f4').tobytes()
+                header[key]={'dtype':'F32','shape':list(array.shape),'data_offsets':[offset,offset+len(raw)]}
+                parts.append(raw);offset+=len(raw)
+            encoded=json.dumps(header).encode()
+            path.write_bytes(struct.pack('<Q',len(encoded))+encoded+b''.join(parts))
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mlx=root/'mlx';hf=root/'hf';mlx.mkdir();hf.mkdir()
+            keys=[f'language_model.model.layers.{i}.self_attn.{p}_proj' for i in range(3,40,4) for p in ('k','o','q','v')]
+            arrays={k+'.lora_'+suffix:np.ones((2,16) if suffix=='a' else (16,2),dtype=np.float32) for k in keys for suffix in ('a','b')}
+            converted={k.replace('language_model.model.layers.','base_model.model.model.language_model.layers.').replace('.lora_a','.lora_A.weight').replace('.lora_b','.lora_B.weight'):v.T for k,v in arrays.items()}
+            save(mlx/'adapters.safetensors',arrays);save(hf/'adapter_model.safetensors',converted)
+            (mlx/'adapter_config.json').write_text(json.dumps({'fine_tune_type':'lora','lora_parameters':{'rank':16,'scale':2,'keys':keys}}))
+            (hf/'adapter_config.json').write_text(json.dumps({'r':16,'lora_alpha':32,'target_modules':['q_proj','k_proj','v_proj','o_proj']}))
+            parent={'mlxBase':{'repo':'mlx-community/Qwen3.6-35B-A3B-4bit','revision':'38740b847e4cb78f352aba30aa41c76e08e6eb46'},'trainingBase':{'repo':'Qwen/Qwen3.6-35B-A3B','revision':'995ad96eacd98c81ed38be0c5b274b04031597b0'}}
+            def bind():
+                for folder,name,field in [(mlx,'adapters.safetensors','mlxAdapterSha256'),(hf,'adapter_model.safetensors','hfAdapterSha256'),(mlx,'adapter_config.json','mlxAdapterConfigSha256'),(hf,'adapter_config.json','hfAdapterConfigSha256')]:
+                    parent[field]=gpu.file_sha(folder/name)
+                (root/'manifest.json').write_text(json.dumps({'version':'backyrd.nuknuk-product-training-manifest@1','parent':parent}))
+            bind()
+            result=gpu.verify_product_parent(root,mlx,hf,root/'valid.json')
+            self.assertEqual(result['tensors'],80)
+            self.assertFalse(result['nativeBaseNumericalParityVerified'])
+            first=next(iter(converted));converted[first]=converted[first].copy();converted[first][0,0]=2
+            save(hf/'adapter_model.safetensors',converted)
+            with self.assertRaisesRegex(ValueError,'file_changed'):gpu.verify_product_parent(root,mlx,hf,root/'invalid.json')
+            bind() # Even a newly hashed but mathematically different adapter is rejected.
+            with self.assertRaisesRegex(ValueError,'projection_mismatch'):gpu.verify_product_parent(root,mlx,hf,root/'invalid.json')
+            self.assertFalse((root/'invalid.json').exists())
+
     def test_full_recipe_covers_every_training_row_each_epoch_with_explicit_task_objective(self):
         from collections import Counter
         cases=[]
@@ -266,6 +337,24 @@ class GpuPreparationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'grammar_rejected_token'):
             gpu.consume_generated(matcher, [99], 0)
 
+
+class PairedDiagnosticTests(unittest.TestCase):
+    def test_training_recall_cannot_be_relabeled_holdout_or_expanded_or_include_targets(self):
+        from copy import deepcopy
+        rows=[{'id':'recall-'+str(i).zfill(2)+'-exact-train','split':'RECALL_TRANSFER','task':'parse','locale':'de','query':'test','reference':{},'messages':[{'role':'system','content':'x'},{'role':'user','content':'y'}],'inputHash':'i','promptHash':'p','outputSchema':{}}for i in [5,6,7,10,12,14,15]]
+        packet={'kind':'PAIRED_RUNTIME_RECALL_DIAGNOSTIC','targetIncluded':False,'freshHoldout':False,'requestedHfCalls':14,'split':'RECALL_TRANSFER','parentAdapterSha256':'p','candidateAdapterSha256':'c','cases':rows,'expectedPrefixIdSha256':{r['id']:'a'*64 for r in rows},'expectedRuntime':{n:'test-version'for n in ['torch','transformers','peft','axolotl','tokenizers','llguidance']}}
+        with tempfile.TemporaryDirectory()as tmp:
+            path=Path(tmp)/'packet.json'
+            def check(value):
+                path.write_text(json.dumps(value));approval={'evaluationOnly':True,'pairedDiagnosticSha256':hashlib.sha256(path.read_bytes()).hexdigest(),'evaluationCandidateSha256':'c'}
+                return gpu.validate_paired_diagnostic(path,approval,{'parent':{'hfAdapterSha256':'p'}},'c')
+            check(packet)
+            for key,value in [('freshHoldout',True),('targetIncluded',True),('requestedHfCalls',16),('split','TEST')]:
+                with self.assertRaises(ValueError):check({**packet,key:value})
+            bad=deepcopy(packet);bad['cases'][0]['expected']='hidden gold'
+            with self.assertRaisesRegex(ValueError,'target_free'):check(bad)
+            bad=deepcopy(packet);bad['cases'][0]['id']='replacement'
+            with self.assertRaises(ValueError):check(bad)
 
 if __name__ == '__main__':
     unittest.main()

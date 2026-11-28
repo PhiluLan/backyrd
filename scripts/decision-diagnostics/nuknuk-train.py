@@ -7,6 +7,7 @@ this boundary verifies the frozen export and actual preprocessing/masking.
 import argparse
 import hashlib
 import importlib.metadata
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -106,6 +107,11 @@ def verify_preprocessing(model, splits, max_sequence):
 
 
 def main():
+    if "--native-plan" in sys.argv:
+        spec = importlib.util.spec_from_file_location("native_learning", Path(__file__).with_name("nuknuk-native-learning.py"))
+        native = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(native)
+        return native.main()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--data", type=Path, required=True)

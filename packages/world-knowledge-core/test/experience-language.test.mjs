@@ -12,3 +12,17 @@ test('typed drink groups do not imply meals or bars',()=>{for(const token of ['B
 test('typed tokens and their readable labels are the same values, not neighbouring meanings',()=>{assert.ok(sameLibrarianText('ITALIAN','Italienisch'));assert.ok(sameLibrarianText('SEAFOOD','Meeresfrüchte'));assert.ok(sameLibrarianText('WINE','Wein'));assert.equal(sameLibrarianText('WINE','Bier'),false);assert.equal(sameLibrarianText('COFFEE','Wein'),false);});
 
 test('Club dancing remains distinct from music events and private celebrations',()=>{assert.equal(librarianConcept('Tanzen'),'dancing');assert.ok(sameLibrarianText('Clubabend / Tanzen','tanzen gehen'));assert.equal(sameLibrarianText('Tanzen','Musikveranstaltung'),false);assert.equal(sameLibrarianText('Clubabend','private Feier'),false);});
+
+test('beta aliases retain specific activities without collapsing facilities or courses', async()=>{
+ const {experienceActivitySupports}=await import('../dist/index.js');
+ for(const text of ['Kino','movies','cinéma'])assert.equal(librarianConcept(text),'cinema');
+ for(const text of ['Billard','billiards','Poolbillard'])assert.equal(librarianConcept(text),'billiards');
+ assert.equal(librarianConcept('Keramikkurs'),'ceramics_course');
+ assert(experienceActivitySupports('ceramics_course','ceramics'));
+ assert(experienceActivitySupports('ceramics_course','course'));
+ assert(!experienceActivitySupports('ceramics','ceramics_course'));
+ assert(!experienceActivitySupports('workshop','ceramics_course'));
+ assert.notEqual(librarianConcept('Spa'),librarianConcept('Wellnessbehandlung'));
+ assert.notEqual(librarianConcept('Spielautomaten'),librarianConcept('Arcade spielen'));
+ for(const text of ['kein Spa','ohne Spielautomaten','Kino nur auf Anfrage','Keramik irgendwann vielleicht'])assert.equal(librarianConcept(text),null);
+});
