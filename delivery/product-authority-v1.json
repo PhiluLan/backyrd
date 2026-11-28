@@ -169,6 +169,10 @@
       {
         "path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql",
         "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
+      },
+      {
+        "path": "supabase/migrations/20261127214029_spot_knowledge_searchable_offer_details.sql",
+        "sha256": "c33b2bf7e1b1fa94c000f843046e67eb4ac59b95dfe3986d61554d19acff5a64"
       }
     ],
     "existingFunctionReceipt": {

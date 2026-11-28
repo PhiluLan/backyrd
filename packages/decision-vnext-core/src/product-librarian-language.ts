@@ -1,7 +1,7 @@
 import { contentHash, deepFreeze } from "./canonical.js";
 import { LUNA_LIBRARIAN_FACT_KEYS } from "./product-luna-librarian-assets.js";
 import type { LibrarianFact, LunaFactKey } from "./product-luna-librarian.js";
-export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@67" as const;
+export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@68" as const;
 import { EXPERIENCE_LANGUAGE_CONCEPTS, EXPERIENCE_LANGUAGE_DATA, EXPERIENCE_QUESTIONS, BOOLEAN_CONCEPTS, librarianConcept, librarianTerm, type ExperienceProperty } from "@backyrd/world-knowledge-core";
 export { librarianTerm, librarianConcept, sameLibrarianText, OFFER_CONCEPTS, AREA_CONCEPTS, BOOLEAN_CONCEPTS } from "@backyrd/world-knowledge-core";
 /** Suitability is explicit product knowledge, not a venue-type heuristic. */
@@ -13,6 +13,8 @@ export const librarianAllAgesSuitability = (property: ExperienceProperty): boole
 export const LIBRARIAN_PROPERTY_SOURCE_ALIASES: Readonly<Partial<Record<LunaFactKey, readonly string[]>>> = deepFreeze({
     "atmosphere.conversation": ["atmosphere.character"],
     "participation.entry_mode": ["participation.booking"],
+    "participation.expertise": ["sport.level"],
+    "participation.requirement": ["stay.minimum_nights"],
     "experience.activity": ["food.drink"],
     "food.drink": ["experience.activity"],
     "experience.character": ["atmosphere.character"],
@@ -55,6 +57,8 @@ export function librarianMealExtentConcept(fact: LibrarianFact): string | null {
 export function librarianFactPropertySourceKeys(fact: LibrarianFact, acceptedSemanticKeys: readonly string[] = []): readonly string[] {
     const facility = librarianFacilityConcept(fact);
     return [...new Set([...librarianPropertySourceKeys(fact.key, acceptedSemanticKeys),
+        ...(fact.key === "participation.permission" && fact.value.kind === "TEXT"
+            && ["dogs_allowed", "dogs_not_allowed"].includes(librarianConcept(fact.value.text) ?? "") ? ["rule.pet_access"] : []),
         ...(librarianMealExtentConcept(fact) ? ["food.meal_extent"] : []),
         ...(fact.value.kind === "TEXT" && librarianConcept(fact.value.text) === "children_activity"
             && ["condition.children", "experience.activity", "offer.kind"].includes(fact.key) ? ["participation.age_suitability"] : []),

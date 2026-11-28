@@ -1,4 +1,5 @@
 import test from 'node:test';
+import './librarian-spot-knowledge-gaps.test.mjs';
 import assert from 'node:assert/strict';
 import {declaredExperienceConcepts,librarianConcept,EXPERIENCE_LANGUAGE_CONCEPTS,EXPERIENCE_QUESTIONS} from '@backyrd/world-knowledge-core';
 import {LUNA_LIBRARIAN_FACT_KEYS} from '../dist/product-luna-librarian-assets.js';

@@ -236,6 +236,11 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
         return "UNKNOWN";
     if (fact.value.kind === "TEXT") {
         const desired = librarianConcept(fact.value.text);
+        // Minimum stay is an offer restriction, never a fabricated availability
+        // or price. A different unstructured requirement stays unknown.
+        if (property.key === "stay.minimum_nights" && fact.key === "participation.requirement")
+            return desired === "one_night" && typeof property.value === "number"
+                ? property.value <= 1 ? "MET" : "FAILED" : "UNKNOWN";
         if (fact.key === "offer.weather_suitability" && desired === "rain_suitable") {
             if (property.key === "condition.weather_protection" && typeof property.value === "boolean") return property.value ? "MET" : "FAILED";
             if (property.key === "location.setting") return typeof property.value === "string" && librarianConcept(property.value) === "indoor" ? "MET" : "UNKNOWN";
@@ -276,6 +281,17 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
             if (desired && declaredExperienceConcepts(property.value, "ITEM_LIST").includes(desired)) return "MET";
         }
         const actual = librarianConcept(property.value);
+        if (property.key === "sport.level" && ["participation.expertise"].includes(fact.key)
+            && actual === "all_levels" && ["beginner", "advanced"].includes(desired ?? "")) return "MET";
+        const opposites: Readonly<Record<string, readonly (readonly string[])[]>> = {
+            "participation.group_access": [["individual_registration", "group_registration_only"]],
+            "participation.subscription": [["no_membership_required", "membership_required"]],
+            "participation.permission": [["dogs_allowed", "dogs_not_allowed"], ["own_food", "own_food_not_allowed"]],
+            "offer.temperature": [["warm_water", "cool_water"]],
+        };
+        if (property.key === fact.key && actual && desired
+            && opposites[fact.key]?.some(pair => pair.includes(actual) && pair.includes(desired) && actual !== desired)) return "FAILED";
+        if (fact.key === "atmosphere.music" && desired === "background_music" && actual === "no_music") return "FAILED";
         if (property.key === "food.meal_extent" && librarianMealExtentConcept(fact) !== null
             && desired && declaredExperienceConcepts(property.value, "ITEM_LIST").includes(desired)) return "MET";
         if (["offer.area", "location.setting"].includes(fact.key) && property.key === "location.setting") {
@@ -463,6 +479,11 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
             && collectFacts(request.logic).includes(f.id)
             && (globalSpatial || !activityScope(f).length || activityScope(f).some(id => spatialScope.includes(id))))
             .map(f => atom(request, f, world, profile, profileHash, visit, false, semantics, offerAvailability)) : [];
+    const offerBoundCondition = ["participation.group_access", "participation.subscription", "participation.expertise", "participation.requirement", "offer.temperature"].includes(fact.key);
+    const conditionActivities = offerBoundCondition ? request.facts.filter(f => f.id !== fact.id
+        && f.key === "experience.activity" && f.modality === "REQUIRED" && collectFacts(request.logic).includes(f.id)
+        && (!spatialScope.length || !activityScope(f).length || activityScope(f).some(id => spatialScope.includes(id))))
+        .map(f => atom(request, f, world, profile, profileHash, visit, false, semantics, offerAvailability)) : [];
     // An age declaration for a cafe must not qualify an animal activity in
     // that same room. Use the actual active activity witnesses, not new text
     // matching, and keep separately requested food as a supporting offer.
@@ -484,6 +505,10 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     const add = (truth: MatchTruth, offer: ExperienceOffer | null, areaId: string | null, evidence: unknown, conditional = false, sourceHashes: readonly string[] = []) => {
         // A nonmatching/unknown value is not evidence of semantic support.
         if (truth === "UNKNOWN") return;
+        // Registration, membership, level, stay and water conditions concern
+        // the selected service. Sharing a room is not sharing those rules.
+        if (offerBoundCondition && conditionActivities.length
+            && (!offer || conditionActivities.some(activity => !activity.witnesses.some(w => w.offerIds.includes(offer.id))))) return;
         if (truth === "MET" && familyDiscovery) {
             const childOffer = offer && (OFFER_CONCEPTS[offer.kind] ?? []).some(actual => experienceActivitySupports(actual, "children_activity"));
             const suitability = offer?.properties.filter(p => librarianAllAgesSuitability(p)
@@ -708,6 +733,8 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     const inspect = (properties: readonly ExperienceProperty[], offer: ExperienceOffer | null, areaId: string | null, areaScoped = false) => {
         for (const property of properties.filter(p => keys.includes(p.key) || viewFromOffer && p.key === "experience.activity"
             && offer?.kind === "SELF_GUIDED_VISIT" && areaId !== null)) {
+            if (property.key === "stay.minimum_nights" && fact.key === "participation.requirement"
+                && (!offer || !hasOfferModule(offer.kind, "stay") || offer.kind === "DAY_USE")) continue;
             // Protection must locate the selected activity. A venue-wide roof
             // or an unrelated cafe cannot establish a rain-safe playground.
             if (rainSuitability && ["condition.weather_protection", "location.setting"].includes(property.key)
@@ -747,6 +774,23 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 inspect(area.properties, offer, area.id, true);
         else
             inspect(area.properties, null, area.id, true);
+    }
+    // Typed World knowledge and authored experience properties share the same
+    // Common pet rules already have one canonical editor. Only an unrestricted,
+    // consistent rule can establish venue-wide access; assistance-animal rules
+    // and free notes never establish admission for an ordinary dog.
+    if (fact.key === "participation.permission" && ["dogs_allowed", "dogs_not_allowed"].includes(desired ?? "")
+        && !observedKeys.has("participation.permission")) {
+        for (const row of [...world.operationalRules, ...world.facts].filter(r => r.key === "rule.pet_access"
+            && r.freshness === "CURRENT" && r.trust === "VERIFIED" && r.resolution === "KNOWN_VALUE"
+            && r.authorizedUseCases?.includes("HARD_CONSTRAINTS"))) {
+            const rule = row.value;
+            if (!rule || typeof rule !== "object" || Array.isArray(rule) || !("indoor" in rule) || !("outdoor" in rule) || !("notes" in rule)) continue;
+            observedKeys.add(row.key);
+            if (rule.notes !== null || rule.indoor !== rule.outdoor || !["ALLOWED", "NOT_ALLOWED"].includes(String(rule.indoor))) continue;
+            const allowed = rule.indoor === "ALLOWED";
+            add(allowed === (desired === "dogs_allowed") ? "MET" : "FAILED", null, null, {petRule:row.entryHash}, false, [row.entryHash]);
+        }
     }
     // Typed World knowledge and authored experience properties share the same
     // witness path. Explicit scoped knowledge takes precedence, including an

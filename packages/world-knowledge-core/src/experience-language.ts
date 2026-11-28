@@ -18,6 +18,26 @@ export type LibrarianConcept = {
     readonly labels: readonly string[];
 };
 const concepts: readonly LibrarianConcept[] = [
+    { id: "ceramics_course", labels: ["Töpferkurs", "Keramikkurs", "Töpfern lernen"] },
+    { id: "cooking_course", labels: ["Kochkurs", "Kochen lernen"] },
+    { id: "billiards", labels: ["Billard", "Billard spielen", "Billiard"] },
+    { id: "play", labels: ["playing"] },
+    { id: "birthday_party", labels: ["Geburtstagsfeier", "Geburtstagsfest", "Geburtstag feiern"] },
+    { id: "children_birthday", labels: ["Kindergeburtstag", "Kindergeburtstag feiern", "Kindergeburtstagsfeier"] },
+    { id: "individual_registration", labels: ["Einzelanmeldung möglich", "Einzelanmeldung"] },
+    { id: "group_registration_only", labels: ["Nur Gruppenanmeldung"] },
+    { id: "no_membership_required", labels: ["Ohne Mitgliedschaft oder Abo", "Ohne Mitgliedschaft", "Kein Abo erforderlich"] },
+    { id: "membership_required", labels: ["Mitgliedschaft oder Abo erforderlich", "Mitgliedschaft erforderlich"] },
+    { id: "beginner", labels: ["Anfänger", "Anfänger geeignet", "Keine Vorkenntnisse"] },
+    { id: "advanced", labels: ["Fortgeschrittene"] },
+    { id: "all_levels", labels: ["Alle Erfahrungsstufen"] },
+    { id: "warm_water", labels: ["Warmes Wasser", "Warmwasser"] },
+    { id: "cool_water", labels: ["Kühles Wasser", "Kaltes Wasser"] },
+    { id: "one_night", labels: ["eine Nacht", "one night"] },
+    { id: "ground_floor", labels: ["ebenerdig", "Ebenerdiger Zugang"] },
+    { id: "dogs_allowed", labels: ["Hunde erlaubt"] },
+    { id: "dogs_not_allowed", labels: ["Hunde nicht erlaubt"] },
+    { id: "own_food_not_allowed", labels: ["Eigene Speisen nicht erlaubt"] },
     { id: "fairground", labels: ["Jahrmarkt besuchen", "Jahrmarkt", "Jahrmarktbesuch", "Herbstmesse", "Herbstmesse besuchen", "Kirmes", "funfair"] },
     { id: "table_tennis", labels: ["Tischtennis", "Tischtennis spielen", "Pingpong", "Ping Pong", "Ping-Pong", "Pingpong spielen", "Ping Pong spielen", "Ping-Pong spielen", "Table tennis", "play table tennis", "playing table tennis", "pingpöngle", "pingpoengle"] },
     { id: "self_barbecue", labels: ["grillieren", "selber grillieren", "grillen", "selbst grillen", "Grillstellen nutzen", "Grillplatz nutzen", "Öffentliche Grillstellen nutzen", "use a barbecue grill"] },
@@ -143,6 +163,9 @@ export const sameLibrarianText = (a: string, b: string): boolean => librarianTer
 /** Directed product knowledge: an offered visit can support an activity.
  * This is not synonym equivalence and never infers venue identity backwards. */
 export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
+    Object.freeze({ offered: "children_birthday", requested: "birthday_party" }),
+    Object.freeze({ offered: "children_birthday", requested: "party" }),
+    Object.freeze({ offered: "birthday_party", requested: "party" }),
     Object.freeze({ offered: "zoo", requested: "animals" }),
     Object.freeze({ offered: "museum", requested: "visit" }),
     Object.freeze({ offered: "exhibition", requested: "visit" }),
@@ -164,7 +187,7 @@ export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
 ]);
 export const experienceActivitySupports = (offered: string, requested: string): boolean => offered === requested
     || EXPERIENCE_ACTIVITY_RELATIONS.some(relation => relation.offered === offered && relation.requested === requested);
-export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@27" as const;
+export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@28" as const;
 export const EXPERIENCE_LANGUAGE_CONCEPTS = concepts;
 const legacyOfferConcepts: Readonly<Record<string, readonly string[]>> = {
     ...Object.fromEntries(OFFER_CATALOG.map(o=>[o.kind,[o.concept]])),

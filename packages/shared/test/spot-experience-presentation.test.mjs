@@ -10,6 +10,13 @@ const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES
 const {presentSpotExperience,spotExperienceDetailGroups}=await import(`data:text/javascript;base64,${Buffer.from(output).toString('base64')}`);
 const conditions={event:null,dayparts:[],weekdays:[],validFrom:null,validUntil:null};
 const known=(key,value,extra={})=>({key,state:'KNOWN',value,label:null,conditions,...extra});
+test('new participation facts appear in public details with their conditions',()=>{
+ const p={contractVersion:'backyrd.world-knowledge.experience-profile@1.0',reviewed:true,offers:[{id:'course',kind:'WORKSHOP',name:'Töpferkurs',areaIds:[],prices:[],schedule:[],properties:[known('participation.group_access','Einzelanmeldung möglich'),known('participation.subscription','Ohne Mitgliedschaft oder Abo',{conditions:{...conditions,weekdays:[6]}})]}],areas:[],properties:[]};
+ const presented=presentSpotExperience(p);assert.equal(presented.offers[0].facts.length,2);
+ assert.equal(presented.offers[0].facts[0].label,'Anmeldung');assert.match(presented.offers[0].facts[1].condition,/Samstag/);
+ const serialized=JSON.stringify(spotExperienceDetailGroups(presented.offers[0].facts));
+ assert.match(serialized,/Einzelanmeldung möglich/);assert.match(serialized,/Ohne Mitgliedschaft oder Abo/);
+});
 const price={label:'Brunch',currency:'CHF',min:42,max:null,basis:'PER_PERSON',minimumAge:14,maximumAge:null,includes:'Essen',mandatoryFeesIncluded:true,conditions};
 const profile={contractVersion:'backyrd.world-knowledge.experience-profile@1.0',reviewed:true,offers:[{id:'brunch',name:'Brunch',prices:[price],areaIds:['terrace'],properties:[known('participation.minimum_age',18),known('food.drink','Kaffee'),known('food.drink','Tee'),known('experience.activity','essen gehen',{conditions:{...conditions,weekdays:[7],dayparts:['MORNING']}})],schedule:[]}],areas:[{id:'terrace',name:'Terrasse',properties:[known('amenity.step_free',true),known('amenity.playground',false),known('location.waterbody','Rhein')]}],properties:[known('amenity.changing_table',false)]};
 test('consumer copy works without Intl.ListFormat as on installed iOS Hermes',()=>{

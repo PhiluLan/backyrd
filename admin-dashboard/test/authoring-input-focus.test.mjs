@@ -18,6 +18,29 @@ for(const file of ['experience-authoring.ts','experience-answer-guidance.ts','Ex
 const {Properties}=await import(pathToFileURL(join(dir,'ExperienceProperties.mjs')).href);
 const conditions={weekdays:[],dayparts:[],event:null,validFrom:null,validUntil:null};
 const property=(key,value)=>({key,label:null,state:'KNOWN',value,conditions});
+function buttons(node,result=[]){
+ if(!node||typeof node!=='object')return result;
+ if(Array.isArray(node)){node.forEach(item=>buttons(item,result));return result;}
+ if(node.type==='button')result.push(node);
+ buttons(node.props?.children,result);return result;
+}
+test('registration and membership choices save on the offer and retain unrelated and conditional facts',()=>{
+ for(const [key,group,value] of [['participation.group_access','Einzeln oder als Gruppe anmelden?','Einzelanmeldung möglich'],['participation.subscription','Mitgliedschaft oder Abo nötig?','Ohne Mitgliedschaft oder Abo']]){
+  const saved=[property('time.duration',60),{...property(key,'Bedingte Sonderregel'),conditions:{...conditions,weekdays:[6]}}];
+  let next;
+  const render=values=>Properties({category:'MUSEUM',scope:'OFFER',offerKind:'WORKSHOP',group,values,onChange(value){next=value;}});
+  const choice=buttons(render(saved)).find(b=>b.props.children===value);assert.ok(choice);
+  choice.props.onClick();assert.deepEqual(next.slice(0,2),saved);assert.equal(next[2].key,key);assert.equal(next[2].value,value);
+  assert.equal(buttons(render(next)).find(b=>b.props.children===value).props['aria-pressed'],true);
+  assert.deepEqual(saved[1].conditions.weekdays,[6]);
+ }
+});
+test('pool temperature editor offers water evidence and keeps a historical heating answer',()=>{
+ const saved=[property('offer.temperature','Beheizt')];let next;
+ const root=Properties({category:'SPORT',scope:'AREA',areaKind:'POOL_AREA',group:'Wassertemperatur',values:saved,onChange(value){next=value;}});
+ const choice=buttons(root).find(b=>b.props.children==='Warmes Wasser');assert.ok(choice);choice.props.onClick();
+ assert.equal(next.length,2);assert.equal(next[0].value,'Beheizt');assert.equal(next[1].value,'Warmes Wasser');
+});
 function rows(values,group='Typische Dauer',offerKind='OTHER') {
  const root=Properties({category:'RESTAURANT',scope:'OFFER',offerKind,group,values,onChange(){}});
  const result=[];
