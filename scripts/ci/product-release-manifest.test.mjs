@@ -396,3 +396,17 @@ test('regional context timeout PRODUCT recovery proof is bound to exact SQL, arc
  assert.equal(verifiedArchiveRecovery({...plan,authConfig:{deploy:true}},additive,[migration]),false);
  assert.equal(verifiedArchiveRecovery(plan,{...additive,restoreDrillReceipt:{...proof,artifactId:3}},[migration]),false);
 });
+
+test('Spot Knowledge recovery accepts only the exact tested migration, matching restore and two authenticated runtimes',async()=>{
+ const {verifiedArchiveRecovery}=await import('./product-release-manifest.mjs');
+ const {SPOT_KNOWLEDGE_SCOPE,SPOT_KNOWLEDGE_MIGRATION:migration}=await import('../deployment/isolated-research-migration.mjs');
+ const proof={runId:2,artifactId:3,artifactDigest:'sha256:'+'a'.repeat(64)};
+ const additive={restoreDrillStatus:'ISOLATED_DATABASE_AND_MEDIA_RESTORE_PASS',restoreDrillReceipt:proof};
+ const scope={contractVersion:SPOT_KNOWLEDGE_SCOPE,executionAuthorized:false,migrations:[migration],restoreDrill:proof};
+ const plan={isolatedResearchScope:scope,deployFunctions:['decision-admin-diagnostic','decision-v13']};
+ assert.equal(verifiedArchiveRecovery(plan,additive,[migration]),true);
+ assert.equal(verifiedArchiveRecovery({...plan,authConfig:{deploy:true}},additive,[migration]),false);
+ assert.equal(verifiedArchiveRecovery({...plan,deployFunctions:['decision-v13']},additive,[migration]),false);
+ assert.equal(verifiedArchiveRecovery(plan,additive,[{...migration,sha256:'b'.repeat(64)}]),false);
+ assert.equal(verifiedArchiveRecovery(plan,{...additive,restoreDrillReceipt:{...proof,artifactId:4}},[migration]),false);
+});

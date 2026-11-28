@@ -74,6 +74,14 @@ export const NUKNUK_ACTIVITY_MIGRATION = Object.freeze({
   path: "supabase/migrations/20261116123311_nuknuk_request_activity_v1.sql",
   sha256: "9e6dfd03da110315fb61f2868b85eae7d35351a3c3a495c9fdcca658c2299496",
 });
+export const SPOT_KNOWLEDGE_SCOPE = "backyrd.spot-knowledge-delivery-scope@1.0";
+export const SPOT_KNOWLEDGE_MIGRATION = Object.freeze({
+  path: "supabase/migrations/20261127214029_spot_knowledge_searchable_offer_details.sql",
+  sha256: "c33b2bf7e1b1fa94c000f843046e67eb4ac59b95dfe3986d61554d19acff5a64",
+});
+export function spotKnowledgeAppliedReceipt(state, read, isAncestor) {
+  return exactResearchReceipt(state, read, isAncestor, SPOT_KNOWLEDGE_MIGRATION, "spotKnowledgeRelease");
+}
 export function hasNuknukActivityRestoreIdentity(receipt) {
   return Number.isSafeInteger(receipt?.runId) && receipt.runId > 0
     && Number.isSafeInteger(receipt.artifactId) && receipt.artifactId > 0
@@ -96,17 +104,20 @@ const nuknukActivityFunctions = ["decision-admin-diagnostic", "decision-v13"];
 export function nuknukActivityAppliedReceipt(state, read, isAncestor) {
   return exactResearchReceipt(state, read, isAncestor, NUKNUK_ACTIVITY_MIGRATION, "nuknukActivityRelease");
 }
-export function scopeNuknukActivityMigrations({ pending, scope, baseSha, deployFunctions, authDeploy, appliedNuknukActivity }) {
-  if (scope?.contractVersion !== "backyrd.nuknuk-activity-delivery-scope@1.0"
+export function scopeNuknukActivityMigrations({ pending, scope, baseSha, deployFunctions, authDeploy, retiredFunctions = [], appliedNuknukActivity, appliedSpotKnowledge, appliedAdminFeedbackInbox }) {
+  const spotKnowledge = scope?.contractVersion === SPOT_KNOWLEDGE_SCOPE;
+  const target = spotKnowledge ? SPOT_KNOWLEDGE_MIGRATION : NUKNUK_ACTIVITY_MIGRATION;
+  if ((!spotKnowledge && scope?.contractVersion !== "backyrd.nuknuk-activity-delivery-scope@1.0")
+    || spotKnowledge && (!appliedAdminFeedbackInbox || retiredFunctions.length || !hasNuknukActivityRestoreIdentity(scope.restoreDrill))
     || scope.executionAuthorized !== false || scope.baseSha !== baseSha
-    || !equal(scope.migrations, [NUKNUK_ACTIVITY_MIGRATION])
+    || !equal(scope.migrations, [target])
     || !equal(scope.deferredMigrations, DEFERRED_BOOKING_MIGRATIONS)
     || !equal(scope.functions, nuknukActivityFunctions)
     || !equal(deployFunctions, nuknukActivityFunctions)
     || !Number.isSafeInteger(scope.backupRunId) || scope.backupRunId < 1 || authDeploy) {
     throw new Error("nuknuk_activity_delivery_scope_invalid");
   }
-  const selected = appliedNuknukActivity ? [] : [NUKNUK_ACTIVITY_MIGRATION];
+  const selected = (spotKnowledge ? appliedSpotKnowledge : appliedNuknukActivity) ? [] : [target];
   if (!equal(canonicalRows(pending), canonicalRows([...DEFERRED_BOOKING_MIGRATIONS, ...selected]))) {
     throw new Error("nuknuk_activity_pending_scope_changed");
   }
@@ -381,10 +392,10 @@ export function prepareResearchMigrationWorkspace(plan,root,output) {
     : plan.isolatedResearchScope?.contractVersion === "backyrd.regional-decision-delivery-scope@1.0"
     ? scopeRegionalDecisionMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedResearchScope,
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,appliedRegionalDecision:plan.appliedRegionalDecision})
-    : plan.isolatedResearchScope?.contractVersion === "backyrd.nuknuk-activity-delivery-scope@1.0"
+    : [SPOT_KNOWLEDGE_SCOPE, "backyrd.nuknuk-activity-delivery-scope@1.0"].includes(plan.isolatedResearchScope?.contractVersion)
     ? scopeNuknukActivityMigrations({ pending: [...plan.pendingMigrations, ...(plan.deferredMigrations ?? [])],
       scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,
-      authDeploy: plan.authConfig?.deploy === true, appliedNuknukActivity: plan.appliedNuknukActivity })
+      authDeploy: plan.authConfig?.deploy === true, retiredFunctions: plan.retiredFunctions, appliedNuknukActivity: plan.appliedNuknukActivity, appliedSpotKnowledge: plan.appliedSpotKnowledge, appliedAdminFeedbackInbox: plan.appliedAdminFeedbackInbox })
     : [ANALYTICS_PAGEVIEWS_SCOPE, SPOT_SEARCH_FRESHNESS_SCOPE, BASEL_PLACE_SOURCES_SCOPE, BASEL_OVERTURE_SCOPE, WORLD_RESEARCH_BATCHES_SCOPE, BASEL_PLACE_IMPORT_CREATE_SCOPE, SPOT_CATEGORY_APPROVAL_SCOPE, SPOT_CRAWLER_SCOPE, CRAWLER_APPROVAL_SCOPE, CRAWLER_BASICS_SCOPE, CRAWLER_SHORTLIST_SCOPE, CRAWLER_VISIT_SCOPE, DECISION_CONTEXT_TIMEOUT_SCOPE, DECISION_PRODUCT_FEEDBACK_SCOPE, DECISION_FEEDBACK_IDENTITY_SCOPE, ADMIN_FEEDBACK_INBOX_SCOPE].includes(plan.isolatedResearchScope?.contractVersion)
     ? scopeAnalyticsPageviewsMigrations({ pending: [...plan.pendingMigrations, ...plan.deferredMigrations],
       scope: plan.isolatedResearchScope, baseSha: plan.baseSha, deployFunctions: plan.deployFunctions,

@@ -7,7 +7,7 @@ import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
 import { NOV14_ADMIN_MIGRATIONS, NOV16_EAT_MIGRATIONS } from "./preapplied-admin-ledger.mjs";
-import { adminFeedbackInboxAppliedReceipt, DECISION_FEEDBACK_IDENTITY_SCOPE, DECISION_FEEDBACK_IDENTITY_MIGRATION, decisionFeedbackIdentityAppliedReceipt, nuknukActivityAppliedReceipt, scopeNuknukActivityMigrations, analyticsPageviewsAppliedReceipt, scopeAnalyticsPageviewsMigrations, ANALYTICS_PAGEVIEWS_MIGRATION, spotSearchFreshnessAppliedReceipt, baselPlaceSourcesAppliedReceipt, baselOvertureAppliedReceipt, worldResearchBatchesAppliedReceipt, baselPlaceImportCreateAppliedReceipt, spotCategoryApprovalAppliedReceipt, spotCrawlerAppliedReceipt, crawlerApprovalAppliedReceipt, crawlerBasicsAppliedReceipt, crawlerShortlistAppliedReceipt, crawlerVisitAppliedReceipt, decisionContextTimeoutAppliedReceipt, decisionProductFeedbackAppliedReceipt } from "./isolated-research-migration.mjs";
+import { spotKnowledgeAppliedReceipt, adminFeedbackInboxAppliedReceipt, DECISION_FEEDBACK_IDENTITY_SCOPE, DECISION_FEEDBACK_IDENTITY_MIGRATION, decisionFeedbackIdentityAppliedReceipt, nuknukActivityAppliedReceipt, scopeNuknukActivityMigrations, analyticsPageviewsAppliedReceipt, scopeAnalyticsPageviewsMigrations, ANALYTICS_PAGEVIEWS_MIGRATION, spotSearchFreshnessAppliedReceipt, baselPlaceSourcesAppliedReceipt, baselOvertureAppliedReceipt, worldResearchBatchesAppliedReceipt, baselPlaceImportCreateAppliedReceipt, spotCategoryApprovalAppliedReceipt, spotCrawlerAppliedReceipt, crawlerApprovalAppliedReceipt, crawlerBasicsAppliedReceipt, crawlerShortlistAppliedReceipt, crawlerVisitAppliedReceipt, decisionContextTimeoutAppliedReceipt, decisionProductFeedbackAppliedReceipt } from "./isolated-research-migration.mjs";
 import { betaSocialAppliedReceipt, scopeBetaSocialMigrations, BETA_SOCIAL_FUNCTIONS, ANALYTICS_PRIVACY_REPAIR_MIGRATION, analyticsPrivacyAppliedReceipt, betaSecurityAppliedReceipt, scopeBetaSecurityMigrations, seasonalEventAppliedReceipt, scopeSeasonalEventMigrations, regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -619,10 +619,15 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     try { git(repo, ["merge-base", "--is-ancestor", source, headSha]); return true; } catch { return false; }
   });
   if (appliedAdminFeedbackInbox) preappliedPaths.add(appliedAdminFeedbackInbox.migration.path);
+  const appliedSpotKnowledge = spotKnowledgeAppliedReceipt(state, head.read, source => {
+    try { git(repo, ["merge-base", "--is-ancestor", source, headSha]); return true; } catch { return false; }
+  });
+  if (appliedSpotKnowledge) preappliedPaths.add(appliedSpotKnowledge.migration.path);
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
   const codeOnlyScope = authority?.codeOnlyDeliveryScope ?? null;
-  const nuknukActivityScope = authority?.nuknukActivityDeliveryScope ?? null;
+  if (authority?.spotKnowledgeDeliveryScope && (["nuknukActivityDeliveryScope", "codeOnlyDeliveryScope", "analyticsPageviewsDeliveryScope", "isolatedResearchMigrationScope", "isolatedVoltaMigrationScope", "betaSocialDeliveryScope", "betaSecurityDeliveryScope", "seasonalEventDeliveryScope", "regionalDecisionDeliveryScope", "weatherContextDeliveryScope"].some(key => authority[key]))) throw new Error("spot_knowledge_release_scope_conflict");
+  const nuknukActivityScope = authority?.spotKnowledgeDeliveryScope ?? authority?.nuknukActivityDeliveryScope ?? null;
   const analyticsPageviewsScope = authority?.analyticsPageviewsDeliveryScope ?? null;
   const boundedFunctionScope = analyticsPageviewsScope ?? nuknukActivityScope ?? codeOnlyScope;
   const functionReceipts = [boundedFunctionScope?.existingFunctionReceipt, boundedFunctionScope?.researchWorkerReceipt];
@@ -750,7 +755,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
       authDeploy: authConfig?.deploy === true, retiredFunctions, appliedAnalyticsPageviews, appliedSpotSearchFreshness, appliedBaselPlaceSources, appliedBaselOverture, appliedWorldResearchBatches, appliedBaselPlaceImportCreate, appliedSpotCategoryApproval, appliedSpotCrawler, appliedCrawlerApproval, appliedCrawlerBasics, appliedCrawlerShortlist, appliedCrawlerVisit, appliedDecisionContextTimeout, appliedDecisionProductFeedback, appliedDecisionFeedbackIdentity, appliedAdminFeedbackInbox })
     : nuknukActivityScope
     ? scopeNuknukActivityMigrations({ pending: allPending, scope: nuknukActivityScope, baseSha, deployFunctions,
-      authDeploy: authConfig?.deploy === true, appliedNuknukActivity })
+      authDeploy: authConfig?.deploy === true, retiredFunctions, appliedNuknukActivity, appliedSpotKnowledge, appliedAdminFeedbackInbox })
     : socialScope
     ? scopeBetaSocialMigrations({pending:allPending,scope:socialScope,baseSha,deployFunctions:deployFunctions.filter(slug=>slug!==weatherSlug),authDeploy:authConfig?.deploy===true,appliedBetaSocial})
     : securityScope
@@ -803,7 +808,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     appliedCrawlerApproval,
     appliedCrawlerBasics,
     appliedCrawlerShortlist,
-    appliedCrawlerVisit, appliedDecisionContextTimeout, appliedDecisionProductFeedback, appliedDecisionFeedbackIdentity, appliedAdminFeedbackInbox,
+    appliedCrawlerVisit, appliedDecisionContextTimeout, appliedDecisionProductFeedback, appliedDecisionFeedbackIdentity, appliedAdminFeedbackInbox, appliedSpotKnowledge,
     appliedSeasonalEvent,
     appliedAreaReservation,
     isolatedResearchScope: isolatedResearchScope ?? null,
